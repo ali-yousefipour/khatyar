@@ -127,3 +127,17 @@ body:has(.login-page){background:#d7eafa!important}
 }
 @media(max-width:380px){.login-card{padding:19px 15px!important}.login-brand h1{font-size:20px!important}.login-brand img{width:98px!important;height:98px!important}}
 @media(prefers-reduced-motion:reduce){.login-card,.login-card *{animation:none!important;transition:none!important}}
+
+/* Design-reference structural refinements: segmented auth and floating scene UI. */
+.login-method{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
+.khatyar-method-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;border:1px solid #c6ddef;border-radius:16px;padding:5px;background:linear-gradient(120deg,#e8f5ff,#e9f9f0);margin:13px 0 24px}
+.khatyar-auth-tab{display:flex;align-items:center;justify-content:center;text-align:center;gap:5px;min-height:43px;border-radius:11px;font-family:Estedad,Vazirmatn,sans-serif;font-size:11px;font-weight:800;color:#4d6b84}
+.khatyar-auth-tab.selected{color:white;background:linear-gradient(115deg,#0c61ad,#073873);box-shadow:0 6px 12px #0a4c8647;border-bottom:3px solid #f9cb32}
+.khatyar-auth-tab.unavailable{opacity:.72;cursor:not-allowed}
+.khatyar-scene-detail{position:absolute;z-index:5;left:clamp(26px,3.4vw,64px);top:27%;width:min(35vw,330px);display:flex;flex-direction:column;gap:17px;pointer-events:none}
+.khatyar-scene-detail span{position:relative;display:flex;align-items:center;justify-content:center;min-height:56px;padding:10px 25px;border:1px solid #cafaff7d;border-radius:19px;color:#fff;font:800 12px/1.8 Estedad,Vazirmatn,sans-serif;text-shadow:0 2px 5px #002b5e;background:linear-gradient(100deg,#235d9dcf,#2a8b9f95);box-shadow:0 14px 27px #05224d6b,inset 0 1px 1px #ffffff7d;backdrop-filter:blur(18px)}
+.khatyar-scene-detail span:after{content:"";position:absolute;inset:10px auto 10px 9px;width:4px;border-radius:6px;background:linear-gradient(#4cf9ba,#f4dc65);box-shadow:0 0 8px #48f7ab}
+.khatyar-scene-detail span:nth-child(2){transform:translateX(16px)}.khatyar-scene-detail span:nth-child(3){transform:translateX(31px)}
+.login-page:after{display:none!important}
+@media(max-width:1050px){.khatyar-scene-detail{width:34vw;top:25%;left:20px}.khatyar-scene-detail span{font-size:10px;padding:9px 13px;min-height:48px}}
+@media(max-width:740px){.khatyar-scene-detail{display:none!important}.khatyar-auth-tab{font-size:10px;min-height:42px}}
