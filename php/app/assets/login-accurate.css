@@ -222,3 +222,25 @@ body:has(.login-page){margin:0!important;background:#d8eafa!important;font-famil
  .khatyar-auth-tab{font-size:10px!important;padding:7px 4px!important}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+
+/* Blend the approved photographic login scene into the adjacent glass surface.
+   Only the right edge is feathered; source image remains pixel-sharp. */
+@media(min-width:741px){
+ .login-page:before{
+  -webkit-mask-image:linear-gradient(to right,#000 0%,#000 86%,rgba(0,0,0,.92) 90%,rgba(0,0,0,.58) 95%,transparent 100%)!important;
+  mask-image:linear-gradient(to right,#000 0%,#000 86%,rgba(0,0,0,.92) 90%,rgba(0,0,0,.58) 95%,transparent 100%)!important;
+  -webkit-mask-repeat:no-repeat!important;mask-repeat:no-repeat!important;
+ }
+ .login-page:after{
+  background:linear-gradient(to right,transparent 0%,#e5f4fd17 46%,#e6f4fc8a 100%)!important;
+  width:70px!important;left:calc(50% - 30px)!important;
+ }
+}
+@media(max-width:740px){
+ .login-page:before{
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 75%,rgba(0,0,0,.75) 88%,transparent 100%)!important;
+  mask-image:linear-gradient(to bottom,#000 0%,#000 75%,rgba(0,0,0,.75) 88%,transparent 100%)!important;
+  border-radius:0!important;
+ }
+}
