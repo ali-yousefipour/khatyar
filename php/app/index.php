@@ -83,7 +83,20 @@ if ($path === '/health' || $path === '/api/health') {
   ]);
 }
 if (strpos($path, '/api') !== 0) {
-  if ($path === '/' || $path === '/index.php') { header('Cache-Control: no-cache, must-revalidate'); readfile(__DIR__ . '/panel.html'); exit; }
+  // Public brochure pages are isolated from the authenticated admin shell and API.
+  if ($method === 'GET' && in_array($path, ['/', '/index.php', '/features', '/about', '/faq', '/contact'], true)) {
+    header('Cache-Control: public, max-age=300');
+    header('Content-Type: text/html; charset=utf-8');
+    readfile(__DIR__ . '/landing.html');
+    exit;
+  }
+  // Keep the original login/admin application unchanged; old bookmarks may use /panel.
+  if ($method === 'GET' && in_array($path, ['/panel', '/login'], true)) {
+    header('Cache-Control: no-store, max-age=0');
+    header('Content-Type: text/html; charset=utf-8');
+    readfile(__DIR__ . '/panel.html');
+    exit;
+  }
   if ($path === '/app' || $path === '/app.html') {
     header('Cache-Control: no-cache, must-revalidate'); $html = @file_get_contents(__DIR__ . '/app.html');
     if ($html === false) { http_response_code(500); echo 'Web App unavailable'; exit; }
