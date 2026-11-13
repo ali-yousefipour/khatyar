@@ -245,3 +245,34 @@ header{
  *,*:before,*:after{scroll-behavior:auto!important}
  .reveal{opacity:1!important;transform:none!important}
 }
+
+
+/* Seamless artwork compositing: soft perimeter rather than visible image rectangles.
+   Keep the central dashboard, taxi and typographic details unblurred. */
+.page[data-page="/"] .hero-showcase.kh-hero-reference{
+ overflow:visible!important;
+ background:transparent!important;
+ box-shadow:none!important;
+}
+.page[data-page="/"] .kh-hero-reference img{
+ -webkit-mask-image:radial-gradient(ellipse 70% 79% at 50% 50%,#000 55%,rgba(0,0,0,.98) 65%,rgba(0,0,0,.72) 79%,transparent 99%)!important;
+ mask-image:radial-gradient(ellipse 70% 79% at 50% 50%,#000 55%,rgba(0,0,0,.98) 65%,rgba(0,0,0,.72) 79%,transparent 99%)!important;
+ -webkit-mask-repeat:no-repeat!important;mask-repeat:no-repeat!important;
+ filter:drop-shadow(0 9px 15px #03275b27)!important;
+}
+.page[data-page="/"] .kh-about-art img{
+ -webkit-mask-image:radial-gradient(ellipse 70% 75% at 50% 50%,#000 54%,rgba(0,0,0,.9) 68%,transparent 99%)!important;
+ mask-image:radial-gradient(ellipse 70% 75% at 50% 50%,#000 54%,rgba(0,0,0,.9) 68%,transparent 99%)!important;
+ border-radius:0!important;
+ filter:none!important;
+}
+.page[data-page="/"] .kh-contact-headset img{
+ -webkit-mask-image:radial-gradient(ellipse 77% 77% at center,#000 60%,rgba(0,0,0,.88) 75%,transparent 100%)!important;
+ mask-image:radial-gradient(ellipse 77% 77% at center,#000 60%,rgba(0,0,0,.88) 75%,transparent 100%)!important;
+}
+@media(max-width:760px){
+ .page[data-page="/"] .kh-hero-reference img{
+ -webkit-mask-image:radial-gradient(ellipse 73% 78% at 50% 50%,#000 57%,rgba(0,0,0,.9) 72%,transparent 100%)!important;
+ mask-image:radial-gradient(ellipse 73% 78% at 50% 50%,#000 57%,rgba(0,0,0,.9) 72%,transparent 100%)!important;
+ }
+}
