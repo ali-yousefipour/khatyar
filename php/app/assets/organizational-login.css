@@ -58,3 +58,21 @@ body:has(.login-page){background:#f1f7f3!important}
   .login-page{background:linear-gradient(145deg,#f1f8f4,#e2f1e7)!important}
   .kh-login-intro-logo img{background:#f6fbf7ed!important}
 }
+
+
+/* Cohesive emerald dusk taxi image: original React sign-in form unaffected. */
+.login-page:before{
+  background-image:linear-gradient(115deg,rgba(5,61,48,.14),rgba(5,91,77,.09)),
+    url('/assets/khatyar-login-emerald-v3.webp')!important;
+  background-repeat:no-repeat!important;
+  background-size:cover!important;
+  background-position:47% center!important;
+  background-color:#075b4d!important;
+}
+@media(max-width:740px){
+ .login-page:before{
+  background-image:linear-gradient(115deg,rgba(5,61,48,.2),rgba(5,91,77,.08)),
+    url('/assets/khatyar-login-emerald-v3.webp')!important;
+  background-position:center 45%!important;
+ }
+}
