@@ -37,14 +37,13 @@
       }
       method.before(tabs);
     }
-    if(!page.querySelector('.khatyar-scene-detail')){
-      const scene=document.createElement('div');
-      scene.className='khatyar-scene-detail';
-      scene.setAttribute('aria-hidden','true');
-      for(const t of ['مدیریت یکپارچه ناوگان','پایش و نظارت لحظه‌ای','گزارش‌های مدیریتی پیشرفته']){
-        const pill=document.createElement('span');pill.textContent=t;scene.append(pill);
-      }
-      page.append(scene);
+    // Approved Canva layout places the brand and heading ABOVE the auth card.
+    // Keep the original React login form and every authentication callback untouched.
+    if(!page.querySelector('.kh-login-intro')){
+      const intro=document.createElement('div');
+      intro.className='kh-login-intro';
+      intro.innerHTML='<a href="/" class="kh-login-intro-logo" aria-label="صفحه نخست خطیار"><img src="/khatyar-transparent.png" width="165" height="215" alt="خطیار؛ سامانه مدیریت هوشمند تاکسیرانی"></a><h1>ورود به سامانه خطیار</h1><p>پلتفرم هوشمند مدیریت ناوگان تاکسیرانی برای سازمان‌ها، شرکت‌ها و مراکز عملیات شهری</p>';
+      page.append(intro);
     }
     if(!card.querySelector('.login-support')){
       const links=document.createElement('nav');
