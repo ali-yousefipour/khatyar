@@ -77,3 +77,29 @@ footer{background:linear-gradient(100deg,#052857,#063b56,#064938)!important}
 .premium-hero:before{background-image:linear-gradient(100deg,#00244a50,#071f4a19)!important;mask-image:none!important}
 .premium-hero .hero-copy{background:radial-gradient(ellipse at 48% 44%,#082a5070,transparent 71%);border-radius:35px}
 @media(max-width:750px){.premium-hero{background-size:cover,auto 80%!important;background-position:center,left center!important}}
+
+
+/* Screenshot-accurate visual artwork from approved Khatyar home concept.
+   Text, links and statistics remain live and accessible HTML elements. */
+.hero-showcase{
+  background-image:url('/assets/khatyar-home-reference.webp')!important;
+  background-size:100% auto!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  transform:none!important;
+  min-height:360px!important;
+  height:390px!important;
+  width:100%!important;
+  isolation:isolate!important;
+  -webkit-mask-image:radial-gradient(ellipse at center,#000 60%,transparent 92%);
+  mask-image:radial-gradient(ellipse at center,#000 60%,transparent 92%);
+  filter:drop-shadow(0 25px 40px #001c5077)!important;
+}
+.hero-showcase > *{display:none!important}
+.premium-hero{
+  background:radial-gradient(ellipse at 12% 65%,#0b6ca5a8,transparent 48%),radial-gradient(ellipse at 90% 20%,#0a7da467,transparent 48%),linear-gradient(110deg,#043b7a,#062c69 59%,#042557)!important;
+}
+.premium-hero .herogrid{grid-template-columns:minmax(0,1.02fr) minmax(0,1.16fr)!important;gap:10px!important}
+@media(max-width:1100px){.hero-showcase{height:320px!important;min-height:320px!important}}
+@media(max-width:750px){.hero-showcase{height:min(66vw,350px)!important;min-height:230px!important;width:100%!important;background-size:100% auto!important}}
+@media(max-width:480px){.hero-showcase{height:250px!important;min-height:220px!important}}
