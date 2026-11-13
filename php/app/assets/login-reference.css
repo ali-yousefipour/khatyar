@@ -1,0 +1,129 @@
+
+/* Visual reference parity for login. No changes to React API/authentication flow. */
+body:has(.login-page){background:#d7eafa!important}
+.login-page{
+  --ref-blue:#0a3f83;--ref-ink:#092a58;
+  min-height:100dvh!important;
+  display:grid!important;
+  grid-template-columns:minmax(425px,46%) minmax(0,54%)!important;
+  gap:0!important;
+  padding:0!important;
+  background:
+    radial-gradient(ellipse at 51% 70%,#78bdea83,transparent 43%),
+    linear-gradient(115deg,#f7fbff 0%,#e2f1fc 50%,#0b4486 100%)!important;
+  align-items:stretch!important;
+  justify-items:stretch!important;
+  overflow:hidden!important;
+}
+.login-page:before{
+  grid-column:2!important;grid-row:1!important;
+  width:100%!important;height:100%!important;min-height:100dvh!important;
+  border-radius:0!important;box-shadow:none!important;
+  background:
+    linear-gradient(0deg,#03285a66,transparent 37%),
+    url('/assets/khatyar-login-scene.svg') center 42% / cover no-repeat!important;
+}
+.login-page:after{
+  top:30%!important;left:clamp(28px,7vw,160px)!important;
+  max-width:33%!important;
+  color:#fff!important;
+  font-size:clamp(12px,1.1vw,17px)!important;
+  padding:16px 22px!important;
+  border:1px solid #c2effe55!important;
+  background:linear-gradient(115deg,#0d5a9299,#0b8ba966)!important;
+  backdrop-filter:blur(12px)!important;
+  border-radius:17px!important;
+  box-shadow:0 12px 38px #03295865!important;
+  line-height:2.65!important;
+}
+.login-card{
+  grid-column:1!important;grid-row:1!important;
+  margin:auto!important;
+  width:min(86%,570px)!important;
+  min-width:0!important;
+  max-height:calc(100dvh - 32px)!important;
+  overflow-y:auto!important;
+  background:linear-gradient(135deg,#fafdffe9,#edf7ffe3)!important;
+  border:1px solid #f9ffff!important;
+  border-radius:35px!important;
+  box-shadow:0 25px 70px #205e9c2b,inset 0 2px 5px white!important;
+  padding:clamp(28px,3vw,49px)!important;
+  backdrop-filter:blur(26px)!important;
+}
+.login-card:before{
+  height:3px!important;width:90px!important;
+  margin:0 auto 11px!important;
+  background:linear-gradient(90deg,#ffe65c,#00b96f,#0c4ea2)!important
+}
+.login-brand{margin-bottom:20px!important}
+.login-brand img{
+  width:clamp(140px,12vw,180px)!important;
+  height:clamp(140px,12vw,180px)!important;
+  margin:0 auto 1px!important;
+  filter:drop-shadow(0 8px 18px #0c408929)!important;
+}
+.login-brand h1{
+  font-family:Estedad,Vazirmatn,Tahoma,sans-serif!important;
+  color:#092d65!important;
+  font-weight:950!important;
+  font-size:clamp(22px,2vw,31px)!important;
+  margin:2px 0 0!important;
+}
+.login-brand p{font-size:11px!important;color:#617992!important}
+.login-eyebrow{color:#0b8156!important}
+.login-method{
+  background:linear-gradient(95deg,#e7f6ff,#f0f9f4)!important;
+  border:1px solid #d1e2ef!important;
+  border-radius:17px!important;
+  padding:12px 16px!important;
+  box-shadow:0 5px 12px #164c7a09!important;
+  margin:15px 0 23px!important
+}
+.login-method strong{
+  border-radius:11px!important;
+  background:linear-gradient(115deg,#124f99,#05336d)!important;
+  color:white!important;padding:10px 16px!important;
+  box-shadow:0 7px 14px #06467935!important
+}
+.login-field{color:#0c356b!important;font-size:12px!important;gap:9px!important}
+.login-field>.input,.login-password-wrap>.input{
+  background:linear-gradient(#fbfdff,#eff5fb)!important;
+  border:1px solid #b3cce2!important;
+  color:#092f59!important;
+  min-height:55px!important;
+  border-radius:12px!important;
+  padding:12px 17px!important;
+  box-shadow:inset 0 1px 4px #073e7211!important;
+}
+.login-field .input:focus-visible,.login-password-wrap .input:focus-visible{
+  border-color:#057cb7!important;
+  box-shadow:0 0 0 3px #0789c51c!important
+}
+.login-card .btn.p{
+  min-height:60px!important;
+  border:1px solid #63e58d!important;
+  border-radius:15px!important;
+  font-size:18px!important;
+  background:linear-gradient(100deg,#4bdc23,#10ae58,#008b67)!important;
+  color:white!important;
+  box-shadow:0 15px 28px #039b5970,inset 0 1px 2px #d9ffda!important
+}
+.login-card .btn.p:hover{transform:translateY(-2px);filter:brightness(1.04)}
+.login-support{border-top:1px solid #c5dbe8!important;margin-top:20px!important}
+.login-support a{color:#0759aa!important;font-size:12px!important}
+.login-support-label{color:#6b8094!important}
+@media(max-width:1050px){
+ .login-page{grid-template-columns:minmax(360px,48%) minmax(0,52%)!important}
+ .login-page:after{top:32%!important;left:22px!important;max-width:42%!important;font-size:12px!important}
+ .login-card{width:92%!important;padding:25px!important}
+ .login-brand img{height:125px!important;width:125px!important}
+}
+@media(max-width:740px){
+ .login-page{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-height:100dvh!important;padding:80px 16px 30px!important;background:linear-gradient(160deg,#eaf7ff,#c5e1f5)!important;overflow:auto!important}
+ .login-page:before{position:absolute!important;top:0!important;left:0!important;right:0!important;height:215px!important;min-height:0!important;width:100%!important;border-radius:0 0 28px 28px!important;background-position:center 30%!important;opacity:.9!important}
+ .login-page:after{display:none!important}
+ .login-card{max-height:none!important;width:min(100%,530px)!important;position:relative!important;padding:25px 21px!important;border-radius:24px!important}
+ .login-brand img{width:120px!important;height:120px!important}
+}
+@media(max-width:380px){.login-card{padding:19px 15px!important}.login-brand h1{font-size:20px!important}.login-brand img{width:98px!important;height:98px!important}}
+@media(prefers-reduced-motion:reduce){.login-card,.login-card *{animation:none!important;transition:none!important}}
