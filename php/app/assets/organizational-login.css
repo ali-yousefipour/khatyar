@@ -1,0 +1,60 @@
+/* Khatyar login — organizational emerald theme matching the authenticated panel.
+   Purely presentational: preserve React form and existing OTP/password policies. */
+body:has(.login-page){background:#f1f7f3!important}
+.login-page{
+  --kh-blue:#075b4d!important;
+  --kh-deep:#043c34!important;
+  --kh-green:#0b7662!important;
+  background:radial-gradient(ellipse at 46% 36%,#fff,#f0f8f3 62%,#e0eee5)!important
+}
+.login-page:before{
+  background-color:#075b4d!important;
+  /* Reference artwork stays intact, with an organizational tint to harmonize its blue city scene. */
+  box-shadow:inset 0 0 0 9999px #043c3412!important
+}
+.login-page:after{
+  background:linear-gradient(90deg,transparent,#e8f5ed44,#f0f8f3)!important
+}
+.kh-login-intro{color:#183e31!important}
+.kh-login-intro h1{color:#075b4d!important}
+.kh-login-intro>p{color:#5f796b!important}
+.login-card{
+  border-color:#fff!important;
+  background:linear-gradient(135deg,#ffffffef,#eff8f2f2)!important;
+  box-shadow:0 20px 44px #0e57362b,inset 0 2px 1px white!important;
+  color:#25473b!important
+}
+.khatyar-method-tabs{
+  background:linear-gradient(90deg,#eaf5ed,#f5faf6)!important;
+  border-color:#d3e6d8!important
+}
+.khatyar-auth-tab{color:#446556!important}
+.khatyar-auth-tab.selected{
+  background:linear-gradient(115deg,#0b7662,#064a3d)!important;
+  border-bottom-color:#e8bc70!important;
+  box-shadow:0 7px 14px #075b4d29!important
+}
+.login-field{color:#24483a!important}
+.login-field>.input,.login-password-wrap>.input{
+  background:#ffffffc9!important;
+  border-color:#c6dfcf!important;
+  color:#254638!important
+}
+.login-field>.input:focus,.login-password-wrap>.input:focus{
+  border-color:#0b7662!important;box-shadow:0 0 0 3px #0b766225!important
+}
+.login-card .btn.p{
+  background:linear-gradient(110deg,#108e6f,#075b4d)!important;
+  color:white!important;
+  border-color:#0e8169!important;
+  box-shadow:0 11px 23px #075b4d36,inset 0 1px 1px #ffffff44!important
+}
+.login-card .btn.p:hover:not(:disabled){background:linear-gradient(110deg,#10a078,#064a3d)!important}
+.login-text-button,.login-support a{color:#0a7761!important}
+.login-support{border-top-color:#d5e8dc!important}
+.login-support-label,.login-page .login-card .input::placeholder{color:#708d7b!important}
+.login-card .login-feedback{border-color:#d2e6d8!important}
+@media(max-width:740px){
+  .login-page{background:linear-gradient(145deg,#f1f8f4,#e2f1e7)!important}
+  .kh-login-intro-logo img{background:#f6fbf7ed!important}
+}
