@@ -50,6 +50,9 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   }
   if($rangeStart!==null) $gpsInvalidSeconds+=max(0,$rangeEnd-$rangeStart);
 
+  // This route can be loaded independently in reports/tests; avoid an undefined
+  // security-exemption helper causing HTTP 500 on daily performance.
+  require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
   $securityExempt=work_deduction_security_exempt((int)$u['id']);
   $w['gps_work_required']=!$securityExempt&&_gps_work_required();
   $w['gps_invalid_min']=$securityExempt?0:(int)ceil(max(0,$gpsInvalidSeconds)/60);
