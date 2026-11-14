@@ -27,6 +27,10 @@ class Media {
 }
 
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
+$schemaStart = strpos($source, 'function _presence_photo_columns_ready()');
+$schemaEnd = strpos($source, '// ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت', $schemaStart);
+if($schemaStart===false || $schemaEnd===false)throw new RuntimeException('Photo schema preflight missing');
+eval(substr($source,$schemaStart,$schemaEnd-$schemaStart));
 $start = strpos($source, "route('POST', '/api/my/presence-check', ");
 if ($start === false) throw new RuntimeException('Presence route not found');
 $start += strlen("route('POST', '/api/my/presence-check', ");
