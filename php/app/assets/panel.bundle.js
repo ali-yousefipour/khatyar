@@ -3226,16 +3226,30 @@ function Zones() {
         if (!workflowValid)
             throw Error('نوع سلسله‌مراتب و مسئولان الزامی را تکمیل کنید.');
         const payload = workflowPayload();
-        if (!leadership.id) {
+        const previous = leadership;
+        let created = null;
+        if (!previous.id) {
             if (!nz.trim())
                 throw Error('نام منطقه را وارد کنید.');
-            await db.createZone(nz.trim(), (_a = leadership.parent_id) !== null && _a !== void 0 ? _a : null, false, payload);
+            created = await db.createZone(nz.trim(), (_a = previous.parent_id) !== null && _a !== void 0 ? _a : null, false, payload);
         }
         else
-            await db.zoneWorkflow(leadership.id, payload);
-        await reload();
+            await db.zoneWorkflow(previous.id, payload);
+        // A successful write must not be reported as failed merely because a
+        // separate refresh endpoint still has an unrelated unconfigured region.
+        const configured = { ...payload, workflow_configured: true };
+        if (created === null || created === void 0 ? void 0 : created.id)
+            setZones(current => [...current, { ...created, ...configured }]);
+        else
+            setZones(current => current.map(zone => +zone.id === +previous.id ? { ...zone, ...configured } : zone));
         setLeadership(null);
         setNz('');
+        try {
+            await reload();
+        }
+        catch (refreshError) {
+            setError('سلسله‌مراتب ذخیره شد؛ اما تازه‌سازی فهرست با خطا روبه‌رو شد. صفحه را بازخوانی کنید: ' + ((refreshError === null || refreshError === void 0 ? void 0 : refreshError.message) || 'خطای ارتباط با سرور'));
+        }
     });
     const pathFor = zone => { const parts = [], seen = new Set(); let current = zone; while (current && !seen.has(+current.id)) {
         seen.add(+current.id);
