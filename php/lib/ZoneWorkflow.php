@@ -104,6 +104,14 @@ final class ZoneWorkflow {
       $area=$z[0]??null;
       $ins=$area['inspector_ids']??[];$senior=(int)($area['senior_user_id']??0);
       if(!$senior||!$ins)Http::error('مسئولان بازرسی منطقه ناقص هستند. بازرس و سربازرس را مشخص کنید.',422);
+      $actualSenior=self::activeUser($senior);
+      if(!$actualSenior||!OrgChart::eligibleZoneLeader($actualSenior['role_title'],'senior'))
+        Http::error('سربازرس مسئول منطقه تغییر سمت داده یا غیرفعال شده است.',422);
+      foreach($ins as $id){
+        $actualInspector=self::activeUser((int)$id);
+        if(!$actualInspector||!OrgChart::eligibleZoneLeader($actualInspector['role_title'],'inspector'))
+          Http::error('بازرس مسئول منطقه تغییر سمت داده یا غیرفعال شده است.',422);
+      }
       // Several inspectors may cover the same area. Select one stable primary
       // reviewer; do not make colleagues approve the same request in series.
       $chain[]=(int)$ins[0];
