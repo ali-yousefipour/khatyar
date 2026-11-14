@@ -4681,6 +4681,15 @@ function _req_zone_chain(int $ownerId): ?array {
   $zoneId=(int)($row['zone_id']??0);
   if($zoneId<1)return null;
   $chain=ZoneWorkflow::chain($zoneId);
+  $config=ZoneWorkflow::config($zoneId);
+  if(($config['mode']??'')==='inspection'){
+    require_once __DIR__.'/OrgChart.php';
+    $owner=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$ownerId]);
+    $role=OrgChart::roleKey($owner['title']??'');
+    // A senior's own leave must not be reviewed by an inspector beneath them.
+    $skip=$role==='inspector'||$role==='motor'?1:($role==='senior'?2:($role==='chief'?3:0));
+    if($skip>0)$chain=array_slice($chain,$skip);
+  }
   // Personnel who are also reviewers cannot approve their own requests.
   $chain=array_values(array_filter($chain,static fn($id)=>(int)$id!==$ownerId));
   if(!$chain)Http::error('این منطقه برای درخواست شخصی شما مسئول تأیید دیگری ندارد.',422);
