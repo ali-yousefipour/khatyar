@@ -39,7 +39,7 @@ class Push {
       if (!in_array($type, $noBotTypes, true)) {
         $item = ($type === 'birthday') ? 'birthday'
           : ((($type === 'presence_check') || ($type === 'attendance')) ? 'attendance'
-          : ((in_array($type, ['station_exit','station_enter','vpn_on','gps_off','attendance_checkin','attendance_checkout'], true)) ? 'warnings'
+          : ((in_array($type, ['station_exit','station_enter','vpn_on','gps_off','internet_off','attendance_checkin','attendance_checkout'], true)) ? 'warnings'
           : 'messages'));
         if (class_exists('MessengerHub')) MessengerHub::sendToUserIds($ids, $title, $body, $item, $data);
         elseif (class_exists('BaleBot')) BaleBot::sendToUserIds($ids, $title, $body, $item, $data);
