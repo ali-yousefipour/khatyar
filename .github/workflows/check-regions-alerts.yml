@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'php/lib/OrgChart.php'
+      - 'php/lib/ZoneWorkflow.php'
+      - 'php/tests/zone_workflow_modes_test.php'
       - 'php/lib/routes.php'
       - 'php/tests/legacy_zone_chief_fallback_test.php'
       - 'php/tests/zone_leadership_test.php'
@@ -22,10 +24,14 @@ jobs:
       - name: Check PHP syntax
         run: |
           php -l php/lib/OrgChart.php
+          php -l php/lib/ZoneWorkflow.php
+          php -l php/tests/zone_workflow_modes_test.php
           php -l php/lib/routes.php
           php -l php/tests/legacy_zone_chief_fallback_test.php
       - name: Regional fallback tests
-        run: php php/tests/legacy_zone_chief_fallback_test.php
+        run: |
+          php php/tests/legacy_zone_chief_fallback_test.php
+          php php/tests/zone_workflow_modes_test.php
       - name: Request review and notification wiring tests
         run: node php/tests/zone_alert_pipeline_test.cjs
       - name: Existing zone and approval regression tests
