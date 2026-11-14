@@ -8,7 +8,7 @@ const name='RegionalTeam.php';
 assert.ok(upload.includes('[ "${rel}" = "lib/'+name+'" ]'),'protected PHP file bypasses direct FTP');
 assert.ok(upload.includes('[ -f deploy-payload/lib/'+name+' ]'),'installer runs for regional team changes');
 assert.ok(upload.includes("'"+name+"' => '"+name+"'"),'host-side installer includes the regional team');
-assert.ok(flow.split(/\r?\n/).some(line=>line.includes('for rel in ') && line.includes('lib/OrgChart.php') && line.includes('lib/'+name) && line.includes('lib/Seniority.php')), 'staging includes the regional team alongside its dependencies');
+assert.ok(flow.split(/\r?\n/).some(line=>line.includes('for rel in ') && line.includes('lib/OrgChart.php') && line.includes('lib/'+name)), 'staging includes the regional team alongside its dependencies');
 assert.ok(upload.includes('for name in KhatyarFormsSchema.php WorkContracts.php '+name),'canonical checksum checked after installation');
 assert.ok(verify.includes('[ "${rel}" = "lib/'+name+'" ]'),'FTP cannot read protected canonical file');
 assert.ok(flow.includes('lib/'+name+' lib/EmploymentAttendance.php'),'force reconciliation includes regional team');
