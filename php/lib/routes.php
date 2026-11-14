@@ -4687,7 +4687,7 @@ function _req_zone_chain(int $ownerId): ?array {
     $owner=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$ownerId]);
     $role=OrgChart::roleKey($owner['title']??'');
     // A senior's own leave must not be reviewed by an inspector beneath them.
-    $skip=$role==='inspector'||$role==='motor'?1:($role==='senior'?2:($role==='chief'?3:0));
+    $skip=$role==='inspector'||$role==='motor'?1:($role==='senior'?2:($role==='chief'?3:($role==='head'?4:0)));
     if($skip>0)$chain=array_slice($chain,$skip);
   }
   // Personnel who are also reviewers cannot approve their own requests.
