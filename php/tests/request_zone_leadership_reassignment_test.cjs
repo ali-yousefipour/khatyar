@@ -26,7 +26,7 @@ assert.doesNotMatch(routes.split('function _req_hierarchy_managers(')[1].split('
 assert.doesNotMatch(transfer,/SET status=|approver_id=|DELETE FROM request_approval_steps/,'History and decisions must be preserved');
 assert.match(routes,/function _req_hierarchy_managers\(/,'New requests resolve current region leadership');
 assert.match(routes,/\$zoneChain=_req_zone_chain\(\(int\)\$uid\)/,'Initial approval uses mandatory zone workflow');
-assert.match(routes,/_req_next_zone_reviewer\(\(int\)\$r\['user_id'\],\(int\)\$u\['id'\]\)/,'Approval forwarding uses request owner's zone workflow');
+assert.ok(routes.includes("_req_next_zone_reviewer((int)$r['user_id'],(int)$u['id'])"),'Approval forwarding uses request owner zone workflow');
 const decision=routes.split("route('POST', '/api/requests/{id}/decide'")[1]?.split("route(")[0];
 assert.ok(decision,'Approval decision route exists');
 assert.match(decision,/\$queueGuard=_req_is_root_admin\(\$u\)\?'':' AND pending_on=\?'/,'Stale reviewer is guarded by current queue ownership');
