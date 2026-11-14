@@ -6,6 +6,7 @@ on:
       - 'php/lib/OrgChart.php'
       - 'php/lib/routes.php'
       - 'php/tests/legacy_zone_chief_fallback_test.php'
+      - 'php/tests/zone_leadership_test.php'
       - 'php/tests/zone_alert_pipeline_test.cjs'
       - 'mobile/src/internetWorkWatchdog.js'
       - '.github/workflows/check-regions-alerts.yml'
