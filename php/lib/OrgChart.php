@@ -32,7 +32,10 @@ class OrgChart {
   // senior inspection chief when no regional inspector/senior is appointed.
   // Normalize Persian/Arabic variants; apply only to the matching region
   // and its descendants (never globally to an unrelated region).
-  static function legacyDirectChiefZone(int $zoneId,array $zones): bool {
+  // Return the nearest special operational-zone boundary.  A descendant
+  // inherits only explicit reviewers inside this boundary, never from an
+  // unrelated administrative parent region.
+  static function legacyDirectChiefBoundaryZone(int $zoneId,array $zones): ?int {
     $map=[];
     foreach($zones as $zone)$map[(int)($zone['id']??0)]=$zone;
     $seen=[];
@@ -41,7 +44,21 @@ class OrgChart {
       $name=strtr((string)($map[$id]['name']??''),['ي'=>'ی','ك'=>'ک','ۀ'=>'ه']);
       $name=(string)preg_replace('/[\\s\\x{200c}\\x{200d}\\x{0640}\\-_]+/u','',$name);
       if(str_contains($name,'سازمانتاکسیرانی') ||
-         (str_contains($name,'گشت')&&str_contains($name,'موتور')))return true;
+         (str_contains($name,'گشت')&&str_contains($name,'موتور')))return $id;
+    }
+    return null;
+  }
+  static function legacyDirectChiefZone(int $zoneId,array $zones): bool {
+    return self::legacyDirectChiefBoundaryZone($zoneId,$zones)!==null;
+  }
+  static function zoneInsideBoundary(int $zoneId,int $boundaryId,array $zones): bool {
+    if($zoneId<=0||$boundaryId<=0)return false;
+    $parents=[];
+    foreach($zones as $zone)$parents[(int)($zone['id']??0)]=(int)($zone['parent_id']??0);
+    $seen=[];
+    for($id=$zoneId;$id>0&&isset($parents[$id])&&!isset($seen[$id]);$id=$parents[$id]){
+      if($id===$boundaryId)return true;
+      $seen[$id]=true;
     }
     return false;
   }
