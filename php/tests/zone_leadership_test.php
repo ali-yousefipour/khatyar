@@ -37,5 +37,5 @@ foreach([[11,[]],[999,[]],[10,[13]],[10,[14]],[10,[999]],[10,['bad']],[10,'bad']
 rejected(fn()=>OrgChart::saveZoneLeaders(2,10,[],99),404);
 Db::$fail=true;try{OrgChart::saveZoneLeaders(1,null,[],99);}catch(RuntimeException $error){verify($error->getMessage()==='write failure','write failure propagated');}verify(Db::$leaders[1]['inspector_ids']==='[11,12]','rollback retains responsibility');Db::$fail=false;
 OrgChart::saveZoneLeaders(1,null,[],99);verify(Db::$leaders[1]['senior_user_id']===null && Db::$leaders[1]['inspector_ids']==='[]','clear returns to default');
-$source=file_get_contents(__DIR__.'/../lib/routes.php');verify(str_contains($source,"'/api/admin/zones/{id}/leaders'") && str_contains($source,"\$u['id']);},false,ADMIN)"),'admin-only save contract');
+$source=file_get_contents(__DIR__.'/../lib/routes.php');verify(str_contains($source,"'/api/admin/zones/{id}/workflow'") && str_contains($source,"ZoneWorkflow::validate(\$b)") && str_contains($source,"},false,ADMIN);"),'admin-only workflow save contract');
 echo 'Zone leadership: '.$count.' assertions passed'.PHP_EOL;
