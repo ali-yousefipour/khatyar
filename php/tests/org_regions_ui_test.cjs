@@ -104,17 +104,15 @@ async function testZones() {
   assert.ok(text(column(tree, 'none')).includes('نیروی دو'));
   const newInput = nodes(tree, node => node.type === 'input' && node.props.placeholder === 'نام منطقهٔ جدید')[0];
   newInput.props.onChange({ target: { value: '  شرق  ' } }); tree = app.render();
-  await button(tree, '+ منطقه').props.onClick(); tree = app.render();
-  assert.deepEqual(created, ['شرق']); assert.ok(column(tree, 3));
-  button(column(tree,3),'+ زیرمنطقه').props.onClick();tree=app.render();
-  nodes(tree,node=>node.type==='input'&&node.props['aria-label']==='نام زیرمنطقه')[0].props.onChange({target:{value:'  محدوده یک  '}});tree=app.render();
-  await button(tree,'ذخیره زیرمنطقه').props.onClick();tree=app.render();
-  assert.equal(created[1],'محدوده یک');assert.equal(createdParents[1],3);
-  assert.ok(text(column(tree,4)).includes('شرق / محدوده یک'));
-  button(column(tree,3),'ویرایش').props.onClick();tree=app.render();
-  const parentSelect=nodes(tree,node=>node.type==='select'&&node.props['aria-label']==='منطقه والد')[0];
-  const choices=nodes(parentSelect,node=>node.type==='option').map(node=>String(node.props.value));
-  assert.ok(!choices.includes('3')&&!choices.includes('4'));
+  button(tree, '+ تعریف منطقه با مسئولان').props.onClick(); tree = app.render();
+  nodes(tree,node=>node.type==='button'&&text(node).includes('سلسله‌مراتب اداری'))[0].props.onClick(); tree=app.render();
+  const modal=nodes(tree,node=>node.type==='Modal')[0];
+  const adminChecks=nodes(modal,node=>node.type==='input'&&node.props.type==='checkbox');
+  adminChecks[0].props.onChange({target:{checked:false}});tree=app.render();
+  await button(tree,'ذخیره و فعال‌سازی سلسله‌مراتب').props.onClick();tree=app.render();
+  assert.deepEqual(created,['شرق']);
+  assert.equal(createdParents[0],null);
+  assert.equal(nodes(tree,node=>node.type==='Modal').length,0);
   console.log('PASS compiled Zones UI: edit/create, numeric/string IDs, cancel/delete, retained personnel, failed writes, and drag/drop');
 }
 
@@ -156,18 +154,27 @@ async function testChart() {
 
 async function testLeaders(){
   const users=[{id:10,first_name:'سربازرس',last_name:'منطقه',role_title:'سربازرس',is_active:1,zone_id:3},{id:11,first_name:'بازرس',last_name:'زیرمنطقه',role_title:'بازرس مقیم',is_active:1,zone_id:4},{id:12,first_name:'ارشد',last_name:'بازرسی',role_title:'سربازرس ارشد',is_active:1},{id:13,first_name:'نیرو',role_title:'اپراتور',is_active:1}];
-  const zones=[{id:1,name:'منطقه',parent_id:null,senior_user_id:null,inspector_ids:[]}];
+  const zones=[{id:1,name:'منطقه',parent_id:null,senior_user_id:null,inspector_ids:[],workflow_mode:null,workflow_configured:false}];
   const writes=[];let fail=false;
-  const app=harness('Zones',{users:async()=>users,zones:async()=>zones,zoneLeaders:async(id,fields)=>{writes.push({id,fields});if(fail)throw Error('save failure');return {ok:true,...fields};}});
+  const app=harness('Zones',{users:async()=>users,zones:async()=>zones,zoneWorkflow:async(id,fields)=>{writes.push({id,fields});if(fail)throw Error('save failure');return {ok:true,...fields};}});
   app.render();await settle();let tree=app.render();
   button(column(tree,1),'تعیین مسئولان').props.onClick();tree=app.render();
-  const select=nodes(tree,node=>node.type==='select'&&node.props['aria-label']==='سربازرس منطقه')[0];
+  nodes(tree,node=>node.type==='button'&&text(node).includes('سلسله‌مراتب بازرسی'))[0].props.onClick();tree=app.render();
+  const modal=nodes(tree,node=>node.type==='Modal')[0];
+  const select=nodes(modal,node=>node.type==='select')[0];
   assert.ok(!text(select).includes('ارشد بازرسی'));
-  select.props.onChange({target:{value:'10'}});
+  select.props.onChange({target:{value:'10'}});tree=app.render();
   nodes(tree,node=>node.type==='Modal').flatMap(modal=>nodes(modal,node=>node.type==='input'&&node.props.type==='checkbox'))[0].props.onChange({target:{checked:true}});tree=app.render();
-  fail=true;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.match(text(tree),/save failure/);assert.equal(nodes(tree,node=>node.type==='Modal').length,1);
-  fail=false;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.equal(nodes(tree,node=>node.type==='Modal').length,0);assert.match(text(column(tree,1)),/سربازرس منطقه/);assert.match(text(column(tree,1)),/بازرس زیرمنطقه/);
-  assert.equal(writes[1].fields.senior_user_id,10);assert.deepEqual(Array.from(writes[1].fields.inspector_ids),[11]);assert.equal(users[0].zone_id,3);assert.equal(users[1].zone_id,4);
-  console.log('PASS region leadership UI: explicit senior/inspectors, role filtering, retained edits on failure, saved labels and unchanged membership');
+  fail=true;await button(tree,'ذخیره و فعال‌سازی سلسله‌مراتب').props.onClick();tree=app.render();
+  assert.match(text(tree),/save failure/);
+  assert.equal(nodes(tree,node=>node.type==='Modal').length,1);
+  fail=false;await button(tree,'ذخیره و فعال‌سازی سلسله‌مراتب').props.onClick();tree=app.render();
+  assert.equal(nodes(tree,node=>node.type==='Modal').length,0);
+  assert.equal(writes[1].fields.workflow_mode,'inspection');
+  assert.equal(writes[1].fields.senior_user_id,10);
+  assert.deepEqual(Array.from(writes[1].fields.inspector_ids),[11]);
+  assert.equal(users[0].zone_id,3);assert.equal(users[1].zone_id,4);
+  console.log('PASS region workflow UI: inspection mode, active-role filtering, failed-write retry and membership isolation');
 }
+
 testZones().then(testChart).then(testLeaders).catch(error => { console.error(error); process.exitCode = 1; });
