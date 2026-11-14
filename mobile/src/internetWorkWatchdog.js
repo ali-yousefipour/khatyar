@@ -27,14 +27,17 @@ export async function runInternetWorkWatchdog({source='foreground',force=false}=
   let status;
   try{status=await NetInfo.fetch();}catch(_){return {checked:false,reason:'network_check_failed'};}
   if(typeof status?.isConnected!=='boolean')return {checked:false,reason:'network_state_unknown'};
-  const offline=status.isConnected===false;
+  // A Wi-Fi/mobile connection does not mean that Internet access works.
+  // Only an explicit unreachable result is evidence; null is inconclusive.
+  const offline=status.isConnected===false || (status.isConnected===true && status.isInternetReachable===false);
   const at=new Date(now).toISOString();
   // نخست هشدار صوتی شروع می‌شود؛ سپس شاهد خاموشی برای ارسال آفلاین ثبت می‌شود.
   if(offline){
     let warningPlayer=null;
     try{warningPlayer=await playSound('internetOff',{volume:1});}catch(_){}
-    // در صورت ناتوانی اندروید در پخش هشدار، هیچ کسر کاری ثبت نمی‌کنیم.
-    if(!warningPlayer)return {checked:false,reason:'warning_audio_unavailable'};
+    // A sound playback failure must not erase an observed offline event.
+    // The server still evaluates attendance, exemptions and work deductions.
+    if(!warningPlayer)console.warn('[internetWorkWatchdog] warning sound unavailable; telemetry retained');
   }
   await postOrQueue('/activity/telemetry',{kind:offline?'internet_off':'internet_on',at,meta:{source,interval_minutes:30,independent_penalty:true}}).catch(()=>{});
   try{await AsyncStorage.setItem(CHECK_KEY,String(now));}catch(_){}
