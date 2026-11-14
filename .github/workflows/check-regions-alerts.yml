@@ -1,0 +1,35 @@
+name: Check Regional Approvals and Alerts
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'php/lib/OrgChart.php'
+      - 'php/lib/routes.php'
+      - 'php/tests/legacy_zone_chief_fallback_test.php'
+      - 'php/tests/zone_alert_pipeline_test.cjs'
+      - 'mobile/src/internetWorkWatchdog.js'
+      - '.github/workflows/check-regions-alerts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  targeted-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: |
+          php -l php/lib/OrgChart.php
+          php -l php/lib/routes.php
+          php -l php/tests/legacy_zone_chief_fallback_test.php
+      - name: Regional fallback tests
+        run: php php/tests/legacy_zone_chief_fallback_test.php
+      - name: Request review and notification wiring tests
+        run: node php/tests/zone_alert_pipeline_test.cjs
+      - name: Existing zone and approval regression tests
+        run: |
+          php php/tests/zone_context_test.php
+          php php/tests/zone_leadership_test.php
+          node php/tests/request_reviewer_resolution_test.cjs
+          node php/tests/request_zone_leadership_reassignment_test.cjs
