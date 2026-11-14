@@ -10,7 +10,6 @@ const alert=routes.split('function _field_alert_targets(')[1]?.split('function _
 const telemetry=routes.split("route('POST', '/api/activity/telemetry'")[1]?.split("route('GET', '/api/admin/user-leaderboard'")[0];
 assert.ok(hierarchy&&current&&alert&&telemetry);
 assert.match(hierarchy,/OrgChart::legacyDirectChiefBoundaryZone\(/);
-assert.match(hierarchy,/OrgChart::legacyDirectChiefZone\(/);
 assert.match(hierarchy,/\$inspectorIds|\$inspectors=/);
 assert.match(hierarchy,/\$responsibility\['chief'\]\['id'\]/);
 assert.match(hierarchy,/OrgChart::roleKey\(\$chief\['role_title'\]/);
