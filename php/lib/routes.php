@@ -4680,7 +4680,11 @@ function _req_zone_chain(int $ownerId): ?array {
   if(!$row)return null;
   $zoneId=(int)($row['zone_id']??0);
   if($zoneId<1)return null;
-  return ZoneWorkflow::chain($zoneId);
+  $chain=ZoneWorkflow::chain($zoneId);
+  // Personnel who are also reviewers cannot approve their own requests.
+  $chain=array_values(array_filter($chain,static fn($id)=>(int)$id!==$ownerId));
+  if(!$chain)Http::error('این منطقه برای درخواست شخصی شما مسئول تأیید دیگری ندارد.',422);
+  return $chain;
 }
 function _req_next_zone_reviewer(int $ownerId,int $actorId): ?int {
   $chain=_req_zone_chain($ownerId);
@@ -10362,7 +10366,7 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
 }
 route('PUT','/api/admin/zones/{id}/workflow',function($p,$b,$u){
   require_once __DIR__.'/OrgChart.php';require_once __DIR__.'/ZoneWorkflow.php';
-  OrgChart::ensureZoneLeaders();
+  OrgChart::ensureZoneLeaders();ZoneWorkflow::ensure();
   $cfg=ZoneWorkflow::validate($b);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
@@ -10414,13 +10418,15 @@ route('POST', '/api/admin/zones', function($p,$b,$u){
   _zone_leave_requirement_storage();
   $name = trim((string)($b['name'] ?? ''));
   if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
+  require_once __DIR__.'/OrgChart.php';require_once __DIR__.'/ZoneWorkflow.php';
+  // Schema creation must occur OUTSIDE the business transaction: MySQL DDL
+  // implicitly commits, even with CREATE TABLE IF NOT EXISTS.
+  OrgChart::ensureZoneLeaders();ZoneWorkflow::ensure();
+  $cfg=ZoneWorkflow::validate($b);
   $connection=Db::pdo();$connection->beginTransaction();
   try {
     $parent=_validated_zone_parent($b['parent_id']??null);
     $required=_zone_leave_requirement_value($b['leave_requires_substitute']??false);
-    require_once __DIR__.'/OrgChart.php';require_once __DIR__.'/ZoneWorkflow.php';
-    OrgChart::ensureZoneLeaders();
-    $cfg=ZoneWorkflow::validate($b);
     $id = Db::insert("INSERT INTO zones(name,parent_id,leave_requires_substitute) VALUES(?,?,?)", [$name,$parent,$required]);
     ZoneWorkflow::write((int)$id,$cfg,(int)$u['id']);
     $connection->commit();
