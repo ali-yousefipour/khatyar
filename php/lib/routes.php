@@ -5916,11 +5916,13 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
   if($status==='approved'){
-    $options=_req_policy_options((int)$req['user_id'],false);
-    if(!_req_is_root_admin($u) && (
-      _req_zone_chain((int)$req['user_id'])!==null ||
-      ($options['approval_mode']??'hierarchical')==='hierarchical')){
-      $next=_req_next_zone_reviewer((int)$req['user_id'],(int)$u['id']);
+    // Root-admin overrides retain their original direct-approval behavior and
+    // must not depend on a user's policy or a regional step.
+    if(!_req_is_root_admin($u)){
+      $options=_req_policy_options((int)$req['user_id'],false);
+      if(_req_zone_chain((int)$req['user_id'])!==null ||
+        ($options['approval_mode']??'hierarchical')==='hierarchical'){
+        $next=_req_next_zone_reviewer((int)$req['user_id'],(int)$u['id']);
       if($next){
         _req_approval_steps_ensure();
         $pdo=Db::pdo();$pdo->beginTransaction();
@@ -5933,6 +5935,7 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
         }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
         Push::send([$next],'درخواست برای بررسی بعدی','',['type'=>'request','request_id'=>$id]);
         return ['id'=>$id,'status'=>'forwarded','to'=>$next];
+      }
       }
     }
     _req_prepare_approval_storage($req);
