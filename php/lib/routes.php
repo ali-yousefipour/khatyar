@@ -945,31 +945,43 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
   $slot = $b['slot'] ?? '';
-  if (!preg_match('/^\d{2}:\d{2}$/', $slot)) Http::error('بازهٔ ساعتی نامعتبر', 400);
+  if (!is_string($slot) || !preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $slot)) Http::error('بازهٔ ساعتی نامعتبر است.', 422);
   $selfie = $b['selfie'] ?? '';
   $veh = $b['vehicles_photo'] ?? '';
-  if (strpos($selfie,'data:image')!==0) Http::error('عکس سلفی لازم است', 400);
-  if (strpos($veh,'data:image')!==0) Http::error('عکس خودروهای خط لازم است', 400);
-  $date = date('Y-m-d');
-  // اگر قبلاً برای این بازه ثبت شده، به‌روزرسانی
-  $ex = Db::one("SELECT id FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?", [$u['id'],$date,$slot]);
-  $_selfiePath = Media::saveBase64($selfie, 'presence', 960, 65);
-  $_vehPath = Media::saveBase64($veh, 'presence', 1280, 68);
-  if (!$_selfiePath || !$_vehPath) {
-    if ($_selfiePath) Media::delete($_selfiePath);
-    if ($_vehPath) Media::delete($_vehPath);
-    Http::error('ذخیره تصاویر صحت‌سنجی انجام نشد. دوباره تلاش کنید.', 500);
+  if (!is_string($selfie) || strpos($selfie,'data:image/')!==0) Http::error('عکس سلفی معتبر لازم است.',422);
+  if (!is_string($veh) || strpos($veh,'data:image/')!==0) Http::error('عکس خودروهای خط معتبر لازم است.',422);
+  $date=date('Y-m-d');
+  $selfiePath=null;$vehiclePath=null;
+  // Storage and database writes are separate failure domains. Never leave
+  // orphan files or replace a successful prior check when a retry fails.
+  try {
+    $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?",[(int)$u['id'],$date,$slot]);
+    $selfiePath=Media::saveBase64($selfie,'presence',960,65);
+    if (!$selfiePath) Http::error('ذخیره عکس سلفی موفق نبود. فرمت و حجم تصویر یا فضای هاست را بررسی کنید.',503);
+    $vehiclePath=Media::saveBase64($veh,'presence',1280,68);
+    if (!$vehiclePath) Http::error('ذخیره عکس خودروهای خط موفق نبود. فرمت و حجم تصویر یا فضای هاست را بررسی کنید.',503);
+    if($ex){
+      Db::run("UPDATE presence_checks SET selfie_path=?,vehicles_photo_path=?,lat=?,lng=?,captured_at=NOW() WHERE id=?",
+        [$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,(int)$ex['id']]);
+      $id=(int)$ex['id'];
+    }else{
+      $id=(int)Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng) VALUES(?,?,?,?,?,?,?)",
+        [(int)$u['id'],$slot,$date,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null]);
+    }
+    if($id<=0)throw new RuntimeException('presence insert did not return a positive ID');
+  } catch (Throwable $failure) {
+    if($selfiePath)Media::delete($selfiePath);
+    if($vehiclePath)Media::delete($vehiclePath);
+    // Never log user images, request body, coordinates or credentials.
+    $reason=get_class($failure);
+    if($failure instanceof PDOException)$reason.=' sqlstate='.$failure->getCode();
+    error_log('presence-check persistence failed: '.$reason);
+    Http::error('ثبت صحت‌سنجی روی سرور انجام نشد. وضعیت فضای ذخیره‌سازی و ساختار جدول presence_checks بررسی شود.',503);
   }
-  if ($ex) {
-    Db::run("UPDATE presence_checks SET selfie_path=?, vehicles_photo_path=?, lat=?, lng=?, captured_at=NOW() WHERE id=?",
-      [$_selfiePath, $_vehPath, $b['lat']??null, $b['lng']??null, $ex['id']]);
-    _presence_outside_lines_bale_alert((int)$ex['id'],(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);
-    return ['ok'=>true, 'id'=>(int)$ex['id']];
-  }
-  $id = Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng) VALUES(?,?,?,?,?,?,?)",
-    [$u['id'],$slot,$date,$_selfiePath,$_vehPath,$b['lat']??null,$b['lng']??null]);
-  _presence_outside_lines_bale_alert((int)$id,(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);
-  return ['ok'=>true, 'id'=>$id];
+  // Notifications/geofencing are best-effort and must never reverse a durable save.
+  try{_presence_outside_lines_bale_alert($id,(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);}
+  catch(Throwable $notificationError){error_log('presence-check auxiliary alert failed: '.get_class($notificationError));}
+  return ['ok'=>true,'id'=>$id];
 });
 
 
