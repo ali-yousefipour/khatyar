@@ -38,7 +38,7 @@ function harness(component, db) {
         pending.push(() => { previous?.cleanup?.(); effects[slot] = { dependencies, cleanup: callback() }; });
       }
     },
-    db, fa: String, Modal: 'Modal', ManagersEditor: 'ManagersEditor',
+    db: {zoneWorkflowAudit: async()=>({unconfigured:[],total_unconfigured:0,pending_requests:0}),...db}, fa: String, Modal: 'Modal', ManagersEditor: 'ManagersEditor',
     confirm: () => confirmed, alert: () => {}, setTimeout, clearTimeout,
     requestAnimationFrame: callback => callback(),
   });
