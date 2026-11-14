@@ -13,7 +13,7 @@ assert.match(org,/WHERE u\.id IN \(\$marks\) FOR UPDATE/,'Only selected staff ar
 assert.match(transfer,/r\.status='pending'/,'Only outstanding requests are selected');
 assert.match(transfer,/_req_current_pending_target\(\$request\)/,'Transfers use the live approval chain, not only previous reviewer IDs');
 assert.match(transfer,/\$inside\(\(int\)\$request\['zone_id'\]\)/,'Region membership is checked');
-assert.match(transfer,/approval_mode'\]\?\?'hierarchical'/,'Specific-approver requests are excluded');
+assert.match(transfer,/_req_zone_chain\(\(int\)\$request\['user_id'\]\)/,'Configured zone overrides old specific approver settings');
 assert.match(transfer,/UPDATE requests SET pending_on=\?/,'Only queue owner changes');
 assert.match(routes,/function _req_reconcile_pending_approvals\(/,'Stale requests can be repaired without repeating the leadership edit');
 const resolve=routes.split('function _req_current_pending_target(')[1]?.split('function _req_reconcile_pending_approvals(')[0];
@@ -25,8 +25,8 @@ assert.match(routes,/if\(\$role==='head'\)return \[\]/,'Approval ends at inspect
 assert.doesNotMatch(routes.split('function _req_hierarchy_managers(')[1].split('function _req_approver(')[0],/return _user_managers\(\$uid\)/,'Generic administrators must not be appended to the chain');
 assert.doesNotMatch(transfer,/SET status=|approver_id=|DELETE FROM request_approval_steps/,'History and decisions must be preserved');
 assert.match(routes,/function _req_hierarchy_managers\(/,'New requests resolve current region leadership');
-assert.match(routes,/\$mgrs = _req_hierarchy_managers\(\(int\)\$uid\)/,'Initial approval uses current hierarchy');
-assert.match(routes,/\$mgrs = _req_hierarchy_managers\(\(int\)\$u\['id'\]\)/,'Approval forwarding uses current hierarchy');
+assert.match(routes,/\$zoneChain=_req_zone_chain\(\(int\)\$uid\)/,'Initial approval uses mandatory zone workflow');
+assert.match(routes,/_req_next_zone_reviewer\(\(int\)\$r\['user_id'\],\(int\)\$u\['id'\]\)/,'Approval forwarding uses request owner's zone workflow');
 const decision=routes.split("route('POST', '/api/requests/{id}/decide'")[1]?.split("route(")[0];
 assert.ok(decision,'Approval decision route exists');
 assert.match(decision,/\$queueGuard=_req_is_root_admin\(\$u\)\?'':' AND pending_on=\?'/,'Stale reviewer is guarded by current queue ownership');
