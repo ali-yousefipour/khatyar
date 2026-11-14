@@ -10,6 +10,8 @@ class Db {
     5=>['id'=>5,'is_active'=>1,'role_title'=>'نیروی اداری'],
     6=>['id'=>6,'is_active'=>0,'role_title'=>'بازرس'],
     7=>['id'=>7,'is_active'=>1,'role_title'=>'بازرس'],
+    8=>['id'=>8,'is_active'=>1,'role_title'=>'معاونت بازرسی','first_name'=>'معاون'],
+    9=>['id'=>9,'is_active'=>1,'role_title'=>'بازرس گشت خودرویی','first_name'=>'علی','last_name'=>'نمونه'],
   ];
   public static array $workflow=[];
   public static array $writes=[];
@@ -23,7 +25,7 @@ class Db {
   }
   public static function one($sql,$args=[]){
     if(str_contains($sql,'FROM zone_workflows'))return self::$workflow[(int)$args[0]]??null;
-    if(str_contains($sql,'FROM users u JOIN roles r'))return self::$people[(int)$args[0]]??null;
+    if(str_contains($sql,'FROM users u LEFT JOIN roles r') || str_contains($sql,'FROM users u JOIN roles r'))return self::$people[(int)$args[0]]??null;
     return null;
   }
   public static function all($sql,$args=[]){
@@ -42,6 +44,15 @@ invalid(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[]])
 invalid(['workflow_mode'=>'inspection','senior_user_id'=>3,'inspector_ids'=>[2]]);
 invalid(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[6]]);
 invalid(['workflow_mode'=>'administrative','admin_reviewer_id'=>6,'to_chief'=>false,'to_head'=>false]);
+invalid(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[8]]);
+$vehicleInspector=ZoneWorkflow::validate(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[9]]);
+checkMode($vehicleInspector['inspector_ids']===[9],'Vehicle patrol inspector is eligible');
+try{
+  ZoneWorkflow::validate(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[8]]);
+  throw new RuntimeException('Invalid office supervisor accepted');
+}catch(RuntimeException $e){
+  checkMode($e->getCode()===422 && str_contains($e->getMessage(),'شناسه 8'),'Invalid inspector response identifies the actual user');
+}
 $inspection=ZoneWorkflow::validate(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[2,7]]);
 checkMode($inspection['mode']==='inspection'&&$inspection['to_chief']&&$inspection['to_head'],'Inspection chain mandatory role stages');
 $office=ZoneWorkflow::validate(['workflow_mode'=>'administrative','admin_reviewer_id'=>5,'to_chief'=>false,'to_head'=>true]);
