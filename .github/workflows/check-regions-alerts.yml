@@ -6,6 +6,7 @@ on:
       - 'php/lib/OrgChart.php'
       - 'php/lib/ZoneWorkflow.php'
       - 'php/tests/zone_workflow_modes_test.php'
+      - 'php/tests/request_zone_leadership_reassignment_test.cjs'
       - 'php/lib/routes.php'
       - 'php/tests/legacy_zone_chief_fallback_test.php'
       - 'php/tests/zone_leadership_test.php'
