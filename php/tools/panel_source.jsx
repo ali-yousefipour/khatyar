@@ -413,6 +413,7 @@ const db = {
   updateZone: (id,name,parentId,requiresSubstitute)=> SEND('PUT','/admin/zones/'+id,{name,...(parentId===undefined?{}:{parent_id:parentId}),...(requiresSubstitute===undefined?{}:{leave_requires_substitute:requiresSubstitute})}),
   zoneLeaders: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/leaders',fields),
   zoneWorkflow: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/workflow',fields),
+  zoneWorkflowAudit: ()=>GET('/admin/zones/workflow-audit',{ttl:0}),
   deleteZone: (id)=> SEND('DELETE','/admin/zones/'+id,{}),
   addReason: (title)=> SEND('POST','/admin/notice-reasons',{title}),
   delReason: (id)=> SEND('DELETE','/admin/notice-reasons/'+id),
@@ -1796,6 +1797,8 @@ function Zones(){
   const [toChief,setToChief]=useState(true),[toHead,setToHead]=useState(true);
   const [memberQuery,setMemberQuery]=useState(''),[workflowQuery,setWorkflowQuery]=useState('');
   const [selectedMember,setSelectedMember]=useState(''),[targetZone,setTargetZone]=useState('');
+  const [workflowAudit,setWorkflowAudit]=useState({unconfigured:[],total_unconfigured:0,pending_requests:0});
+  const [auditError,setAuditError]=useState('');
   const roleOf=user=>String(user.role_title||'').replace(/[يكئ]/g,character=>character==='ك'?'ک':'ی').replace(/[\s\u200c\u200dـ]/g,'');
   // Match OrgChart::roleKey / eligibleZoneLeader on the server exactly:
   // supervisors, office staff and senior chiefs are never area inspectors.
@@ -1863,7 +1866,12 @@ function Zones(){
   const ordered=zones.slice().sort((left,right)=>pathFor(left).localeCompare(pathFor(right),'fa'));
   // «ادمین» حساب سیستمی است؛ پرچم مدیریت سمت یا سطح ۱ به‌تنهایی دلیل حذف پرسنل نیست.
   const isRegionMember=u=>Number(u.is_active)===1&&!['admin','superadmin'].includes(String(u.username||'').trim().toLowerCase());
-  const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers.filter(isRegionMember));setZones(nextZones);};
+  const reload=async()=>{
+    const [nextUsers,nextZones,audit]=await Promise.all([db.users(),db.zones(),
+      db.zoneWorkflowAudit().catch(e=>{setAuditError(e.message||'خطای گزارش تنظیمات مناطق');return null;})]);
+    setUsers(nextUsers.filter(isRegionMember));setZones(nextZones);
+    if(audit){setWorkflowAudit(audit);setAuditError('');}
+  };
   useEffect(()=>{reload().catch(failure=>setError(failure.message||'بارگذاری مناطق انجام نشد.'))},[]);
   const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
   const setLeaveRequirement=(zone,required)=>mutate(async()=>{await db.updateZone(zone.id,zone.name,undefined,required);setZones(current=>current.map(item=>+item.id===+zone.id?{...item,leave_requires_substitute:required?1:0}:item));});
@@ -1895,6 +1903,16 @@ function Zones(){
     <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
       <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy} onClick={addZone}>+ تعریف منطقه با مسئولان</button></span></h3>
     {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
+    {auditError&&<p role="alert" style={{color:"var(--danger)"}}>بررسی کامل مناطق انجام نشد: {auditError}</p>}
+    {workflowAudit.total_unconfigured>0&&<section className="kh-workflow-audit" role="status" style={{padding:14,marginBottom:14,border:'1px solid var(--danger)',borderRadius:14}}>
+      <strong>هشدار: {fa(workflowAudit.total_unconfigured)} منطقه فاقد سلسله‌مراتب تأیید</strong>
+      <p>در این مناطق {fa(workflowAudit.pending_requests)} درخواست معلق وجود دارد. درخواست‌ها با زنجیره منطقه صاحب درخواست بررسی می‌شوند، نه منطقه بازرس؛ تا تعیین مسئولان، تأیید آن‌ها متوقف است.</p>
+      <div className="row" style={{gap:8,flexWrap:'wrap'}}>
+      {workflowAudit.unconfigured.map(item=><button type="button" className="btn g" key={item.id} disabled={busy}
+        onClick={()=>{const zone=zones.find(z=>+z.id===+item.id);if(zone)openLeaders(zone);}}>
+        {item.name} (شناسه {fa(item.id)}، درخواست معلق: {fa(item.pending_requests)})
+      </button>)}</div>
+    </section>}
     <section className="kh-region-toolbar"><div><strong>نواحی سازمانی و مسئولان</strong><p>برای جابه‌جایی نیرو کارت او را بکشید یا از انتقال سریع استفاده کنید. مناطق ناقص مشخص شده‌اند.</p></div>
       <input className="input" aria-label="جستجوی نیروی منطقه" placeholder="جستجوی زنده نام، نام کاربری یا سمت..." value={memberQuery} onChange={e=>setMemberQuery(e.target.value)}/>
       <select className="input" aria-label="انتخاب نیرو برای انتقال" value={selectedMember} onChange={e=>setSelectedMember(e.target.value)}><option value="">انتخاب نیرو برای جابه‌جایی</option>{users.map(u=><option key={u.id} value={u.id}>{userName(u.id)} — {u.role_title}</option>)}</select>
