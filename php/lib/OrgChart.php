@@ -25,6 +25,23 @@ class OrgChart {
       'chief'=>$senior['users']?$dto($senior['users'][0]):null,'inspectors'=>array_map($dto,$inspectors['users']),
       'chief_source'=>$senior['source'],'inspectors_source'=>$inspectors['source'],'chief_zone_id'=>$senior['zone_id'],'inspectors_zone_id'=>$inspectors['zone_id']];
   }
+  // These two operational regions historically report directly to the
+  // senior inspection chief when no regional inspector/senior is appointed.
+  // Normalize Persian/Arabic variants; apply only to the matching region
+  // and its descendants (never globally to an unrelated region).
+  static function legacyDirectChiefZone(int $zoneId,array $zones): bool {
+    $map=[];
+    foreach($zones as $zone)$map[(int)($zone['id']??0)]=$zone;
+    $seen=[];
+    for($id=$zoneId;$id>0&&isset($map[$id])&&!isset($seen[$id]);$id=(int)($map[$id]['parent_id']??0)){
+      $seen[$id]=true;
+      $name=strtr((string)($map[$id]['name']??''),['ي'=>'ی','ك'=>'ک','ۀ'=>'ه']);
+      $name=(string)preg_replace('/[\\s\\x{200c}\\x{200d}\\x{0640}\\-_]+/u','',$name);
+      if(str_contains($name,'سازمانتاکسیرانی') ||
+         (str_contains($name,'گشت')&&str_contains($name,'موتور')))return true;
+    }
+    return false;
+  }
   static function currentZoneResponsibility($zoneId) {
     return self::zoneResponsibility($zoneId,self::withZoneLeaders(Db::all('SELECT id,name,parent_id FROM zones ORDER BY id')),
       Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.zone_id,u.is_active,r.title role_title,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1'));
