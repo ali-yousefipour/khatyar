@@ -2450,6 +2450,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'station_enter_notify' => $g('station_enter_notify', ['enabled'=>false,'mode'=>'hierarchy']),
     'vpn_on_notify'        => $g('vpn_on_notify', ['enabled'=>false,'mode'=>'hierarchy']),
     'gps_off_notify'       => $g('gps_off_notify', ['enabled'=>false,'mode'=>'hierarchy']),
+    'internet_off_notify'  => $g('internet_off_notify', $g('gps_off_notify', ['enabled'=>false,'mode'=>'hierarchy'])),
     'attendance_checkin_notify' => $g('attendance_checkin_notify', ['enabled'=>false,'mode'=>'hierarchy']),
     'attendance_checkout_notify'=> $g('attendance_checkout_notify', ['enabled'=>false,'mode'=>'hierarchy']),
     // کیفیت و رزولوشن تصاویر ارسالی از موبایل برای گزارشات (قابل تنظیم در پنل)
@@ -4687,8 +4688,20 @@ function _req_hierarchy_managers(int $uid): array {
     }
     if($zoneId>0){
       $responsibility=OrgChart::currentZoneResponsibility($zoneId);
-      if($role==='field')return array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
-      if(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+      if($role==='field'){
+        $inspectors=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
+        if($inspectors)return $inspectors;
+      } elseif(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+      // Legacy taxi-organization and motorcycle-patrol areas bypass the
+      // regional stage ONLY when no eligible regional reviewer is assigned.
+      if(OrgChart::legacyDirectChiefZone($zoneId,Db::all('SELECT id,name,parent_id FROM zones'))){
+        if(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+        $appointedChief=_req_explicit_active_manager($uid,['chief']);
+        if($appointedChief)return $appointedChief;
+        foreach(Db::all("SELECT u.id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.id") as $chief){
+          if(OrgChart::roleKey($chief['role_title']??'')==='chief'&&(int)$chief['id']!==$uid)return [(int)$chief['id']];
+        }
+      }
     }
     return _req_explicit_active_manager($uid,$role==='field'?['inspector','motor']:['senior']);
   }
@@ -7453,7 +7466,10 @@ function _field_alert_recipient_accepts($recipientId,$eventType,$subjectUserId){
 }
 function _field_alert_type_from_setting($key){ return ['station_exit_notify'=>'station_exit','station_enter_notify'=>'station_enter','vpn_on_notify'=>'vpn_on','gps_off_notify'=>'gps_off','attendance_checkin_notify'=>'attendance_checkin','attendance_checkout_notify'=>'attendance_checkout'][$key]??''; }
 function _field_alert_targets($settingKey, $userId) {
-  $cfg = _req_setting($settingKey, ['enabled'=>false]);
+  $cfg=_req_setting($settingKey,null);
+  if($cfg===null && $settingKey==='internet_off_notify')
+    $cfg=_req_setting('gps_off_notify',['enabled'=>false]);
+  if(!is_array($cfg))$cfg=['enabled'=>false];
   if (empty($cfg['enabled'])) return [];
   // فیلتر کلی افراد تحت پایش برای این نوع رویداد
   if (!_field_alert_user_matches_scope(
@@ -7486,12 +7502,25 @@ function _field_alert_targets($settingKey, $userId) {
       foreach ($ids as $tid) { $tid=(int)$tid; if($tid>0)$targets[]=$tid; }
     }
   } else {
-    $urow = Db::one("SELECT manager_id FROM users WHERE id=?", [$userId]);
-    if (!empty($urow['manager_id'])) $targets[] = (int)$urow['manager_id'];
-    try {
-      foreach (Db::all("SELECT manager_id FROM user_managers WHERE user_id=?", [$userId]) as $r)
-        if (!empty($r['manager_id'])) $targets[]=(int)$r['manager_id'];
-    } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+    // Current region leadership must take precedence over stale saved managers.
+    try { $targets=_req_hierarchy_managers((int)$userId); }
+    catch (\Throwable $e) { error_log('field alert hierarchy lookup failed: '.$e->getMessage()); }
+    if(!$targets){
+      $row=Db::one("SELECT manager_id FROM users WHERE id=?",[$userId]);
+      if(!empty($row['manager_id']))$targets[]=(int)$row['manager_id'];
+      try {
+        foreach(Db::all("SELECT manager_id FROM user_managers WHERE user_id=?",[$userId]) as $row)
+          if(!empty($row['manager_id']))$targets[]=(int)$row['manager_id'];
+      }catch(\Throwable $e){ error_log('stored manager fallback failed: '.$e->getMessage()); }
+    }
+  }
+  // Exclude inactive recipients for both explicit and hierarchical policies.
+  if($targets){
+    $ids=array_values(array_unique(array_filter(array_map('intval',$targets))));
+    $marks=implode(',',array_fill(0,count($ids),'?'));
+    $active=Db::all("SELECT id FROM users WHERE is_active=1 AND id IN ($marks)",$ids);
+    $allowed=array_fill_keys(array_map('intval',array_column($active,'id')),true);
+    $targets=array_values(array_filter($ids,static fn($id)=>isset($allowed[$id])));
   }
   // خود فرد موضوع رویداد هیچ‌گاه گیرنده هشدار مدیریتی خودش نباشد.
   $eventType=_field_alert_type_from_setting($settingKey);
@@ -7625,6 +7654,13 @@ function _notify_vpn_on($userId,$eventAt=null,$ip=null,$country=null,$previousCo
     $body="فیلترشکن دستگاه کاربر {$name} در {$when} روشن شد.\nکشور IP از {$prevName} به {$countryName} تغییر یافته است.\nIP مشاهده‌شده: {$ipText}";
   }
   Push::notify($targets,'روشن‌شدن فیلترشکن (VPN)',$body,['type'=>'vpn_on','user_id'=>$userId,'event_at'=>$eventAt,'ip'=>$ipText,'country'=>$verified,'reported_country'=>$country,'previous_country'=>$previousCountry]);
+}
+function _notify_internet_off($userId,$eventAt=null) {
+  $targets=_field_alert_targets('internet_off_notify',$userId); if(!$targets)return;
+  $name=_field_alert_user_name($userId); $when=_field_alert_time_text($eventAt);
+  Push::notify($targets,'خاموش‌شدن اینترنت',
+    "قطع اتصال اینترنت کاربر {$name} در {$when} گزارش شد. در حالت آفلاین، این هشدار پس از برقراری اتصال ارسال می‌شود.",
+    ['type'=>'internet_off','user_id'=>$userId,'event_at'=>$eventAt]);
 }
 function _notify_gps_off($userId,$eventAt=null) {
   $targets=_field_alert_targets('gps_off_notify',$userId); if(!$targets)return;
@@ -7940,6 +7976,7 @@ route('POST', '/api/activity/telemetry', function($p,$b,$u){
   $at = isset($b['at']) ? date('Y-m-d H:i:s', strtotime($b['at'])) : date('Y-m-d H:i:s');
   Db::run("INSERT INTO user_activity(user_id,kind,meta,at) VALUES(?,?,?,?)", [$u['id'], $kind, isset($b['meta'])?json_encode($b['meta'], JSON_UNESCAPED_UNICODE):null, $at]);
   if ($kind === 'gps_off') { try { _notify_gps_off($u['id'], $at); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); } }
+  if ($kind === 'internet_off') { try { _notify_internet_off($u['id'], $at); } catch (\Throwable $e) { error_log('internet-off notification failed: '.$e->getMessage()); } }
   return ['ok'=>true];
 });
 
