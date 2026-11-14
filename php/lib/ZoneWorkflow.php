@@ -114,7 +114,12 @@ final class ZoneWorkflow {
   public static function chain(int $zoneId): array {
     require_once __DIR__.'/OrgChart.php';
     $cfg=self::config($zoneId);
-    if(!$cfg)Http::error('سلسله‌مراتب منطقه تنظیم نشده است. مدیر سامانه باید نوع و مسئولان تأیید را تعیین کند.',422);
+    if(!$cfg){
+      $zone=Db::one('SELECT name FROM zones WHERE id=?',[$zoneId]);
+      $name=trim((string)($zone['name']??''));
+      $description=$name!==''?'«'.$name.'» (شناسه '.$zoneId.')':'شناسه '.$zoneId;
+      Http::error('سلسله‌مراتب منطقه صاحب درخواست '.$description.' تنظیم نشده است. مدیر سامانه باید در «منطقه‌بندی» نوع سلسله‌مراتب و مسئولان همین منطقه را تعیین کند.',422);
+    }
     $chain=[];
     if($cfg['mode']==='inspection'){
       $z=OrgChart::withZoneLeaders(Db::all("SELECT id,name,parent_id FROM zones WHERE id=?",[$zoneId]));
