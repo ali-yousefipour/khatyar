@@ -1814,7 +1814,7 @@ function Zones(){
   const openCreate=(parentId=null)=>{
     setLeadership({id:null,name:'منطقه جدید',parent_id:parentId,workflow_mode:''});
     setWorkflowMode('');setSenior('');setInspectors([]);setAdminReviewer('');
-    setToChief(true);setToHead(true);setWorkflowQuery('');setNz('');setError('');
+    setToChief(true);setToHead(true);setWorkflowQuery('');if(parentId!==null)setNz('');setError('');
   };
   const workflowPayload=()=>({
     workflow_mode:workflowMode,senior_user_id:senior?Number(senior):null,
