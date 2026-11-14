@@ -53,7 +53,7 @@ foreach ([null, ['id'=>7]] as $existing) {
       if ($response['id'] !== ($existing ? 7 : 12)) throw new LogicException('Wrong record id');
     } catch (RuntimeException $error) {
       if ($success || $error->getCode() !== 503 || Db::$writes !== []) throw $error;
-      $expected = array_values(array_filter($results));
+      $expected = $results[0] ? array_values(array_filter($results)) : [];
       if (Media::$deleted !== $expected) throw new LogicException('Partially saved photos were not cleaned up');
     }
   }
