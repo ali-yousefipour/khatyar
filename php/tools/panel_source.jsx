@@ -409,9 +409,10 @@ const db = {
   revokeDevice: (id,type)=> SEND('POST','/admin/users/'+id+'/revoke-device',type?{device_type:type}:{}),
   deleteUser: (id)=> SEND('DELETE','/admin/users/'+id),
   resetPassword: (id,password)=> SEND('POST','/admin/users/'+id+'/reset-password',{password}),
-  createZone: (name,parentId=null,requiresSubstitute=false)=> SEND('POST','/admin/zones',{name,parent_id:parentId,leave_requires_substitute:requiresSubstitute}),
+  createZone: (name,parentId=null,requiresSubstitute=false,workflow={})=> SEND('POST','/admin/zones',{name,parent_id:parentId,leave_requires_substitute:requiresSubstitute,...workflow}),
   updateZone: (id,name,parentId,requiresSubstitute)=> SEND('PUT','/admin/zones/'+id,{name,...(parentId===undefined?{}:{parent_id:parentId}),...(requiresSubstitute===undefined?{}:{leave_requires_substitute:requiresSubstitute})}),
   zoneLeaders: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/leaders',fields),
+  zoneWorkflow: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/workflow',fields),
   deleteZone: (id)=> SEND('DELETE','/admin/zones/'+id,{}),
   addReason: (title)=> SEND('POST','/admin/notice-reasons',{title}),
   delReason: (id)=> SEND('DELETE','/admin/notice-reasons/'+id),
@@ -1791,13 +1792,46 @@ function Zones(){
   const mutation=useRef(false);
   const [newParent,setNewParent]=useState(''),[editParent,setEditParent]=useState(''),[child,setChild]=useState(null),[childName,setChildName]=useState('');
   const [leadership,setLeadership]=useState(null),[senior,setSenior]=useState(''),[inspectors,setInspectors]=useState([]);
+  const [workflowMode,setWorkflowMode]=useState(''),[adminReviewer,setAdminReviewer]=useState('');
+  const [toChief,setToChief]=useState(true),[toHead,setToHead]=useState(true);
+  const [memberQuery,setMemberQuery]=useState(''),[workflowQuery,setWorkflowQuery]=useState('');
+  const [selectedMember,setSelectedMember]=useState(''),[targetZone,setTargetZone]=useState('');
   const roleOf=user=>String(user.role_title||'').replace(/[يكئ]/g,character=>character==='ك'?'ک':'ی').replace(/[\s\u200c\u200dـ]/g,'');
-  const leaderKind=(user,kind)=>{const role=roleOf(user);const extra=role.includes('اداری')||role.includes('سربازرسارشد')||(role.includes('رییساداره')&&role.includes('بازرسی'));if(role.includes('صدورپروانه')||role.includes('مدیراجرایی')||(role.includes('معاون')&&role.includes('بازرسی')))return false;if(extra)return true;if(kind==='senior')return role.includes('سربازرس');return (role.includes('بازرس')&&!role.includes('سربازرس'))||((role.includes('گشت')&&role.includes('موتور'))&&role.includes('بازرس'));};
+  const leaderKind=(user,kind)=>{const role=roleOf(user);
+    if(kind==='senior')return role.includes('سربازرس')&&!role.includes('ارشد');
+    return role.includes('بازرس')&&!role.includes('سربازرس')&&!role.includes('رییساداره');
+  };
   const seniorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user,'senior'));
   const inspectorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user,'inspector'));
   const userName=id=>{const user=users.find(item=>+item.id===+id);return user?`${user.first_name||''} ${user.last_name||''}`.trim()||user.username:'#'+id;};
-  const openLeaders=zone=>{setLeadership(zone);setSenior(zone.senior_user_id?String(zone.senior_user_id):'');setInspectors((zone.inspector_ids||[]).map(Number));setError('');};
-  const saveLeaders=()=>mutate(async()=>{const result=await db.zoneLeaders(leadership.id,{senior_user_id:senior?+senior:null,inspector_ids:inspectors});setZones(current=>current.map(zone=>+zone.id===+leadership.id?{...zone,senior_user_id:result.senior_user_id,inspector_ids:result.inspector_ids}:zone));setLeadership(null);});
+  const openLeaders=zone=>{
+    setLeadership(zone);setSenior(zone.senior_user_id?String(zone.senior_user_id):'');
+    setInspectors((zone.inspector_ids||[]).map(Number));setWorkflowMode(zone.workflow_mode||'');
+    setAdminReviewer(zone.admin_reviewer_id?String(zone.admin_reviewer_id):'');
+    setToChief(zone.to_chief!==false);setToHead(zone.to_head!==false);
+    setWorkflowQuery('');setError('');
+  };
+  const openCreate=(parentId=null)=>{
+    setLeadership({id:null,name:'منطقه جدید',parent_id:parentId,workflow_mode:''});
+    setWorkflowMode('');setSenior('');setInspectors([]);setAdminReviewer('');
+    setToChief(true);setToHead(true);setWorkflowQuery('');setNz('');setError('');
+  };
+  const workflowPayload=()=>({
+    workflow_mode:workflowMode,senior_user_id:senior?Number(senior):null,
+    inspector_ids:inspectors,admin_reviewer_id:adminReviewer?Number(adminReviewer):null,
+    to_chief:toChief,to_head:toHead
+  });
+  const workflowValid=workflowMode==='inspection'?(!!senior&&inspectors.length>0):
+    workflowMode==='administrative'?(!!adminReviewer||toChief||toHead):false;
+  const saveLeaders=()=>mutate(async()=>{
+    if(!workflowValid)throw Error('نوع سلسله‌مراتب و مسئولان الزامی را تکمیل کنید.');
+    const payload=workflowPayload();
+    if(!leadership.id){
+      if(!nz.trim())throw Error('نام منطقه را وارد کنید.');
+      await db.createZone(nz.trim(),leadership.parent_id??null,false,payload);
+    }else await db.zoneWorkflow(leadership.id,payload);
+    await reload();setLeadership(null);setNz('');
+  });
   const pathFor=zone=>{const parts=[],seen=new Set();let current=zone;while(current&&!seen.has(+current.id)){seen.add(+current.id);parts.unshift(current.name);current=zones.find(item=>+item.id===+current.parent_id);}return parts.join(' / ');};
   const isDescendant=(candidate,ancestor)=>{const seen=new Set();let current=candidate;while(current&&!seen.has(+current.id)){if(+current.id===+ancestor)return true;seen.add(+current.id);current=zones.find(item=>+item.id===+current.parent_id);}return false;};
   const ordered=zones.slice().sort((left,right)=>pathFor(left).localeCompare(pathFor(right),'fa'));
@@ -1808,17 +1842,17 @@ function Zones(){
   const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
   const setLeaveRequirement=(zone,required)=>mutate(async()=>{await db.updateZone(zone.id,zone.name,undefined,required);setZones(current=>current.map(item=>+item.id===+zone.id?{...item,leave_requires_substitute:required?1:0}:item));});
   const assign=(uid,zid)=>{if(!users.some(user=>+user.id===+uid))return;return mutate(async()=>{await db.setOrg(uid,{zone_id:zid});setUsers(current=>current.map(user=>+user.id===+uid?{...user,zone_id:zid}:user));});};
-  const addZone=()=>{const name=nz.trim();if(!name)return;return mutate(async()=>{const parent_id=newParent?+newParent:null;const zone=await db.createZone(name,parent_id);setZones(current=>[...current,{...zone,parent_id}]);setNz("");});};
-  const addChild=()=>{const name=childName.trim();if(!name||!child)return;return mutate(async()=>{const zone=await db.createZone(name,+child.id);setZones(current=>[...current,{...zone,parent_id:+child.id}]);setChild(null);setChildName('');});};
+  const addZone=()=>openCreate(newParent?Number(newParent):null);
+  const addChild=()=>openCreate(child?Number(child.id):null);
   const saveZone=()=>{const name=editName.trim();if(!name||!editing)return;return mutate(async()=>{const parent_id=editParent?+editParent:null;await db.updateZone(editing.id,name,parent_id);setZones(current=>current.map(zone=>+zone.id===+editing.id?{...zone,name,parent_id}:zone));setEditing(null);});};
   const removeZone=zone=>{if(busy||!confirm(`منطقهٔ «${zone.name}» حذف شود؟ نیروهای آن حذف نمی‌شوند و به «بدون منطقه» منتقل می‌شوند.`))return;return mutate(async()=>{await db.deleteZone(zone.id);setZones(current=>current.filter(item=>+item.id!==+zone.id).map(item=>+item.parent_id===+zone.id?{...item,parent_id:null}:item));setUsers(current=>current.map(user=>+user.zone_id===+zone.id?{...user,zone_id:null}:user));});};
-  const Card=u=><div className="card-p" key={u.id} draggable={!busy} onDragStart={e=>e.dataTransfer.setData("uid",u.id)}>
+  const Card=u=><div className="card-p kh-region-person" key={u.id} draggable={!busy} onDragStart={e=>e.dataTransfer.setData("uid",u.id)}>
     <span>{u.first_name} {u.last_name}</span><small>{u.role_title}</small></div>;
   const Col=(title,zid)=><div className={"col"+(over===zid?" over":"")} key={zid||"none"}
     onDragOver={e=>{e.preventDefault();setOver(zid)}} onDragLeave={()=>setOver(null)}
     onDrop={e=>{assign(+e.dataTransfer.getData("uid"),zid);setOver(null)}}>
     {zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <label className="row" style={{gap:6,marginBottom:8,fontSize:13}}><input type="checkbox" disabled={busy} checked={!!Number(zone.leave_requires_substitute)} onChange={event=>setLeaveRequirement(zone,event.target.checked)}/> نیاز به نیروی جایگزین مرخصی</label>;})()}
-    <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openLeaders(zones.find(item=>+item.id===+zid))}>تعیین مسئولان</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setChild(zone);setChildName('');}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <div style={{fontSize:12,lineHeight:2,marginBottom:10}}><div className="muted">{pathFor(zone)}</div><div>سربازرس: {zone.senior_user_id?userName(zone.senior_user_id):'پیش‌فرض منطقه / منطقهٔ والد'}</div><div>بازرس‌ها: {(zone.inspector_ids||[]).length?zone.inspector_ids.map(userName).join('، '):'پیش‌فرض منطقه / منطقهٔ والد'}</div></div>;})()}{users.filter(u=>Number(u.is_active)===1&&(zid==null?!u.zone_id:+u.zone_id===+zid)).map(Card)}</div>;
+    <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openLeaders(zones.find(item=>+item.id===+zid))}>تعیین مسئولان</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);openCreate(Number(zone.id));}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <div style={{fontSize:12,lineHeight:2,marginBottom:10}}><div className="muted">{pathFor(zone)}</div><div className={'kh-region-status '+(zone.workflow_configured?'ready':'missing')}>{zone.workflow_configured?(zone.workflow_mode==='inspection'?'سلسله‌مراتب بازرسی':'سلسله‌مراتب اداری'):'نیازمند تعیین سلسله‌مراتب و مسئول'}</div>{zone.workflow_mode==='inspection'?<><div>سربازرس: {zone.senior_user_id?userName(zone.senior_user_id):'تعیین نشده'}</div><div>بازرسان: {(zone.inspector_ids||[]).length?zone.inspector_ids.map(userName).join('، '):'تعیین نشده'}</div></>:zone.workflow_mode==='administrative'?<div>مسئول اولیه: {zone.admin_reviewer_id?userName(zone.admin_reviewer_id):'بدون مرحله اولیه'} | سربازرس ارشد: {zone.to_chief?'بله':'خیر'} | رئیس اداره: {zone.to_head?'بله':'خیر'}</div>:<div>برای ثبت درخواست باید تنظیمات این منطقه کامل شود.</div>}</div>;})()}{users.filter(u=>Number(u.is_active)===1&&(zid==null?!u.zone_id:+u.zone_id===+zid)&&(!memberQuery||[u.first_name,u.last_name,u.username,u.role_title].join(' ').toLocaleLowerCase().includes(memberQuery.toLocaleLowerCase()))).map(Card)}</div>;
   const zoneTree=(()=>{
     const seen=new Set();
     const renderBranch=(parentId,depth=0)=>zones.filter(z=>String(z.parent_id||'')===String(parentId||'')&&!seen.has(+z.id)).sort((a,b)=>a.name.localeCompare(b.name,'fa')).map(z=>{
@@ -1831,13 +1865,44 @@ function Zones(){
     const roots=renderBranch(null);
     return <>{roots}{zones.filter(z=>!seen.has(+z.id)).map(z=><div key={z.id}>{Col(z.name,z.id)}</div>)}</>;
   })();
-  return(<div className="panel admin-workspace-page"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
+  return(<div className="panel admin-workspace-page"><h3>مدیریت مناطق و سلسله‌مراتب تأیید
     <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
-      <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy||!nz.trim()} onClick={addZone}>+ منطقه</button></span></h3>
+      <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy} onClick={addZone}>+ تعریف منطقه با مسئولان</button></span></h3>
     {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
-    <div className="org">{Col("بدون منطقه",null)}{zoneTree}</div>
-    {leadership&&<Modal title={'مسئولان '+pathFor(leadership)} onClose={()=>{if(!busy)setLeadership(null);}}><p className="muted">انتخاب مسئول، منطقهٔ عضویت نیرو را تغییر نمی‌دهد. انتخاب خالی، چارت پیش‌فرض منطقه و نزدیک‌ترین والد را حفظ می‌کند.</p><label>سربازرس منطقه</label><select aria-label="سربازرس منطقه" className="input" value={senior} disabled={busy} onChange={event=>setSenior(event.target.value)}><option value="">پیش‌فرض منطقه / والد</option>{senior&&!seniorUsers.some(user=>String(user.id)===senior)&&<option value={senior}>انتخاب قبلی نامعتبر: {userName(senior)}</option>}{seniorUsers.map(user=><option key={user.id} value={user.id}>{userName(user.id)} — {user.role_title}</option>)}</select><h4 style={{marginTop:14}}>بازرس‌های منطقه / زیرمنطقه</h4><div style={{maxHeight:260,overflow:'auto'}}>{[...inspectorUsers,...inspectors.filter(id=>!inspectorUsers.some(user=>+user.id===id)).map(id=>({id,role_title:'انتخاب قبلی نامعتبر؛ برای حذف تیک را بردارید'}))].map(user=><label key={user.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={inspectors.includes(+user.id)} onChange={event=>setInspectors(current=>event.target.checked?[...current,+user.id]:current.filter(id=>id!==+user.id))}/> {userName(user.id)} — {user.role_title}</label>)}</div>{error&&<p role="alert" style={{color:'var(--danger)'}}>{error}</p>}<button className="btn p" disabled={busy} onClick={saveLeaders}>ذخیره مسئولان</button></Modal>}
-    {child&&<Modal title={'تعریف زیرمنطقه برای '+child.name} onClose={()=>{if(!busy)setChild(null);}}><p style={{lineHeight:2}}>منطقه والد: {pathFor(child)}</p><label>نام زیرمنطقه</label><input aria-label="نام زیرمنطقه" className="input" maxLength={150} value={childName} onChange={event=>setChildName(event.target.value)}/>{error&&<p role="alert" style={{color:'var(--danger)'}}>{error}</p>}<div className="row" style={{gap:8,marginTop:12}}><button className="btn p" disabled={busy||!childName.trim()} onClick={addChild}>ذخیره زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>setChild(null)}>انصراف</button></div></Modal>}
+    <section className="kh-region-toolbar"><div><strong>نواحی سازمانی و مسئولان</strong><p>برای جابه‌جایی نیرو کارت او را بکشید یا از انتقال سریع استفاده کنید. مناطق ناقص مشخص شده‌اند.</p></div>
+      <input className="input" aria-label="جستجوی نیروی منطقه" placeholder="جستجوی زنده نام، نام کاربری یا سمت..." value={memberQuery} onChange={e=>setMemberQuery(e.target.value)}/>
+      <select className="input" aria-label="انتخاب نیرو برای انتقال" value={selectedMember} onChange={e=>setSelectedMember(e.target.value)}><option value="">انتخاب نیرو برای جابه‌جایی</option>{users.map(u=><option key={u.id} value={u.id}>{userName(u.id)} — {u.role_title}</option>)}</select>
+      <select className="input" aria-label="منطقه مقصد" value={targetZone} onChange={e=>setTargetZone(e.target.value)}><option value="">انتخاب منطقه مقصد</option>{ordered.filter(z=>z.workflow_configured).map(z=><option key={z.id} value={z.id}>{pathFor(z)}</option>)}</select>
+      <button className="btn p" disabled={busy||!selectedMember||!targetZone} onClick={()=>mutate(async()=>{await db.setOrg(Number(selectedMember),{zone_id:Number(targetZone)});await reload();setSelectedMember('');setTargetZone('');})}>انتقال نیرو</button>
+    </section>
+    <div className="org kh-region-board">{Col("بدون منطقه",null)}{zoneTree}</div>
+    {leadership&&<Modal title={leadership.id?'سلسله‌مراتب تأیید — '+pathFor(leadership):'تعریف منطقه و سلسله‌مراتب'} onClose={()=>{if(!busy)setLeadership(null);}}>
+      <div className="kh-workflow-editor" dir="rtl">
+        {!leadership.id&&<><label>نام منطقه جدید</label><input className="input" maxLength={150} placeholder="نام منطقه" value={nz} onChange={e=>setNz(e.target.value)}/>
+          <p className="muted">منطقه والد: {zones.find(z=>+z.id===+leadership.parent_id)?.name||'منطقه مستقل'}</p></>}
+        <p className="muted">هر منطقه باید نوع گردش تأیید و مسئولان معتبر خودش را داشته باشد. ارجاع خودکار به سربازرس ارشد در نبود تنظیمات حذف شده است.</p>
+        <div className="kh-workflow-modes" role="group" aria-label="نوع سلسله‌مراتب">
+          <button type="button" className={'kh-mode '+(workflowMode==='inspection'?'chosen':'')} onClick={()=>setWorkflowMode('inspection')}><strong>سلسله‌مراتب بازرسی</strong><span>بازرس ← سربازرس ← سربازرس ارشد ← رئیس اداره</span></button>
+          <button type="button" className={'kh-mode '+(workflowMode==='administrative'?'chosen':'')} onClick={()=>setWorkflowMode('administrative')}><strong>سلسله‌مراتب اداری</strong><span>مسئول اختیاری و مراحل قابل انتخاب</span></button>
+        </div>
+        {workflowMode==='inspection'&&<div className="kh-workflow-fields"><label>سربازرس مسئول منطقه (الزامی)</label>
+          <select className="input" value={senior} onChange={e=>setSenior(e.target.value)}><option value="">انتخاب سربازرس فعال</option>{seniorUsers.map(u=><option key={u.id} value={u.id}>{userName(u.id)} — {u.role_title}</option>)}</select>
+          <label>بازرس یا بازرسان مسئول (حداقل یک نفر)</label>
+          <input className="input" aria-label="جستجوی بازرس" placeholder="جستجوی نام بازرس..." value={workflowQuery} onChange={e=>setWorkflowQuery(e.target.value)}/>
+          <div className="kh-workflow-people">{inspectorUsers.filter(u=>!workflowQuery||[u.first_name,u.last_name,u.username].join(' ').toLocaleLowerCase().includes(workflowQuery.toLocaleLowerCase())).map(u=><label key={u.id}><input type="checkbox" checked={inspectors.includes(+u.id)} onChange={e=>setInspectors(current=>e.target.checked?[...current,+u.id]:current.filter(id=>id!==+u.id))}/>{userName(u.id)} <small>{u.role_title}</small></label>)}</div>
+          <p className="muted">پس از تأیید بازرس اصلی، درخواست به سربازرس منطقه، سربازرس ارشد و رئیس اداره می‌رود. سایر بازرسان هم‌زمان مجبور به تأیید نیستند.</p>
+        </div>}
+        {workflowMode==='administrative'&&<div className="kh-workflow-fields"><label>مسئول اولیه درخواست (اختیاری)</label>
+          <input className="input" aria-label="جستجوی مسئول اداری" placeholder="جستجوی نام یا نام کاربری..." value={workflowQuery} onChange={e=>setWorkflowQuery(e.target.value)}/>
+          <select className="input" value={adminReviewer} onChange={e=>setAdminReviewer(e.target.value)}><option value="">بدون مسئول اولیه</option>{users.filter(u=>!workflowQuery||[u.first_name,u.last_name,u.username,u.role_title].join(' ').toLocaleLowerCase().includes(workflowQuery.toLocaleLowerCase())||String(u.id)===adminReviewer).map(u=><option value={u.id} key={u.id}>{userName(u.id)} — {u.role_title}</option>)}</select>
+          <label className="kh-check"><input type="checkbox" checked={toChief} onChange={e=>setToChief(e.target.checked)}/> ارجاع به سربازرس ارشد</label>
+          <label className="kh-check"><input type="checkbox" checked={toHead} onChange={e=>setToHead(e.target.checked)}/> ارجاع به رئیس اداره بازرسی</label>
+          <p className="muted">اگر مسئول اولیه مشخص شود، درخواست ابتدا به او می‌رسد؛ سپس فقط مراحل انتخاب‌شده اجرا می‌شوند. حداقل یک مرحله الزامی است.</p>
+        </div>}
+        <div className="kh-workflow-footer"><span className={workflowValid?'kh-valid':'kh-invalid'}>{workflowValid?'پیکربندی اولیه تکمیل است':'تعیین نوع و مسئولان الزامی است'}</span><button className="btn p" disabled={busy||!workflowValid||(!leadership.id&&!nz.trim())} onClick={saveLeaders}>ذخیره و فعال‌سازی سلسله‌مراتب</button></div>
+        {error&&<p role="alert" style={{color:'var(--danger)'}}>{error}</p>}
+      </div>
+    </Modal>}
     {editing&&<Modal title="ویرایش منطقه" onClose={()=>{if(!busy)setEditing(null);}}><label>نام منطقه</label><input className="input" maxLength={150} value={editName} onChange={event=>setEditName(event.target.value)}/><label>منطقه والد</label><select aria-label="منطقه والد" className="input" value={editParent} onChange={event=>setEditParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.filter(zone=>!isDescendant(zone,editing.id)).map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select>{error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}<button className="btn p" disabled={busy||!editName.trim()} onClick={saveZone}>ذخیرهٔ منطقه</button></Modal>}
     </div>);
 }
