@@ -72,8 +72,11 @@ if ($path === '/health' || $path === '/api/health') {
     'release_url' => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
     'apk_asset' => 'khatyar.apk',
   ];
+  // A web server returning 200 while the database is unavailable is not healthy.
+  // Deployment and monitoring must detect this instead of reporting success.
+  if (!$db_ok) http_response_code(503);
   Http::json([
-    'ok' => true,
+    'ok' => $db_ok,
     'installed' => is_file("$ROOT/.installed"),
     'db' => $db_ok,
     'site_version' => $siteV,
