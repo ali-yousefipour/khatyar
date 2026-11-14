@@ -5,9 +5,10 @@ class Http {
 class Db {
   static $existing = null;
   static $writes = [];
+  static $failWrite = false;
   static function one($query, $params) { return self::$existing; }
-  static function run($query, $params) { self::$writes[] = $params; }
-  static function insert($query, $params) { self::$writes[] = $params; return 12; }
+  static function run($query, $params) { if(self::$failWrite)throw new RuntimeException('database offline');self::$writes[] = $params; }
+  static function insert($query, $params) { if(self::$failWrite)throw new RuntimeException('database offline');self::$writes[] = $params; return 12; }
 }
 class Media {
   static $results = [];
@@ -29,6 +30,7 @@ foreach ([null, ['id'=>7]] as $existing) {
   foreach ([[null, 'vehicles.jpg'], ['selfie.jpg', null], [null, null], ['selfie.jpg', 'vehicles.jpg']] as $results) {
     Db::$existing = $existing;
     Db::$writes = [];
+    Db::$failWrite = false;
     Media::$results = $results;
     Media::$deleted = [];
     $success = $results[0] !== null && $results[1] !== null;
@@ -37,10 +39,24 @@ foreach ([null, ['id'=>7]] as $existing) {
       if (!$success || !$response['ok'] || count(Db::$writes) !== 1) throw new LogicException('Unexpected success or missing database write');
       if ($response['id'] !== ($existing ? 7 : 12)) throw new LogicException('Wrong record id');
     } catch (RuntimeException $error) {
-      if ($success || $error->getCode() !== 500 || Db::$writes !== []) throw $error;
+      if ($success || $error->getCode() !== 503 || Db::$writes !== []) throw $error;
       $expected = array_values(array_filter($results));
       if (Media::$deleted !== $expected) throw new LogicException('Partially saved photos were not cleaned up');
     }
   }
 }
+// Failed INSERT/UPDATE must clean *both* new files and leave the old row intact.
+foreach ([null,['id'=>7]] as $existing) {
+  Db::$existing=$existing;Db::$failWrite=true;Db::$writes=[];
+  Media::$results=['selfie-retry.jpg','vehicles-retry.jpg'];Media::$deleted=[];
+  try {
+    $handler([], $body, ['id'=>1]);
+    throw new LogicException('Database write failure accepted');
+  }catch(RuntimeException $error){
+    if($error->getCode()!==503)throw $error;
+    if(Media::$deleted!==['selfie-retry.jpg','vehicles-retry.jpg'])throw new LogicException('Both uploaded photos must be cleaned after DB failure');
+    if(Db::$writes!==[])throw new LogicException('Failed write should not be acknowledged');
+  }
+}
+Db::$failWrite=false;
 echo "PASS presence insert/update: both photos required, failed saves rejected, partial files cleaned up\n";
