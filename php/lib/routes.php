@@ -10329,6 +10329,35 @@ function _zone_leave_requirement_value($value){
   if($value===false||$value===0||$value==='0')return 0;
   Http::error('مقدار گزینهٔ نیاز به نیروی جایگزین نامعتبر است.',422);
 }
+// Admin-only diagnosis: the request OWNER'S zone determines the workflow.
+// Do not infer defaults from parent regions or the reviewer's own zone.
+route('GET', '/api/admin/zones/workflow-audit', function($p,$b,$u){
+  require_once __DIR__.'/ZoneWorkflow.php';
+  ZoneWorkflow::ensure();
+  $hasRequests=(bool)Db::one("SHOW TABLES LIKE 'requests'");
+  $pendingJoin=$hasRequests ? "
+    LEFT JOIN (
+      SELECT owner.zone_id,COUNT(*) pending_requests FROM requests req
+      JOIN users owner ON owner.id=req.user_id
+      WHERE req.status='pending' GROUP BY owner.zone_id
+    ) pending ON pending.zone_id=z.id" : "";
+  $pendingColumn=$hasRequests?'COALESCE(pending.pending_requests,0)':'0';
+  $rows=Db::all("SELECT z.id,z.name,z.parent_id,COALESCE(staff.active_staff,0) active_staff,
+    $pendingColumn pending_requests
+    FROM zones z LEFT JOIN zone_workflows workflow ON workflow.zone_id=z.id
+    LEFT JOIN (SELECT zone_id,COUNT(*) active_staff FROM users WHERE is_active=1 GROUP BY zone_id) staff ON staff.zone_id=z.id
+    $pendingJoin
+    WHERE workflow.zone_id IS NULL
+    ORDER BY pending_requests DESC,active_staff DESC,z.id");
+  return ['unconfigured'=>array_map(static function($row){
+    return ['id'=>(int)$row['id'],'name'=>(string)$row['name'],
+      'parent_id'=>isset($row['parent_id'])?(int)$row['parent_id']:null,
+      'active_staff'=>(int)$row['active_staff'],
+      'pending_requests'=>(int)$row['pending_requests']];
+  },$rows),
+    'total_unconfigured'=>count($rows),
+    'pending_requests'=>array_sum(array_map(static fn($row)=>(int)$row['pending_requests'],$rows))];
+},false,ADMIN);
 route('GET', '/api/admin/zones', function(){
   _zone_leave_requirement_storage();
   require_once __DIR__.'/OrgChart.php';
