@@ -553,6 +553,7 @@ const db = {
     updateZone: (id, name, parentId, requiresSubstitute) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }), ...(requiresSubstitute === undefined ? {} : { leave_requires_substitute: requiresSubstitute }) }),
     zoneLeaders: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/leaders', fields),
     zoneWorkflow: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/workflow', fields),
+    zoneWorkflowAudit: () => GET('/admin/zones/workflow-audit', { ttl: 0 }),
     deleteZone: (id) => SEND('DELETE', '/admin/zones/' + id, {}),
     addReason: (title) => SEND('POST', '/admin/notice-reasons', { title }),
     delReason: (id) => SEND('DELETE', '/admin/notice-reasons/' + id),
@@ -3180,6 +3181,8 @@ function Zones() {
     const [toChief, setToChief] = useState(true), [toHead, setToHead] = useState(true);
     const [memberQuery, setMemberQuery] = useState(''), [workflowQuery, setWorkflowQuery] = useState('');
     const [selectedMember, setSelectedMember] = useState(''), [targetZone, setTargetZone] = useState('');
+    const [workflowAudit, setWorkflowAudit] = useState({ unconfigured: [], total_unconfigured: 0, pending_requests: 0 });
+    const [auditError, setAuditError] = useState('');
     const roleOf = user => String(user.role_title || '').replace(/[يكئ]/g, character => character === 'ك' ? 'ک' : 'ی').replace(/[\s\u200c\u200dـ]/g, '');
     // Match OrgChart::roleKey / eligibleZoneLeader on the server exactly:
     // supervisors, office staff and senior chiefs are never area inspectors.
@@ -3282,7 +3285,16 @@ function Zones() {
     const ordered = zones.slice().sort((left, right) => pathFor(left).localeCompare(pathFor(right), 'fa'));
     // «ادمین» حساب سیستمی است؛ پرچم مدیریت سمت یا سطح ۱ به‌تنهایی دلیل حذف پرسنل نیست.
     const isRegionMember = u => Number(u.is_active) === 1 && !['admin', 'superadmin'].includes(String(u.username || '').trim().toLowerCase());
-    const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers.filter(isRegionMember)); setZones(nextZones); };
+    const reload = async () => {
+        const [nextUsers, nextZones, audit] = await Promise.all([db.users(), db.zones(),
+            db.zoneWorkflowAudit().catch(e => { setAuditError(e.message || 'خطای گزارش تنظیمات مناطق'); return null; })]);
+        setUsers(nextUsers.filter(isRegionMember));
+        setZones(nextZones);
+        if (audit) {
+            setWorkflowAudit(audit);
+            setAuditError('');
+        }
+    };
     useEffect(() => { reload().catch(failure => setError(failure.message || 'بارگذاری مناطق انجام نشد.')); }, []);
     const mutate = async (action) => { if (mutation.current)
         return; mutation.current = true; setBusy(true); setError(""); try {
@@ -3361,6 +3373,26 @@ function Zones() {
                     ordered.map(zone => React.createElement("option", { key: zone.id, value: zone.id }, pathFor(zone)))),
                 React.createElement("button", { className: "btn p", disabled: busy, onClick: addZone }, "+ \u062A\u0639\u0631\u06CC\u0641 \u0645\u0646\u0637\u0642\u0647 \u0628\u0627 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
+        auditError && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } },
+            "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0645\u0644 \u0645\u0646\u0627\u0637\u0642 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F: ",
+            auditError),
+        workflowAudit.total_unconfigured > 0 && React.createElement("section", { className: "kh-workflow-audit", role: "status", style: { padding: 14, marginBottom: 14, border: '1px solid var(--danger)', borderRadius: 14 } },
+            React.createElement("strong", null,
+                "\u0647\u0634\u062F\u0627\u0631: ",
+                fa(workflowAudit.total_unconfigured),
+                " \u0645\u0646\u0637\u0642\u0647 \u0641\u0627\u0642\u062F \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628 \u062A\u0623\u06CC\u06CC\u062F"),
+            React.createElement("p", null,
+                "\u062F\u0631 \u0627\u06CC\u0646 \u0645\u0646\u0627\u0637\u0642 ",
+                fa(workflowAudit.pending_requests),
+                " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0639\u0644\u0642 \u0648\u062C\u0648\u062F \u062F\u0627\u0631\u062F. \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u0628\u0627 \u0632\u0646\u062C\u06CC\u0631\u0647 \u0645\u0646\u0637\u0642\u0647 \u0635\u0627\u062D\u0628 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0631\u0631\u0633\u06CC \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u060C \u0646\u0647 \u0645\u0646\u0637\u0642\u0647 \u0628\u0627\u0632\u0631\u0633\u061B \u062A\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u0645\u0633\u0626\u0648\u0644\u0627\u0646\u060C \u062A\u0623\u06CC\u06CC\u062F \u0622\u0646\u200C\u0647\u0627 \u0645\u062A\u0648\u0642\u0641 \u0627\u0633\u062A."),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } }, workflowAudit.unconfigured.map(item => React.createElement("button", { type: "button", className: "btn g", key: item.id, disabled: busy, onClick: () => { const zone = zones.find(z => +z.id === +item.id); if (zone)
+                    openLeaders(zone); } },
+                item.name,
+                " (\u0634\u0646\u0627\u0633\u0647 ",
+                fa(item.id),
+                "\u060C \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0639\u0644\u0642: ",
+                fa(item.pending_requests),
+                ")")))),
         React.createElement("section", { className: "kh-region-toolbar" },
             React.createElement("div", null,
                 React.createElement("strong", null, "\u0646\u0648\u0627\u062D\u06CC \u0633\u0627\u0632\u0645\u0627\u0646\u06CC \u0648 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"),
