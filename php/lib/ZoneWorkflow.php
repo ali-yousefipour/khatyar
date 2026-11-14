@@ -14,7 +14,7 @@ final class ZoneWorkflow {
       Db::one('SELECT zone_id FROM zone_workflows LIMIT 1');
       $ready=true;
       return;
-    } catch (\\Throwable $missing) {
+    } catch (\Throwable $missing) {
       // Only bootstrap a missing table outside a business transaction.
       if(method_exists('Db','pdo') && Db::pdo()->inTransaction())throw $missing;
     }
