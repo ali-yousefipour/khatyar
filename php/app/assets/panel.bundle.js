@@ -3181,25 +3181,40 @@ function Zones() {
     const [memberQuery, setMemberQuery] = useState(''), [workflowQuery, setWorkflowQuery] = useState('');
     const [selectedMember, setSelectedMember] = useState(''), [targetZone, setTargetZone] = useState('');
     const roleOf = user => String(user.role_title || '').replace(/[يكئ]/g, character => character === 'ك' ? 'ک' : 'ی').replace(/[\s\u200c\u200dـ]/g, '');
+    // Match OrgChart::roleKey / eligibleZoneLeader on the server exactly:
+    // supervisors, office staff and senior chiefs are never area inspectors.
     const leaderKind = (user, kind) => {
         const role = roleOf(user);
+        if (Number(user.is_active) !== 1)
+            return false;
+        if (role.includes('صدورپروانه') || role.includes('مدیراجرایی') ||
+            (role.includes('معاون') && role.includes('بازرسی')) ||
+            (role.includes('رییساداره') && role.includes('بازرسی')) ||
+            role.includes('سربازرسارشد'))
+            return false;
         if (kind === 'senior')
-            return role.includes('سربازرس') && !role.includes('ارشد');
-        return role.includes('بازرس') && !role.includes('سربازرس') && !role.includes('رییساداره');
+            return role.includes('سربازرس');
+        if (role.includes('سربازرس') || role.includes('اداری'))
+            return false;
+        if (role.includes('گشت') && role.includes('موتور'))
+            return role.includes('بازرس');
+        return role.includes('بازرس');
     };
-    const seniorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'senior'));
-    const inspectorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'inspector'));
+    const seniorUsers = users.filter(user => leaderKind(user, 'senior'));
+    const inspectorUsers = users.filter(user => leaderKind(user, 'inspector'));
     const userName = id => { const user = users.find(item => +item.id === +id); return user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : '#' + id; };
     const openLeaders = zone => {
         setLeadership(zone);
         setSenior(zone.senior_user_id ? String(zone.senior_user_id) : '');
-        setInspectors((zone.inspector_ids || []).map(Number));
+        const prior = (zone.inspector_ids || []).map(Number);
+        const valid = prior.filter(id => inspectorUsers.some(user => Number(user.id) === id));
+        setInspectors(valid);
         setWorkflowMode(zone.workflow_mode || '');
         setAdminReviewer(zone.admin_reviewer_id ? String(zone.admin_reviewer_id) : '');
         setToChief(zone.to_chief !== false);
         setToHead(zone.to_head !== false);
         setWorkflowQuery('');
-        setError('');
+        setError(prior.length !== valid.length ? 'بازرسان غیرفعال یا دارای سمت نامعتبر از انتخاب‌های قبلی کنار گذاشته شدند. لطفاً مسئولان فعلی را بررسی کنید.' : '');
     };
     const openCreate = (parentId = null) => {
         setLeadership({ id: null, name: 'منطقه جدید', parent_id: parentId, workflow_mode: '' });
@@ -3219,7 +3234,9 @@ function Zones() {
         inspector_ids: inspectors, admin_reviewer_id: adminReviewer ? Number(adminReviewer) : null,
         to_chief: toChief, to_head: toHead
     });
-    const workflowValid = workflowMode === 'inspection' ? (!!senior && inspectors.length > 0) :
+    const workflowValid = workflowMode === 'inspection' ?
+        (!!senior && seniorUsers.some(user => Number(user.id) === Number(senior)) &&
+            inspectors.length > 0 && inspectors.every(id => inspectorUsers.some(user => Number(user.id) === Number(id)))) :
         workflowMode === 'administrative' ? (!!adminReviewer || toChief || toHead) : false;
     const saveLeaders = () => mutate(async () => {
         var _a;
