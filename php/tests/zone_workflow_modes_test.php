@@ -25,6 +25,7 @@ class Db {
   }
   public static function one($sql,$args=[]){
     if(str_contains($sql,'FROM zone_workflows'))return self::$workflow[(int)$args[0]]??null;
+    if(str_contains($sql,'FROM zones WHERE id='))return ['name'=>((int)$args[0]===999?'منطقه آزمایشی':'منطقه دیگر')];
     if(str_contains($sql,'FROM users u LEFT JOIN roles r') || str_contains($sql,'FROM users u JOIN roles r'))return self::$people[(int)$args[0]]??null;
     return null;
   }
@@ -68,4 +69,14 @@ checkMode(ZoneWorkflow::chain(101)===[5,3],'Optional chief without head');
 Db::$workflow[101]['admin_reviewer_id']=null;
 checkMode(ZoneWorkflow::chain(101)===[3],'Chief-only administrative approval');
 checkMode(ZoneWorkflow::config(999)===null,'No implicit workflow for unconfigured region');
+try {
+  ZoneWorkflow::chain(999);
+  throw new RuntimeException('Unconfigured zone was accepted');
+} catch(RuntimeException $e) {
+  checkMode($e->getCode()===422 &&
+    str_contains($e->getMessage(),'منطقه آزمایشی') &&
+    str_contains($e->getMessage(),'999') &&
+    str_contains($e->getMessage(),'صاحب درخواست'),
+    'Missing workflow precisely identifies the request-owner zone and does not guess a parent or chief');
+}
 echo "PASS explicit region workflow configuration and admin review chains\n";
