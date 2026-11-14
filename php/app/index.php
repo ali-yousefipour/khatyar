@@ -74,7 +74,6 @@ if ($path === '/health' || $path === '/api/health') {
   ];
   // A web server returning 200 while the database is unavailable is not healthy.
   // Deployment and monitoring must detect this instead of reporting success.
-  if (!$db_ok) http_response_code(503);
   Http::json([
     'ok' => $db_ok,
     'installed' => is_file("$ROOT/.installed"),
@@ -83,7 +82,7 @@ if ($path === '/health' || $path === '/api/health') {
     'app_version' => $appV,
     'api_build' => '2026-10-12-v238-gps-work-accounting',
     'release_notes' => $releaseNotes,
-  ]);
+  ], $db_ok ? 200 : 503);
 }
 if (strpos($path, '/api') !== 0) {
   // Public brochure pages are isolated from the authenticated admin shell and API.
