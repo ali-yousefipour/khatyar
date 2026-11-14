@@ -24,11 +24,14 @@ Db::$users=[['id'=>10,'is_active'=>1,'role_title'=>'سربازرس'],['id'=>11,'
 $before=Db::$users;$result=OrgChart::saveZoneLeaders(1,'10',['11',12,11],99);
 verify($result['inspector_ids']===[11,12],'deduplicated inspectors');verify(Db::$leaders[1]['updated_by']===99,'actor recorded');verify(Db::$users===$before,'no personnel mutation');
 $zones=OrgChart::withZoneLeaders([['id'=>1],['id'=>2]]);verify($zones[0]['senior_user_id']===10 && $zones[0]['inspector_ids']===[11,12],'metadata enrichment');verify($zones[1]['senior_user_id']===null && $zones[1]['inspector_ids']===[],'legacy zones default');
-foreach([15,16,17,18] as $id){$result=OrgChart::saveZoneLeaders(1,$id,[11,16,17,18],99);verify($result['senior_user_id']===$id,'extended senior role accepted');verify($result['inspector_ids']===[11,16,17,18],'extended inspector roles accepted');}
+foreach([15,16,17,18] as $id){
+  rejected(fn()=>OrgChart::saveZoneLeaders(1,$id,[11],99),422);
+  rejected(fn()=>OrgChart::saveZoneLeaders(1,10,[11,$id],99),422);
+}
 OrgChart::saveZoneLeaders(1,10,[11,12],99);
-$failRepair=true;$saved=OrgChart::saveZoneLeaders(1,16,[11],99);
+$failRepair=true;$saved=OrgChart::saveZoneLeaders(1,10,[11],99);
 verify($saved['ok']===true&&$saved['request_repair_deferred']===true,'request repair failure must not fail leadership save');
-verify(Db::$leaders[1]['senior_user_id']===16,'leaders persist despite unrelated request repair failure');
+verify(Db::$leaders[1]['senior_user_id']===10,'leaders persist despite unrelated request repair failure');
 $failRepair=false;OrgChart::saveZoneLeaders(1,10,[11,12],99);
 foreach([[11,[]],[999,[]],[10,[13]],[10,[14]],[10,[999]],[10,['bad']],[10,'bad']] as [$senior,$inspectors]){rejected(fn()=>OrgChart::saveZoneLeaders(1,$senior,$inspectors,99),422);verify(Db::$leaders[1]['senior_user_id']===10,'failed save retains assignment');}
 rejected(fn()=>OrgChart::saveZoneLeaders(2,10,[],99),404);
