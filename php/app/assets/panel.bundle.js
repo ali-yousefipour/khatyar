@@ -3210,7 +3210,8 @@ function Zones() {
         setToChief(true);
         setToHead(true);
         setWorkflowQuery('');
-        setNz('');
+        if (parentId !== null)
+            setNz('');
         setError('');
     };
     const workflowPayload = () => ({
