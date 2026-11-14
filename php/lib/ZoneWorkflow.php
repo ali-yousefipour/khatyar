@@ -53,7 +53,7 @@ final class ZoneWorkflow {
   }
   private static function activeUser(int $id): ?array {
     if($id<=0)return null;
-    $u=Db::one("SELECT u.id,u.is_active,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?",[$id]);
+    $u=Db::one("SELECT u.id,u.is_active,u.first_name,u.last_name,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=?",[$id]);
     return $u && !empty($u['is_active'])?$u:null;
   }
   private static function activeRole(string $role): ?int {
@@ -77,7 +77,13 @@ final class ZoneWorkflow {
       if(!$person||!OrgChart::eligibleZoneLeader($person['role_title'],'senior'))Http::error('سربازرس منطقه معتبر یا فعال نیست.',422);
       foreach($ins as $id){
         $person=self::activeUser($id);
-        if(!$person||!OrgChart::eligibleZoneLeader($person['role_title'],'inspector')||$id===$senior)Http::error('بازرس منطقه معتبر یا فعال نیست.',422);
+        if(!$person||!OrgChart::eligibleZoneLeader($person['role_title']??'','inspector')||$id===$senior){
+          $label=$person?trim((string)($person['first_name']??'').' '.(string)($person['last_name']??'')):'';
+          $label=$label!==''?$label:'شناسه '.$id;
+          $reason=$id===$senior?'یک نفر هم‌زمان سربازرس و بازرس انتخاب شده است':
+            (!$person?'کاربر فعال یافت نشد':'سمت فعلی «'.($person['role_title']??'نامشخص').'» مجاز نیست');
+          Http::error('بازرس انتخاب‌شده «'.$label.'» معتبر نیست: '.$reason.'. فهرست مسئولان را بازبینی کنید.',422);
+        }
       }
       $chief=true;$head=true;$reviewer=0;
     } else {
