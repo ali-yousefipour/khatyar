@@ -12,9 +12,19 @@ class Db {
       PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
       PDO::ATTR_EMULATE_PREPARES => false,
     ]);
-    $pdo->exec("SET SESSION collation_connection = 'utf8mb4_unicode_ci'");
-    $pdo->exec("SET SESSION time_zone = '+03:30'");
+    // Some shared-host MySQL accounts reject SESSION variable changes even
+    // though connecting and querying are permitted. Do not convert an optional
+    // connection preference into a complete login / API outage.
     self::$pdo = $pdo;
+    foreach ([
+      "SET SESSION collation_connection = 'utf8mb4_unicode_ci'",
+      "SET SESSION time_zone = '+03:30'",
+    ] as $statement) {
+      try { $pdo->exec($statement); }
+      catch (PDOException $error) {
+        error_log('db session preference unavailable: '.(str_contains($statement,'time_zone')?'timezone':'collation').' sqlstate='.$error->getCode());
+      }
+    }
     return self::$pdo;
   }
   private static function queryTiming($sql, $start) {
