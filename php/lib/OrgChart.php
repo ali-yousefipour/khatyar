@@ -2,9 +2,12 @@
 class OrgChart {
   static function eligibleZoneLeader($roleTitle,$kind) {
     $role=self::roleKey($roleTitle);
-    $additional=in_array($role,['office','chief','head'],true);
-    return $kind==='senior' ? ($role==='senior'||$additional)
-      : ((in_array($role,['inspector','motor'],true)&&($role!=='motor'||str_contains(strtr((string)$roleTitle,['ي'=>'ی','ك'=>'ک']),'بازرس')))||$additional);
+    // Only a regional senior inspector or a qualified inspector may occupy
+    // the corresponding regional review stage. A global chief, department
+    // head or administrative employee must not silently replace that stage.
+    return $kind==='senior' ? $role==='senior'
+      : (in_array($role,['inspector','motor'],true) &&
+         ($role!=='motor'||str_contains(strtr((string)$roleTitle,['ي'=>'ی','ك'=>'ک']),'بازرس')));
   }
   // Same responsibility precedence as defaultEdges, independent of physical staff membership.
   static function zoneResponsibility($zoneId, $zones, $users) {
