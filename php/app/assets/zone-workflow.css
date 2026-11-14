@@ -1,0 +1,37 @@
+/* Dedicated RTL regional organization and approval workflow UI */
+.kh-region-toolbar{
+ display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:16px 0 22px;
+ padding:18px 20px;background:linear-gradient(115deg,#f3faf6,#fff);
+ border:1px solid #cfe6d9;border-radius:20px;box-shadow:0 8px 24px #064b3410
+}
+.kh-region-toolbar>div:first-child{flex:1 1 260px}
+.kh-region-toolbar strong{color:#075b4d;font-size:16px}
+.kh-region-toolbar p{font-size:12px;color:#526c61;margin:6px 0 0}
+.kh-region-toolbar .input{min-width:175px;flex:1 1 185px;max-width:280px}
+.kh-region-board{align-items:start;gap:16px}
+.kh-region-board .col{border:1px solid #d5e6db;border-radius:18px;padding:17px;min-width:245px;background:#fcfefd;box-shadow:0 6px 22px #0b543111;transition:box-shadow .2s,border-color .2s,transform .2s}
+.kh-region-board .col.over{border:2px dashed #0b8263;background:#edfaef;transform:translateY(-2px)}
+.kh-region-status{display:inline-flex;margin-block:5px 10px;padding:5px 11px;border-radius:999px;font-weight:700;font-size:12px}
+.kh-region-status.ready{background:#e2f5e9;color:#08624b}
+.kh-region-status.missing{background:#fff1d5;color:#89520d}
+.kh-region-person{border-radius:11px;transition:transform .2s,box-shadow .2s;cursor:grab}
+.kh-region-person:hover{transform:translateY(-2px);box-shadow:0 5px 16px #06553a22}
+.kh-workflow-editor{min-width:0;max-width:780px;display:grid;gap:14px;padding:4px 2px 10px;color:#23483a}
+.kh-workflow-editor>.muted{margin:0;line-height:1.85}
+.kh-workflow-editor label{font-size:13px;font-weight:700;color:#234538}
+.kh-workflow-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kh-workflow-modes .kh-mode{border:1.5px solid #cfdfd5;background:#f9fcfa;color:#254b3d;padding:18px;text-align:right;border-radius:16px;cursor:pointer;display:grid;gap:8px;transition:all .2s}
+.kh-workflow-modes .kh-mode:hover{border-color:#75b69a;background:#eff9f2}
+.kh-workflow-modes .kh-mode.chosen{border-color:#087b58;box-shadow:0 0 0 3px #10a0701d;background:linear-gradient(130deg,#e4f6ea,#fafffc)}
+.kh-mode strong{font-size:15px}
+.kh-mode span{font-size:12px;color:#61796c;line-height:1.65}
+.kh-workflow-fields{display:grid;gap:11px;padding:16px 18px;border-radius:16px;background:#f5faf7;border:1px solid #dbece1}
+.kh-workflow-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:220px;overflow:auto;padding:8px;background:#fff;border:1px solid #d8e6dd;border-radius:12px}
+.kh-workflow-people label,.kh-workflow-fields .kh-check{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer}
+.kh-workflow-people label:hover,.kh-workflow-fields .kh-check:hover{background:#eaf6ee}
+.kh-workflow-people small{font-size:11px;font-weight:400;color:#708578}
+.kh-workflow-fields input[type=checkbox]{accent-color:#067b59;width:17px;height:17px}
+.kh-workflow-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-top:1px solid #e0eee5;padding-top:15px}
+.kh-valid{color:#09765a;font-weight:700}.kh-invalid{color:#a2571a;font-weight:700}
+@media(max-width:700px){.kh-workflow-modes,.kh-workflow-people{grid-template-columns:1fr}.kh-region-toolbar .input{max-width:none}.kh-region-toolbar{padding:14px}.kh-region-board .col{min-width:0}}
+@media(prefers-reduced-motion:reduce){.kh-region-person,.kh-workflow-modes .kh-mode{transition:none}}
