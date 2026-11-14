@@ -273,7 +273,7 @@ jobs:
                 continue
               fi
 
-              if [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+              if [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Push.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
                 continue
               fi
 
@@ -300,7 +300,7 @@ jobs:
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
-          if [ -f deploy-payload/lib/school_service_sepand.php ] || [ -f deploy-payload/lib/complaints_routes_extra.php ] || [ -f deploy-payload/lib/RegionalTeam.php ] || [ -f deploy-payload/lib/Db.php ] || [ -f deploy-payload/lib/Http.php ] || [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ] || [ -f deploy-payload/lib/GpsWorkIntervals.php ] || [ -f deploy-payload/lib/InternetWorkIntervals.php ] || [ -f deploy-payload/lib/presence_reverse_geocode.php ] || [ -f deploy-payload/lib/subscription_invoice_routes.php ] || [ -f deploy-payload/lib/RadioShiftGate.php ] || [ -f deploy-payload/lib/school_service_routes_extra.php ] || [ -f deploy-payload/lib/DeliveryQueue.php ] || [ -f deploy-payload/lib/Xlsx.php ] || [ -f deploy-payload/lib/XlsxWriter.php ] || [ -f deploy-payload/lib/OrgChart.php ] || [ -f deploy-payload/lib/Seniority.php ] || [ -f deploy-payload/lib/Payroll.php ] || [ -f deploy-payload/lib/EmploymentAttendance.php ] || [ -f deploy-payload/lib/CompanyWork.php ] || [ -f deploy-payload/lib/company_work_routes.php ] || [ -f deploy-payload/lib/company-work-template.xlsx ]; then
+          if [ -f deploy-payload/lib/school_service_sepand.php ] || [ -f deploy-payload/lib/complaints_routes_extra.php ] || [ -f deploy-payload/lib/RegionalTeam.php ] || [ -f deploy-payload/lib/Db.php ] || [ -f deploy-payload/lib/Http.php ] || [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ] || [ -f deploy-payload/lib/GpsWorkIntervals.php ] || [ -f deploy-payload/lib/InternetWorkIntervals.php ] || [ -f deploy-payload/lib/presence_reverse_geocode.php ] || [ -f deploy-payload/lib/subscription_invoice_routes.php ] || [ -f deploy-payload/lib/RadioShiftGate.php ] || [ -f deploy-payload/lib/school_service_routes_extra.php ] || [ -f deploy-payload/lib/DeliveryQueue.php ] || [ -f deploy-payload/lib/Xlsx.php ] || [ -f deploy-payload/lib/XlsxWriter.php ] || [ -f deploy-payload/lib/OrgChart.php ] || [ -f deploy-payload/lib/Push.php ] || [ -f deploy-payload/lib/Seniority.php ] || [ -f deploy-payload/lib/Payroll.php ] || [ -f deploy-payload/lib/EmploymentAttendance.php ] || [ -f deploy-payload/lib/CompanyWork.php ] || [ -f deploy-payload/lib/company_work_routes.php ] || [ -f deploy-payload/lib/company-work-template.xlsx ]; then
             ROUTES_TOKEN="$(openssl rand -hex 32)"
             INSTALLER_NAME=".attendance-lib-install-${GITHUB_SHA}.php"
 
@@ -319,6 +319,7 @@ jobs:
               'Xlsx.php' => 'Xlsx.php',
               'XlsxWriter.php' => 'XlsxWriter.php',
               'OrgChart.php' => 'OrgChart.php',
+              'Push.php' => 'Push.php',
               'RegionalTeam.php' => 'RegionalTeam.php',
               'Seniority.php' => 'Seniority.php',
               'Payroll.php' => 'Payroll.php',
@@ -377,7 +378,7 @@ jobs:
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
               echo 'set ssl:verify-certificate no'
-              for name in school_service_sepand.php Db.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
+              for name in school_service_sepand.php Db.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/app/assets/.attendance-deploy-$name"
                 fi
@@ -398,7 +399,7 @@ jobs:
             echo "${response}" | grep -q '"ok":true'
             # Assert that the host-side installer actually copied each module
             # to the canonical /lib directory. Staging alone is insufficient.
-            for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php complaints_routes_extra.php school_service_sepand.php; do
+            for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php Push.php complaints_routes_extra.php school_service_sepand.php; do
               local_path="deploy-payload/lib/${name}"
               expected_sha="$(sha256sum "${local_path}" | awk '{print $1}')"
               php -r '
