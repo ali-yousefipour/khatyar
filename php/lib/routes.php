@@ -4730,6 +4730,10 @@ function _req_hierarchy_managers(int $uid): array {
   return [];
 }
 function _req_approver($uid){
+  // A configured region owns its approval chain, including staff whose work
+  // policy previously named an unrelated specific approver.
+  $zoneChain=_req_zone_chain((int)$uid);
+  if($zoneChain!==null)return $zoneChain[0];
   $options=_req_policy_options($uid);
   $mode=$options['approval_mode']??'hierarchical';
   if ($mode === 'specific') {
@@ -4737,8 +4741,6 @@ function _req_approver($uid){
     if(!$sp||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$sp]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
     return $sp ?: null;
   }
-  $chain=_req_zone_chain((int)$uid);
-  if($chain!==null)return $chain[0]??null;
   $mgrs=_req_hierarchy_managers((int)$uid);
   return $mgrs[0]??null; // Staff without a region retain their legacy organizational chain.
 }
@@ -4750,8 +4752,9 @@ function _req_current_pending_target(array $request): ?int {
   require_once __DIR__.'/OrgChart.php';
   $owner=(int)($request['user_id']??0);
   if($owner<=0)return null;
-  if((_req_policy_options($owner,false)['approval_mode']??'hierarchical')!=='hierarchical')return (int)($request['pending_on']??0) ?: null;
   $configured=_req_zone_chain($owner);
+  if($configured===null && (_req_policy_options($owner,false)['approval_mode']??'hierarchical')!=='hierarchical')
+    return (int)($request['pending_on']??0) ?: null;
   if($configured!==null){
     // An existing pending request must be reassigned to the same stage if
     // possible, or to the first remaining stage after the last accepted actor.
@@ -4840,7 +4843,8 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
   $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT $limit",$params);
   $changed=0;
   foreach($rows as $request){
-    if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    if(_req_zone_chain((int)$request['user_id'])===null &&
+       (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
     $target=_req_current_pending_target($request);$current=(int)($request['pending_on']??0);
     if(!$target||$target===$current)continue;
     $update=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
@@ -5236,13 +5240,11 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $options=_req_policy_options($r['user_id']);
   $mode=$options['approval_mode']??'hierarchical';
   $next = null;
-  if ($mode === 'hierarchical') {
-    $ownerChain=_req_zone_chain((int)$r['user_id']);
-    if($ownerChain!==null)$next=_req_next_zone_reviewer((int)$r['user_id'],(int)$u['id']);
-    else {
-      $mgrs=_req_hierarchy_managers((int)$u['id']);
-      $next=$mgrs[0]??null;
-    }
+  $ownerChain=_req_zone_chain((int)$r['user_id']);
+  if($ownerChain!==null)$next=_req_next_zone_reviewer((int)$r['user_id'],(int)$u['id']);
+  elseif($mode==='hierarchical'){
+    $mgrs=_req_hierarchy_managers((int)$u['id']);
+    $next=$mgrs[0]??null;
   }
   if ($next) {
     _req_approval_steps_ensure();
@@ -5907,7 +5909,9 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   $note=trim((string)($b['note']??''))?:null;
   if($status==='approved'){
     $options=_req_policy_options((int)$req['user_id'],false);
-    if(($options['approval_mode']??'hierarchical')==='hierarchical' && !_req_is_root_admin($u)){
+    if(!_req_is_root_admin($u) && (
+      _req_zone_chain((int)$req['user_id'])!==null ||
+      ($options['approval_mode']??'hierarchical')==='hierarchical')){
       $next=_req_next_zone_reviewer((int)$req['user_id'],(int)$u['id']);
       if($next){
         _req_approval_steps_ensure();
@@ -10323,7 +10327,8 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
   foreach($pending as $request){
     $current=(int)$request['pending_on'];
     if(!$inside((int)$request['zone_id'])&&!in_array((int)$request['user_id'],$oldInspectors,true))continue;
-    if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    if(_req_zone_chain((int)$request['user_id'])===null &&
+       (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
     $target=(int)(_req_current_pending_target($request)??0);
     if($target<=0||$target===$current)continue; // No replacement: keep the existing queue visible.
     $updated=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
