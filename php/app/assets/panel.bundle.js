@@ -549,9 +549,10 @@ const db = {
     revokeDevice: (id, type) => SEND('POST', '/admin/users/' + id + '/revoke-device', type ? { device_type: type } : {}),
     deleteUser: (id) => SEND('DELETE', '/admin/users/' + id),
     resetPassword: (id, password) => SEND('POST', '/admin/users/' + id + '/reset-password', { password }),
-    createZone: (name, parentId = null, requiresSubstitute = false) => SEND('POST', '/admin/zones', { name, parent_id: parentId, leave_requires_substitute: requiresSubstitute }),
+    createZone: (name, parentId = null, requiresSubstitute = false, workflow = {}) => SEND('POST', '/admin/zones', { name, parent_id: parentId, leave_requires_substitute: requiresSubstitute, ...workflow }),
     updateZone: (id, name, parentId, requiresSubstitute) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }), ...(requiresSubstitute === undefined ? {} : { leave_requires_substitute: requiresSubstitute }) }),
     zoneLeaders: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/leaders', fields),
+    zoneWorkflow: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/workflow', fields),
     deleteZone: (id) => SEND('DELETE', '/admin/zones/' + id, {}),
     addReason: (title) => SEND('POST', '/admin/notice-reasons', { title }),
     delReason: (id) => SEND('DELETE', '/admin/notice-reasons/' + id),
@@ -3163,6 +3164,7 @@ function LineAssign({ user, onClose }) {
             " \u062E\u0637 \u062B\u0628\u062A \u062D\u0636\u0648\u0631)")));
 }
 function Zones() {
+    var _a;
     const [users, setUsers] = useState([]);
     const [zones, setZones] = useState([]);
     const [over, setOver] = useState(null);
@@ -3174,16 +3176,66 @@ function Zones() {
     const mutation = useRef(false);
     const [newParent, setNewParent] = useState(''), [editParent, setEditParent] = useState(''), [child, setChild] = useState(null), [childName, setChildName] = useState('');
     const [leadership, setLeadership] = useState(null), [senior, setSenior] = useState(''), [inspectors, setInspectors] = useState([]);
+    const [workflowMode, setWorkflowMode] = useState(''), [adminReviewer, setAdminReviewer] = useState('');
+    const [toChief, setToChief] = useState(true), [toHead, setToHead] = useState(true);
+    const [memberQuery, setMemberQuery] = useState(''), [workflowQuery, setWorkflowQuery] = useState('');
+    const [selectedMember, setSelectedMember] = useState(''), [targetZone, setTargetZone] = useState('');
     const roleOf = user => String(user.role_title || '').replace(/[يكئ]/g, character => character === 'ك' ? 'ک' : 'ی').replace(/[\s\u200c\u200dـ]/g, '');
-    const leaderKind = (user, kind) => { const role = roleOf(user); const extra = role.includes('اداری') || role.includes('سربازرسارشد') || (role.includes('رییساداره') && role.includes('بازرسی')); if (role.includes('صدورپروانه') || role.includes('مدیراجرایی') || (role.includes('معاون') && role.includes('بازرسی')))
-        return false; if (extra)
-        return true; if (kind === 'senior')
-        return role.includes('سربازرس'); return (role.includes('بازرس') && !role.includes('سربازرس')) || ((role.includes('گشت') && role.includes('موتور')) && role.includes('بازرس')); };
+    const leaderKind = (user, kind) => {
+        const role = roleOf(user);
+        if (kind === 'senior')
+            return role.includes('سربازرس') && !role.includes('ارشد');
+        return role.includes('بازرس') && !role.includes('سربازرس') && !role.includes('رییساداره');
+    };
     const seniorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'senior'));
     const inspectorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'inspector'));
     const userName = id => { const user = users.find(item => +item.id === +id); return user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : '#' + id; };
-    const openLeaders = zone => { setLeadership(zone); setSenior(zone.senior_user_id ? String(zone.senior_user_id) : ''); setInspectors((zone.inspector_ids || []).map(Number)); setError(''); };
-    const saveLeaders = () => mutate(async () => { const result = await db.zoneLeaders(leadership.id, { senior_user_id: senior ? +senior : null, inspector_ids: inspectors }); setZones(current => current.map(zone => +zone.id === +leadership.id ? { ...zone, senior_user_id: result.senior_user_id, inspector_ids: result.inspector_ids } : zone)); setLeadership(null); });
+    const openLeaders = zone => {
+        setLeadership(zone);
+        setSenior(zone.senior_user_id ? String(zone.senior_user_id) : '');
+        setInspectors((zone.inspector_ids || []).map(Number));
+        setWorkflowMode(zone.workflow_mode || '');
+        setAdminReviewer(zone.admin_reviewer_id ? String(zone.admin_reviewer_id) : '');
+        setToChief(zone.to_chief !== false);
+        setToHead(zone.to_head !== false);
+        setWorkflowQuery('');
+        setError('');
+    };
+    const openCreate = (parentId = null) => {
+        setLeadership({ id: null, name: 'منطقه جدید', parent_id: parentId, workflow_mode: '' });
+        setWorkflowMode('');
+        setSenior('');
+        setInspectors([]);
+        setAdminReviewer('');
+        setToChief(true);
+        setToHead(true);
+        setWorkflowQuery('');
+        setNz('');
+        setError('');
+    };
+    const workflowPayload = () => ({
+        workflow_mode: workflowMode, senior_user_id: senior ? Number(senior) : null,
+        inspector_ids: inspectors, admin_reviewer_id: adminReviewer ? Number(adminReviewer) : null,
+        to_chief: toChief, to_head: toHead
+    });
+    const workflowValid = workflowMode === 'inspection' ? (!!senior && inspectors.length > 0) :
+        workflowMode === 'administrative' ? (!!adminReviewer || toChief || toHead) : false;
+    const saveLeaders = () => mutate(async () => {
+        var _a;
+        if (!workflowValid)
+            throw Error('نوع سلسله‌مراتب و مسئولان الزامی را تکمیل کنید.');
+        const payload = workflowPayload();
+        if (!leadership.id) {
+            if (!nz.trim())
+                throw Error('نام منطقه را وارد کنید.');
+            await db.createZone(nz.trim(), (_a = leadership.parent_id) !== null && _a !== void 0 ? _a : null, false, payload);
+        }
+        else
+            await db.zoneWorkflow(leadership.id, payload);
+        await reload();
+        setLeadership(null);
+        setNz('');
+    });
     const pathFor = zone => { const parts = [], seen = new Set(); let current = zone; while (current && !seen.has(+current.id)) {
         seen.add(+current.id);
         parts.unshift(current.name);
@@ -3214,15 +3266,13 @@ function Zones() {
     const setLeaveRequirement = (zone, required) => mutate(async () => { await db.updateZone(zone.id, zone.name, undefined, required); setZones(current => current.map(item => +item.id === +zone.id ? { ...item, leave_requires_substitute: required ? 1 : 0 } : item)); });
     const assign = (uid, zid) => { if (!users.some(user => +user.id === +uid))
         return; return mutate(async () => { await db.setOrg(uid, { zone_id: zid }); setUsers(current => current.map(user => +user.id === +uid ? { ...user, zone_id: zid } : user)); }); };
-    const addZone = () => { const name = nz.trim(); if (!name)
-        return; return mutate(async () => { const parent_id = newParent ? +newParent : null; const zone = await db.createZone(name, parent_id); setZones(current => [...current, { ...zone, parent_id }]); setNz(""); }); };
-    const addChild = () => { const name = childName.trim(); if (!name || !child)
-        return; return mutate(async () => { const zone = await db.createZone(name, +child.id); setZones(current => [...current, { ...zone, parent_id: +child.id }]); setChild(null); setChildName(''); }); };
+    const addZone = () => openCreate(newParent ? Number(newParent) : null);
+    const addChild = () => openCreate(child ? Number(child.id) : null);
     const saveZone = () => { const name = editName.trim(); if (!name || !editing)
         return; return mutate(async () => { const parent_id = editParent ? +editParent : null; await db.updateZone(editing.id, name, parent_id); setZones(current => current.map(zone => +zone.id === +editing.id ? { ...zone, name, parent_id } : zone)); setEditing(null); }); };
     const removeZone = zone => { if (busy || !confirm(`منطقهٔ «${zone.name}» حذف شود؟ نیروهای آن حذف نمی‌شوند و به «بدون منطقه» منتقل می‌شوند.`))
         return; return mutate(async () => { await db.deleteZone(zone.id); setZones(current => current.filter(item => +item.id !== +zone.id).map(item => +item.parent_id === +zone.id ? { ...item, parent_id: null } : item)); setUsers(current => current.map(user => +user.zone_id === +zone.id ? { ...user, zone_id: null } : user)); }); };
-    const Card = u => React.createElement("div", { className: "card-p", key: u.id, draggable: !busy, onDragStart: e => e.dataTransfer.setData("uid", u.id) },
+    const Card = u => React.createElement("div", { className: "card-p kh-region-person", key: u.id, draggable: !busy, onDragStart: e => e.dataTransfer.setData("uid", u.id) },
         React.createElement("span", null,
             u.first_name,
             " ",
@@ -3236,18 +3286,26 @@ function Zones() {
             React.createElement("span", null, title),
             zid != null && React.createElement("span", { className: "row", style: { gap: 5, flexWrap: 'wrap' } },
                 React.createElement("button", { className: "btn g", disabled: busy, onClick: () => openLeaders(zones.find(item => +item.id === +zid)) }, "\u062A\u0639\u06CC\u06CC\u0646 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"),
-                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setChild(zone); setChildName(''); } }, "+ \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); openCreate(Number(zone.id)); } }, "+ \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
                 React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setEditing(zone); setEditName(zone.name); setEditParent(zone.parent_id ? String(zone.parent_id) : ''); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                 React.createElement("button", { className: "btn d", disabled: busy, onClick: () => removeZone(zones.find(item => +item.id === +zid)) }, "\u062D\u0630\u0641"))),
         zid != null && (() => { const zone = zones.find(item => +item.id === +zid); return React.createElement("div", { style: { fontSize: 12, lineHeight: 2, marginBottom: 10 } },
             React.createElement("div", { className: "muted" }, pathFor(zone)),
-            React.createElement("div", null,
-                "\u0633\u0631\u0628\u0627\u0632\u0631\u0633: ",
-                zone.senior_user_id ? userName(zone.senior_user_id) : 'پیش‌فرض منطقه / منطقهٔ والد'),
-            React.createElement("div", null,
-                "\u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627: ",
-                (zone.inspector_ids || []).length ? zone.inspector_ids.map(userName).join('، ') : 'پیش‌فرض منطقه / منطقهٔ والد')); })(),
-        users.filter(u => Number(u.is_active) === 1 && (zid == null ? !u.zone_id : +u.zone_id === +zid)).map(Card));
+            React.createElement("div", { className: 'kh-region-status ' + (zone.workflow_configured ? 'ready' : 'missing') }, zone.workflow_configured ? (zone.workflow_mode === 'inspection' ? 'سلسله‌مراتب بازرسی' : 'سلسله‌مراتب اداری') : 'نیازمند تعیین سلسله‌مراتب و مسئول'),
+            zone.workflow_mode === 'inspection' ? React.createElement(React.Fragment, null,
+                React.createElement("div", null,
+                    "\u0633\u0631\u0628\u0627\u0632\u0631\u0633: ",
+                    zone.senior_user_id ? userName(zone.senior_user_id) : 'تعیین نشده'),
+                React.createElement("div", null,
+                    "\u0628\u0627\u0632\u0631\u0633\u0627\u0646: ",
+                    (zone.inspector_ids || []).length ? zone.inspector_ids.map(userName).join('، ') : 'تعیین نشده')) : zone.workflow_mode === 'administrative' ? React.createElement("div", null,
+                "\u0645\u0633\u0626\u0648\u0644 \u0627\u0648\u0644\u06CC\u0647: ",
+                zone.admin_reviewer_id ? userName(zone.admin_reviewer_id) : 'بدون مرحله اولیه',
+                " | \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F: ",
+                zone.to_chief ? 'بله' : 'خیر',
+                " | \u0631\u0626\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647: ",
+                zone.to_head ? 'بله' : 'خیر') : React.createElement("div", null, "\u0628\u0631\u0627\u06CC \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0627\u06CC\u062F \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u06CC\u0646 \u0645\u0646\u0637\u0642\u0647 \u06A9\u0627\u0645\u0644 \u0634\u0648\u062F.")); })(),
+        users.filter(u => Number(u.is_active) === 1 && (zid == null ? !u.zone_id : +u.zone_id === +zid) && (!memberQuery || [u.first_name, u.last_name, u.username, u.role_title].join(' ').toLocaleLowerCase().includes(memberQuery.toLocaleLowerCase()))).map(Card));
     const zoneTree = (() => {
         const seen = new Set();
         const renderBranch = (parentId, depth = 0) => zones.filter(z => String(z.parent_id || '') === String(parentId || '') && !seen.has(+z.id)).sort((a, b) => a.name.localeCompare(b.name, 'fa')).map(z => {
@@ -3263,50 +3321,85 @@ function Zones() {
     })();
     return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
-            "\u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u0631\u0627 \u062F\u0631 \u0645\u0646\u0637\u0642\u0647\u0654 \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0647\u0627 \u06A9\u0646\u06CC\u062F",
+            "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0645\u0646\u0627\u0637\u0642 \u0648 \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628 \u062A\u0623\u06CC\u06CC\u062F",
             React.createElement("span", { className: "row", style: { gap: 8 } },
                 React.createElement("input", { className: "input", maxLength: 150, style: { padding: "6px 10px", width: 160 }, placeholder: "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647\u0654 \u062C\u062F\u06CC\u062F", value: nz, onChange: e => setNz(e.target.value) }),
                 React.createElement("select", { "aria-label": "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F \u0628\u0631\u0627\u06CC \u0645\u0646\u0637\u0642\u0647 \u062C\u062F\u06CC\u062F", className: "input", style: { maxWidth: 230 }, value: newParent, onChange: event => setNewParent(event.target.value) },
                     React.createElement("option", { value: "" }, "\u0645\u0646\u0637\u0642\u0647 \u0645\u0633\u062A\u0642\u0644 (\u0628\u062F\u0648\u0646 \u0648\u0627\u0644\u062F)"),
                     ordered.map(zone => React.createElement("option", { key: zone.id, value: zone.id }, pathFor(zone)))),
-                React.createElement("button", { className: "btn p", disabled: busy || !nz.trim(), onClick: addZone }, "+ \u0645\u0646\u0637\u0642\u0647"))),
+                React.createElement("button", { className: "btn p", disabled: busy, onClick: addZone }, "+ \u062A\u0639\u0631\u06CC\u0641 \u0645\u0646\u0637\u0642\u0647 \u0628\u0627 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
-        React.createElement("div", { className: "org" },
+        React.createElement("section", { className: "kh-region-toolbar" },
+            React.createElement("div", null,
+                React.createElement("strong", null, "\u0646\u0648\u0627\u062D\u06CC \u0633\u0627\u0632\u0645\u0627\u0646\u06CC \u0648 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"),
+                React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648 \u06A9\u0627\u0631\u062A \u0627\u0648 \u0631\u0627 \u0628\u06A9\u0634\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u0642\u0627\u0644 \u0633\u0631\u06CC\u0639 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F. \u0645\u0646\u0627\u0637\u0642 \u0646\u0627\u0642\u0635 \u0645\u0634\u062E\u0635 \u0634\u062F\u0647\u200C\u0627\u0646\u062F.")),
+            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648\u06CC \u0645\u0646\u0637\u0642\u0647", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0632\u0646\u062F\u0647 \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u0633\u0645\u062A...", value: memberQuery, onChange: e => setMemberQuery(e.target.value) }),
+            React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648 \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u0642\u0627\u0644", value: selectedMember, onChange: e => setSelectedMember(e.target.value) },
+                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648 \u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC"),
+                users.map(u => React.createElement("option", { key: u.id, value: u.id },
+                    userName(u.id),
+                    " \u2014 ",
+                    u.role_title))),
+            React.createElement("select", { className: "input", "aria-label": "\u0645\u0646\u0637\u0642\u0647 \u0645\u0642\u0635\u062F", value: targetZone, onChange: e => setTargetZone(e.target.value) },
+                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0646\u0637\u0642\u0647 \u0645\u0642\u0635\u062F"),
+                ordered.filter(z => z.workflow_configured).map(z => React.createElement("option", { key: z.id, value: z.id }, pathFor(z)))),
+            React.createElement("button", { className: "btn p", disabled: busy || !selectedMember || !targetZone, onClick: () => mutate(async () => { await db.setOrg(Number(selectedMember), { zone_id: Number(targetZone) }); await reload(); setSelectedMember(''); setTargetZone(''); }) }, "\u0627\u0646\u062A\u0642\u0627\u0644 \u0646\u06CC\u0631\u0648")),
+        React.createElement("div", { className: "org kh-region-board" },
             Col("بدون منطقه", null),
             zoneTree),
-        leadership && React.createElement(Modal, { title: 'مسئولان ' + pathFor(leadership), onClose: () => { if (!busy)
+        leadership && React.createElement(Modal, { title: leadership.id ? 'سلسله‌مراتب تأیید — ' + pathFor(leadership) : 'تعریف منطقه و سلسله‌مراتب', onClose: () => { if (!busy)
                 setLeadership(null); } },
-            React.createElement("p", { className: "muted" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0633\u0626\u0648\u0644\u060C \u0645\u0646\u0637\u0642\u0647\u0654 \u0639\u0636\u0648\u06CC\u062A \u0646\u06CC\u0631\u0648 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F. \u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0627\u0644\u06CC\u060C \u0686\u0627\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0645\u0646\u0637\u0642\u0647 \u0648 \u0646\u0632\u062F\u06CC\u06A9\u200C\u062A\u0631\u06CC\u0646 \u0648\u0627\u0644\u062F \u0631\u0627 \u062D\u0641\u0638 \u0645\u06CC\u200C\u06A9\u0646\u062F."),
-            React.createElement("label", null, "\u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0646\u0637\u0642\u0647"),
-            React.createElement("select", { "aria-label": "\u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0646\u0637\u0642\u0647", className: "input", value: senior, disabled: busy, onChange: event => setSenior(event.target.value) },
-                React.createElement("option", { value: "" }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0645\u0646\u0637\u0642\u0647 / \u0648\u0627\u0644\u062F"),
-                senior && !seniorUsers.some(user => String(user.id) === senior) && React.createElement("option", { value: senior },
-                    "\u0627\u0646\u062A\u062E\u0627\u0628 \u0642\u0628\u0644\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: ",
-                    userName(senior)),
-                seniorUsers.map(user => React.createElement("option", { key: user.id, value: user.id },
-                    userName(user.id),
-                    " \u2014 ",
-                    user.role_title))),
-            React.createElement("h4", { style: { marginTop: 14 } }, "\u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627\u06CC \u0645\u0646\u0637\u0642\u0647 / \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
-            React.createElement("div", { style: { maxHeight: 260, overflow: 'auto' } }, [...inspectorUsers, ...inspectors.filter(id => !inspectorUsers.some(user => +user.id === id)).map(id => ({ id, role_title: 'انتخاب قبلی نامعتبر؛ برای حذف تیک را بردارید' }))].map(user => React.createElement("label", { key: user.id, style: { display: 'block', padding: 8 } },
-                React.createElement("input", { type: "checkbox", disabled: busy, checked: inspectors.includes(+user.id), onChange: event => setInspectors(current => event.target.checked ? [...current, +user.id] : current.filter(id => id !== +user.id)) }),
-                " ",
-                userName(user.id),
-                " \u2014 ",
-                user.role_title))),
-            error && React.createElement("p", { role: "alert", style: { color: 'var(--danger)' } }, error),
-            React.createElement("button", { className: "btn p", disabled: busy, onClick: saveLeaders }, "\u0630\u062E\u06CC\u0631\u0647 \u0645\u0633\u0626\u0648\u0644\u0627\u0646")),
-        child && React.createElement(Modal, { title: 'تعریف زیرمنطقه برای ' + child.name, onClose: () => { if (!busy)
-                setChild(null); } },
-            React.createElement("p", { style: { lineHeight: 2 } },
-                "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F: ",
-                pathFor(child)),
-            React.createElement("label", null, "\u0646\u0627\u0645 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
-            React.createElement("input", { "aria-label": "\u0646\u0627\u0645 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647", className: "input", maxLength: 150, value: childName, onChange: event => setChildName(event.target.value) }),
-            error && React.createElement("p", { role: "alert", style: { color: 'var(--danger)' } }, error),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12 } },
-                React.createElement("button", { className: "btn p", disabled: busy || !childName.trim(), onClick: addChild }, "\u0630\u062E\u06CC\u0631\u0647 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
-                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setChild(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641"))),
+            React.createElement("div", { className: "kh-workflow-editor", dir: "rtl" },
+                !leadership.id && React.createElement(React.Fragment, null,
+                    React.createElement("label", null, "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647 \u062C\u062F\u06CC\u062F"),
+                    React.createElement("input", { className: "input", maxLength: 150, placeholder: "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647", value: nz, onChange: e => setNz(e.target.value) }),
+                    React.createElement("p", { className: "muted" },
+                        "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F: ",
+                        ((_a = zones.find(z => +z.id === +leadership.parent_id)) === null || _a === void 0 ? void 0 : _a.name) || 'منطقه مستقل')),
+                React.createElement("p", { className: "muted" }, "\u0647\u0631 \u0645\u0646\u0637\u0642\u0647 \u0628\u0627\u06CC\u062F \u0646\u0648\u0639 \u06AF\u0631\u062F\u0634 \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0645\u0633\u0626\u0648\u0644\u0627\u0646 \u0645\u0639\u062A\u0628\u0631 \u062E\u0648\u062F\u0634 \u0631\u0627 \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F. \u0627\u0631\u062C\u0627\u0639 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0628\u0647 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F \u062F\u0631 \u0646\u0628\u0648\u062F \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062D\u0630\u0641 \u0634\u062F\u0647 \u0627\u0633\u062A."),
+                React.createElement("div", { className: "kh-workflow-modes", role: "group", "aria-label": "\u0646\u0648\u0639 \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628" },
+                    React.createElement("button", { type: "button", className: 'kh-mode ' + (workflowMode === 'inspection' ? 'chosen' : ''), onClick: () => setWorkflowMode('inspection') },
+                        React.createElement("strong", null, "\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628 \u0628\u0627\u0632\u0631\u0633\u06CC"),
+                        React.createElement("span", null, "\u0628\u0627\u0632\u0631\u0633 \u2190 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u2190 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F \u2190 \u0631\u0626\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647")),
+                    React.createElement("button", { type: "button", className: 'kh-mode ' + (workflowMode === 'administrative' ? 'chosen' : ''), onClick: () => setWorkflowMode('administrative') },
+                        React.createElement("strong", null, "\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628 \u0627\u062F\u0627\u0631\u06CC"),
+                        React.createElement("span", null, "\u0645\u0633\u0626\u0648\u0644 \u0627\u062E\u062A\u06CC\u0627\u0631\u06CC \u0648 \u0645\u0631\u0627\u062D\u0644 \u0642\u0627\u0628\u0644 \u0627\u0646\u062A\u062E\u0627\u0628"))),
+                workflowMode === 'inspection' && React.createElement("div", { className: "kh-workflow-fields" },
+                    React.createElement("label", null, "\u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0633\u0626\u0648\u0644 \u0645\u0646\u0637\u0642\u0647 (\u0627\u0644\u0632\u0627\u0645\u06CC)"),
+                    React.createElement("select", { className: "input", value: senior, onChange: e => setSenior(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0641\u0639\u0627\u0644"),
+                        seniorUsers.map(u => React.createElement("option", { key: u.id, value: u.id },
+                            userName(u.id),
+                            " \u2014 ",
+                            u.role_title))),
+                    React.createElement("label", null, "\u0628\u0627\u0632\u0631\u0633 \u06CC\u0627 \u0628\u0627\u0632\u0631\u0633\u0627\u0646 \u0645\u0633\u0626\u0648\u0644 (\u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0646\u0641\u0631)"),
+                    React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0628\u0627\u0632\u0631\u0633", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0628\u0627\u0632\u0631\u0633...", value: workflowQuery, onChange: e => setWorkflowQuery(e.target.value) }),
+                    React.createElement("div", { className: "kh-workflow-people" }, inspectorUsers.filter(u => !workflowQuery || [u.first_name, u.last_name, u.username].join(' ').toLocaleLowerCase().includes(workflowQuery.toLocaleLowerCase())).map(u => React.createElement("label", { key: u.id },
+                        React.createElement("input", { type: "checkbox", checked: inspectors.includes(+u.id), onChange: e => setInspectors(current => e.target.checked ? [...current, +u.id] : current.filter(id => id !== +u.id)) }),
+                        userName(u.id),
+                        " ",
+                        React.createElement("small", null, u.role_title)))),
+                    React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u062A\u0623\u06CC\u06CC\u062F \u0628\u0627\u0632\u0631\u0633 \u0627\u0635\u0644\u06CC\u060C \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0647 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F \u0648 \u0631\u0626\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647 \u0645\u06CC\u200C\u0631\u0648\u062F. \u0633\u0627\u06CC\u0631 \u0628\u0627\u0632\u0631\u0633\u0627\u0646 \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u0645\u062C\u0628\u0648\u0631 \u0628\u0647 \u062A\u0623\u06CC\u06CC\u062F \u0646\u06CC\u0633\u062A\u0646\u062F.")),
+                workflowMode === 'administrative' && React.createElement("div", { className: "kh-workflow-fields" },
+                    React.createElement("label", null, "\u0645\u0633\u0626\u0648\u0644 \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
+                    React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0633\u0626\u0648\u0644 \u0627\u062F\u0627\u0631\u06CC", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC...", value: workflowQuery, onChange: e => setWorkflowQuery(e.target.value) }),
+                    React.createElement("select", { className: "input", value: adminReviewer, onChange: e => setAdminReviewer(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u0628\u062F\u0648\u0646 \u0645\u0633\u0626\u0648\u0644 \u0627\u0648\u0644\u06CC\u0647"),
+                        users.filter(u => !workflowQuery || [u.first_name, u.last_name, u.username, u.role_title].join(' ').toLocaleLowerCase().includes(workflowQuery.toLocaleLowerCase()) || String(u.id) === adminReviewer).map(u => React.createElement("option", { value: u.id, key: u.id },
+                            userName(u.id),
+                            " \u2014 ",
+                            u.role_title))),
+                    React.createElement("label", { className: "kh-check" },
+                        React.createElement("input", { type: "checkbox", checked: toChief, onChange: e => setToChief(e.target.checked) }),
+                        " \u0627\u0631\u062C\u0627\u0639 \u0628\u0647 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F"),
+                    React.createElement("label", { className: "kh-check" },
+                        React.createElement("input", { type: "checkbox", checked: toHead, onChange: e => setToHead(e.target.checked) }),
+                        " \u0627\u0631\u062C\u0627\u0639 \u0628\u0647 \u0631\u0626\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647 \u0628\u0627\u0632\u0631\u0633\u06CC"),
+                    React.createElement("p", { className: "muted" }, "\u0627\u06AF\u0631 \u0645\u0633\u0626\u0648\u0644 \u0627\u0648\u0644\u06CC\u0647 \u0645\u0634\u062E\u0635 \u0634\u0648\u062F\u060C \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0627\u0628\u062A\u062F\u0627 \u0628\u0647 \u0627\u0648 \u0645\u06CC\u200C\u0631\u0633\u062F\u061B \u0633\u067E\u0633 \u0641\u0642\u0637 \u0645\u0631\u0627\u062D\u0644 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062D\u062F\u0627\u0642\u0644 \u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u0627\u0644\u0632\u0627\u0645\u06CC \u0627\u0633\u062A.")),
+                React.createElement("div", { className: "kh-workflow-footer" },
+                    React.createElement("span", { className: workflowValid ? 'kh-valid' : 'kh-invalid' }, workflowValid ? 'پیکربندی اولیه تکمیل است' : 'تعیین نوع و مسئولان الزامی است'),
+                    React.createElement("button", { className: "btn p", disabled: busy || !workflowValid || (!leadership.id && !nz.trim()), onClick: saveLeaders }, "\u0630\u062E\u06CC\u0631\u0647 \u0648 \u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628")),
+                error && React.createElement("p", { role: "alert", style: { color: 'var(--danger)' } }, error))),
         editing && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u0646\u0637\u0642\u0647", onClose: () => { if (!busy)
                 setEditing(null); } },
             React.createElement("label", null, "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647"),
