@@ -14,6 +14,10 @@ $zones=[
 ];
 foreach([100,101,200,201] as $id)
   assertZoneFallback(OrgChart::legacyDirectChiefZone($id,$zones),'Legacy direct-chief region not recognized: '.$id);
+assertZoneFallback(OrgChart::legacyDirectChiefBoundaryZone(101,$zones)===100,'HQ descendant boundary');
+assertZoneFallback(OrgChart::legacyDirectChiefBoundaryZone(201,$zones)===201,'Nearest motorcycle-patrol boundary');
+assertZoneFallback(OrgChart::zoneInsideBoundary(101,100,$zones),'Explicit HQ reviewer must cover descendants');
+assertZoneFallback(!OrgChart::zoneInsideBoundary(100,200,$zones),'Unrelated parent reviewer must not leak into patrol');
 foreach([300,301,999] as $id)
   assertZoneFallback(!OrgChart::legacyDirectChiefZone($id,$zones),'Unrelated region incorrectly bypassed: '.$id);
 $cyclic=[['id'=>400,'name'=>'منطقه الف','parent_id'=>401],['id'=>401,'name'=>'منطقه ب','parent_id'=>400]];
