@@ -21,6 +21,7 @@ async function refreshAccess(){
     const refresh=await SecureStore.getItemAsync('refresh');
     if(!refresh)return false;
     const form=new URLSearchParams();form.append('refresh',refresh);
+    const transient=()=>Object.assign(new Error('سرور موقتاً در دسترس نیست؛ نشست شما حفظ شده است.'),{status:503});
     for(let attempt=0;attempt<2;attempt++){
       try{
         const r=await fetchTimeout(`${apiBase()}/session/renew`,{
@@ -29,14 +30,14 @@ async function refreshAccess(){
           body:form.toString()
         },18000);
         if(r.status===401||r.status===403)return false; // verified revocation/expiry
-        if(!r.ok){if(r.status>=500&&attempt===0)continue;return false;}
+        if(!r.ok){if(r.status>=500){if(attempt===0)continue;throw transient();}return false;}
         const d=await r.json();
-        if(!d?.access||!d?.refresh)return false;
+        if(!d?.access||!d?.refresh)throw transient();
         await setTokens(d.access,d.refresh);
         return true;
-      }catch(_){if(attempt===1)return false;}
+      }catch(error){if(attempt===1)throw transient();}
     }
-    return false;
+    throw transient();
   })();
   try{return await renewalPromise}finally{renewalPromise=null;}
 }
