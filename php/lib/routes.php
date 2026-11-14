@@ -4672,6 +4672,23 @@ function _req_explicit_active_manager(int $userId,array $allowedRoles): array {
   foreach($ids as $id)if(isset($byId[(int)$id])&&(int)$id!==$userId)return [(int)$id];
   return [];
 }
+// Explicit workflow belongs to the REQUEST OWNER, never to the reviewer.
+// A reviewer can cover several regions with different approval policies.
+function _req_zone_chain(int $ownerId): ?array {
+  require_once __DIR__.'/ZoneWorkflow.php';
+  $row=Db::one("SELECT zone_id FROM users WHERE id=? AND is_active=1",[$ownerId]);
+  if(!$row)return null;
+  $zoneId=(int)($row['zone_id']??0);
+  if($zoneId<1)return null;
+  return ZoneWorkflow::chain($zoneId);
+}
+function _req_next_zone_reviewer(int $ownerId,int $actorId): ?int {
+  $chain=_req_zone_chain($ownerId);
+  if($chain===null)return null;
+  $index=array_search($actorId,$chain,true);
+  if($index===false)Http::error('تأییدکننده در زنجیره فعال منطقه قرار ندارد؛ درخواست را تازه‌سازی کنید.',409);
+  return $chain[$index+1]??null;
+}
 function _req_hierarchy_managers(int $uid): array {
   require_once __DIR__.'/OrgChart.php';
   $person=Db::one('SELECT u.zone_id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$uid]);
@@ -4740,8 +4757,10 @@ function _req_approver($uid){
     if(!$sp||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$sp]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
     return $sp ?: null;
   }
-  $mgrs = _req_hierarchy_managers((int)$uid);
-  return $mgrs[0] ?? null; // نخستین مقام بالادست
+  $chain=_req_zone_chain((int)$uid);
+  if($chain!==null)return $chain[0]??null;
+  $mgrs=_req_hierarchy_managers((int)$uid);
+  return $mgrs[0]??null; // Staff without a region retain their legacy organizational chain.
 }
 
 // Recalculate the unfinished stage from the requester's CURRENT regional chain.
@@ -4752,6 +4771,19 @@ function _req_current_pending_target(array $request): ?int {
   $owner=(int)($request['user_id']??0);
   if($owner<=0)return null;
   if((_req_policy_options($owner,false)['approval_mode']??'hierarchical')!=='hierarchical')return (int)($request['pending_on']??0) ?: null;
+  $configured=_req_zone_chain($owner);
+  if($configured!==null){
+    // An existing pending request must be reassigned to the same stage if
+    // possible, or to the first remaining stage after the last accepted actor.
+    $last=(int)($request['approver_id']??0);
+    if($last>0){
+      $index=array_search($last,$configured,true);
+      if($index!==false)return $configured[$index+1]??null;
+    }
+    $pending=(int)($request['pending_on']??0);
+    if(in_array($pending,$configured,true))return $pending;
+    return $configured[0]??null;
+  }
   $chain=[];$seen=[];$cursor=$owner;
   while($cursor>0&&!isset($seen[$cursor])&&count($chain)<8){
     $seen[$cursor]=true;
@@ -5220,8 +5252,12 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $mode=$options['approval_mode']??'hierarchical';
   $next = null;
   if ($mode === 'hierarchical') {
-    $mgrs = _req_hierarchy_managers((int)$u['id']);
-    $next = $mgrs[0] ?? null;
+    $ownerChain=_req_zone_chain((int)$r['user_id']);
+    if($ownerChain!==null)$next=_req_next_zone_reviewer((int)$r['user_id'],(int)$u['id']);
+    else {
+      $mgrs=_req_hierarchy_managers((int)$u['id']);
+      $next=$mgrs[0]??null;
+    }
   }
   if ($next) {
     _req_approval_steps_ensure();
@@ -10244,7 +10280,12 @@ function _zone_leave_requirement_value($value){
   if($value===false||$value===0||$value==='0')return 0;
   Http::error('مقدار گزینهٔ نیاز به نیروی جایگزین نامعتبر است.',422);
 }
-route('GET', '/api/admin/zones', function(){_zone_leave_requirement_storage();require_once __DIR__.'/OrgChart.php';return OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id"));});
+route('GET', '/api/admin/zones', function(){
+  _zone_leave_requirement_storage();
+  require_once __DIR__.'/OrgChart.php';
+  require_once __DIR__.'/ZoneWorkflow.php';
+  return ZoneWorkflow::enrich(OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id")));
+});
 // Runs inside the same transaction as a zone leadership change. Only pending
 // hierarchical requests currently assigned to a replaced regional reviewer move.
 function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int $senior,array $inspectors): int {
@@ -10278,7 +10319,41 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
   }
   return $moved;
 }
-route('PUT', '/api/admin/zones/{id}/leaders', function($p,$b,$u){require_once __DIR__.'/OrgChart.php';return OrgChart::saveZoneLeaders($p['id'],$b['senior_user_id']??null,$b['inspector_ids']??[],$u['id']);},false,ADMIN);
+route('PUT','/api/admin/zones/{id}/workflow',function($p,$b,$u){
+  require_once __DIR__.'/OrgChart.php';require_once __DIR__.'/ZoneWorkflow.php';
+  OrgChart::ensureZoneLeaders();
+  $cfg=ZoneWorkflow::validate($b);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    if(!Db::one("SELECT id FROM zones WHERE id=? FOR UPDATE",[(int)$p['id']]))Http::error('منطقه یافت نشد.',404);
+    ZoneWorkflow::write((int)$p['id'],$cfg,(int)$u['id']);
+    $pdo->commit();
+  }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
+  $reassigned=0;
+  try{$reassigned=_req_reconcile_pending_approvals(null,null,false);}
+  catch(Throwable $error){error_log('zone workflow request reconciliation deferred: '.$error->getMessage());}
+  return ['ok'=>true,'workflow_mode'=>$cfg['mode'],
+    'senior_user_id'=>$cfg['senior_user_id'],'inspector_ids'=>$cfg['inspector_ids'],
+    'admin_reviewer_id'=>$cfg['admin_reviewer_id'],'to_chief'=>$cfg['to_chief'],
+    'to_head'=>$cfg['to_head'],'reassigned_requests'=>$reassigned];
+},false,ADMIN);
+// Legacy endpoint is retained for old clients but cannot silently change a
+// configured administrative workflow or clear inspection accountability.
+route('PUT', '/api/admin/zones/{id}/leaders', function($p,$b,$u){
+  require_once __DIR__.'/ZoneWorkflow.php';
+  $cfg=ZoneWorkflow::config((int)$p['id']);
+  if(!$cfg||$cfg['mode']!=='inspection')Http::error('مسئولان این منطقه باید از فرم جدید سلسله‌مراتب ذخیره شوند.',409);
+  return _req_reject_legacy_leader_edit($p,$b,$u);
+},false,ADMIN);
+function _req_reject_legacy_leader_edit($p,$b,$u){
+  require_once __DIR__.'/OrgChart.php';
+  $input=['workflow_mode'=>'inspection','senior_user_id'=>$b['senior_user_id']??null,
+    'inspector_ids'=>$b['inspector_ids']??[],'to_chief'=>true,'to_head'=>true];
+  require_once __DIR__.'/ZoneWorkflow.php';
+  ZoneWorkflow::validate($input);
+  return OrgChart::saveZoneLeaders($p['id'],$input['senior_user_id'],$input['inspector_ids'],$u['id']);
+}
+
 function _validated_zone_parent($value,$zoneId=0) {
   if ($value===null || $value==='') return null;
   $parent=filter_var($value,FILTER_VALIDATE_INT);
@@ -10301,10 +10376,17 @@ route('POST', '/api/admin/zones', function($p,$b,$u){
   try {
     $parent=_validated_zone_parent($b['parent_id']??null);
     $required=_zone_leave_requirement_value($b['leave_requires_substitute']??false);
+    require_once __DIR__.'/OrgChart.php';require_once __DIR__.'/ZoneWorkflow.php';
+    OrgChart::ensureZoneLeaders();
+    $cfg=ZoneWorkflow::validate($b);
     $id = Db::insert("INSERT INTO zones(name,parent_id,leave_requires_substitute) VALUES(?,?,?)", [$name,$parent,$required]);
+    ZoneWorkflow::write((int)$id,$cfg,(int)$u['id']);
     $connection->commit();
   } catch (Throwable $failure) {if($connection->inTransaction())$connection->rollBack();throw $failure;}
-  return ['id'=>$id,'name'=>$name,'parent_id'=>$parent,'leave_requires_substitute'=>$required];
+  return ['id'=>$id,'name'=>$name,'parent_id'=>$parent,'leave_requires_substitute'=>$required,
+    'workflow_mode'=>$cfg['mode'],'senior_user_id'=>$cfg['senior_user_id'],
+    'inspector_ids'=>$cfg['inspector_ids'],'admin_reviewer_id'=>$cfg['admin_reviewer_id'],
+    'to_chief'=>$cfg['to_chief'],'to_head'=>$cfg['to_head'],'workflow_configured'=>true];
 }, false, ADMIN);
 route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){
   _zone_leave_requirement_storage();
@@ -10336,6 +10418,8 @@ route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){
     Db::run("UPDATE users SET zone_id=NULL WHERE zone_id=?", [$p['id']]);
     Db::run("UPDATE zones SET parent_id=NULL WHERE parent_id=?", [$p['id']]);
     Db::run('DELETE FROM zone_leadership WHERE zone_id=?',[$p['id']]);
+    require_once __DIR__.'/ZoneWorkflow.php';ZoneWorkflow::ensure();
+    Db::run('DELETE FROM zone_workflows WHERE zone_id=?',[$p['id']]);
     Db::run("DELETE FROM zones WHERE id=?", [$p['id']]);
     $connection->commit();
   } catch (\Throwable $error) {
