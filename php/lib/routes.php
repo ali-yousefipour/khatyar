@@ -4843,9 +4843,17 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
   $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT $limit",$params);
   $changed=0;
   foreach($rows as $request){
-    if(_req_zone_chain((int)$request['user_id'])===null &&
-       (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
-    $target=_req_current_pending_target($request);$current=(int)($request['pending_on']??0);
+    try {
+      if(_req_zone_chain((int)$request['user_id'])===null &&
+         (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    } catch(Throwable $error) {
+      // One region awaiting configuration must not break other inboxes.
+      error_log('pending request skipped (region workflow incomplete): request '.(int)$request['id']);
+      continue;
+    }
+    try{$target=_req_current_pending_target($request);}
+    catch(Throwable $error){error_log('pending request reviewer reconstruction failed: '.(int)$request['id']);continue;}
+    $current=(int)($request['pending_on']??0);
     if(!$target||$target===$current)continue;
     $update=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
     $changed+=(int)$update->rowCount();
@@ -10327,9 +10335,16 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
   foreach($pending as $request){
     $current=(int)$request['pending_on'];
     if(!$inside((int)$request['zone_id'])&&!in_array((int)$request['user_id'],$oldInspectors,true))continue;
-    if(_req_zone_chain((int)$request['user_id'])===null &&
-       (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
-    $target=(int)(_req_current_pending_target($request)??0);
+    try {
+      if(_req_zone_chain((int)$request['user_id'])===null &&
+         (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    } catch(Throwable $error) {
+      // One region awaiting configuration must not break other inboxes.
+      error_log('pending request skipped (region workflow incomplete): request '.(int)$request['id']);
+      continue;
+    }
+    try{$target=(int)(_req_current_pending_target($request)??0);}
+    catch(Throwable $error){error_log('zone request reviewer reconstruction failed: '.(int)$request['id']);continue;}
     if($target<=0||$target===$current)continue; // No replacement: keep the existing queue visible.
     $updated=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
     $moved+=(int)($updated->rowCount()??0);
