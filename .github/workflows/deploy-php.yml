@@ -399,7 +399,7 @@ jobs:
             echo "${response}" | grep -q '"ok":true'
             # Assert that the host-side installer actually copied each module
             # to the canonical /lib directory. Staging alone is insufficient.
-            for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php Push.php complaints_routes_extra.php school_service_sepand.php; do
+            for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php routes.php Push.php complaints_routes_extra.php school_service_sepand.php; do
               local_path="deploy-payload/lib/${name}"
               expected_sha="$(sha256sum "${local_path}" | awk '{print $1}')"
               php -r '
