@@ -28,6 +28,6 @@ checkAccessPolicy(str_contains($db, 'catch (PDOException $error)'), 'Optional My
 checkAccessPolicy(str_contains($mobileApi, 'let renewalPromise=null'), 'Concurrent Android token renewals must be serialized');
 checkAccessPolicy(str_contains($mobileApi, 'if(renewalPromise)return renewalPromise'), 'All simultaneous token users must share renewal');
 checkAccessPolicy(str_contains($mobileApi, 'r.status===401||r.status===403'), 'Revoked refresh tokens must not renew');
-checkAccessPolicy(str_contains($mobileAuth, 'const confirmedRevocation=Number(e?.status)===401||Number(e?.status)===403'), 'Transient 500 must not clear authenticated mobile sessions');
+checkAccessPolicy(str_contains($mobileAuth, 'const confirmedRevocation=Number(e?.status)===401;'), 'Transient 500 and policy 403 must not clear authenticated mobile sessions');
 checkAccessPolicy(str_contains($mobileAuth, 'if(cached){applySecurityExemption(cached)'), 'Previously verified identity is retained on transient failures');
 echo "PASS token access policy: access/refresh separation, legacy compatibility, image authorization guards\n";
