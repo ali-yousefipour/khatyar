@@ -4688,19 +4688,30 @@ function _req_hierarchy_managers(int $uid): array {
     }
     if($zoneId>0){
       $responsibility=OrgChart::currentZoneResponsibility($zoneId);
-      if($role==='field'){
-        $inspectors=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
-        if($inspectors)return $inspectors;
-      } elseif(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
-      // Legacy taxi-organization and motorcycle-patrol areas bypass the
-      // regional stage ONLY when no eligible regional reviewer is assigned.
-      if(OrgChart::legacyDirectChiefZone($zoneId,Db::all('SELECT id,name,parent_id FROM zones'))){
-        if(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+      $zoneTree=Db::all('SELECT id,name,parent_id FROM zones');
+      $specialBoundary=OrgChart::legacyDirectChiefBoundaryZone($zoneId,$zoneTree);
+      if($specialBoundary!==null){
+        // Optional appointments inside these regions override the historical
+        // direct-to-chief behavior. Inherited appointments from the parent
+        // organization and unconfigured local roles must not block requests.
+        if($role==='field' && ($responsibility['inspectors_source']??null)==='explicit' &&
+           OrgChart::zoneInsideBoundary((int)($responsibility['inspectors_zone_id']??0),$specialBoundary,$zoneTree)){
+          $inspectors=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
+          if($inspectors)return $inspectors;
+        }
+        if(($responsibility['chief_source']??null)==='explicit' &&
+           OrgChart::zoneInsideBoundary((int)($responsibility['chief_zone_id']??0),$specialBoundary,$zoneTree) &&
+           !empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
         $appointedChief=_req_explicit_active_manager($uid,['chief']);
         if($appointedChief)return $appointedChief;
         foreach(Db::all("SELECT u.id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.id") as $chief){
           if(OrgChart::roleKey($chief['role_title']??'')==='chief'&&(int)$chief['id']!==$uid)return [(int)$chief['id']];
         }
+      } else {
+        if($role==='field'){
+          $inspectors=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
+          if($inspectors)return $inspectors;
+        } elseif(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
       }
     }
     return _req_explicit_active_manager($uid,$role==='field'?['inspector','motor']:['senior']);
