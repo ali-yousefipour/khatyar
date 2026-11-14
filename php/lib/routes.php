@@ -4834,7 +4834,9 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
     require_once __DIR__.'/OrgChart.php';
     $reviewer=Db::one('SELECT u.zone_id,r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$reviewerId]);
     $role=OrgChart::roleKey($reviewer['title']??'');
-    if(!in_array($role,['inspector','motor','senior','chief','head'],true))return 0;
+    // Administrative reviewers may have any active role; they can still
+    // reconcile the requests already in their own inbox.
+    if(!$role)return 0;
     if(in_array($role,['inspector','motor','senior'],true)){
       OrgChart::ensureZoneLeaders();$roots=[];
       foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $leader){
@@ -5920,7 +5922,26 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if($req['status']!=='pending'&&!($status==='approved'&&$req['status']==='rejected')) Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
-  if($status==='approved')_req_prepare_approval_storage($req);
+  if($status==='approved'){
+    $options=_req_policy_options((int)$req['user_id'],false);
+    if(($options['approval_mode']??'hierarchical')==='hierarchical' && !_req_is_root_admin($u)){
+      $next=_req_next_zone_reviewer((int)$req['user_id'],(int)$u['id']);
+      if($next){
+        _req_approval_steps_ensure();
+        $pdo=Db::pdo();$pdo->beginTransaction();
+        try{
+          $updated=Db::run("UPDATE requests SET pending_on=?,approver_id=? WHERE id=? AND status='pending' AND pending_on=?",
+            [$next,(int)$u['id'],$id,(int)$u['id']]);
+          if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است.',409);
+          _req_record_approval_step($id,(int)$u['id'],'forwarded',$note);
+          $pdo->commit();
+        }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
+        Push::send([$next],'درخواست برای بررسی بعدی','',['type'=>'request','request_id'=>$id]);
+        return ['id'=>$id,'status'=>'forwarded','to'=>$next];
+      }
+    }
+    _req_prepare_approval_storage($req);
+  }
   _req_approval_steps_ensure();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
