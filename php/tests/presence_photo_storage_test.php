@@ -6,7 +6,16 @@ class Db {
   static $existing = null;
   static $writes = [];
   static $failWrite = false;
-  static function one($query, $params) { return self::$existing; }
+  static function one($query, $params=[]) {
+    if(str_contains($query,'information_schema.COLUMNS'))return ['COLUMN_NAME'=>$params[0]??'selfie_path'];
+    return self::$existing;
+  }
+  static function all($query, $params=[]) {
+    if(str_contains($query,'information_schema.COLUMNS'))return [
+      ['COLUMN_NAME'=>'id'],['COLUMN_NAME'=>'selfie_path'],['COLUMN_NAME'=>'vehicles_photo_path']
+    ];
+    return [];
+  }
   static function run($query, $params) { if(self::$failWrite)throw new RuntimeException('database offline');self::$writes[] = $params; }
   static function insert($query, $params) { if(self::$failWrite)throw new RuntimeException('database offline');self::$writes[] = $params; return 12; }
 }
