@@ -942,6 +942,35 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
   } catch (Throwable $e) { error_log('presence outside-area Bale alert: '.$e->getMessage()); }
 }
 
+// Upgrade legacy presence_checks safely: old installations may still have
+// base64 columns but not the physical-file path columns used by this API.
+// DDL is only attempted for missing columns, before image capture is persisted.
+function _presence_photo_columns_ready(): bool {
+  static $ready=false;
+  if($ready)return true;
+  try{
+    $cols=Db::all("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks'
+        AND COLUMN_NAME IN ('id','selfie_path','vehicles_photo_path')");
+    $have=array_map(static fn($r)=>strtolower((string)($r['COLUMN_NAME']??$r['column_name']??'')),$cols);
+    if(!in_array('id',$have,true))return false;
+    foreach(['selfie_path','vehicles_photo_path'] as $col){
+      if(in_array($col,$have,true))continue;
+      try{Db::run("ALTER TABLE presence_checks ADD COLUMN `$col` VARCHAR(255) NULL");}
+      catch(Throwable $e){
+        // Another concurrent request could have created the column.
+        $exists=Db::one("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks' AND COLUMN_NAME=?",[$col]);
+        if(!$exists)throw $e;
+      }
+    }
+    $ready=true;
+    return true;
+  }catch(Throwable $e){
+    error_log('presence-check storage schema unavailable: '.get_class($e));
+    return false;
+  }
+}
+
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
   $slot = $b['slot'] ?? '';
@@ -950,6 +979,7 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   $veh = $b['vehicles_photo'] ?? '';
   if (!is_string($selfie) || strpos($selfie,'data:image/')!==0) Http::error('عکس سلفی معتبر لازم است.',422);
   if (!is_string($veh) || strpos($veh,'data:image/')!==0) Http::error('عکس خودروهای خط معتبر لازم است.',422);
+  if(!_presence_photo_columns_ready())Http::error('ساختار ذخیره تصاویر صحت‌سنجی روی سرور آماده نیست. مدیر سامانه باید ستون‌های تصاویر جدول presence_checks و دسترسی دیتابیس را بررسی کند.',503);
   $date=date('Y-m-d');
   $selfiePath=null;$vehiclePath=null;
   // Storage and database writes are separate failure domains. Never leave
