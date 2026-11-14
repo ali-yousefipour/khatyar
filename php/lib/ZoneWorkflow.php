@@ -104,7 +104,9 @@ final class ZoneWorkflow {
       $area=$z[0]??null;
       $ins=$area['inspector_ids']??[];$senior=(int)($area['senior_user_id']??0);
       if(!$senior||!$ins)Http::error('مسئولان بازرسی منطقه ناقص هستند. بازرس و سربازرس را مشخص کنید.',422);
-      foreach($ins as $id)$chain[]=(int)$id;
+      // Several inspectors may cover the same area. Select one stable primary
+      // reviewer; do not make colleagues approve the same request in series.
+      $chain[]=(int)$ins[0];
       $chain[]=$senior;
     } elseif($cfg['mode']==='administrative'){
       if($cfg['admin_reviewer_id'])$chain[]=$cfg['admin_reviewer_id'];
