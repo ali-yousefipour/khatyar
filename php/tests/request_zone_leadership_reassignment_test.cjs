@@ -36,4 +36,13 @@ assert.match(adminList,/pn\.id=r\.pending_on/,'Admin list resolves the current r
 assert.match(adminList,/pending_on_name/,'Current reviewer is returned to the panel');
 const adminDecision=routes.split("route('POST', '/api/admin/requests/{id}/decision'")[1]?.split("route('PUT','/api/admin/requests/{id}'")[0];
 assert.match(adminDecision,/AND pending_on=\?/,'Admin decisions also reject a stale queue owner');
+// Saving a zone workflow commits independently of request-repair failures.
+// Http::error exits PHP and is NOT catchable with a Throwable catch block.
+const workflowSave = routes.split("route('PUT','/api/admin/zones/{id}/workflow'")[1]?.split("route('PUT', '/api/admin/zones/{id}/leaders'")[0];
+assert.ok(workflowSave,'Explicit workflow save endpoint must exist');
+assert.match(workflowSave,/\$pdo->commit\(\)/,'A valid workflow is committed');
+assert.doesNotMatch(workflowSave,/_req_reassign_pending_zone_approvals\(/,'Post-commit repair cannot turn a successful save into HTTP 422');
+assert.match(workflowSave,/request_repair_deferred/,'Response distinguishes saved workflow from pending queue repairs');
+const reconcile = routes.split('function _req_reconcile_pending_approvals(')[1]?.split('function ',1)[0] || routes.split('function _req_reconcile_pending_approvals(')[1]?.slice(0,3800);
+assert.match(reconcile,/ZoneWorkflow::config\(\$ownerZoneId\)===null\)continue/,'Unconfigured unrelated zones do not abort inbox reconciliation');
 console.log('PASS request zone reassignment: pending-only, resilient, regional, hierarchy-aware');
