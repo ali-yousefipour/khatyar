@@ -7568,7 +7568,10 @@ function _field_alert_targets($settingKey, $userId) {
     // Current region leadership must take precedence over stale saved managers.
     try { $targets=_req_hierarchy_managers((int)$userId); }
     catch (\Throwable $e) { error_log('field alert hierarchy lookup failed: '.$e->getMessage()); }
-    if(!$targets){
+    // Configured regions must never fall back to stale saved managers when
+    // their responsible chain is absent or invalid.
+    $personZone=Db::one("SELECT zone_id FROM users WHERE id=?",[$userId]);
+    if(!$targets && (int)($personZone['zone_id']??0)===0){
       $row=Db::one("SELECT manager_id FROM users WHERE id=?",[$userId]);
       if(!empty($row['manager_id']))$targets[]=(int)$row['manager_id'];
       try {
@@ -10243,6 +10246,10 @@ route('PUT', '/api/admin/users/{id}/org', function($p,$b,$u){
     $sets[]="zone_id=?";$args[]=$targetZone?:null;
   }
   if ($sets) { $args[] = $p['id']; Db::run("UPDATE users SET ".implode(',', $sets)." WHERE id=?", $args); }
+  if(array_key_exists('zone_id',$b)){
+    try{_req_reconcile_pending_approvals((int)$p['id']);}
+    catch(Throwable $error){error_log('staff transfer request reassignment deferred: '.$error->getMessage());}
+  }
   return ['ok'=>true];
 }, false, ADMIN);
 route('GET', '/api/admin/users/{id}/lines', function($p,$b,$u){
