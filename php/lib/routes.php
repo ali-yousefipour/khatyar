@@ -7456,7 +7456,7 @@ function _field_alert_user_matches_scope($userId, $mode='all', $roleIds=[], $use
 }
 function _field_alert_pref_key($userId){ return 'field_alert_preferences_'.(int)$userId; }
 function _field_alert_preferences($userId){
-  $def=['enabled'=>true,'types'=>['station_exit'=>true,'station_enter'=>true,'vpn_on'=>true,'gps_off'=>true,'attendance_checkin'=>true,'attendance_checkout'=>true],'subject_mode'=>'all','role_ids'=>[],'user_ids'=>[]];
+  $def=['enabled'=>true,'types'=>['station_exit'=>true,'station_enter'=>true,'vpn_on'=>true,'gps_off'=>true,'internet_off'=>true,'attendance_checkin'=>true,'attendance_checkout'=>true],'subject_mode'=>'all','role_ids'=>[],'user_ids'=>[]];
   $v=_req_setting(_field_alert_pref_key($userId),$def); return is_array($v)?array_replace_recursive($def,$v):$def;
 }
 function _field_alert_recipient_accepts($recipientId,$eventType,$subjectUserId){
@@ -7464,7 +7464,7 @@ function _field_alert_recipient_accepts($recipientId,$eventType,$subjectUserId){
   if(empty($p['enabled']) || empty($p['types'][$eventType])) return false;
   return _field_alert_user_matches_scope($subjectUserId,$p['subject_mode']??'all',$p['role_ids']??[],$p['user_ids']??[]);
 }
-function _field_alert_type_from_setting($key){ return ['station_exit_notify'=>'station_exit','station_enter_notify'=>'station_enter','vpn_on_notify'=>'vpn_on','gps_off_notify'=>'gps_off','attendance_checkin_notify'=>'attendance_checkin','attendance_checkout_notify'=>'attendance_checkout'][$key]??''; }
+function _field_alert_type_from_setting($key){ return ['station_exit_notify'=>'station_exit','station_enter_notify'=>'station_enter','vpn_on_notify'=>'vpn_on','gps_off_notify'=>'gps_off','internet_off_notify'=>'internet_off','attendance_checkin_notify'=>'attendance_checkin','attendance_checkout_notify'=>'attendance_checkout'][$key]??''; }
 function _field_alert_targets($settingKey, $userId) {
   $cfg=_req_setting($settingKey,null);
   if($cfg===null && $settingKey==='internet_off_notify')
