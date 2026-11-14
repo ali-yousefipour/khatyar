@@ -9,7 +9,7 @@ const current=routes.split('function _req_current_pending_target(')[1]?.split('f
 const alert=routes.split('function _field_alert_targets(')[1]?.split('function _field_alert_time_text(')[0];
 const telemetry=routes.split("route('POST', '/api/activity/telemetry'")[1]?.split("route('GET', '/api/admin/user-leaderboard'")[0];
 assert.ok(hierarchy&&current&&alert&&telemetry);
-assert.match(org,/static function legacyDirectChiefZone\(/);
+assert.match(hierarchy,/OrgChart::legacyDirectChiefBoundaryZone\(/);
 assert.match(hierarchy,/OrgChart::legacyDirectChiefZone\(/);
 assert.match(hierarchy,/\$inspectorIds|\$inspectors=/);
 assert.match(hierarchy,/\$responsibility\['chief'\]\['id'\]/);
