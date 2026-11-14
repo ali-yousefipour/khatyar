@@ -7,6 +7,17 @@ final class ZoneWorkflow {
   public static function ensure(): void {
     static $ready=false;
     if($ready)return;
+    // Existing installations only need read access to the workflow table.
+    // Running CREATE TABLE IF NOT EXISTS on every HTTP request can fail on
+    // restricted production accounts and implicitly commit an active transaction.
+    try {
+      Db::one('SELECT zone_id FROM zone_workflows LIMIT 1');
+      $ready=true;
+      return;
+    } catch (\\Throwable $missing) {
+      // Only bootstrap a missing table outside a business transaction.
+      if(method_exists('Db','pdo') && Db::pdo()->inTransaction())throw $missing;
+    }
     Db::run("CREATE TABLE IF NOT EXISTS zone_workflows (
       zone_id INT NOT NULL PRIMARY KEY,
       mode VARCHAR(20) NOT NULL,
