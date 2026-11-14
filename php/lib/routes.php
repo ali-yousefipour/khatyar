@@ -957,9 +957,9 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   try {
     $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?",[(int)$u['id'],$date,$slot]);
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
-    if (!$selfiePath) Http::error('ذخیره عکس سلفی موفق نبود. فرمت و حجم تصویر یا فضای هاست را بررسی کنید.',503);
+    if (!$selfiePath)throw new RuntimeException('selfie file persistence failed');
     $vehiclePath=Media::saveBase64($veh,'presence',1280,68);
-    if (!$vehiclePath) Http::error('ذخیره عکس خودروهای خط موفق نبود. فرمت و حجم تصویر یا فضای هاست را بررسی کنید.',503);
+    if (!$vehiclePath)throw new RuntimeException('vehicle file persistence failed');
     if($ex){
       Db::run("UPDATE presence_checks SET selfie_path=?,vehicles_photo_path=?,lat=?,lng=?,captured_at=NOW() WHERE id=?",
         [$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,(int)$ex['id']]);
