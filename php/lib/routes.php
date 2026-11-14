@@ -4852,6 +4852,12 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
   $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT $limit",$params);
   $changed=0;
   foreach($rows as $request){
+    // Http::error() exits rather than throwing. Never enter chain() for an
+    // unconfigured region while listing/reconciling unrelated requests.
+    require_once __DIR__.'/ZoneWorkflow.php';
+    $ownerZone=Db::one('SELECT zone_id FROM users WHERE id=?',[(int)$request['user_id']]);
+    $ownerZoneId=(int)($ownerZone['zone_id']??0);
+    if($ownerZoneId>0 && ZoneWorkflow::config($ownerZoneId)===null)continue;
     try {
       if(_req_zone_chain((int)$request['user_id'])===null &&
          (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
@@ -10354,6 +10360,10 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
   foreach($pending as $request){
     $current=(int)$request['pending_on'];
     if(!$inside((int)$request['zone_id'])&&!in_array((int)$request['user_id'],$oldInspectors,true))continue;
+    // Do not let unrelated descendants without workflows abort the whole
+    // operation with a non-catchable HTTP 422.
+    require_once __DIR__.'/ZoneWorkflow.php';
+    if((int)$request['zone_id']>0 && ZoneWorkflow::config((int)$request['zone_id'])===null)continue;
     try {
       if(_req_zone_chain((int)$request['user_id'])===null &&
          (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
