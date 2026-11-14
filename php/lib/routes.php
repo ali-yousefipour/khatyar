@@ -10380,14 +10380,17 @@ route('PUT','/api/admin/zones/{id}/workflow',function($p,$b,$u){
     ZoneWorkflow::write((int)$p['id'],$cfg,(int)$u['id']);
     $pdo->commit();
   }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
-  $reassigned=0;
-  try{$reassigned=_req_reassign_pending_zone_approvals((int)$p['id'],null,
-    $cfg['senior_user_id'],$cfg['inspector_ids']);}
-  catch(Throwable $error){error_log('zone workflow request reconciliation deferred: '.$error->getMessage());}
+  // IMPORTANT: NEVER reconcile pending requests inside the workflow-save HTTP
+  // response. _req_zone_chain -> ZoneWorkflow::chain uses Http::error(), which
+  // emits JSON and exits PHP (not a catchable Throwable). An unrelated,
+  // unconfigured descendant region could turn a COMMITTED save into HTTP 422.
+  // Existing inbox/request reconciliation repairs pending queue owners on
+  // subsequent access; saving a valid workflow must always return success.
   return ['ok'=>true,'workflow_mode'=>$cfg['mode'],
     'senior_user_id'=>$cfg['senior_user_id'],'inspector_ids'=>$cfg['inspector_ids'],
     'admin_reviewer_id'=>$cfg['admin_reviewer_id'],'to_chief'=>$cfg['to_chief'],
-    'to_head'=>$cfg['to_head'],'reassigned_requests'=>$reassigned];
+    'to_head'=>$cfg['to_head'],'reassigned_requests'=>0,
+    'request_repair_deferred'=>true];
 },false,ADMIN);
 // Legacy endpoint is retained for old clients but cannot silently change a
 // configured administrative workflow or clear inspection accountability.
