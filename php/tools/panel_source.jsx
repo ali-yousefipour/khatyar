@@ -1826,11 +1826,22 @@ function Zones(){
   const saveLeaders=()=>mutate(async()=>{
     if(!workflowValid)throw Error('نوع سلسله‌مراتب و مسئولان الزامی را تکمیل کنید.');
     const payload=workflowPayload();
-    if(!leadership.id){
+    const previous=leadership;
+    let created=null;
+    if(!previous.id){
       if(!nz.trim())throw Error('نام منطقه را وارد کنید.');
-      await db.createZone(nz.trim(),leadership.parent_id??null,false,payload);
-    }else await db.zoneWorkflow(leadership.id,payload);
-    await reload();setLeadership(null);setNz('');
+      created=await db.createZone(nz.trim(),previous.parent_id??null,false,payload);
+    }else await db.zoneWorkflow(previous.id,payload);
+    // A successful write must not be reported as failed merely because a
+    // separate refresh endpoint still has an unrelated unconfigured region.
+    const configured={...payload,workflow_configured:true};
+    if(created?.id)setZones(current=>[...current,{...created,...configured}]);
+    else setZones(current=>current.map(zone=>+zone.id===+previous.id?{...zone,...configured}:zone));
+    setLeadership(null);setNz('');
+    try {await reload();}
+    catch(refreshError) {
+      setError('سلسله‌مراتب ذخیره شد؛ اما تازه‌سازی فهرست با خطا روبه‌رو شد. صفحه را بازخوانی کنید: '+(refreshError?.message||'خطای ارتباط با سرور'));
+    }
   });
   const pathFor=zone=>{const parts=[],seen=new Set();let current=zone;while(current&&!seen.has(+current.id)){seen.add(+current.id);parts.unshift(current.name);current=zones.find(item=>+item.id===+current.parent_id);}return parts.join(' / ');};
   const isDescendant=(candidate,ancestor)=>{const seen=new Set();let current=candidate;while(current&&!seen.has(+current.id)){if(+current.id===+ancestor)return true;seen.add(+current.id);current=zones.find(item=>+item.id===+current.parent_id);}return false;};
