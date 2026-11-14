@@ -51,7 +51,7 @@ try{
   ZoneWorkflow::validate(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[8]]);
   throw new RuntimeException('Invalid office supervisor accepted');
 }catch(RuntimeException $e){
-  checkMode($e->getCode()===422 && str_contains($e->getMessage(),'شناسه 8'),'Invalid inspector response identifies the actual user');
+  checkMode($e->getCode()===422 && str_contains($e->getMessage(),'معاون'),'Invalid inspector response identifies the actual user');
 }
 $inspection=ZoneWorkflow::validate(['workflow_mode'=>'inspection','senior_user_id'=>1,'inspector_ids'=>[2,7]]);
 checkMode($inspection['mode']==='inspection'&&$inspection['to_chief']&&$inspection['to_head'],'Inspection chain mandatory role stages');
