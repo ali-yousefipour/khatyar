@@ -4694,6 +4694,15 @@ function _req_hierarchy_managers(int $uid): array {
   $person=Db::one('SELECT u.zone_id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$uid]);
   if(!$person)return [];
   $role=OrgChart::roleKey($person['role_title']??'');
+  // Configured regional workflows are authoritative, including for alerts.
+  // No legacy special-region/global-chief fallback is permitted.
+  if(!in_array($role,['head','chief'],true) && (int)($person['zone_id']??0)>0){
+    $configured=_req_zone_chain($uid);
+    if($configured!==null){
+      $at=array_search($uid,$configured,true);
+      return $at===false?[$configured[0]]:(isset($configured[$at+1])?[$configured[$at+1]]:[]);
+    }
+  }
   if($role==='head')return []; // Final regional approval: never forward to admin/deputy/office roles.
   if(in_array($role,['field','inspector','motor'],true)){
     $zoneId=(int)($person['zone_id']??0);
@@ -4837,6 +4846,9 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
     // Administrative reviewers may have any active role; they can still
     // reconcile the requests already in their own inbox.
     if(!$role)return 0;
+    if(!in_array($role,['inspector','motor','senior'],true)){
+      $where=' AND r.pending_on=?';$params=[$reviewerId];
+    }
     if(in_array($role,['inspector','motor','senior'],true)){
       OrgChart::ensureZoneLeaders();$roots=[];
       foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $leader){
@@ -10238,7 +10250,15 @@ route('PUT', '/api/admin/users/{id}/org', function($p,$b,$u){
   // فقط فیلدهایی که در درخواست آمده‌اند به‌روزرسانی می‌شوند تا تنظیم منطقه، مدیر را پاک نکند و برعکس
   $sets = []; $args = [];
   if (array_key_exists('manager_id', $b)) { $sets[] = "manager_id=?"; $args[] = $b['manager_id'] ?: null; }
-  if (array_key_exists('zone_id', $b))    { $sets[] = "zone_id=?";    $args[] = $b['zone_id'] ?: null; }
+  if (array_key_exists('zone_id', $b)) {
+    $targetZone=(int)($b['zone_id']??0);
+    if($targetZone>0){
+      require_once __DIR__.'/ZoneWorkflow.php';
+      if(!ZoneWorkflow::config($targetZone))Http::error('ابتدا سلسله‌مراتب و مسئولان منطقه مقصد را تکمیل کنید.',422);
+      ZoneWorkflow::chain($targetZone);
+    }
+    $sets[]="zone_id=?";$args[]=$targetZone?:null;
+  }
   if ($sets) { $args[] = $p['id']; Db::run("UPDATE users SET ".implode(',', $sets)." WHERE id=?", $args); }
   return ['ok'=>true];
 }, false, ADMIN);
@@ -10351,7 +10371,8 @@ route('PUT','/api/admin/zones/{id}/workflow',function($p,$b,$u){
     $pdo->commit();
   }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
   $reassigned=0;
-  try{$reassigned=_req_reconcile_pending_approvals(null,null,false);}
+  try{$reassigned=_req_reassign_pending_zone_approvals((int)$p['id'],null,
+    $cfg['senior_user_id'],$cfg['inspector_ids']);}
   catch(Throwable $error){error_log('zone workflow request reconciliation deferred: '.$error->getMessage());}
   return ['ok'=>true,'workflow_mode'=>$cfg['mode'],
     'senior_user_id'=>$cfg['senior_user_id'],'inspector_ids'=>$cfg['inspector_ids'],
