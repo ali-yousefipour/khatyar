@@ -24,7 +24,7 @@ checkAccessPolicy(str_contains($routes, "(int)\$actor['level']<=4"), 'Image down
 $db = file_get_contents(__DIR__.'/../lib/Db.php');
 $mobileApi = file_get_contents(__DIR__.'/../../mobile/src/api.js');
 $mobileAuth = file_get_contents(__DIR__.'/../../mobile/src/auth.js');
-checkAccessPolicy(str_contains($db, "catch (PDOException \\$error)"), 'Optional MySQL session preferences must not prevent database access');
+checkAccessPolicy(str_contains($db, 'catch (PDOException $error)'), 'Optional MySQL session preferences must not prevent database access');
 checkAccessPolicy(str_contains($mobileApi, 'let renewalPromise=null'), 'Concurrent Android token renewals must be serialized');
 checkAccessPolicy(str_contains($mobileApi, 'if(renewalPromise)return renewalPromise'), 'All simultaneous token users must share renewal');
 checkAccessPolicy(str_contains($mobileApi, 'r.status===401||r.status===403'), 'Revoked refresh tokens must not renew');
