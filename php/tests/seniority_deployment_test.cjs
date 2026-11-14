@@ -13,7 +13,10 @@ assert.ok(workflow.indexOf("'Seniority.php' => 'Seniority.php'") < workflow.inde
 const integrity = fs.readFileSync(path.join(root, '.github/workflows/project-integrity.yml'), 'utf8');
 assert.ok(integrity.includes('node php/tests/seniority_ui_test.cjs'));
 assert.ok(integrity.includes('php php/tests/seniority_test.php'));
-assert.ok(workflow.includes('for rel in app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js; do'));
+// The deployment asset verifier now includes public-site and zone styles.
+// Assert the required assets are verified without coupling to exact list order.
+const verifiedAssets = workflow.match(/for rel in ([^\\n]+); do/g) || [];
+assert.ok(verifiedAssets.some(line => ['app/panel.html', 'app/assets/panel.bundle.js', 'app/assets/school-service-admin.js'].every(asset => line.includes(asset))), 'Production asset verification covers the panel and school-service bundle');
 assert.ok(workflow.includes('cmp -s "${local_path}" "${remote_path}"'));
 assert.ok(workflow.includes("grep -q 'panel.bundle.js'"));
 assert.ok(!workflow.includes("grep -q 'assets/panel.bundle.js?v=20261015.4'"));
