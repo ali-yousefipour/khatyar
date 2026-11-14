@@ -9,11 +9,10 @@ const current=routes.split('function _req_current_pending_target(')[1]?.split('f
 const alert=routes.split('function _field_alert_targets(')[1]?.split('function _field_alert_time_text(')[0];
 const telemetry=routes.split("route('POST', '/api/activity/telemetry'")[1]?.split("route('GET', '/api/admin/user-leaderboard'")[0];
 assert.ok(hierarchy&&current&&alert&&telemetry);
-assert.match(hierarchy,/OrgChart::legacyDirectChiefBoundaryZone\(/);
-assert.match(hierarchy,/\$inspectorIds|\$inspectors=/);
-assert.match(hierarchy,/\$responsibility\['chief'\]\['id'\]/);
-assert.match(hierarchy,/OrgChart::roleKey\(\$chief\['role_title'\]/);
-assert.match(hierarchy,/u\.is_active=1/);
+assert.match(hierarchy,/_req_zone_chain\(\$uid\)/);
+assert.doesNotMatch(hierarchy,/legacyDirectChiefBoundaryZone/);
+assert.match(routes,/ZoneWorkflow::validate\(\$b\)/);
+assert.match(routes,/_req_next_zone_reviewer\(/);
 assert.match(current,/_req_hierarchy_managers\(\$cursor\)/);
 assert.match(alert,/_req_hierarchy_managers\(\(int\)\$userId\)/);
 assert.match(alert,/WHERE is_active=1 AND id IN/);
