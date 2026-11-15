@@ -55,6 +55,8 @@ export function startTelemetry(opts = {}) {
   try {
     if (NetInfo && typeof NetInfo.addEventListener === 'function') {
       netUnsubscribe = NetInfo.addEventListener((state) => {
+        // Unknown network state is not evidence of Internet shutdown.
+        if (state.isConnected !== true && state.isConnected !== false) return;
         // A connected Wi-Fi network without Internet is still offline.
         const on = state.isConnected === true && state.isInternetReachable !== false;
         if (on !== lastOnline) {
