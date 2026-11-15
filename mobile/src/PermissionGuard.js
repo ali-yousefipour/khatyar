@@ -10,7 +10,7 @@ import AsyncStorage from'@react-native-async-storage/async-storage';
 import{C,FONT}from'./theme';
 import{useAuth}from'./auth';
 
-const CHECK_INTERVAL_MS=5000;
+const CHECK_INTERVAL_MS=15000;
 const CAMERA_EXPLANATION_KEY='khatyar_camera_permission_explained_v2';
 const MIC_EXPLANATION_KEY='khatyar_mic_permission_explained_v1';
 
@@ -52,7 +52,7 @@ export default function PermissionGuard({children}){
   const mounted=useRef(true);
 
   const check=useCallback(async()=>{
-    if(inFlight.current||!mounted.current)return;
+    if(inFlight.current||!mounted.current||AppState.currentState==='background'||AppState.currentState==='inactive')return;
     inFlight.current=true;setChecking(true);
     try{
       if(exempt){setRuntimeIssue(null);setCameraExplanation(false);setMicExplanation(false);return;}
