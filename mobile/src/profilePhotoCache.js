@@ -36,8 +36,10 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
   const task=(async()=>{
     const base=FileSystem.documentDirectory;
     if(!base)return existing?.uri||null;
-    const filename=base+'profile-photo-'+safeId(userId)+'.jpg';
-    const temp=base+'profile-photo-'+safeId(userId)+'-incoming.jpg';
+    const prefix=base+'profile-photo-'+safeId(userId)+'-';
+    const suffix=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+    const filename=prefix+suffix+'.jpg';
+    const temp=prefix+suffix+'-incoming.jpg';
     try{
       if(/^data:image\/[^;]+;base64,/i.test(remote)){
         const base64=remote.split(',')[1];
@@ -51,11 +53,14 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
       }
       const info=await FileSystem.getInfoAsync(temp);
       if(!info.exists||!info.size)throw new Error('photo_empty');
-      await FileSystem.deleteAsync(filename,{idempotent:true}).catch(()=>{});
       await FileSystem.moveAsync({from:temp,to:filename});
       const metadata={uri:filename,source:sourceKey,cached_at:Date.now()};
       await AsyncStorage.setItem(key(userId),JSON.stringify(metadata));
       memory.set(String(userId),metadata);
+      // The Image URI changes on every replacement, avoiding a stale native image cache.
+      // Only delete the previous app-owned version after the new one is persisted.
+      if(existing?.uri && existing.uri!==filename && existing.uri.startsWith(prefix))
+        await FileSystem.deleteAsync(existing.uri,{idempotent:true}).catch(()=>{});
       return filename;
     }catch{
       await FileSystem.deleteAsync(temp,{idempotent:true}).catch(()=>{});
