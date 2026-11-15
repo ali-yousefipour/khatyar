@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import {ensurePresenceChannel} from './notify';
 
 export const PRESENCE_LOCAL_SCHEDULE_KEY = 'presence_local_schedule_v2';
 const MODE_KEY = 'presence_daily_policy_v2';
 const MAX_RANDOM_PER_SESSION = 6;
 const BLOCK_MS = 4 * 60 * 60 * 1000;
-const WINDOW_MINUTES = 3;
+const DEFAULT_WINDOW_MINUTES = 3;
 const policyDay = () => new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tehran'});
 export async function cachedPresencePolicy(userId) {
   try { const p=JSON.parse(await AsyncStorage.getItem(MODE_KEY)||'null'); return Number(p?.user_id)===Number(userId)?p:null; } catch { return null; }
@@ -38,19 +39,20 @@ export async function localAttendanceSession(userId) {
 }
 async function installLocalAlerts(schedule) {
   if(!schedule?.items?.length)return;
+  await ensurePresenceChannel();
   const now=Date.now();
   for(const item of schedule.items) {
     if(item.ts*1000<=now+1000||item.ts*1000>now+24*60*60*1000)continue;
     try {
       const identifier=await Notifications.scheduleNotificationAsync({
-        content:{title:'صحت‌سنجی حضور',body:'لطفاً عکس سلفی و تصویر ایستگاه را ثبت کنید.',data:{type:'presence_check',random:true,local:true,slot:item.slot,request_id:item.request_id,ts:item.ts,window_minutes:item.window_minutes}},
+        content:{title:'صحت‌سنجی حضور',body:'لطفاً عکس سلفی و تصویر ایستگاه را ثبت کنید.',sound:'presence_validation_alert.mp3',channelId:'presence_alarm',priority:Notifications.AndroidNotificationPriority.MAX,data:{type:'presence_check',random:true,local:true,slot:item.slot,request_id:item.request_id,ts:item.ts,window_minutes:item.window_minutes}},
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(item.ts*1000)}
       });
       item.notification_id=identifier;
     }catch{}
   }
 }
-export async function ensureLocalRandomSchedule(userId,open) {
+export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAULT_WINDOW_MINUTES) {
   if(!open?.start||!Number.isFinite(open.start))return null;
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
@@ -65,7 +67,7 @@ export async function ensureLocalRandomSchedule(userId,open) {
     for(let j=0;j<3;j++) {
       const at=Math.floor(start+margin+segment*(j+Math.random()*0.85));
       const ts=Math.floor(at/1000);
-      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:WINDOW_MINUTES});
+      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(1,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
     }
   }
   const schedule={user_id:Number(userId),attendance_id:id,start:open.start,items:items.slice(0,MAX_RANDOM_PER_SESSION),created_at:Date.now()};
