@@ -2423,14 +2423,18 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
   try {
     $queryFrom=date('Y-m-d H:i:s',max(1,$fromTs-$interval));
     $queryTo=date('Y-m-d H:i:s',$toTs);
+    // GPS OFF is a state transition; no penalty before the OFF timestamp.
+    // Fetch ON transitions and repeating OFF checkpoints as proof of elapsed
+    // full 30-minute blocks, including sessions spanning midnight.
+    $queryFrom=date('Y-m-d H:i:s',max(1,$fromTs-86400));
     $events=Db::all("SELECT kind,at FROM user_activity
-      WHERE user_id=? AND kind='gps_off' AND at>=? AND at<=?
+      WHERE user_id=? AND kind IN ('gps_off','gps_on') AND at>=? AND at<=?
       ORDER BY at ASC,id ASC",[(int)$userId,$queryFrom,$queryTo]);
   } catch (Throwable $e) {
     error_log('gps work explicit-off query failed; no penalty without evidence: '.$e->getMessage());
     return [];
   }
-  return gps_work_explicit_off_intervals($events,$fromTs,$toTs,$interval);
+  return work_confirmed_off_intervals($events,$fromTs,$toTs,'gps_off','gps_on',$interval);
 }
 // Public, non-sensitive Android policy: also protects the pre-login screen.
 route('GET', '/api/app/screenshot-policy', function($p,$b,$u){
@@ -5370,6 +5374,12 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   if($gpsRangeStart!==null) $gpsInvalidSeconds+=max(0,$gpsRangeEnd-$gpsRangeStart);
   $w['gps_work_required']=_gps_work_required();
   $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
+  // Keep the older Android daily-performance contract and add the missing
+  // internet deduction as an independent, evidence-based field.
+  require_once __DIR__.'/InternetWorkIntervals.php';
+  $internetDetails=internet_work_daily_details((int)$u['id'],$rows);
+  $w['internet_invalid_min']=array_sum(array_column($internetDetails,'minutes'));
+  $w['internet_inactive_minutes']=$w['internet_invalid_min'];
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
   return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>$isCalHoliday,'holiday_title'=>$cal['title']??'', 'sessions'=>$rows,'data'=>$w];
