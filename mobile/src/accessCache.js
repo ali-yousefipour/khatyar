@@ -4,6 +4,7 @@ import { request } from './api';
 const KEY='app_access_cache_v1';
 const memory={data:null};
 let refreshPromise=null;
+let cacheEpoch=0;
 
 function normalize(x){
   if(!x||typeof x!=='object') return null;
@@ -28,7 +29,8 @@ export async function readAccessCache(){
 
 export async function refreshAccessCache(){
   if(refreshPromise)return refreshPromise;
-  refreshPromise=(async()=>{
+  const epoch=cacheEpoch;
+  const task=(async()=>{
     const [app,school]=await Promise.all([
       request('/my/app-items',{noStore:true,timeoutMs:10000}).catch(()=>null),
       request('/school-service/access',{noStore:true,timeoutMs:10000}).catch(()=>null)
@@ -39,17 +41,21 @@ export async function refreshAccessCache(){
       schoolService:school&&typeof school==='object'?school:(old?.schoolService||null),
       savedAt:Date.now()
     });
+    if(epoch!==cacheEpoch)return null;
     if(Array.isArray(app?.items)||old||data.schoolService){
       memory.data=data;
       await AsyncStorage.setItem(KEY,JSON.stringify(data));
     }
     return data;
   })();
-  try{return await refreshPromise}finally{refreshPromise=null}
+  refreshPromise=task;
+  try{return await task}finally{if(refreshPromise===task)refreshPromise=null}
 }
 
 export function clearAccessCache(){
+  cacheEpoch++;
   memory.data=null;
+  refreshPromise=null;
   return AsyncStorage.removeItem(KEY).catch(()=>{});
 }
 
