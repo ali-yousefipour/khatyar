@@ -54,14 +54,14 @@ jobs:
         run: |
           set -euo pipefail
           tag="v2.0.2"
-          if ! gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if ! gh release view "$tag" -R ali-yousefipour/khatyar-releases >/dev/null 2>&1; then
             echo "::warning::Signed v2.0.2 GitHub Release has not been published yet."
             exit 0
           fi
           mkdir -p "$RUNNER_TEMP/release-check"
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p khatyar.apk.sha256 -D "$RUNNER_TEMP/release-check" --clobber
-          test -s "$RUNNER_TEMP/release-check/khatyar.apk.sha256"
-          gh release view "$tag" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'khatyar.apk'
+          gh release download "$tag" -R ali-yousefipour/khatyar-releases -p khat-yar.apk.sha256 -D "$RUNNER_TEMP/release-check" --clobber
+          test -s "$RUNNER_TEMP/release-check/khat-yar.apk.sha256"
+          gh release view "$tag" -R ali-yousefipour/khatyar-releases --json assets --jq '.assets[].name' | grep -qx 'khat-yar.apk'
           echo "Signed APK and checksum are present in GitHub Releases."
-          echo "::notice::This repository is private: GitHub Release assets require authorized download; public automatic Android updates need a separately accessible URL."
+          echo "Public repository asset verified."
           echo "Uploaded media contents require a known media manifest or authenticated sample; this probe cannot prove all uploads copied."
