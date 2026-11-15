@@ -166,6 +166,28 @@ export async function cachedValue(path){const key='cache:'+((String(path)==='/my
 export async function swr(path,onData){try{const c=await cachedValue(path);if(c!==null&&c!==undefined)onData(c,true)}catch(_){}try{const fresh=await request(path);onData(fresh,false);return fresh}catch(_){return null}}
 export async function postOrQueue(path,body,type=null,opts={}){const eventMs=Date.now(),sendBody=body&&typeof body==='object'&&!Array.isArray(body)?{...body,client_uuid:body.client_uuid||`q_${eventMs.toString(36)}_${Math.random().toString(36).slice(2,10)}`,client_time:body.client_time||eventMs,client_timestamp_ms:body.client_timestamp_ms||eventMs}:body;let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isInternetReachable:true}}if(net.isConnected===false){await enqueue({path,body:sendBody,type:type||path,client_uuid:sendBody?.client_uuid,client_time:eventMs});return{queued:true,ok:true,id:sendBody?.client_uuid,client_time:eventMs,client_uuid:sendBody?.client_uuid}}return request(path,{method:'POST',body:sendBody,timeoutMs:opts.timeoutMs,queueIfOffline:true,forceNetwork:path==='/my/checkin'||path==='/my/checkout'})}
 export async function hasPendingAttendanceCheckout(){return hasPendingPath('/my/checkout')}
-export async function flushQueuedRequests(options={}){return flushOfflineQueue(async(item)=>{if(!item?.path)throw new Error('صف نامعتبر است');if(item.kind==='multipart')return uploadFile(item.path,item.fields||{},item.fileField||'file',item.fileUri||null,item.fileName||'upload.bin',item.mimeType||'application/octet-stream',{queueIfOffline:false,clientUuid:item.client_uuid});return request(item.path,{method:item.method||'POST',body:item.body||{},queueIfOffline:false,noStore:true})},{force:!!options.force})}
-
-export async function retryQueuedRequest(clientUuid){return retryOfflineItem(clientUuid,async(item)=>{if(!item?.path)throw new Error('صف نامعتبر است');if(item.kind==='multipart')return uploadFile(item.path,item.fields||{},item.fileField||'file',item.fileUri||null,item.fileName||'upload.bin',item.mimeType||'application/octet-stream',{queueIfOffline:false,clientUuid:item.client_uuid});return request(item.path,{method:item.method||'POST',body:item.body||{},queueIfOffline:false,noStore:true,forceNetwork:true})})}
+async function sendPersistedQueueItem(item,forceNetwork=true) {
+  if(!item?.path)throw new Error('صف نامعتبر است');
+  if(item.kind==='multipart')return uploadFile(item.path,item.fields||{},item.fileField||'file',
+    item.fileUri||null,item.fileName||'upload.bin',item.mimeType||'application/octet-stream',
+    {queueIfOffline:false,clientUuid:item.client_uuid});
+  let body=item.body||{};
+  if(body?.photo_file_uri){
+    // A queued visit keeps the photo in a permanent file, never in the
+    // Android AsyncStorage database (large base64 values exceed its limits).
+    const file=body.photo_file_uri;
+    const info=await FileSystem.getInfoAsync(file);
+    if(!info.exists)throw new Error('عکس این ثبت آفلاین در حافظه دستگاه یافت نشد. مورد در صف باقی ماند.');
+    const base64=await FileSystem.readAsStringAsync(file,{encoding:FileSystem.EncodingType.Base64});
+    body={...body,photo_data:`data:${body.photo_mime||'image/jpeg'};base64,${base64}`};
+    delete body.photo_file_uri;
+    delete body.photo_mime;
+  }
+  return request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
+}
+export async function flushQueuedRequests(options={}){
+  return flushOfflineQueue(item=>sendPersistedQueueItem(item,true),{force:!!options.force});
+}
+export async function retryQueuedRequest(clientUuid){
+  return retryOfflineItem(clientUuid,item=>sendPersistedQueueItem(item,true));
+}
