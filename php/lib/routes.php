@@ -9616,7 +9616,44 @@ route('POST', '/api/reports/{id}/action', function($p,$b,$u){
     } catch (\Throwable $e) { /* اعلان پیام‌رسان اختیاری است؛ نبود اتصال نباید ارجاع را مختل کند */ }
     return ['ok'=>true, 'forwarded_to'=>count($targets)];
   }
-  // پاسخ/یادداشت: گزارش در کارتابل خودِ کاربر باقی می‌ماند
+  if ($action === 'reply') {
+    $reportId=(int)$p['id'];
+    $actorId=(int)$u['id'];
+    $reply=trim((string)($b['note']??''));
+    if ($reportId<=0 || $reply==='') Http::error('متن پاسخ و شناسه گزارش الزامی است.',422);
+    // A reply routes to the ORIGINAL sender (not the current reviewer).
+    // Verify that the actor currently owns the inbox item, inside one
+    // transaction, to avoid stale replies and false successful handoffs.
+    $pdo=Db::pdo();
+    $senderId=0;$subject='';
+    try {
+      $pdo->beginTransaction();
+      $rep=Db::one("SELECT id,sender_id,subject FROM reports WHERE id=? AND deleted_at IS NULL FOR UPDATE",[$reportId]);
+      if (!$rep) throw new RuntimeException('گزارش یافت نشد.',404);
+      $senderId=(int)$rep['sender_id'];
+      if ($senderId===$actorId) throw new RuntimeException('نمی‌توانید گزارش خودتان را به خودتان پاسخ دهید.',409);
+      $current=Db::one("SELECT to_user_id FROM report_routes WHERE report_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE",[$reportId]);
+      if (!$current || (int)$current['to_user_id']!==$actorId)
+        throw new RuntimeException('این گزارش دیگر در کارتابل شما نیست. فهرست گزارش‌ها را تازه‌سازی کنید.',409);
+      Db::run("INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES(?,?,'reply',?,?)",
+        [$reportId,$senderId,$reply,$actorId]);
+      Db::run("UPDATE reports SET status='answered' WHERE id=?",[$reportId]);
+      _report_audit($reportId,$actorId,'reply',$reply,['to_user_id'=>$senderId]);
+      $subject=(string)($rep['subject']??'گزارش');
+      $pdo->commit();
+    } catch (Throwable $e) {
+      if($pdo->inTransaction())$pdo->rollBack();
+      if(in_array((int)$e->getCode(),[404,409],true))Http::error($e->getMessage(),(int)$e->getCode());
+      error_log('report reply handoff failed: '.get_class($e));
+      Http::error('ثبت و ارجاع پاسخ گزارش انجام نشد. دوباره تلاش کنید.',500);
+    }
+    // Notification failures must never change an already committed result.
+    try{Push::send([$senderId], 'پاسخ به گزارش شما', $subject, ['type'=>'report','report_id'=>$reportId]);}
+    catch(Throwable $e){error_log('report reply push failed: '.get_class($e));}
+    return ['ok'=>true,'action'=>'reply','to_user_id'=>$senderId,'routed'=>true];
+  }
+  // Notes and seen actions stay with the current owner; unlike replies,
+  // they do not hand off an item to the original sender.
   $to = $u['id'];
   Db::run("INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES(?,?,?,?,?)",
     [$p['id'], $to, $action, $b['note'] ?? null, $u['id']]);
