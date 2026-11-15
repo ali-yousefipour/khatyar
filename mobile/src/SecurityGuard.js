@@ -18,6 +18,10 @@ export default function SecurityGuard({ children }) {
   // پیش‌فرض: تا وقتی تنظیمات سرور لود نشده، هیچ‌چیز را بلاک نکن (جلوگیری از بلاک اشتباه)
   const [policy, setPolicy] = useState({ vpn: false, dev: false, mock: false, loaded: false, intervalMs: 60000 });
   const timer = useRef(null);
+  const readyTimer = useRef(null);
+  const checkEnabledAt = useRef(0);
+  const activeUserId = useRef(null);
+  const SECURITY_START_DELAY_MS = 60000;
   const exempt = !!(user && user.security_exempt);
 
   // خواندن تنظیمات امنیتی از سرور
@@ -37,7 +41,7 @@ export default function SecurityGuard({ children }) {
   }, [user?.id]);
 
   const check = useCallback(async () => {
-    if (Platform.OS !== 'android' || exempt) { setBlocked(false); return; }
+    if (Platform.OS !== 'android' || !user?.id || exempt || Date.now() < checkEnabledAt.current) { setBlocked(false); return; }
     // تا وقتی تنظیمات سرور لود نشده، بررسی نکن (از بلاک اشتباه جلوگیری می‌کند)
     if (!policy.loaded) { setBlocked(false); return; }
     try {
@@ -50,15 +54,21 @@ export default function SecurityGuard({ children }) {
       setReasons(rs);
       setBlocked(rs.length > 0);
     } catch (e) { /* در صورت خطا، مسدود نمی‌کنیم تا برنامه قفل نشود */ }
-  }, [exempt, policy]);
+  }, [exempt, policy, user?.id]);
 
   useEffect(() => {
-    if (exempt) { setBlocked(false); return; }
-    check();
-    timer.current = setInterval(check, policy.intervalMs || 60000);
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') check(); });
-    return () => { if (timer.current) clearInterval(timer.current); sub.remove(); };
-  }, [check, exempt]);
+    if (!user?.id || exempt) { setBlocked(false);setReasons([]);return undefined; }
+    if (activeUserId.current !== String(user.id)) {
+      activeUserId.current = String(user.id);
+      checkEnabledAt.current = Date.now() + SECURITY_START_DELAY_MS;
+      setBlocked(false);
+    }
+    const remaining = Math.max(0, checkEnabledAt.current - Date.now());
+    readyTimer.current = setTimeout(() => check(), remaining);
+    timer.current = setInterval(check, Math.max(30000, policy.intervalMs || 60000));
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') check(); });
+    return () => { clearTimeout(readyTimer.current);clearInterval(timer.current);sub.remove(); };
+  }, [check, exempt, user?.id]);
 
   // باز کردن تنظیمات مناسب بسته به نوع مشکل
   async function openDevSettings() {
