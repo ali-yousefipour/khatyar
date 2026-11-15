@@ -49,7 +49,7 @@ class BaleBot {
   public static function sendMessage($chat,$text) { preg_match('/\b[0-9]{6}\b/',$text,$m);self::$code=$m[0];return ['ok'=>true]; }
 }
 class Jwt { public static $payload; public static function verify(...$args) { return self::$payload; } }
-function _req_setting($key,$default=null) { return Db::$settings[$key]??$default; }
+function _req_setting($key,$default=null) { if(!empty($GLOBALS['settingsUnavailable']))throw new RuntimeException('mock settings SQL unavailable'); return Db::$settings[$key]??$default; }
 function _maintenance_status() { return ['enabled'=>Db::$settings['maintenance']??false,'message'=>'maintenance']; }
 function _user_photo_url(...$args) { return null; }
 function issueTokens($id,$device,$type) { return ['access'=>'test-access','refresh'=>'test-refresh','device_type'=>$type]; }
@@ -89,6 +89,9 @@ $body=['username'=>'test-user','password'=>'correct','device_id'=>'device-new','
 resetState();
 check(callRoute('GET','/api/session/app-login-config')['method']==='password','App policy');
 check(callRoute('GET','/api/session/web-login-config')['method']==='sms_otp','Independent web policy');
+$GLOBALS['settingsUnavailable']=true;
+rejects(fn()=>callRoute('GET','/api/session/app-login-config'),503);
+$GLOBALS['settingsUnavailable']=false;
 check(callRoute('POST','/api/session/start',$body)['device_type']==='android','Android password login');
 Db::$session=['device_id'=>'device-old','revoked_at'=>null];
 rejects(fn()=>callRoute('POST','/api/session/start',$body),409);
