@@ -12,14 +12,13 @@ const ITEMS = [
   ['app-lock', 'قفل برنامه', 'lock-outline', 'AppLockSettings', 'مدیریت قفل و امنیت ورود به برنامه'],
   ['crash-reports', 'گزارش خطاهای برنامه', 'bug-outline', 'CrashReports', 'مشاهده و مدیریت گزارش خطاهای برنامه'],
   ['import-times', 'آخرین زمان‌های به‌روزرسانی', 'clock-outline', 'ImportTimes', 'مشاهده آخرین زمان دریافت و به‌روزرسانی اطلاعات'],
-  ['check-update', 'بررسی به‌روزرسانی برنامه', 'update', null, 'بررسی وجود نسخه جدید برنامه'],
   ['privacy-policy', 'سیاست حریم خصوصی', 'shield-lock-outline', 'PrivacyPolicy', 'اطلاعات مربوط به جمع‌آوری، استفاده و حفاظت از داده‌ها'],
   ['about-app', 'درباره برنامه', 'information-outline', 'AboutApp', 'اطلاعات رسمی خطیار، نسخه، تولیدکننده و راه‌های ارتباطی'],
 ];
 const SETTINGS_GROUPS = [
   { title: 'نمایش و موقعیت‌یابی', subtitle: 'نقشه و اطلاعات موردنیاز برای کار در مسیر', keys: ['map-settings', 'import-times'] },
   { title: 'اعلان‌ها و هشدارها', subtitle: 'مدیریت هشدارهای عملیاتی و یادآوری‌ها', keys: ['field-alerts', 'expiry-settings'] },
-  { title: 'امنیت و نگهداری', subtitle: 'حفاظت از برنامه، بررسی نسخه و گزارش مشکلات', keys: ['app-lock', 'check-update', 'crash-reports'] },
+  { title: 'امنیت و نگهداری', subtitle: 'حفاظت از برنامه و گزارش مشکلات', keys: ['app-lock', 'crash-reports'] },
   { title: 'درباره خطیار', subtitle: 'حریم خصوصی و اطلاعات سازنده', keys: ['privacy-policy', 'about-app'] },
 ];
 
@@ -97,3 +96,27 @@ const s = StyleSheet.create({
   description: { color: '#667085', fontFamily: FONT.regular, fontSize: 11.5, lineHeight: 19, textAlign: 'right', marginTop: 4 },
   arrow: { color: C.brand, fontSize: 27, marginRight: 6 },
 });
+
+export function AppUpdateCheckScreen() {
+  const [checking,setChecking]=useState(true);
+  const [info,setInfo]=useState(null);
+  const [error,setError]=useState('');
+  const check=async()=>{
+    setChecking(true);setError('');
+    try{
+      const result=await checkVersion();
+      if(result?.failed)throw new Error('اطلاعات نسخه از سرور دریافت نشد.');
+      setInfo(result);
+    }catch(e){setError(e?.message||'بررسی نسخه انجام نشد.');}
+    finally{setChecking(false);}
+  };
+  React.useEffect(()=>{check();},[]);
+  if(info&&(info.required||info.hasUpdate))return <UpdateScreen info={info} onRecheck={check}/>;
+  return <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:C.paper,padding:24,gap:16}}>
+    <MaterialCommunityIcons name={error?'alert-circle-outline':'update'} size={55} color={C.brand}/>
+    <Text style={{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'center'}}>{checking?'در حال بررسی نسخه برنامه…':error||('نسخه '+String(info?.current||'نصب‌شده')+' آخرین نسخه موجود است.')}</Text>
+    <TouchableOpacity accessibilityRole="button" disabled={checking} style={{minHeight:50,minWidth:165,backgroundColor:C.brand,borderRadius:14,justifyContent:'center',alignItems:'center',opacity:checking?.6:1}} onPress={check}>
+      <Text style={{color:'#fff',fontFamily:FONT.bold}}>بررسی مجدد</Text>
+    </TouchableOpacity>
+  </View>;
+}
