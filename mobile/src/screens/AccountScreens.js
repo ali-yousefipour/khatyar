@@ -7,6 +7,8 @@ import { useAuth } from '../auth';
 import { faNum } from '../num';
 import ImageViewer from '../components/ImageViewer';
 import PersonalPhotoCapture from '../PersonalPhotoCapture';
+import {playSound} from '../soundFx';
+import {readProfilePhotoCache,cacheProfilePhoto} from '../profilePhotoCache';
 import JDatePicker from '../components/JDatePicker';
 import { C as CC, FONT } from '../theme';
 import { captureRef } from 'react-native-view-shot';
@@ -306,7 +308,9 @@ export function ProfileScreen({ navigation }) {
   const [viewPhoto, setViewPhoto] = useState(false);
 
   useEffect(() => { request('/my/lines').then(setLines).catch(() => setLines([])); }, []);
-  useEffect(() => { request('/me/full-profile').then((p) => { if (p?.photo) setPhoto(p.photo); }).catch(() => {}); }, []);
+  useEffect(()=>{let active=true;(async()=>{const saved=await readProfilePhotoCache(user?.id);if(active&&saved?.uri)setPhoto(saved.uri);
+    try{const profile=await request('/me/full-profile',{noStore:true,timeoutMs:10000});if(profile?.photo){const uri=await cacheProfilePhoto(user?.id,profile.photo);if(active&&uri)setPhoto(uri)}}catch{}
+  })();return()=>{active=false}},[user?.id]);
 
   async function saveProfilePhoto(dataUri) {
     if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) {
@@ -316,10 +320,11 @@ export function ProfileScreen({ navigation }) {
     setPhotoCaptureOpen(false);
     setBusy(true);
     try {
-      const up = await request('/me/photo', { method: 'POST', body: { photo: dataUri } });
-      if (up?.path) setPhoto('/api/media?path=' + encodeURIComponent(up.path));
-      const pr = await request('/me/full-profile', { noStore: true }).catch(() => null);
-      if (pr?.photo) setPhoto(pr.photo);
+      const local=await cacheProfilePhoto(user?.id,dataUri,{force:true});
+      if(local)setPhoto(local);
+      const up = await request('/me/photo', { method: 'POST', body: { photo: dataUri },queueIfOffline:true,timeoutMs:60000 });
+      if(up?.queued){Alert.alert('در صف ارسال','تصویر سلفی در گوشی ذخیره و در صف ارسال قرار گرفت. پس از اتصال اینترنت، عکس به سرور ارسال می‌شود.');return;}
+      if(up?.path){const uri=await cacheProfilePhoto(user?.id,'/api/media?path='+encodeURIComponent(up.path),{force:true});if(uri)setPhoto(uri);}
       Alert.alert('ذخیره شد', 'عکس پرسنلی جدید ثبت شد.');
     } catch (e) {
       Alert.alert('خطا', e.message || 'ثبت عکس ناموفق بود.');
@@ -329,7 +334,7 @@ export function ProfileScreen({ navigation }) {
   }
 
   if (photoCaptureOpen) {
-    return <PersonalPhotoCapture facing="front" showGuide={false} title="تغییر عکس پرسنلی" instruction="صورت خود را روبه‌روی دوربین قرار دهید" uniformNotice={true} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
+    return <PersonalPhotoCapture facing="front" systemCameraFirst title="تغییر عکس پرسنلی" instruction="لطفاً تصویر سلفی خود را بگیرید" uniformNotice={false} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
   }
 
   return (
@@ -342,7 +347,7 @@ export function ProfileScreen({ navigation }) {
           </TouchableOpacity>
           <View style={{flex:1,minWidth:0}}><Text accessibilityRole="header" style={s.name}>{user?.name}</Text><Text style={s.role}>{user?.role}</Text></View>
         </View>
-        <TouchableOpacity style={s.photoBtn} onPress={() => setPhotoCaptureOpen(true)} disabled={busy}>
+        <TouchableOpacity style={s.photoBtn} onPress={() => {playSound('presenceSelfie').catch(()=>{});setPhotoCaptureOpen(true);}} disabled={busy}>
           <Text style={s.photoBtnTxt}>گرفتن عکس پرسنلی (سلفی)</Text>
         </TouchableOpacity>
       </View>
