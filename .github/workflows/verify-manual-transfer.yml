@@ -1,0 +1,60 @@
+name: Verify manual Khatyar transfer
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-manual-transfer.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify HTTPS, canonical host and public endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://khat-yar.ir"
+          for path in / /login /assets/login-premium.js /api/health /api/app/version /api/session/app-login-config /api/session/web-login-config; do
+            body="$(mktemp)"
+            code="$(curl --fail-with-body --silent --show-error --location --max-time 20 --retry 2 --retry-delay 2 -H 'Cache-Control: no-cache' -o "$body" -w '%{http_code}' "$base$path?verify=$GITHUB_RUN_ID")" || { echo "::error::Unreachable $path"; exit 1; }
+            echo "$path HTTP $code bytes=$(wc -c < "$body")"
+            test "$code" = 200
+            test -s "$body"
+            case "$path" in
+              /api/health)
+                php -r '$v=json_decode(file_get_contents($argv[1]),true); if(!is_array($v)||($v["ok"]??null)!==true||($v["db"]??null)!==true||($v["site_version"]??"")!=="2.0.2")exit(1);' "$body" ;;
+              /api/app/version)
+                php -r '$v=json_decode(file_get_contents($argv[1]),true); if(!is_array($v)) exit(1); echo "app_version=".($v["latest_version"]??$v["version"]??"unknown")." minimum=".($v["min_version"]??"unknown").PHP_EOL;' "$body" ;;
+              /api/session/*-login-config)
+                php -r '$v=json_decode(file_get_contents($argv[1]),true);if(!is_array($v)||!in_array($v["method"]??null,["password","sms_otp","bale_otp"],true))exit(1);' "$body" ;;
+            esac
+            rm -f "$body"
+          done
+      - name: Check unauthenticated login and protected routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://khat-yar.ir
+          for path in /api/session/start /api/auth/login; do
+            code="$(curl --silent --show-error --max-time 20 -X POST -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}' "$base$path")"
+            echo "POST $path empty request HTTP $code"
+            test "$code" = 400
+          done
+          for path in /api/auth/me /api/admin/users; do
+            code="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' "$base$path")"
+            echo "GET $path anonymous HTTP $code"
+            test "$code" = 401
+          done
+      - name: Verify representative uploaded media and signed APK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://khat-yar.ir/releases/khatyar-2.0.2.apk
+          code="$(curl --silent --show-error --location --max-time 20 -o /dev/null -w '%{http_code}' -r 0-1023 "$url" || true)"
+          echo "Signed APK download HTTP $code"
+          if [ "$code" != 200 ] && [ "$code" != 206 ]; then
+            echo "::warning::New-domain signed APK not available; do not retire old domain."
+          fi
+          echo "Uploaded media contents require a known media manifest or authenticated sample; public smoke test cannot prove all uploads copied."
