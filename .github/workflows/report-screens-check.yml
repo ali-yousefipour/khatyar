@@ -6,6 +6,9 @@ on:
       - 'mobile/src/screens/InboxScreen.js'
       - 'mobile/src/screens/ReportsScreen.js'
       - 'mobile/src/components/ReportPersonPickerModal.js'
+      - 'mobile/src/screens/DashboardScreen.js'
+      - 'mobile/src/components/DashboardTiles.js'
+      - 'mobile/scripts/test-dashboard-menu-design.cjs'
       - 'mobile/scripts/test-report-screens.cjs'
       - '.github/workflows/report-screens-check.yml'
   workflow_dispatch:
@@ -25,4 +28,7 @@ jobs:
         working-directory: mobile
         env:
           NODE_PATH: /tmp/khatyar-report-parser/node_modules
-        run: node scripts/test-report-screens.cjs
+        run: |
+          node scripts/test-report-screens.cjs
+          node scripts/test-dashboard-menu-design.cjs
+          node -e "const fs=require('node:fs');const p=require('@babel/parser');for(const f of ['src/screens/DashboardScreen.js','src/components/DashboardTiles.js']){p.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});console.log('PASS JSX:',f)}"
