@@ -40,6 +40,7 @@ export function InboxReportsScreen({ navigation }) {
   const [sortBy, setSortBy] = useState('date');
   const [newestFirst, setNewestFirst] = useState(true);
   const [groupBy, setGroupBy] = useState('none');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [undoArchive, setUndoArchive] = useState(null);
   const [undoBusy, setUndoBusy] = useState(false);
   const loadSerial = useRef(0);
@@ -208,12 +209,22 @@ export function InboxReportsScreen({ navigation }) {
           {id:'forwarded',label:'ارجاع‌های من',icon:'share-outline'},
           {id:'cc',label:'رونوشت‌های من',icon:'content-copy'},
           {id:'archived',label:'بایگانی',icon:'archive-outline'},
-        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setSelectedIds([]);setTab(t.id);setSender(null);setStatusF(null);setQuery('');}}>
+        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setSelectedIds([]);setTab(t.id);setSender(null);setStatusF(null);setQuery('');setAdvancedOpen(false);}}>
           <MaterialCommunityIcons name={t.icon} size={19} color={tab===t.id?'#fff':C.brand}/><Text numberOfLines={2} style={[s.tabTxt,tab===t.id&&s.tabTxtOn]}>{t.label}</Text>
         </TouchableOpacity>)}
       </View>
       <View style={s.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput value={query} onChangeText={setQuery} placeholder="جستجو در عنوان، متن و نام فرستنده…" placeholderTextColor={C.muted} style={s.searchInput} returnKeyType="search"/>{query.length>0?<TouchableOpacity accessibilityLabel="پاک کردن جستجو" onPress={()=>setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>:null}</View>
-      <View style={s.filters}>
+      <View style={s.filterPanel}>
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:advancedOpen}} accessibilityLabel={advancedOpen?'بستن فیلترهای پیشرفته':'باز کردن فیلترهای پیشرفته'} onPress={()=>setAdvancedOpen(v=>!v)} style={s.filterHeading}>
+          <View style={s.filterTitleGroup}><MaterialCommunityIcons name="filter-variant" size={21} color={C.brand}/><Text style={s.filterHeadingTitle}>فیلترهای پیشرفته</Text></View>
+          <View style={s.filterHeadingEnd}>
+            {!advancedOpen && (from||to||sender||statusF||priorityFilter!=='all'||actionOnly||sortBy!=='date'||groupBy!=='none') ? <Text style={s.filterActiveLabel}>فیلتر فعال</Text> : null}
+            <MaterialCommunityIcons name={advancedOpen?'chevron-up':'chevron-down'} size={23} color={C.brand}/>
+          </View>
+        </TouchableOpacity>
+        {advancedOpen && <View style={s.filterContent}>
+          <Text style={s.filterHint}>بازه زمانی، فرستنده، وضعیت، اولویت و ترتیب نمایش را انتخاب کنید.</Text>
+          <View style={s.filters}>
         <TouchableOpacity style={s.fBtn} onPress={() => setPick('from')}><Text style={s.fBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
         <TouchableOpacity style={s.fBtn} onPress={() => setPick('to')}><Text style={s.fBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
         {(from || to || sender || statusF) ? <TouchableOpacity style={s.clr} onPress={() => { setFrom(null); setTo(null); setSender(null); setStatusF(null); }}><Text style={s.clrTxt}>پاک</Text></TouchableOpacity> : null}
@@ -241,6 +252,12 @@ export function InboxReportsScreen({ navigation }) {
         <Text style={s.advancedText}>دسته‌بندی:</Text>
         {['none','status','priority'].map(k=><TouchableOpacity key={k} onPress={()=>setGroupBy(k)} style={[s.advancedChip,groupBy===k&&s.advancedActive]}><Text style={[s.advancedText,groupBy===k&&{color:'#fff'}]}>{k==='none'?'بدون گروه':k==='status'?'وضعیت':'اولویت'}</Text></TouchableOpacity>)}
         {groupBy!=='none'&&Object.entries(groupCounts).map(([name,n])=><Text key={name} style={s.advancedText}>{name}: {n.toLocaleString('fa-IR')}</Text>)}
+      </View>
+          <View style={s.filterFooter}>
+            <TouchableOpacity accessibilityRole="button" onPress={()=>{setFrom(null);setTo(null);setSender(null);setStatusF(null);setPriorityFilter('all');setSortBy('date');setNewestFirst(true);setGroupBy('none');setActionOnly(false);setSelectedIds([]);}} style={s.filterReset}><MaterialCommunityIcons name="restore" size={18} color={C.brand}/><Text style={s.filterResetText}>پاک‌سازی فیلترها</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" onPress={()=>setAdvancedOpen(false)} style={s.filterApply}><MaterialCommunityIcons name="check" size={18} color="#fff"/><Text style={s.filterApplyText}>اعمال فیلترها</Text></TouchableOpacity>
+          </View>
+        </View>}
       </View>
       {undoArchive && <View style={s.undoBar}><Text style={s.undoText}>عملیات {undoArchive.label} برای {undoArchive.ids.length.toLocaleString('fa-IR')} گزارش انجام شد.</Text><TouchableOpacity disabled={undoBusy || bulkBusy} accessibilityRole="button" onPress={restoreArchive} style={s.undoButton}><MaterialCommunityIcons name="undo-variant" color="#fff" size={18}/><Text style={s.undoButtonText}>{undoBusy?'در حال بازگردانی…':'بازگرداندن'}</Text></TouchableOpacity><TouchableOpacity accessibilityLabel="بستن پیام" onPress={()=>setUndoArchive(null)}><MaterialCommunityIcons name="close" color={C.muted} size={19}/></TouchableOpacity></View>}
       <View style={s.listSummary}><Text style={s.listSummaryTitle}>{(rows || []).length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها · انتخاب چندتایی</Text></View>
@@ -564,6 +581,20 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  filterPanel:{marginHorizontal:16,marginBottom:8,borderWidth:1,borderColor:'#dce8e2',backgroundColor:'#fff',borderRadius:20,overflow:'hidden',elevation:1},
+  filterHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',paddingHorizontal:15,minHeight:54},
+  filterTitleGroup:{flexDirection:'row-reverse',alignItems:'center',gap:8},
+  filterHeadingTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},
+  filterHeadingEnd:{flexDirection:'row-reverse',alignItems:'center',gap:6},
+  filterActiveLabel:{fontFamily:FONT.regular,color:C.brand,fontSize:11},
+  filterContent:{paddingBottom:12,borderTopWidth:1,borderTopColor:'#edf2ef'},
+  filterHint:{fontFamily:FONT.regular,textAlign:'right',color:C.muted,fontSize:11,paddingHorizontal:14,paddingTop:13,paddingBottom:5},
+  filterFooter:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',gap:10,marginHorizontal:13,marginTop:12,paddingTop:12,borderTopWidth:1,borderTopColor:'#e6eeeb'},
+  filterReset:{flexDirection:'row-reverse',alignItems:'center',gap:5,minHeight:43,paddingHorizontal:8},
+  filterResetText:{fontFamily:FONT.bold,color:C.brand,fontSize:12},
+  filterApply:{flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor:C.brand,borderRadius:11,minHeight:44,paddingHorizontal:15},
+  filterApplyText:{fontFamily:FONT.bold,color:'#fff',fontSize:12},
+
   groupHeader:{backgroundColor:'#edf2fa',borderRadius:10,padding:9,marginBottom:9},
   groupText:{fontFamily:FONT.bold,color:C.brand,textAlign:'right',fontSize:13},
 
