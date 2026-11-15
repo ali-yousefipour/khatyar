@@ -10,9 +10,9 @@ on:
 permissions:
   contents: read
 
-# Wait for uploads rather than audit a half-updated production directory.
+# Read-only audit can run while the deploy workflow verifies uploaded files.
 concurrency:
-  group: php-production-deploy
+  group: khatyar-host-readonly-audit
   cancel-in-progress: false
 
 jobs:
