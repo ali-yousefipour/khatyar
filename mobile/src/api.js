@@ -171,8 +171,11 @@ const attendanceGetInflight = new Map();
 const sharedReadPaths = new Set(['/my/checkin-config','/my/work-timer','/me/full-profile','/my/app-items','/my/lines','/my/app-config','/school-service/access','/school-service/bootstrap','/weather.php']);
 export function request(path, options = {}) {
   const verb = String(options.method || 'GET').toUpperCase();
+  // Merge only requests with identical freshness/auth semantics. A forced or
+  // no-store read must never accidentally reuse a cached/offline fallback.
   const key = verb === 'GET' && sharedReadPaths.has(path)
-    ? String(accessToken || '') + ':' + path : null;
+    ? JSON.stringify([String(accessToken || ''),path,options.auth!==false,!!options.noStore,!!options.forceNetwork,options.timeoutMs||0,options.retry!==false])
+    : null;
   if (!key) return requestImpl(path, options);
   const existing = attendanceGetInflight.get(key);
   if (existing) return existing;
