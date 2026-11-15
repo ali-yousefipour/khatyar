@@ -102,6 +102,7 @@ jobs:
           php php/tests/gps_work_intervals_test.php
           php php/tests/device_off_work_waiver_test.php
           node mobile/scripts/test-device-off-telemetry.cjs
+          node mobile/scripts/test-offline-official-visit.cjs
           php -l php/lib/school_service_routes_extra.php
           php -l php/lib/complaints_routes_extra.php
       - name: Panel bundle syntax
