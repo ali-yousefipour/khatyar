@@ -90,14 +90,51 @@ if ($path === '/health' || $path === '/api/health') {
 if (strpos($path, '/api') !== 0) {
   // Public brochure pages are isolated from the authenticated admin shell and API.
   if ($method === 'GET' && in_array($path, ['/', '/index.php', '/features', '/about', '/faq', '/contact'], true)) {
+    $seoRoutes = [
+      '/' => ['خطیار | سامانه مدیریت هوشمند خطوط و ناوگان تاکسیرانی', 'خطیار سامانه مدیریت هوشمند خطوط تاکسیرانی، ناوگان، بازرسی، حضور و غیاب نیروها و گزارش‌های مدیریتی است.'],
+      '/features' => ['امکانات خطیار | مدیریت خطوط، بازرسی و حضور و غیاب', 'با امکانات سامانه خطیار برای مدیریت خطوط تاکسیرانی، کنترل ناوگان، بازرسی میدانی، تردد پرسنل، سرویس مدارس و گزارش‌ها آشنا شوید.'],
+      '/about' => ['درباره خطیار | سامانه مدیریت و نظارت تاکسیرانی', 'درباره سامانه خطیار، راهکار یکپارچه مدیریت عملیات، منابع انسانی، بازرسی و ناوگان تاکسیرانی بیشتر بدانید.'],
+      '/faq' => ['سؤالات متداول خطیار | راهنمای سامانه', 'پاسخ سؤالات متداول درباره ورود به خطیار، دسترسی کاربران، امکانات سامانه و استفاده از نرم‌افزار اندروید.'],
+      '/contact' => ['تماس با ما | پشتیبانی خطیار', 'راه‌های ارتباط با پشتیبانی خطیار و فرم ارسال پیام برای پرسش‌ها و پیشنهادهای مرتبط با سامانه.'],
+    ];
+    $canonicalPath = $path === '/index.php' ? '/' : $path;
+    [$seoTitle, $seoDescription] = $seoRoutes[$canonicalPath];
+    $canonical = 'https://khat-yar.ir' . $canonicalPath;
+    $publicHtml = @file_get_contents(__DIR__ . '/landing.html');
+    if ($publicHtml === false) { http_response_code(503); echo 'Public page unavailable'; exit; }
+    $escapeMeta = static fn(string $v):string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $publicHtml = preg_replace('~<title>.*?</title>~si', '<title>' . $escapeMeta($seoTitle) . '</title>', $publicHtml, 1);
+    $publicHtml = preg_replace('~<meta name="description" content="[^"]*">~i', '<meta name="description" content="' . $escapeMeta($seoDescription) . '">', $publicHtml, 1);
+    $seoTags = '<link rel="canonical" href="' . $escapeMeta($canonical) . '">'
+      . '<meta name="robots" content="index,follow,max-image-preview:large">'
+      . '<meta property="og:type" content="website">'
+      . '<meta property="og:locale" content="fa_IR">'
+      . '<meta property="og:site_name" content="خطیار">'
+      . '<meta property="og:title" content="' . $escapeMeta($seoTitle) . '">'
+      . '<meta property="og:description" content="' . $escapeMeta($seoDescription) . '">'
+      . '<meta property="og:url" content="' . $escapeMeta($canonical) . '">'
+      . '<meta property="og:image" content="https://khat-yar.ir/assets/khatyar-hero-emerald-v3.webp">'
+      . '<meta name="twitter:card" content="summary_large_image">';
+    $schema = [
+      '@context' => 'https://schema.org',
+      '@type' => 'WebSite',
+      'name' => 'خطیار',
+      'url' => 'https://khat-yar.ir/',
+      'inLanguage' => 'fa-IR',
+      'description' => $seoRoutes['/'][1],
+      'publisher' => ['@type' => 'Organization', 'name' => 'گروه برنامه نویسی همیاران مشهد'],
+    ];
+    $seoTags .= '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script>';
+    $publicHtml = str_replace('</head>', $seoTags . '</head>', $publicHtml);
     header('Cache-Control: public, max-age=300');
     header('Content-Type: text/html; charset=utf-8');
-    readfile(__DIR__ . '/landing.html');
+    echo $publicHtml;
     exit;
   }
   // Keep the original login/admin application unchanged; old bookmarks may use /panel.
   if ($method === 'GET' && in_array($path, ['/panel', '/login'], true)) {
     header('Cache-Control: no-store, max-age=0');
+    header('X-Robots-Tag: noindex, nofollow');
     header('Content-Type: text/html; charset=utf-8');
     readfile(__DIR__ . '/panel.html');
     exit;
