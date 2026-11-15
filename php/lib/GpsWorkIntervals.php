@@ -73,7 +73,12 @@ function work_confirmed_off_intervals(array $events, int $fromTs, int $toTs, str
       $lastOff=$ts;
     } elseif(in_array($kind,$onKinds,true) && $start!==null) {
       $end=$start+intdiv(max(0,$ts-$start),$interval)*$interval;
-      if($end>$start)$ranges[]=[max($start,$fromTs),min($end,$toTs)];
+      if($end>$start) {
+        $begin=max($start,$fromTs);
+        $limit=min($end,$toTs);
+        $confirmed=$begin+intdiv(max(0,$limit-$begin),$interval)*$interval;
+        if($confirmed>$begin)$ranges[]=[$begin,$confirmed];
+      }
       $start=null;$lastOff=null;
     }
   }
@@ -81,7 +86,12 @@ function work_confirmed_off_intervals(array $events, int $fromTs, int $toTs, str
   // extrapolate a single OFF event to the present clock.
   if($start!==null && $lastOff!==null && $lastOff>$start) {
     $end=$start+intdiv($lastOff-$start,$interval)*$interval;
-    if($end>$start)$ranges[]=[max($start,$fromTs),min($end,$toTs)];
+    if($end>$start) {
+        $begin=max($start,$fromTs);
+        $limit=min($end,$toTs);
+        $confirmed=$begin+intdiv(max(0,$limit-$begin),$interval)*$interval;
+        if($confirmed>$begin)$ranges[]=[$begin,$confirmed];
+      }
   }
   $ranges=array_values(array_filter($ranges,static fn($r)=>$r[1]>$r[0]));
   usort($ranges,static fn($a,$b)=>$a[0]<=>$b[0]);
