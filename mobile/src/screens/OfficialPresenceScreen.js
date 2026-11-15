@@ -5,6 +5,8 @@ import { getFastPosition } from '../location';
 import { launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import { request, postOrQueue } from '../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Network from 'expo-network';
 import { useAuth } from '../auth';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
@@ -35,24 +37,77 @@ export default function OfficialPresenceScreen() {
   const [roleQ, setRoleQ] = useState('');
   const [expandedHistory, setExpandedHistory] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [usingOfflineSnapshot, setUsingOfflineSnapshot] = useState(false);
+  const [syncWarning, setSyncWarning] = useState('');
+  const [requiredDataReady, setRequiredDataReady] = useState(false);
+  const cacheKey = user?.id ? `@khatyar:official-presence:reference:v1:${user.id}` : null;
   const cameraBusyRef = useRef(false);
 
-  const load = () => {
-    Promise.allSettled([
-      request('/officials', { noStore: true, queueIfOffline: false }),
-      request('/my/lines', { noStore: true, queueIfOffline: false }),
-      request('/my/official-visits', { noStore: true, queueIfOffline: false }),
-      request('/officials/config', { noStore: true, queueIfOffline: false }),
-    ]).then(([o, l, h, cfg]) => {
-      if (o.status === 'fulfilled' && Array.isArray(o.value)) setOfficials(o.value);
-      if (l.status === 'fulfilled' && Array.isArray(l.value)) setLines(l.value);
-      if (h.status === 'fulfilled' && Array.isArray(h.value)) setHistory(h.value);
-      if (cfg.status === 'fulfilled') setReqPhoto(!!cfg.value?.require_photo);
-      setLoadError([o,l,h,cfg].some(r=>r.status==='rejected') ? 'دریافت برخی اطلاعات بازدید ممکن نشد. برای جلوگیری از ثبت ناقص، ابتدا دریافت اطلاعات را تکرار کنید.' : '');
+  const load = async () => {
+    setLoading(true);
+    setSyncWarning('');
+    let snapshot = null;
+    if (cacheKey) {
+      try {
+        const raw = await AsyncStorage.getItem(cacheKey);
+        const data = raw ? JSON.parse(raw) : null;
+        if (data && Array.isArray(data.officials) && Array.isArray(data.lines)
+            && typeof data.require_photo === 'boolean') snapshot = data;
+      } catch (_) {}
+    }
+    try {
+      const results = await Promise.allSettled([
+        request('/officials', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
+        request('/my/lines', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
+        request('/my/official-visits', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
+        request('/officials/config', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
+      ]);
+      const [o,l,h,cfg] = results;
+      const validOfficials=o.status==='fulfilled' && Array.isArray(o.value);
+      const validLines=l.status==='fulfilled' && Array.isArray(l.value);
+      const validConfig=cfg.status==='fulfilled' && typeof cfg.value?.require_photo === 'boolean';
+      const merged = {
+        officials: validOfficials ? o.value : snapshot?.officials,
+        lines: validLines ? l.value : snapshot?.lines,
+        require_photo: validConfig ? cfg.value.require_photo : snapshot?.require_photo,
+        saved_at: Date.now(),
+      };
+      const ready=Array.isArray(merged.officials)
+        && Array.isArray(merged.lines)
+        && typeof merged.require_photo==='boolean';
+      if(ready) {
+        setOfficials(merged.officials);
+        setLines(merged.lines);
+        setReqPhoto(merged.require_photo);
+        // Preserve the last complete verified reference set, including
+        // photo policy, for offline use by the same signed-in account.
+        if(cacheKey && (validOfficials || validLines || validConfig)) {
+          AsyncStorage.setItem(cacheKey,JSON.stringify(merged)).catch(()=>{});
+        }
+      }
+      const cached=ready && !(validOfficials && validLines && validConfig);
+      setRequiredDataReady(ready);
+      setUsingOfflineSnapshot(cached);
+      setLoadError(ready ? '' : 'اطلاعات ضروری مسئولان، خطوط یا الزام عکس در دسترس نیست؛ یک‌بار در حالت آنلاین بارگذاری کنید.');
+      if(h.status==='fulfilled' && Array.isArray(h.value))setHistory(h.value);
+      else setSyncWarning('سوابق بازدید فعلاً به‌روز نیست؛ ثبت جدید با اطلاعات معتبر همچنان امکان‌پذیر است.');
+    } catch (error) {
+      if(snapshot){
+        setOfficials(snapshot.officials);
+        setLines(snapshot.lines);
+        setReqPhoto(snapshot.require_photo);
+        setRequiredDataReady(true);
+        setUsingOfflineSnapshot(true);
+        setLoadError('');
+      } else {
+        setRequiredDataReady(false);
+        setLoadError('اطلاعات اولیه بازدید دریافت نشد. ابتدا هنگام اتصال به اینترنت این صفحه را باز کنید.');
+      }
+    } finally {
       setLoading(false);
-    }).catch(() => { setLoadError('دریافت اطلاعات ناموفق بود.'); setLoading(false); });
+    }
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, [cacheKey]);
 
   const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
 
@@ -72,7 +127,7 @@ export default function OfficialPresenceScreen() {
   };
 
   async function submit() {
-    if (loadError) return Alert.alert('اطلاعات ناقص', 'ابتدا اطلاعات صفحه را دوباره دریافت کنید.');
+    if (!requiredDataReady || loadError) return Alert.alert('اطلاعات ناقص', 'ابتدا اطلاعات ضروری مسئولان و خطوط را دریافت کنید.');
     if (!picked) return Alert.alert('توجه', 'یک مسئول را انتخاب کنید.');
     if (!lineId) return Alert.alert('توجه', 'انتخاب خط الزامی است.');
     if (!note.trim()) return Alert.alert('توجه', 'درج توضیحات الزامی است.');
@@ -81,11 +136,13 @@ export default function OfficialPresenceScreen() {
     try {
       let lat, lng;
       try { const p = await getFastPosition({ maxAgeMs: 15000, timeoutMs: 8000 }); if (p) { lat = p.coords.latitude; lng = p.coords.longitude; } } catch {}
+      // The server verifies the selected official, line and photo policy
+      // again on replay. Capture position while online or from cached GPS.
       const r = await postOrQueue('/official-visits', { official_id: picked.id, line_id: lineId, note, lat, lng, photo_data: photo });
       if (!r.queued) playSound('officialPresenceRegistered').catch(() => {});
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد',
         r.queued ? 'حضور مسئول ذخیره شد و بعداً ارسال می‌شود.' : 'حضور مسئول در خط ثبت شد.');
-      setPicked(null); setNote(''); setLineId(null); setPhoto(null); setNameQ(''); setRoleSel(''); load();
+      setPicked(null); setNote(''); setLineId(null); setPhoto(null); setNameQ(''); setRoleSel(''); if (!r.queued) load();
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت ناموفق'); }
     finally { setBusy(false); }
   }
@@ -99,6 +156,8 @@ export default function OfficialPresenceScreen() {
   return (
     <>
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: '#f3f8f6' }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      {usingOfflineSnapshot && <View style={s.offlineInfo}><MaterialCommunityIcons name="cloud-off-outline" size={19} color="#775600"/><Text style={s.offlineInfoText}>اطلاعات مسئولان و خطوط از ذخیره معتبر قبلی این حساب خوانده شده است. ثبت‌های جدید در حالت قطع ارتباط در صف ارسال می‌مانند و هنگام اتصال توسط سرور بازبینی می‌شوند.</Text></View>}
+      {!!syncWarning && <Text style={s.syncWarning}>{syncWarning}</Text>}
       {!!loadError && <View style={s.loadErrorCard}><MaterialCommunityIcons name="alert-circle-outline" size={24} color="#9f2820"/><Text style={s.loadErrorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={s.retryLoad}><Text style={s.retryLoadText}>تلاش دوباره</Text></TouchableOpacity></View>}
       <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="account-check-outline" size={27} color="#f3d89d"/><Text style={s.heroTitle}>ثبت حضور مسئولین در خط</Text></View><Text style={s.heroSubtitle}>اطلاعات بازدید میدانی را ثبت و سوابق خود را مشاهده کنید.</Text></View>
       <View style={s.formCard}>
@@ -205,6 +264,9 @@ export default function OfficialPresenceScreen() {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
+  offlineInfo: {flexDirection:'row-reverse',alignItems:'center',gap:8,backgroundColor:'#fff7de',padding:12,borderRadius:12,marginBottom:10},
+  offlineInfoText: {flex:1,fontFamily:FONT.regular,fontSize:12,color:'#775600',textAlign:'right'},
+  syncWarning: {fontFamily:FONT.regular,color:'#775600',textAlign:'right',fontSize:12,marginBottom:10},
   loadErrorCard: { backgroundColor: '#fff2f0', borderWidth: 1, borderColor: '#eec6c1', borderRadius: 16, padding: 14, marginBottom: 14, alignItems: 'center', gap: 10 },
   loadErrorText: { fontFamily: FONT.regular, color: '#89241e', fontSize: 13, textAlign: 'center', lineHeight: 22 },
   retryLoad: { minHeight: 48, minWidth: 150, backgroundColor: C.brand, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
