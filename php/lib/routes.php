@@ -5069,6 +5069,67 @@ function _req_decorate_my_requests(array $rows): array {
   return $rows;
 }
 
+// Pending manual requests are provisional attendance, NEVER final approval.
+// A dedicated mapping guarantees rejection restores/removes only its own effects.
+function _manual_provisional_schema(){
+  static $ready=false;if($ready)return;
+  Db::run("CREATE TABLE IF NOT EXISTS manual_attendance_provisional (
+    request_id BIGINT NOT NULL PRIMARY KEY,
+    user_id INT NOT NULL,
+    attendance_id BIGINT NOT NULL,
+    kind VARCHAR(6) NOT NULL,
+    previous_checkout DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_map_attendance(attendance_id),
+    KEY idx_map_user(user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $ready=true;
+}
+function _manual_provisional_record(int $requestId){
+  _manual_provisional_schema();
+  return Db::one("SELECT request_id,attendance_id,kind,previous_checkout FROM manual_attendance_provisional WHERE request_id=?",[$requestId]);
+}
+function _manual_provisional_apply(array $request,int $requestId,int $userId): ?int {
+  if(($request['type']??'')!=='manual')return null;
+  $day=_req_policy_date($request['the_date']??'');
+  if(!$day)Http::error('تاریخ تردد دستی نامعتبر است',422);
+  // Only today's request can open a live provisional attendance session.
+  if($day->format('Y-m-d')!==date('Y-m-d'))return null;
+  _manual_provisional_schema();
+  $existing=_manual_provisional_record($requestId);
+  if($existing)return (int)$existing['attendance_id'];
+  $kind=(string)($request['manual_kind']??'both');
+  if($kind==='in'||$kind==='both'){
+    $in=$day->format('Y-m-d').' '.substr((string)$request['in_time'],0,5).':00';
+    $out=($kind==='both')?$day->format('Y-m-d').' '.substr((string)$request['out_time'],0,5).':00':null;
+    if($out&&$out<$in)$out=(new DateTimeImmutable($out))->modify('+1 day')->format('Y-m-d H:i:s');
+    $open=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE",[$userId]);
+    if($open)Http::error('یک حضور باز دارید؛ ابتدا آن را ببندید یا درخواست خروج ثبت کنید.',409);
+    $attendanceId=(int)Db::insert("INSERT INTO staff_attendance(user_id,check_in,check_out,method) VALUES(?,?,?,'manual')",[$userId,$in,$out]);
+    Db::run("INSERT INTO manual_attendance_provisional(request_id,user_id,attendance_id,kind) VALUES(?,?,?,?)",[$requestId,$userId,$attendanceId,$kind]);
+    return $attendanceId;
+  }
+  if($kind==='out'){
+    $out=$day->format('Y-m-d').' '.substr((string)$request['out_time'],0,5).':00';
+    $open=Db::one("SELECT id,check_out FROM staff_attendance WHERE user_id=? AND check_out IS NULL AND check_in<=? ORDER BY check_in DESC LIMIT 1 FOR UPDATE",[$userId,$out]);
+    if(!$open)return null;
+    Db::run("UPDATE staff_attendance SET check_out=? WHERE id=? AND check_out IS NULL",[$out,(int)$open['id']]);
+    Db::run("INSERT INTO manual_attendance_provisional(request_id,user_id,attendance_id,kind,previous_checkout) VALUES(?,?,?,?,?)",[$requestId,$userId,(int)$open['id'],'out',$open['check_out']??null]);
+    return (int)$open['id'];
+  }
+  return null;
+}
+function _manual_provisional_revert(int $requestId): void {
+  $linked=_manual_provisional_record($requestId);
+  if(!$linked)return;
+  if(($linked['kind']??'')==='out'){
+    Db::run("UPDATE staff_attendance SET check_out=? WHERE id=?",[$linked['previous_checkout'],(int)$linked['attendance_id']]);
+  }else{
+    Db::run("DELETE FROM staff_attendance WHERE id=? AND user_id=?",[(int)$linked['attendance_id'],(int)$linked['user_id']??0]);
+  }
+  Db::run("DELETE FROM manual_attendance_provisional WHERE request_id=?",[$requestId]);
+}
+
 route('POST', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
   $type = $b['type'] ?? ''; // annual / sick / mission / overtime / manual
@@ -5128,11 +5189,21 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     $hasSub = Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'");
     if (!$hasSub) Db::run("ALTER TABLE requests ADD COLUMN substitute_user_id INT NULL");
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  if($type==='manual')_manual_provisional_schema();
+  $manualTx=$type==='manual'?Db::pdo():null;
+  if($manualTx)$manualTx->beginTransaction();
+  try {
   $id = Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,attachment_name,attachment_data,selfie_data,pending_on,substitute_user_id)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     [$u['id'],$type,$unit,$b['from_jdate']??null,$b['to_jdate']??null,$b['the_date']??null,$b['from_time']??null,$b['to_time']??null,
      $b['manual_kind']??null,$b['in_time']??null,$b['out_time']??null,$minutes,$b['reason']??null,
      $b['attachment_name']??null,$b['attachment_data']??null,$b['selfie_data']??null,$approver,$sub]);
+  $provisionalAttendanceId=$type==='manual' ? _manual_provisional_apply($b,(int)$id,(int)$u['id']) : null;
+  if($manualTx)$manualTx->commit();
+  }catch(Throwable $failure){
+    if($manualTx&&$manualTx->inTransaction())$manualTx->rollBack();
+    throw $failure;
+  }
   if ($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
   // اطلاع به نیروی جایگزین معرفی‌شده
   if ($sub) {
@@ -5140,7 +5211,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
       Push::notify([$sub], 'معرفی به‌عنوان جایگزین', trim(($u['first_name']??'').' '.($u['last_name']??'')).' شما را به‌عنوان نیروی جایگزین در یک درخواست مرخصی/ماموریت معرفی کرده است.', ['type'=>'substitute_assigned','request_id'=>$id]);
     } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   }
-  return ['id'=>$id,'minutes'=>$minutes];
+  return ['id'=>$id,'minutes'=>$minutes,'provisional_attendance_id'=>$provisionalAttendanceId];
 });
 
 // درخواست‌های من
@@ -5228,6 +5299,7 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
     try{
       $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'".$queueGuard, array_merge([$u['id'],$b['note']??null,$p['id']],$queueArgs));
       if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+      if(($r['type']??'')==='manual')_manual_provisional_revert((int)$p['id']);
       _req_record_approval_step((int)$p['id'],(int)$u['id'],'rejected',$b['note']??null);
       $pdo->commit();
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -5573,6 +5645,9 @@ function _req_substitute_eligible(array $request){
   return ($request['type']??'')==='annual'&&($request['unit']??'daily')==='daily';
 }
 function _req_apply_approval_effects(array $request,int $id){
+  // Provisional attendance already exists: do not insert/close the same traffic twice.
+  if(($request['type']??'')==='manual' && _manual_provisional_record($id))return;
+
   if($request['type']==='manual'){
     if(empty($request['in_time'])&&empty($request['out_time']))Http::error('درخواست تردد دستی ساعت ورود یا خروج ندارد',422);
     foreach(['in_time','out_time'] as $key){
@@ -5944,6 +6019,7 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status=?".$queueGuard,array_merge([$status,(int)$u['id'],$note,$id,$req['status']],$queueParams));
   if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if($status==='approved')_req_apply_approval_effects($req,$id);
+    if($status==='rejected'&&($req['type']??'')==='manual')_manual_provisional_revert($id);
     _req_record_approval_step($id,(int)$u['id'],$status,$note);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
