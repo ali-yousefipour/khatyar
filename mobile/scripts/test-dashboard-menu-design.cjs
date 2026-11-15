@@ -47,17 +47,23 @@ for (const snippet of [
   "setMenuTab(key)",
 ]) assert.ok(dashboard.includes(snippet), `Dashboard: missing ${snippet}`);
 assert.match(dashboard, /quickActionIcon: \{ height:37/, 'Shortcut icons must be compact');
-assert.match(dashboard, /quickAction: \{ flexGrow:1, flexShrink:1, flexBasis:49/, 'Shortcut grid must use compact columns');
+assert.match(dashboard, /quickAction: \{ width:57, minHeight:64/, 'Shortcuts must have compact fixed width');
+assert.match(dashboard, /quickActions: \{ flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start'/, 'Shortcuts must be left packed without space-between');
+assert.match(dashboard, /setProfileRank\(/, 'Dashboard must load rank from full server profile');
 assert.match(dashboard, /searchBox: \{ marginHorizontal: 16, marginBottom: 9, minHeight: 43/, 'Tool search must be short');
 
 const app = fs.readFileSync(path.resolve(__dirname, '../App.js'), 'utf8');
 const config = fs.readFileSync(path.resolve(__dirname, '../app.config.js'), 'utf8');
 const systemPlugin = fs.readFileSync(path.resolve(__dirname, '../plugins/withSystemNavigationContrast.js'), 'utf8');
-assert.match(app, /paddingBottom:Platform\.OS==='android'\?Math\.max\(insets\.bottom,12\)/, 'Root must protect Android system navigation area');
+assert.match(app, /paddingTop:android\?insets\.top:0/, 'Root must avoid overlapping Android status icons');
+assert.match(app, /Math\.max\(insets\.bottom,18\)/, 'System navigation requires reserved contrast space');
 assert.match(config, /withSystemNavigationContrast/, 'Android config must enable navigation contrast plugin');
-assert.match(config, /backgroundColor: '#edf8f5'/, 'Root color must match the Android navigation area');
+assert.match(systemPlugin, /android:navigationBarColor', '#073d35'/, 'System navigation bar must use a contrasting dark surface');
+assert.match(systemPlugin, /android:windowLightNavigationBar', 'false'/, 'Navigation controls must use light icons');
 for (const rule of ['android:windowLightNavigationBar', 'android:navigationBarColor', 'android:enforceNavigationBarContrast']) {
   assert.ok(systemPlugin.includes(rule), `Android navigation theme missing ${rule}`);
 }
+const help=fs.readFileSync(path.resolve(__dirname,'../src/screens/HelpScreen.js'),'utf8');
+for(const topic of ['فیلترهای پیشرفته گزارشات','آمار فعالیت من','درجه یا اطلاعات نامشخص','دکمه‌های Back، Home و Recent','انتخاب گیرنده و رونوشت'])assert.ok(help.includes(topic),`Help missing: ${topic}`);
 console.log('PASS dashboard compact UX and Android navigation contrast contracts');
 console.log('PASS dashboard/menu redesign: responsive cards, favorites, rank labels, role-scoped drawer');
