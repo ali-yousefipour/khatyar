@@ -89,7 +89,8 @@ export async function markManualRequestSynced(userId,clientUuid,requestId){
   await persistEntries(userId,entries);
 }
 export async function markManualOrdinaryCheckout(userId,endTime=Date.now()){
-  if(!await getProvisionalManual(userId))return;
+  const current=await getProvisionalManual(userId);
+  if(!current?.start_ms||current.end_ms)return;
   await saveProvisionalManual(userId,{
     request_uuid:'ordinary_checkout_'+String(endTime),kind:'checkout',jdate:currentTehranJdate(),
     end_ms:Number(endTime),start_ms:null,status:'approved'
