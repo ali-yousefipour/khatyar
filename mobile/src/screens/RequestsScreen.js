@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import {useAuth} from '../auth';
+import {getAppConfig} from '../appconfig';
+import {applyManualRequestLocally, getProvisionalManual, reconcileProvisionalManual} from '../manualAttendance';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
@@ -163,6 +166,7 @@ export default function RequestsScreen({ route }) {
 }
 
 function NewRequest({ onDone, initialType, initialDate }) {
+  const {user}=useAuth();
   const [type, setType] = useState(['annual','sick','mission','overtime','manual'].includes(initialType) ? initialType : 'annual');
   const [unit, setUnit] = useState('daily');
   const [fromJ, setFromJ] = useState(() => initialDate || todayJ());
@@ -237,12 +241,27 @@ function NewRequest({ onDone, initialType, initialDate }) {
     setAttach({ name: f.name, data: b64 });
   };
   const takeSelfie = async () => {
-    const perm = await requestCameraAccess();
-    if (!perm.granted) { Alert.alert('توجه', 'دسترسی دوربین لازم است'); return; }
-    const r = await launchCamera({ cameraType: ImagePicker.CameraType.front, quality: 0.5 });
-    if (r.canceled) return;
-    const c = await compressToDataUri(r.assets[0].uri);
-    setSelfie(c || ('data:image/jpeg;base64,' + (r.assets[0].base64 || '')));
+    if (busy) return;
+    setBusy(true);
+    try {
+      const perm = await requestCameraAccess();
+      if (!perm?.granted) throw new Error('برای عکس‌برداری دسترسی دوربین گوشی را فعال کنید.');
+      // No embedded preview/shutter or gallery: hand off to the device camera.
+      const captured = await launchCamera({
+        mediaTypes:['images'], cameraType:ImagePicker.CameraType?.front||'front',
+        allowsEditing:false,base64:false,quality:1,exif:false
+      });
+      if (captured?.canceled) return;
+      const uri=captured?.assets?.[0]?.uri;
+      if (!uri) throw new Error('دوربین گوشی تصویری برنگرداند؛ دوباره عکس بگیرید.');
+      await getAppConfig(); // use the cached server image settings offline
+      const photo=await compressToDataUri(uri);
+      if (!photo?.startsWith('data:image/jpeg;base64,')||photo.length<100)
+        throw new Error('فشرده‌سازی عکس انجام نشد؛ برای ثبت درخواست دوباره عکس بگیرید.');
+      setSelfie(photo);
+    } catch(error) {
+      Alert.alert('خطا در دوربین گوشی',error?.message||'امکان ثبت سلفی وجود ندارد.');
+    } finally { setBusy(false); }
   };
 
   const submit = async () => {
@@ -255,7 +274,8 @@ function NewRequest({ onDone, initialType, initialDate }) {
     if (needsSubstitute && sub && sub.available === false) return Alert.alert('توجه', sub.reason || 'نیروی جایگزین انتخابی در این بازه در دسترس نیست.');
     setBusy(true);
     try {
-      const body = { type, reason };
+      const clientUuid='manual_request_'+String(user?.id||'')+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const body = { type, reason, ...(cfg.manual?{client_uuid:clientUuid,client_time:Date.now()}:null) };
       if (cfg.manual) {
         body.the_date = theDate;
         body.manual_kind = manualKind;
@@ -269,8 +289,19 @@ function NewRequest({ onDone, initialType, initialDate }) {
         if (cfg.attach && attach) { body.attachment_name = attach.name; body.attachment_data = attach.data; }
       }
       if (needsSubstitute && sub) body.substitute_user_id = sub.id;
-      await request('/my/requests', { method: 'POST', body });
-      Alert.alert('ثبت شد', 'درخواست شما ارسال و برای تأیید ارجاع شد.');
+      const result=await request('/my/requests', { method:'POST',body,timeoutMs:60000,queueIfOffline:true });
+      if(result?.queued){
+        if(cfg.manual) await applyManualRequestLocally(Number(user?.id),body,clientUuid,true,null);
+        Alert.alert('در صف ارسال',cfg.manual
+          ? 'درخواست تردد دستی روی گوشی ذخیره شد و پس از اتصال ارسال می‌شود. تردد شما به‌صورت موقت لحاظ شده و در صورت رد مسئول از کارکرد حذف می‌شود.'
+          : 'درخواست ذخیره شد و پس از اتصال به اینترنت ارسال می‌شود.');
+      } else {
+        if(!Number(result?.id))throw new Error('سرور ثبت درخواست را تأیید نکرد.');
+        if(cfg.manual) await applyManualRequestLocally(Number(user?.id),body,clientUuid,false,result.id);
+        Alert.alert('درخواست ثبت شد',cfg.manual
+          ? 'ورود یا خروج شما تا زمان بررسی مسئول به‌صورت موقت لحاظ می‌شود. در صورت تأیید نشدن، این تردد از کارکرد شما حذف خواهد شد.'
+          : 'درخواست شما ارسال و برای تأیید ارجاع شد.');
+      }
       onDone();
     } catch (e) { Alert.alert('خطا', e.message || 'ارسال ناموفق'); }
     finally { setBusy(false); }
