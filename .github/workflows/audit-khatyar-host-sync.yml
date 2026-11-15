@@ -1,0 +1,106 @@
+name: Audit last 50 Khatyar commits against FTP host
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-khatyar-host-sync.yml'
+
+permissions:
+  contents: read
+
+# Wait for uploads rather than audit a half-updated production directory.
+concurrency:
+  group: php-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 100
+      - name: Verify last 50 original commits are in main
+        run: |
+          set -euo pipefail
+          # Baseline is the parent of the oldest of the 50 commits requested.
+          BASE=2df5d4738a1ab51a69c7509ff91a003b8533e788
+          git merge-base --is-ancestor "$BASE" HEAD
+          echo "Original range from $BASE to $(git rev-parse HEAD):"
+          git log --format='%h %s' "$BASE"..HEAD
+          test "$(git rev-list --count "$BASE"..HEAD)" -ge 50
+      - name: Install lftp
+        run: |
+          sudo apt-get install -y -qq lftp
+      - name: Download changed production files from FTP and compare SHA-256
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$FTP_USER" && test -n "$FTP_PASS"
+          paths=(
+            app/.htaccess
+            app/contact-submit.php
+            app/index.php
+            app/landing.html
+            app/public-stats.php
+            app/robots.txt
+            app/sitemap.xml
+            lib/routes.php
+          )
+          mkdir -p "$RUNNER_TEMP/host-audit"
+          cmd="$(mktemp)"
+          {
+            echo 'set cmd:fail-exit yes'
+            echo 'set net:timeout 30'
+            echo 'set net:max-retries 3'
+            echo 'set ftp:ssl-force false'
+            echo 'set ftp:ssl-protect-data false'
+            echo 'set ftp:passive-mode true'
+            echo 'set ftp:prefer-epsv false'
+            echo 'set ssl:verify-certificate no'
+            for path in "${paths[@]}"; do
+              dest="$RUNNER_TEMP/host-audit/$path"
+              mkdir -p "$(dirname "$dest")"
+              echo "get /khat-yar.ir/$path -o $dest"
+            done
+            echo 'bye'
+          } > "$cmd"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "$(cat "$cmd")"
+          rm -f "$cmd"
+          failed=0
+          for path in "${paths[@]}"; do
+            if cmp -s "php/$path" "$RUNNER_TEMP/host-audit/$path"; then
+              echo "PASS FTP identical: $path"
+            else
+              echo "::error::FTP version differs from main: $path"
+              failed=1
+            fi
+          done
+          exit "$failed"
+      - name: Check current public HTML and SEO response
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in / /features /about /contact; do
+            file="$(mktemp)"
+            code="$(curl --silent --show-error --location --max-time 30 -o "$file" -w '%{http_code}' "https://khat-yar.ir$route?audit=$(git rev-parse --short HEAD)")"
+            echo "$route HTTP $code"
+            test "$code" = 200
+            if ! grep -q 'rel="canonical"' "$file"; then
+              echo "::error::Canonical tag missing from live route $route; inspect Apache DirectoryIndex/rewrite/caching"
+              exit 1
+            fi
+            rm -f "$file"
+          done
+          for file in robots.txt sitemap.xml; do
+            curl --fail --silent --show-error --max-time 30 "https://khat-yar.ir/$file?audit=$(git rev-parse --short HEAD)" -o /dev/null
+            echo "PASS live $file"
+          done
