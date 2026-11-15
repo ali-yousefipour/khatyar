@@ -3320,7 +3320,7 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
     ORDER BY check_in", [(int)$userId,$end,$start]);
   // Calculate both types from the same confirmed evidence and attendance
   // sessions. Reuse the effective internet ranges after administrative waivers.
-  require_once __DIR__.'/InternetWorkIntervals.php';
+  require_once __DIR__.'/../lib/InternetWorkIntervals.php';
   $internetDetails=internet_work_daily_details((int)$userId,$rows);
   $internetRanges=[];
   foreach($internetDetails as $detail) {
@@ -5393,7 +5393,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
   // Keep the older Android daily-performance contract and add the missing
   // internet deduction as an independent, evidence-based field.
-  require_once __DIR__.'/InternetWorkIntervals.php';
+  require_once __DIR__.'/../lib/InternetWorkIntervals.php';
   $internetDetails=internet_work_daily_details((int)$u['id'],$rows);
   $w['internet_invalid_min']=array_sum(array_column($internetDetails,'minutes'));
   $w['internet_inactive_minutes']=$w['internet_invalid_min'];
