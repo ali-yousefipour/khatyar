@@ -126,6 +126,15 @@ if (strpos($path, '/api') !== 0) {
     ];
     $seoTags .= '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script>';
     $publicHtml = str_replace('</head>', $seoTags . '</head>', $publicHtml);
+    // Allow only the exact inline brochure scripts (including JSON-LD).
+    // No unsafe-inline JavaScript, eval, plugins or framing.
+    $scriptSources = ["'self'"];
+    if (preg_match_all('~<script\\b[^>]*>(.*?)</script>~si', $publicHtml, $inlineScripts)) {
+      foreach ($inlineScripts[1] as $inlineCode) {
+        if (trim($inlineCode) !== '') $scriptSources[] = "'sha256-" . base64_encode(hash('sha256', $inlineCode, true)) . "'";
+      }
+    }
+    header("Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src " . implode(' ', $scriptSources) . "; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; connect-src 'self'; upgrade-insecure-requests");
     header('Cache-Control: public, max-age=300');
     header('Content-Type: text/html; charset=utf-8');
     echo $publicHtml;
@@ -140,6 +149,7 @@ if (strpos($path, '/api') !== 0) {
     exit;
   }
   if ($path === '/app' || $path === '/app.html') {
+    header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-cache, must-revalidate'); $html = @file_get_contents(__DIR__ . '/app.html');
     if ($html === false) { http_response_code(500); echo 'Web App unavailable'; exit; }
     $tag = '<script src="/assets/version-badge.js?v=20260905.12" defer></script>';
