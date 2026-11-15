@@ -19,6 +19,7 @@ import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import {ensureLocalRandomSchedule, clearLocalRandomSchedule, currentPresencePolicy, localPresenceCompletions, localAttendanceSession, PRESENCE_LOCAL_SCHEDULE_KEY} from '../presenceLocalSchedule';
 import NetInfo from '@react-native-community/netinfo';
 import WifiManager from 'react-native-wifi-reborn';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
@@ -787,12 +788,16 @@ function CheckInCore({ viewportHeight }) {
         await invalidateCachedValue('/my/checkin-config');
         setOpen(confirmedOpen);
         await persistLocalOpen(confirmedOpen);
-        try{
-          const schedule=Array.isArray(r.presence_random_schedule)?r.presence_random_schedule:[];
-          if(schedule.length) await AsyncStorage.setItem(PRESENCE_RANDOM_CACHE_KEY,JSON.stringify({attendance_id:Number(r.id||0),items:schedule,cached_at:Date.now()}));
-          else await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY);
-        }catch{}
+
       }
+      // A local schedule is created at check-in, even when the attendance write is queued.
+      try {
+        const policy=await currentPresencePolicy(Number(user?.id),request);
+        if(policy?.enabled&&policy?.random_enabled) {
+          const local=await localAttendanceSession(Number(user?.id));
+          if(local)await ensureLocalRandomSchedule(Number(user?.id),local);
+        }
+      } catch(error) { console.warn('presence local schedule:',error?.message||error); }
       if (appCfg?.gps_work_required) {
         Alert.alert(
           'الزام GPS و شیفت کاری',
@@ -885,7 +890,7 @@ function CheckInCore({ viewportHeight }) {
         attendanceStateEpochRef.current += 1;
         setOpen(null);
         await persistLocalOpen(null);
-        try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
+        try { await clearLocalRandomSchedule(); } catch {}
         setElapsed(0);
         setTimerInfo(null);
         Alert.alert('ثبت حضور بسته شد', 'این جلسه به‌دلیل عبور از ۱۴ ساعت به‌صورت خودکار بسته شد. اکنون می‌توانید حضور جدید ثبت کنید.');
@@ -936,7 +941,7 @@ function CheckInCore({ viewportHeight }) {
       await invalidateCachedValue('/my/checkin-config');
       setOpen(null);
       await persistLocalOpen(null);
-      try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
+      try { await clearLocalRandomSchedule(); } catch {}
       setElapsed(0);
       if (!r.queued) {
         // پاسخ آنلاین و سپس load() مرجع نهایی سرور برای مجموع کارکرد روز است.
@@ -1676,10 +1681,21 @@ function CheckInPresenceTab(){
     let active=true;
     setLoading(true);
     setError(false);
-    request('/my/presence-checks/today',{noStore:true})
-      .then(data=>{if(active)setItems(Array.isArray(data?.items)?data.items:[]);})
-      .catch(()=>{if(active)setError(true);})
-      .finally(()=>{if(active)setLoading(false);});
+    (async()=>{
+      const local=await localPresenceCompletions();
+      let schedule=null;
+      try{schedule=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
+      const today=Date.now();
+      const localItems=(schedule?.items||[]).filter(item=>{
+        const date=new Date(item.ts*1000);
+        return date.toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'})===new Date(today).toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'});
+      }).map(item=>({id:item.request_id,request_id:item.request_id,random:true,sent_time:item.slot,status:local[item.request_id]?.status||(item.ts*1000>today?'pending':today<item.ts*1000+item.window_minutes*60000?'pending':'missed')}));
+      let server=[];
+      try{const data=await request('/my/presence-checks/today',{noStore:true,timeoutMs:7000});server=Array.isArray(data?.items)?data.items:[];}
+      catch{if(!localItems.length&&active)setError(true);}
+      const seen=new Set(localItems.map(item=>String(item.request_id)));
+      if(active)setItems([...localItems,...server.filter(item=>!seen.has(String(item.request_id||item.id)))]);
+    })().catch(()=>{if(active)setError(true)}).finally(()=>{if(active)setLoading(false)});
     return()=>{active=false;};
   },[refresh]);
   return <ScrollView contentContainerStyle={{padding:16,gap:12}}>
