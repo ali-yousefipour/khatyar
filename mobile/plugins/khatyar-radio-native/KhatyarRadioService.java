@@ -397,6 +397,10 @@ public final class KhatyarRadioService extends Service {
 
   private void pollOnce() {
     try {
+      // The React Native foreground poller owns live updates while the app is visible.
+      // Keep the native 1.8s loop for background reception only; otherwise both
+      // clients hit the same radio endpoint on every tick.
+      if (isAppInForeground()) return;
       android.content.SharedPreferences p = getPrefs();
       String token = p.getString("token", ""), base = p.getString("baseUrl", "");
       long channel = p.getLong("channelId", 0L), userId = p.getLong("userId", 0L);
