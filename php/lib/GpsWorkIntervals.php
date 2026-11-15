@@ -131,11 +131,13 @@ function gps_work_effective_intervals(int $userId, array $ranges): array {
   $start=min(array_column($ranges,0));
   $end=max(array_column($ranges,1));
   try {
-    gps_work_waiver_schema();
+    // Reads must not attempt CREATE TABLE on every attendance refresh.
     $waivers=Db::all("SELECT start_at,end_at FROM gps_work_waivers WHERE user_id=? AND end_at>? AND start_at<?",[
       $userId,date('Y-m-d H:i:s',$start),date('Y-m-d H:i:s',$end)
     ]);
   } catch (Throwable $e) {
+    // No waiver table on older installations means no waiver records.
+    if(in_array((string)$e->getCode(),['42S02','1146'],true))return $ranges;
     error_log('GPS work waiver evidence unavailable: '.$e->getMessage());
     return [];
   }
