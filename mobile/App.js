@@ -122,7 +122,7 @@ function DeferredRuntimeServices(){const[stage,setStage]=React.useState(0);const
 function EditProfileWithVehicle({navigation}){const[access,setAccess]=React.useState(null);React.useEffect(()=>{request('/personnel-vehicle-assets.php?op=access',{noStore:true}).then(setAccess).catch(()=>setAccess(null))},[]);return <View style={{flex:1,backgroundColor:C.paper}}><EditProfileScreen navigation={navigation} vehicleAction={access?.allowed?<TouchableOpacity accessibilityRole="button" onPress={()=>navigation.navigate('PersonnelVehicleAsset')} style={{backgroundColor:C.taxi,borderRadius:14,minHeight:48,paddingHorizontal:12,marginBottom:12,justifyContent:'center',alignItems:'center'}}><Text style={{fontFamily:FONT.bold,color:C.taxiInk,fontSize:14}}>مشخصات خودرو یا موتورسیکلت</Text></TouchableOpacity>:null}/></View>}
 const restrictedScreenCache = new Map();
 function getRestrictedScreenComponent(routeName, ScreenComponent) {
-  if (routeName === 'Dashboard') return ScreenComponent;
+  if (routeName === 'Dashboard' || routeName === 'AppUpdateCheck') return ScreenComponent;
   const existing = restrictedScreenCache.get(routeName);
   if (existing?.source === ScreenComponent) return existing.wrapper;
   const wrapper = (props) => <RestrictedScreen {...props} routeName={routeName} Component={ScreenComponent}/>;
