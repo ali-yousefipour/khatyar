@@ -145,7 +145,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       let dist = '';
       if (nearest?.center_lat != null && station?.center_lng != null) {
         try {
-          const d = haversine(lat, lng, +nearest.center_lat, +nearest.center_lng);
+          const d = haversine(lat, lng, Number(nearest.center_lat??nearest.lat??nearest.latitude), Number(nearest.center_lng??nearest.lng??nearest.longitude));
           const edge = nearest.radius_m ? Math.max(0, d - (+nearest.radius_m)) : d;
           dist = `فاصله تا ایستگاه: ${faNum(Math.round(edge))} متر`;
         } catch (_) {}
