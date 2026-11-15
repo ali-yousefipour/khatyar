@@ -1,18 +1,20 @@
 name: Stage and verify Khatyar on new domain
 on:
-  push:
+  workflow_run:
+    workflows: ['build-android-myket']
+    types: [completed]
     branches: [main]
-    paths: ['.github/workflows/migrate-khatyar-domain.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
 concurrency:
-  group: php-production-deploy
+  group: khatyar-domain-migration
   cancel-in-progress: false
 
 jobs:
   migrate:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -55,6 +57,21 @@ jobs:
           lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -f "$RUNNER_TEMP/ftp-read.cmd"
           test -s "$staging/index.php" || { echo 'Old /app FTP folder is not the production web root'; exit 1; }
           cp -a php/app/. "$staging/"
+          # Point source references to the new canonical domain; never mutate uploaded data.
+          python3 - "$staging" <<'PY'
+          from pathlib import Path
+          import sys
+          root=Path(sys.argv[1])
+          for item in root.rglob('*'):
+              if not item.is_file() or 'uploads' in item.relative_to(root).parts or item.suffix.lower() not in {'.php','.html','.js','.css','.json','.xml','.svg','.webmanifest'}:
+                  continue
+              try:
+                  text=item.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              replaced=text.replace('app.yousefipour.ir','khat-yar.ir')
+              if replaced!=text:item.write_text(replaced,encoding='utf-8')
+          PY
           test -s "$staging/.htaccess"
           cat > "$RUNNER_TEMP/ftp-write.cmd" <<EOF
           set cmd:fail-exit yes
