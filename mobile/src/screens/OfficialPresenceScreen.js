@@ -6,7 +6,6 @@ import { launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock'
 import { compressToDataUri } from '../img';
 import { request, postOrQueue } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Network from 'expo-network';
 import { useAuth } from '../auth';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
@@ -55,6 +54,16 @@ export default function OfficialPresenceScreen() {
             && typeof data.require_photo === 'boolean') snapshot = data;
       } catch (_) {}
     }
+    if(snapshot){
+      setOfficials(snapshot.officials);
+      setLines(snapshot.lines);
+      setReqPhoto(snapshot.require_photo);
+      setHistory(Array.isArray(snapshot.history)?snapshot.history:[]);
+      setRequiredDataReady(true);
+      setUsingOfflineSnapshot(true);
+      setLoadError('');
+      setLoading(false);
+    }
     try {
       const results = await Promise.allSettled([
         request('/officials', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
@@ -70,6 +79,7 @@ export default function OfficialPresenceScreen() {
         officials: validOfficials ? o.value : snapshot?.officials,
         lines: validLines ? l.value : snapshot?.lines,
         require_photo: validConfig ? cfg.value.require_photo : snapshot?.require_photo,
+        history: h.status==='fulfilled' && Array.isArray(h.value) ? h.value : snapshot?.history || [],
         saved_at: Date.now(),
       };
       const ready=Array.isArray(merged.officials)
@@ -90,6 +100,7 @@ export default function OfficialPresenceScreen() {
       setUsingOfflineSnapshot(cached);
       setLoadError(ready ? '' : 'اطلاعات ضروری مسئولان، خطوط یا الزام عکس در دسترس نیست؛ یک‌بار در حالت آنلاین بارگذاری کنید.');
       if(h.status==='fulfilled' && Array.isArray(h.value))setHistory(h.value);
+      else if (snapshot && Array.isArray(snapshot.history))setHistory(snapshot.history);
       else setSyncWarning('سوابق بازدید فعلاً به‌روز نیست؛ ثبت جدید با اطلاعات معتبر همچنان امکان‌پذیر است.');
     } catch (error) {
       if(snapshot){
@@ -107,7 +118,11 @@ export default function OfficialPresenceScreen() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); }, [cacheKey]);
+  useEffect(() => {
+    setOfficials([]);setLines([]);setHistory([]);setPicked(null);setPhoto(null);
+    setRequiredDataReady(false);setUsingOfflineSnapshot(false);setLoadError('');
+    load();
+  }, [cacheKey]);
 
   const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
 
