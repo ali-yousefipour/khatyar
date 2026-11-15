@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
 import * as DocumentPicker from 'expo-document-picker';
@@ -13,12 +13,19 @@ import { playSound } from '../soundFx';
 import ReportPersonPickerModal from '../components/ReportPersonPickerModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { faNum } from '../num';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../auth';
 
 const STATUS = { sent: 'ارسال‌شده', seen: 'دیده‌شده', answered: 'پاسخ‌داده‌شده', forwarded: 'ارجاع‌شده', rejected: 'رد شده' };
 const PRIORITY = { normal: 'عادی', important: 'مهم', urgent: 'فوری' };
 
 export default function ReportsScreen({ navigation }) {
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
+  const draftKey = user?.id ? `khatyar:report-draft:v1:${user.id}` : null;
+  const draftRestored = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
   const [tab, setTab] = useState('send');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -47,6 +54,9 @@ export default function ReportsScreen({ navigation }) {
   const [sentSelection, setSentSelection] = useState([]);
   const [bulkSentBusy, setBulkSentBusy] = useState(false);
   const [sentPriorityFilter, setSentPriorityFilter] = useState('all');
+  const [sentStatusFilter, setSentStatusFilter] = useState('all');
+  const [sentSort, setSentSort] = useState('date');
+  const [sentGroup, setSentGroup] = useState('none');
 
   const load = useCallback(async () => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
@@ -63,6 +73,48 @@ export default function ReportsScreen({ navigation }) {
   }, [sentQuery]);
 
   useEffect(() => {
+    draftRestored.current = false;
+    setDraftReady(false);
+    if (!draftKey) return;
+    let active = true;
+    AsyncStorage.getItem(draftKey).then(raw => {
+      if (!active || !raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return;
+      draftRestored.current = true;
+      setSubject(String(d.subject || ''));
+      setBody(String(d.body || ''));
+      setSubjectMode(String(d.subjectMode || 'other'));
+      setPriority(['normal','important','urgent'].includes(d.priority) ? d.priority : 'normal');
+      setTargetMode(d.targetMode === 'specific' ? 'specific' : 'manager');
+      setToUserId(d.toUserId || null);
+      setCcEnabled(Boolean(d.ccEnabled));
+      setCcUserId(d.ccUserId || null);
+      setDraftStatus('پیش‌نویس قبلی بازیابی شد');
+    }).catch(() => setDraftStatus('بازیابی پیش‌نویس ممکن نشد')).finally(() => { if (active) setDraftReady(true); });
+    return () => { active = false; };
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftReady || !draftKey || sending) return;
+    const id = setTimeout(async () => {
+      try {
+        if (!body.trim() && !subject.trim() && !ccEnabled) {
+          await AsyncStorage.removeItem(draftKey);
+          setDraftStatus('');
+          return;
+        }
+        await AsyncStorage.setItem(draftKey, JSON.stringify({
+          subject, body, subjectMode, priority, targetMode, toUserId, ccEnabled, ccUserId,
+          savedAt: Date.now(),
+        }));
+        setDraftStatus('پیش‌نویس در همین دستگاه ذخیره شد (بدون پیوست)');
+      } catch (_) { setDraftStatus('ذخیره خودکار پیش‌نویس ناموفق بود'); }
+    }, 800);
+    return () => clearTimeout(id);
+  }, [draftKey, draftReady, subject, body, subjectMode, priority, targetMode, toUserId, ccEnabled, ccUserId, sending]);
+
+  useEffect(() => {
     request('/my/managers').then((m) => {
       setManagers(m || []);
       if (m && m.length === 1) setToUserId(m[0].id);
@@ -72,7 +124,7 @@ export default function ReportsScreen({ navigation }) {
       }
     }).catch(() => setManagers([]));
     request('/my/forward-targets').then((r) => setAllTargets(r || [])).catch(() => setAllTargets([]));
-    request('/report-subjects').then((r)=>{setReportSubjects(r||[]); if(r&&r.length){setSubjectMode(String(r[0].id));setSubject(r[0].title||'');}}).catch(()=>setReportSubjects([]));
+    request('/report-subjects').then((r)=>{setReportSubjects(r||[]); if(r&&r.length&&!draftRestored.current){setSubjectMode(String(r[0].id));setSubject(r[0].title||'');}}).catch(()=>setReportSubjects([]));
   }, []);
 
   useEffect(() => {
@@ -81,12 +133,20 @@ export default function ReportsScreen({ navigation }) {
     return () => clearTimeout(timer);
   }, [tab, load]);
 
-  const sortedMine = useMemo(() => mine.filter(r => (sentPriorityFilter === 'all' || r.priority === sentPriorityFilter) && (!sentQuery.trim() || [r.subject,r.body,r.sender_name,r.sender].some(v=>String(v||'').includes(sentQuery.trim())))).sort((a, b) => {
-    const aa = new Date(a.created_at || 0).getTime();
-    const bb = new Date(b.created_at || 0).getTime();
-    return sortNewest ? bb - aa : aa - bb;
-  }), [mine, sortNewest, sentQuery, sentPriorityFilter]);
+  const sortedMine = useMemo(() => mine.filter(r => (sentPriorityFilter === 'all' || r.priority === sentPriorityFilter) && (sentStatusFilter === 'all' || r.status === sentStatusFilter) && (!sentQuery.trim() || [r.subject,r.body,r.sender_name,r.sender].some(v=>String(v||'').includes(sentQuery.trim())))).sort((a, b) => {
+    let compare = 0;
+    if (sentSort === 'subject') compare = String(a.subject || '').localeCompare(String(b.subject || ''), 'fa');
+    else if (sentSort === 'priority') compare = ({ urgent: 3, important: 2, normal: 1 }[a.priority] || 0) - ({ urgent: 3, important: 2, normal: 1 }[b.priority] || 0);
+    else compare = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+    return (sortNewest ? -1 : 1) * compare;
+  }), [mine, sortNewest, sentQuery, sentPriorityFilter, sentStatusFilter, sentSort]);
 
+  const sentGroupLabel = (r) => sentGroup === 'priority' ? (PRIORITY[r.priority] || 'بدون اولویت') : sentGroup === 'status' ? (STATUS[r.status] || r.status || 'نامشخص') : '';
+  const sentGroupCounts = sortedMine.reduce((acc, r) => {
+    const key = sentGroupLabel(r);
+    if (key) acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
   const shownSentIds = sortedMine.map(item => String(item.id));
   const selectedSentIds = sentSelection.filter(id => shownSentIds.includes(id));
   const allSentSelected = shownSentIds.length > 0 && shownSentIds.every(id => selectedSentIds.includes(id));
@@ -210,6 +270,8 @@ export default function ReportsScreen({ navigation }) {
       const botFailed = !r.queued && botDelivery && botDelivery.ok === false;
       const botText = botFailed ? '\nارسال به ربات‌های پیام‌رسان انجام نشد؛ گزارش اصلی ثبت شده است.' : '';
       Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.${botText}`);
+      if (draftKey) await AsyncStorage.removeItem(draftKey).catch(() => {});
+      setDraftStatus('');
       setBody(''); setAttachments([]); setPriority('normal'); if(reportSubjects.length){setSubjectMode(String(reportSubjects[0].id));setSubject(reportSubjects[0].title||'');}else{setSubjectMode('other');setSubject('');}
       setTargetQuery(''); setSelectedRole(''); setCcEnabled(false); setCcRole(''); setCcQuery(''); setCcUserId(null); setTab('sent'); setSentQuery('');
     } catch (e) { Alert.alert('خطا در ارسال', e?.message || 'ارسال گزارش ناموفق بود. دوباره تلاش کنید.'); }
@@ -224,12 +286,14 @@ export default function ReportsScreen({ navigation }) {
       </View>
       {tab === 'send' ? (
         <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingHorizontal:width<360?11:16}]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <View style={s.draftNotice}><MaterialCommunityIcons name="content-save-check-outline" size={19} color={C.brand}/><Text style={s.draftNoticeText}>{draftStatus || 'متن گزارش به‌صورت خودکار روی این دستگاه ذخیره می‌شود. پیوست‌ها ذخیره نمی‌شوند.'}</Text></View>
           <View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="file-document-edit-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>موضوع و اولویت گزارش</Text></View><Text style={s.label}>موضوع گزارش</Text>
           <View style={s.mgrWrap}>{reportSubjects.map((x)=><TouchableOpacity key={x.id} style={[s.mgrChip,subjectMode===String(x.id)&&s.mgrChipOn]} onPress={()=>{setSubjectMode(String(x.id));setSubject(x.title||'')}}><Text style={[s.mgrChipTxt,subjectMode===String(x.id)&&s.white]}>{x.title}</Text></TouchableOpacity>)}<TouchableOpacity style={[s.mgrChip,subjectMode==='other'&&s.mgrChipOn]} onPress={()=>{setSubjectMode('other');setSubject('')}}><Text style={[s.mgrChipTxt,subjectMode==='other'&&s.white]}>سایر</Text></TouchableOpacity></View>
           {subjectMode==='other'?<TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="موضوع دلخواه را وارد کنید…" placeholderTextColor={C.muted}/>:null}
           <Text style={s.label}>اولویت گزارش</Text>
           <View style={s.priorityWrap}>{Object.entries(PRIORITY).map(([k, v]) => <TouchableOpacity key={k} style={[s.priorityChip, priority === k && s.priorityOn]} onPress={() => setPriority(k)}><Text style={[s.priorityTxt, priority === k && s.white]}>{v}</Text></TouchableOpacity>)}</View>
           </View><View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="text-box-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>شرح گزارش و پیوست‌ها</Text></View><Text style={s.label}>متن گزارش</Text><TextInput style={[s.input, s.bodyInput]} value={body} onChangeText={setBody} multiline placeholder="شرح گزارش…" placeholderTextColor={C.muted} />
+          <View style={s.formHint}><Text style={s.formHintText}>{faNum(body.trim().length)} نویسه · شرح روشن، زمان و مکان رویداد و اقدام مورد انتظار را ثبت کنید.</Text></View>
           <Text style={s.label}>پیوست‌ها (حداکثر ۵ تصویر یا PDF)</Text>
           <View style={s.attachRow}><TouchableOpacity style={s.attach} onPress={pickImage}><MaterialCommunityIcons name="image-plus" size={19} color={C.brand}/><Text style={s.attachTxt}>افزودن تصویر</Text></TouchableOpacity><TouchableOpacity style={s.attach} onPress={pickPdf}><MaterialCommunityIcons name="file-pdf-box" size={19} color={C.brand}/><Text style={s.attachTxt}>افزودن PDF</Text></TouchableOpacity></View>
           {attachments.map((a, idx) => <View key={`${a.name}-${idx}`} style={s.attItem}>{String(a.mime_type || '').startsWith('image') ? <Image source={{ uri: a.data }} style={s.thumb} /> : null}<Text style={s.attName}>{a.name}</Text><TouchableOpacity onPress={() => removeAttachment(idx)}><Text style={s.attDel}>حذف</Text></TouchableOpacity></View>)}
@@ -254,6 +318,12 @@ export default function ReportsScreen({ navigation }) {
           <View style={s.sentPriorityRow}>
             {['all','normal','important','urgent'].map(key => <TouchableOpacity key={key} onPress={() => {setSentPriorityFilter(key);setSentSelection([]);}} style={[s.sentPriorityChip,sentPriorityFilter===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentPriorityFilter===key&&{color:'#fff'}]}>{key==='all'?'همه اولویت‌ها':PRIORITY[key]}</Text></TouchableOpacity>)}
           </View>
+          <View style={s.sentPriorityRow}>
+            {['all','sent','seen','answered','forwarded','rejected'].map(key => <TouchableOpacity key={key} onPress={() => {setSentStatusFilter(key);setSentSelection([]);}} style={[s.sentPriorityChip,sentStatusFilter===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentStatusFilter===key&&{color:'#fff'}]}>{key==='all'?'همه وضعیت‌ها':STATUS[key]}</Text></TouchableOpacity>)}
+          </View>
+          <View style={s.sentBulkRow}><Text style={s.sentBulkText}>مرتب‌سازی</Text>{['date','subject','priority'].map(key=><TouchableOpacity key={key} onPress={()=>setSentSort(key)} style={[s.sentPriorityChip,sentSort===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentSort===key&&{color:'#fff'}]}>{key==='date'?'تاریخ':key==='subject'?'موضوع':'اولویت'}</Text></TouchableOpacity>)}</View>
+          <View style={s.sentBulkRow}><Text style={s.sentBulkText}>دسته‌بندی</Text>{['none','status','priority'].map(key=><TouchableOpacity key={key} onPress={()=>setSentGroup(key)} style={[s.sentPriorityChip,sentGroup===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentGroup===key&&{color:'#fff'}]}>{key==='none'?'بدون گروه':key==='status'?'وضعیت':'اولویت'}</Text></TouchableOpacity>)}</View>
+          {sentGroup !== 'none' && <View style={s.sentPriorityRow}>{Object.entries(sentGroupCounts).map(([name,count])=><View key={name} style={s.sentPriorityChip}><Text style={s.sentPriorityTxt}>{name} · {faNum(count)}</Text></View>)}</View>}
           {selectedSentIds.length > 0 && <View style={s.sentBulkRow}>
             <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={deleteSelectedSent} style={[s.sentPriorityChip,{borderColor:'#e9b3b3'}]}><MaterialCommunityIcons name="delete-outline" size={18} color={C.danger}/><Text style={[s.sentPriorityTxt,{color:C.danger}]}>{bulkSentBusy?'در حال حذف…':'حذف انتخاب‌شده‌ها'}</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={() => setSentSelection([])}><Text style={s.sentBulkText}>لغو انتخاب</Text></TouchableOpacity>
@@ -285,6 +355,11 @@ function applyTemplate(template, reports) {
 }
 
 const s = StyleSheet.create({
+  draftNotice: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center', borderRadius: 13, backgroundColor: '#eaf4ff', padding: 13, marginBottom: 12 },
+  draftNoticeText: { color: C.ink, fontFamily: FONT.regular, fontSize: 12, flex: 1, textAlign: 'right' },
+  formHint: { paddingVertical: 8 },
+  formHintText: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', fontSize: 12 },
+
   sentBulkRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingVertical: 8, flexWrap: 'wrap' },
   sentSelectAll: { minHeight: 44, flexDirection: 'row-reverse', alignItems: 'center', gap: 7 },
   sentBulkText: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
