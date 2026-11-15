@@ -99,7 +99,7 @@ export default function ReportsScreen({ navigation }) {
     if (!draftReady || !draftKey || sending) return;
     const id = setTimeout(async () => {
       try {
-        if (!body.trim() && !subject.trim() && !ccEnabled) {
+        if (!body.trim() && (!subject.trim() || subjectMode !== 'other') && !ccEnabled) {
           await AsyncStorage.removeItem(draftKey);
           setDraftStatus('');
           return;
@@ -117,8 +117,8 @@ export default function ReportsScreen({ navigation }) {
   useEffect(() => {
     request('/my/managers').then((m) => {
       setManagers(m || []);
-      if (m && m.length === 1) setToUserId(m[0].id);
-      else if (m && m.length > 1) {
+      if (m && m.length === 1 && !draftRestored.current) setToUserId(m[0].id);
+      else if (m && m.length > 1 && !draftRestored.current) {
         const chief = m.find((x) => x.is_chief);
         if (chief) setToUserId(chief.id);
       }
@@ -141,6 +141,13 @@ export default function ReportsScreen({ navigation }) {
     return (sortNewest ? -1 : 1) * compare;
   }), [mine, sortNewest, sentQuery, sentPriorityFilter, sentStatusFilter, sentSort]);
 
+  const orderedSent = useMemo(() => {
+    if (sentGroup === 'none') return sortedMine;
+    return [...sortedMine].sort((a, b) => {
+      const order = sentGroupLabel(a).localeCompare(sentGroupLabel(b), 'fa');
+      return order || (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    });
+  }, [sortedMine, sentGroup]);
   const sentGroupLabel = (r) => sentGroup === 'priority' ? (PRIORITY[r.priority] || 'بدون اولویت') : sentGroup === 'status' ? (STATUS[r.status] || r.status || 'نامشخص') : '';
   const sentGroupCounts = sortedMine.reduce((acc, r) => {
     const key = sentGroupLabel(r);
@@ -330,7 +337,8 @@ export default function ReportsScreen({ navigation }) {
           </View>}
           {!!listError && <View style={{backgroundColor:'#fff2f0',borderWidth:1,borderColor:'#efc5bf',borderRadius:13,padding:14,marginTop:10}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{listError} اطلاعات قبلی ممکن است قدیمی باشند.</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{minHeight:48,alignItems:'center',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View>}
           {sortedMine.length === 0 && !listError && <Text style={s.empty}>{listBusy?'در حال دریافت گزارش‌ها…':'گزارشی مطابق جستجو یافت نشد.'}</Text>}
-          {sortedMine.map((r) => <View key={r.id} style={[s.card,selectedSentIds.includes(String(r.id))&&{borderColor:C.brand,borderWidth:2}]}><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:selectedSentIds.includes(String(r.id))}} accessibilityLabel={`انتخاب گزارش ${r.id}`} style={s.sentCardCheck} onPress={() => setSentSelection(previous => previous.includes(String(r.id)) ? previous.filter(id=>id!==String(r.id)) : [...previous,String(r.id)])}><MaterialCommunityIcons name={selectedSentIds.includes(String(r.id))?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.sentBulkText}>انتخاب</Text></TouchableOpacity><TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity></View>)}
+          {orderedSent.map((r, idx) => <View key={r.id} style={[s.card,selectedSentIds.includes(String(r.id))&&{borderColor:C.brand,borderWidth:2}]}>{sentGroup !== 'none' && (idx === 0 || sentGroupLabel(r) !== sentGroupLabel(orderedSent[idx-1])) && <View style={s.groupHeader}><Text style={s.groupHeaderText}>{sentGroupLabel(r)} · {faNum(sentGroupCounts[sentGroupLabel(r)] || 0)}</Text></View>}
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:selectedSentIds.includes(String(r.id))}} accessibilityLabel={`انتخاب گزارش ${r.id}`} style={s.sentCardCheck} onPress={() => setSentSelection(previous => previous.includes(String(r.id)) ? previous.filter(id=>id!==String(r.id)) : [...previous,String(r.id)])}><MaterialCommunityIcons name={selectedSentIds.includes(String(r.id))?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.sentBulkText}>انتخاب</Text></TouchableOpacity><TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text>{r.current_owner_name ? <View style={s.sentOwner}><MaterialCommunityIcons name="account-check-outline" size={17} color={C.brand}/><Text style={s.sentOwnerTxt}>مسئول جاری: {r.current_owner_name}</Text></View> : null}<View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity></View>)}
         </ScrollView>
       )}
       <ReportPersonPickerModal
@@ -355,6 +363,11 @@ function applyTemplate(template, reports) {
 }
 
 const s = StyleSheet.create({
+  sentOwner: {flexDirection:'row-reverse',alignItems:'center',gap:5,paddingVertical:5},
+  sentOwnerTxt: {fontFamily:FONT.regular,color:C.brand,textAlign:'right',fontSize:12},
+  groupHeader: {padding:9,backgroundColor:'#eef2f9',borderRadius:10,marginBottom:8},
+  groupHeaderText: {fontFamily:FONT.bold,color:C.brand,textAlign:'right',fontSize:13},
+
   draftNotice: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center', borderRadius: 13, backgroundColor: '#eaf4ff', padding: 13, marginBottom: 12 },
   draftNoticeText: { color: C.ink, fontFamily: FONT.regular, fontSize: 12, flex: 1, textAlign: 'right' },
   formHint: { paddingVertical: 8 },
