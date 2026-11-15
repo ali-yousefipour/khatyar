@@ -507,19 +507,19 @@ export function ReportDetailScreen({ route, navigation }) {
       </View>
 
       {!mine && (<>
-        <Text style={s.label}>عملیات گزارش</Text>
+        <View style={s.detailSectionHead}><MaterialCommunityIcons name="layers-outline" color={C.brand} size={21}/><Text style={s.detailSectionTitle}>عملیات گزارش</Text></View>
         <View style={s.actRow}>
-          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('note'); }}><Text style={s.btnGhostTxt}>✎ نوشتن یادداشت</Text></TouchableOpacity>
-          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('reply'); }}><Text style={s.btnGhostTxt}>↩ نوشتن پاسخ</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('note'); }}><MaterialCommunityIcons name="comment-text-outline" color={C.brand} size={19}/><Text style={s.btnGhostTxt}>نوشتن یادداشت</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('reply'); }}><MaterialCommunityIcons name="reply-outline" color={C.brand} size={19}/><Text style={s.btnGhostTxt}>نوشتن پاسخ</Text></TouchableOpacity>
         </View>
         <View style={{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',backgroundColor:'#fff8e8',borderWidth:1,borderColor:'#f0c36a',borderRadius:12,padding:10,marginTop:8}}><View style={{flex:1}}><Text style={{fontFamily:FONT.bold,color:C.ink,textAlign:'right'}}>ارجاع محرمانه</Text><Text style={{fontFamily:FONT.regular,color:C.muted,fontSize:11,textAlign:'right',marginTop:3}}>با فعال‌سازی توسط دریافت‌کننده، سوابق بعدی برای ارسال‌کننده اولیه مخفی می‌شود.</Text></View><Switch value={confidentialForward} onValueChange={setConfidentialForward}/></View>
-        <TouchableOpacity style={s.btn} disabled={busy} onPress={() => act('forward')}><Text style={s.btnTxt}>ارجاع به مسئول بالادستی</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.btn, { backgroundColor: '#2563eb', marginTop: 8 }]} disabled={busy} onPress={() => { setPersonPickerMode('forward'); setShowPersonPicker(true); }}><Text style={s.btnTxt}>ارجاع به شخص دیگر…</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.btn, { backgroundColor: '#6a4fd6', marginTop: 8 }]} disabled={busy} onPress={() => { setPersonPickerMode('cc'); setShowPersonPicker(true); }}><Text style={s.btnTxt}>📋 ارسال رونوشت به شخص دیگر</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.btn, { backgroundColor: C.danger, marginTop: 8 }]} disabled={busy} onPress={() => { setRejectReason(''); setTextModalMode('reject'); }}><Text style={s.btnTxt}>رد / حذف به‌عنوان گزارش بی‌مورد</Text></TouchableOpacity>
+        <TouchableOpacity style={s.btn} disabled={busy} onPress={() => act('forward')}><MaterialCommunityIcons name="sitemap-outline" color="#fff" size={19}/><Text style={s.btnTxt}>ارجاع به مسئول بالادستی</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.btn,s.detailSecondaryAction]} disabled={busy} onPress={() => { setPersonPickerMode('forward'); setShowPersonPicker(true); }}><MaterialCommunityIcons name="account-arrow-left-outline" color={C.brand} size={19}/><Text style={[s.btnTxt,{color:C.brand}]}>ارجاع به شخص دیگر</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.btn,s.detailCopyAction]} disabled={busy} onPress={() => { setPersonPickerMode('cc'); setShowPersonPicker(true); }}><MaterialCommunityIcons name="content-copy" color="#5738aa" size={19}/><Text style={[s.btnTxt,{color:'#5738aa'}]}>ارسال رونوشت به شخص دیگر</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.btn,s.detailDestructiveAction]} disabled={busy} onPress={() => { setRejectReason(''); setTextModalMode('reject'); }}><MaterialCommunityIcons name="delete-outline" color={C.danger} size={19}/><Text style={[s.btnTxt,{color:C.danger}]}>رد / حذف گزارش بی‌مورد</Text></TouchableOpacity>
       </>)}
 
-      <Text style={s.label}>روند گردش کار</Text>
+      <View style={s.detailSectionHead}><MaterialCommunityIcons name="history" color={C.brand} size={21}/><Text style={s.detailSectionTitle}>روند گردش کار</Text></View>
       {r.history_hidden_for_sender ? <Text style={[s.meta, { color: '#9a5b00' }]}>به‌دلیل فعال بودن «اختفای سابقه و ارجاع محرمانه»، سوابق و یادداشت‌های این گزارش برای شما قابل مشاهده نیست.</Text> : null}
       {!r.history_hidden_for_sender && flow.length === 0 && <Text style={s.meta}>هنوز اقدامی روی این گزارش ثبت نشده است.</Text>}
       {flow.map((x, i) => {
@@ -581,6 +581,12 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  detailSectionHead:{flexDirection:'row-reverse',gap:8,alignItems:'center',marginTop:17,marginBottom:10,paddingHorizontal:4},
+  detailSectionTitle:{fontFamily:FONT.bold,fontSize:16,color:C.ink,textAlign:'right'},
+  detailSecondaryAction:{backgroundColor:'#e7f5ef',borderWidth:1,borderColor:'#bcdfce',marginTop:8},
+  detailCopyAction:{backgroundColor:'#f0eaff',borderWidth:1,borderColor:'#dcd0ff',marginTop:8},
+  detailDestructiveAction:{backgroundColor:'#fff0f1',borderWidth:1,borderColor:'#f4c9cb',marginTop:8},
+
   filterPanel:{marginHorizontal:16,marginBottom:8,borderWidth:1,borderColor:'#dce8e2',backgroundColor:'#fff',borderRadius:20,overflow:'hidden',elevation:1},
   filterHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',paddingHorizontal:15,minHeight:54},
   filterTitleGroup:{flexDirection:'row-reverse',alignItems:'center',gap:8},
@@ -623,13 +629,13 @@ const s = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#f3f8f6' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
-  pageHeader:{paddingHorizontal:18,paddingTop:18,paddingBottom:13},pageTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:20,textAlign:'right'},pageSubtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:6,lineHeight:21},searchBox:{marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,minHeight:49,flexDirection:'row-reverse',alignItems:'center',paddingHorizontal:13,gap:9},searchInput:{fontFamily:FONT.regular,color:C.ink,fontSize:13,flex:1,textAlign:'right',paddingVertical:9},listSummary:{paddingHorizontal:17,paddingVertical:11,flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},listSummaryTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},listSummaryHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11},emptyCard:{alignItems:'center',justifyContent:'center',backgroundColor:'#fff',borderRadius:20,borderWidth:1,borderColor:C.line,padding:28,marginTop:18},reportId:{fontFamily:FONT.regular,color:C.muted,fontSize:10,textAlign:'right',marginTop:5},metaRow:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:10},openHint:{flexDirection:'row-reverse',alignItems:'center',gap:3,marginTop:12},openHintText:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
-  premiumHeader:{backgroundColor:'#075f51',borderBottomLeftRadius:23,borderBottomRightRadius:23,marginBottom:14,paddingVertical:19,elevation:2},headerTitleRow:{flexDirection:'row-reverse',alignItems:'center',gap:9},premiumTitle:{color:'#fff',fontSize:19,flex:1},premiumSub:{color:'#dfefe6'},unreadCount:{backgroundColor:'#f6dfae',paddingHorizontal:10,paddingVertical:6,borderRadius:12},unreadCountText:{fontFamily:FONT.bold,color:'#744e16',fontSize:11},
+  pageHeader:{paddingHorizontal:19,paddingTop:22,paddingBottom:20},pageTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:20,textAlign:'right'},pageSubtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:6,lineHeight:21},searchBox:{marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,minHeight:49,flexDirection:'row-reverse',alignItems:'center',paddingHorizontal:13,gap:9},searchInput:{fontFamily:FONT.regular,color:C.ink,fontSize:13,flex:1,textAlign:'right',paddingVertical:9},listSummary:{paddingHorizontal:17,paddingVertical:11,flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},listSummaryTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},listSummaryHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11},emptyCard:{alignItems:'center',justifyContent:'center',backgroundColor:'#fff',borderRadius:20,borderWidth:1,borderColor:C.line,padding:28,marginTop:18},reportId:{fontFamily:FONT.regular,color:C.muted,fontSize:10,textAlign:'right',marginTop:5},metaRow:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:10},openHint:{flexDirection:'row-reverse',alignItems:'center',gap:3,marginTop:12},openHintText:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+  premiumHeader:{backgroundColor:'#075f51',borderBottomLeftRadius:24,borderBottomRightRadius:24,marginBottom:16,paddingVertical:19,elevation:3},headerTitleRow:{flexDirection:'row-reverse',alignItems:'center',gap:9},premiumTitle:{color:'#fff',fontSize:19,flex:1},premiumSub:{color:'#dfefe6'},unreadCount:{backgroundColor:'#f6dfae',paddingHorizontal:10,paddingVertical:6,borderRadius:12},unreadCountText:{fontFamily:FONT.bold,color:'#744e16',fontSize:11},
   detailHero:{backgroundColor:'#075f51',padding:19,borderRadius:22,marginBottom:13,elevation:2},detailHeroSub:{fontFamily:FONT.regular,color:'#e5f3ec',fontSize:12,marginTop:6,textAlign:'right'},
-  tabs: { flexDirection: 'row-reverse', gap: 7, paddingHorizontal: 16, paddingBottom: 13 },
-  tab: { flex: 1, minWidth:0, minHeight:78, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal:3, alignItems: 'center', justifyContent:'center',gap:6 },
+  tabs: { flexDirection: 'row-reverse', gap: 4, paddingHorizontal: 8, paddingBottom: 9, marginHorizontal:16,marginTop:-2,marginBottom:12,backgroundColor:'#fff',borderRadius:20,borderWidth:1,borderColor:'#dbe9e2',elevation:2 },
+  tab: { flex: 1, minWidth:0, minHeight:67, backgroundColor: '#fff', borderRadius: 15, paddingVertical: 7, paddingHorizontal:3, alignItems: 'center', justifyContent:'center',gap:5 },
   tabOn: { backgroundColor: C.brand, borderColor: C.brand },
-  tabTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 11, textAlign:'center',lineHeight:17 },
+  tabTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 10.5, textAlign:'center',lineHeight:17 },
   tabTxtOn: { color: '#fff' },
   filters: { flexDirection: 'row-reverse', gap: 8, paddingHorizontal: 16, alignItems: 'center',flexWrap:'wrap' },
   fBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 12, minHeight:39,justifyContent:'center',paddingVertical: 8, paddingHorizontal: 13 },
@@ -640,7 +646,7 @@ const s = StyleSheet.create({
   chip: { flexShrink: 0, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 99, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' },
   chipOn: { backgroundColor: C.brand, borderColor: C.brand },
   chipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 11.5 },
-  card: { backgroundColor: '#fff', borderColor: '#dbe9e1', borderWidth: 1, borderRadius: 20, padding: 17, marginBottom: 12, elevation: 1 },
+  card: { backgroundColor: '#fff', borderColor: '#dbe9e1', borderWidth: 1, borderRadius: 23, padding: 18, marginBottom: 13, elevation: 2,shadowColor:'#16382f',shadowOpacity:0.05,shadowRadius:12 },
   rowB: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start',gap:10 },
   title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', flex: 1 },
   badge: { fontFamily: FONT.bold, fontSize: 10, borderWidth: 1, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 6,overflow:'hidden',flexShrink:0 },
@@ -651,14 +657,14 @@ const s = StyleSheet.create({
   label: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', marginTop: 14, marginBottom: 6 },
   input: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 12, padding: 11, textAlign: 'right', fontFamily: FONT.regular, color: C.ink, minHeight: 80, textAlignVertical: 'top' },
   actRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 8 },
-  btnGhost: { backgroundColor: '#eef1f7', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  btnGhost: { backgroundColor: '#edf3f5', borderRadius: 13, minHeight:48, paddingVertical: 12, flexDirection:'row-reverse',justifyContent:'center',alignItems: 'center',gap:7 },
   btnGhostTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
-  btn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginTop: 8 },
+  btn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 13,flexDirection:'row-reverse',alignItems: 'center',justifyContent:'center',gap:8, minHeight:50, marginTop: 8 },
   pdfButton: { flexDirection:'row-reverse',justifyContent:'center',gap:8,minHeight:48,paddingHorizontal:12 },
   btnTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
   archBtn: { marginTop: 10, alignSelf: 'flex-start', flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor: '#eaf5ef', borderRadius: 11, minHeight: 48, paddingVertical: 9, paddingHorizontal: 14 },
   archTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 11.5 },
-  flowCard: { borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 10 },
+  flowCard: { borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 10,marginRight:13,borderRightWidth:3 },
   flowAct: { fontFamily: FONT.bold, fontSize: 13 },
   flowWho: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', marginTop: 6, lineHeight: 21 },
   fwdRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.line },
