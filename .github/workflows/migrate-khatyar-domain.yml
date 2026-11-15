@@ -27,6 +27,11 @@ jobs:
           test -s php/app/.htaccess
           php -l php/app/index.php
           php -l php/config.php
+          php -l .github/scripts/khatyar-cutover-activate.php
+          if [ "${{ github.event_name }}" = 'workflow_run' ]; then
+            release_sha="${{ github.event.workflow_run.head_sha }}"
+            git diff --quiet "$release_sha" HEAD -- mobile/ || { echo 'Signed APK source is older than current mobile code; refusing cutover.'; exit 1; }
+          fi
           node --check php/app/assets/login-premium.js
       - name: Install FTP client
         shell: bash
