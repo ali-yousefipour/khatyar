@@ -113,7 +113,7 @@ jobs:
             done
             # Update public route/controller files together with SEO and security files.
             for path in app/index.php app/contact-submit.php app/public-stats.php app/robots.txt app/sitemap.xml app/.htaccess; do
-              printf 'put %s -o /khat-yar.ir/%s\\n' "$GITHUB_WORKSPACE/php/$path" "${path#app/}"
+              printf 'put %s -o /khat-yar.ir/%s\n' "$GITHUB_WORKSPACE/php/$path" "${path#app/}"
             done
             # HTML is uploaded LAST, after its assets, to avoid broken visual references.
             echo "put $GITHUB_WORKSPACE/php/app/landing.html -o /khat-yar.ir/landing.html"
