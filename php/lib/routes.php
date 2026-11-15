@@ -368,6 +368,7 @@ function _login_method($deviceType) {
     error_log('login_method_settings_unavailable key='.$key.' class='.get_class($error));
     return $fallback;
   }
+  if ($method === null || $method === '') $method = $fallback;
   if (!in_array($method, ['password', 'sms_otp', 'bale_otp'], true)) Http::error('روش ورود تنظیم‌شده معتبر نیست؛ با مدیر سامانه تماس بگیرید.', 503);
   return $method;
 }
