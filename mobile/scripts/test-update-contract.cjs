@@ -25,7 +25,7 @@ vm.runInContext(updateSource + '\nthis.api = { validateUpdateUrl, currentVersion
 const { validateUpdateUrl, checkVersion } = context.api;
 const sha = 'a'.repeat(64);
 
-assert.equal(validateUpdateUrl('https://app.yousefipour.ir/release/line-app.apk'), true);
+assert.equal(validateUpdateUrl('https://khat-yar.ir/release/line-app.apk'), true);
 assert.equal(validateUpdateUrl('https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk'), true);
 assert.equal(validateUpdateUrl('https://github.com/ali-yousefipour/khatyar/releases/download/v1.5.15/khatyar-1.5.15.apk'), true);
 assert.equal(validateUpdateUrl('https://cdn.example.org/khatyar.apk'), false);
@@ -35,7 +35,7 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
 
 (async () => {
   payload = { latest_version: '1.5.15', min_version: '1.5.14',
-    apk_url: 'https://app.yousefipour.ir/releases/new.apk', notes: 'تغییرات جدید' };
+    apk_url: 'https://khat-yar.ir/releases/new.apk', notes: 'تغییرات جدید' };
   let x = await checkVersion();
   assert.equal(x.hasUpdate, true);
   assert.equal(x.required, false);
