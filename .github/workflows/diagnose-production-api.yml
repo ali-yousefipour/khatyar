@@ -131,12 +131,12 @@ jobs:
             set ftp:prefer-epsv false;
             set net:timeout 45;
             set net:max-retries 2;
-            set ssl:verify-certificate no;
-            put ${RUNNER_TEMP}/diagnose.php -o /app/assets/${DIAG_FILE};
+            set ssl:verify-certificate yes;
+            put ${RUNNER_TEMP}/diagnose.php -o /khat-yar.ir/assets/${DIAG_FILE};
             bye
           "
           echo 'Checking public app login configuration status (no credentials):'
-          login_status="$(curl -sS -o "$RUNNER_TEMP/login-config-response.json" -w '%{http_code}' --max-time 20 "https://app.yousefipour.ir/api/session/app-login-config" || true)"
+          login_status="$(curl -sS -o "$RUNNER_TEMP/login-config-response.json" -w '%{http_code}' --max-time 20 "https://khat-yar.ir/api/session/app-login-config" || true)"
           echo "login_config_http=${login_status}"
           if python3 - "$RUNNER_TEMP/login-config-response.json" <<'PYCODE'
           import json,sys
@@ -151,7 +151,7 @@ jobs:
           echo 'Sanitized production diagnostics:'
           curl --fail --silent --show-error --max-time 30 --retry 1 \
             -X POST --data-urlencode "token=${DIAG_TOKEN}" \
-            "https://app.yousefipour.ir/assets/${DIAG_FILE}" \
+            "https://khat-yar.ir/assets/${DIAG_FILE}" \
             | python3 -m json.tool
           # Best-effort removal if PHP was unable to unlink itself.
           lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -e "
@@ -161,7 +161,7 @@ jobs:
             set ftp:prefer-epsv false;
             set net:timeout 20;
             set net:max-retries 1;
-            set ssl:verify-certificate no;
-            rm -f /app/assets/${DIAG_FILE};
+            set ssl:verify-certificate yes;
+            rm -f /khat-yar.ir/assets/${DIAG_FILE};
             bye
           " || true
