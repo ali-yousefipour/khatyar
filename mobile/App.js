@@ -107,6 +107,7 @@ import { readAccessCache, refreshAccessCache } from './src/accessCache';
 import { readAppItems, refreshAppItems } from './src/appItemPermissions';
 import MyAllowedLinesScreen from './src/screens/MyAllowedLinesScreen';
 import { refreshAllowedLines } from './src/allowedLinesCache';
+import {cacheProfilePhoto} from './src/profilePhotoCache';
 import AppAlertHost from './src/components/AppAlertHost';
 try { I18nManager.allowRTL(false); I18nManager.forceRTL(false); I18nManager.swapLeftAndRightInRTL(false); } catch (_) {}
 installGlobalCrashHandlers();
@@ -151,7 +152,10 @@ function MainStack(){const{user,loading,refreshUser,offlineSession}=useAuth();co
 function AppNavigator(){return <MainStack/>}
 function RootShell({children}){const insets=useSafeAreaInsets();return <View style={{flex:1,backgroundColor:C.paper,paddingBottom:insets.bottom}}>{children}</View>;}
 function SchoolServicePreloader(){const{user}=useAuth();React.useEffect(()=>{if(!user?.id)return;let alive=true;const refresh=()=>loadSchoolServiceCache({refresh:true}).catch(()=>null);const refreshDashboardContext=()=>Promise.allSettled([
-    request('/me/full-profile',{noStore:true,timeoutMs:10000}).then(p=>{if(alive&&p&&typeof p==='object')return AsyncStorage.setItem('dashboard:profile:v1:'+user.id,JSON.stringify({savedAt:Date.now(),data:p}));}),
+    request('/me/full-profile',{noStore:true,timeoutMs:10000}).then(async p=>{if(alive&&p&&typeof p==='object'){
+      await AsyncStorage.setItem('dashboard:profile:v1:'+user.id,JSON.stringify({savedAt:Date.now(),data:p}));
+      if(p.photo)await cacheProfilePhoto(user.id,p.photo);
+    }}),
     request('/weather.php',{auth:false,noStore:true,timeoutMs:8000,queueIfOffline:false}).then(w=>{if(alive&&w?.ok&&Number.isFinite(Number(w.temperature)))return AsyncStorage.setItem('dashboard:weather:v1',JSON.stringify({savedAt:Date.now(),data:w}));})
   ]);
   // این درخواست‌ها بدون انتظار برای کش سنگین سرویس مدارس و به‌صورت موازی در ابتدای برنامه آغاز می‌شوند.
@@ -162,7 +166,9 @@ function SchoolServicePreloader(){const{user}=useAuth();React.useEffect(()=>{if(
       request('/my/checkin-config',{timeoutMs:8000}),
       request('/my/shift-schedule',{timeoutMs:8000}),
       request('/my/app-config',{timeoutMs:8000}),
-      refreshAllowedLines(user.id)
+      refreshAllowedLines(user.id),
+      request('/my/lines',{timeoutMs:8000}),
+      request('/me/full-profile',{timeoutMs:8000})
     ])}catch(_){}
   })();let netSub=null;try{netSub=Network.addNetworkStateListener(s=>{if(alive&&s?.isInternetReachable===true){refresh();refreshDashboardContext();}})}catch(_){}return()=>{alive=false;try{netSub?.remove()}catch(_){}}},[user?.id]);return null;}
 function CustomDrawerOverlay(){
