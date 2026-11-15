@@ -297,10 +297,10 @@ export function InboxReportsScreen({ navigation }) {
             <View style={[s.card,chosenIds.includes(String(item.id))&&s.bulkCardSelected]}>
             <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`انتخاب گزارش ${item.id}`} accessibilityState={{checked:chosenIds.includes(String(item.id))}} disabled={bulkBusy} onPress={() => toggleSelected(item.id)} style={s.bulkCardCheck}>
               <MaterialCommunityIcons name={chosenIds.includes(String(item.id))?'checkbox-marked':'checkbox-blank-outline'} size={24} color={C.brand}/>
-              <Text style={s.bulkSelectText}>انتخاب گزارش</Text>
+              
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: item.id })}>
-              <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line,backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9' }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text></View>
+              <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><View style={s.reportBadges}><Text style={[s.badge,{color:item.priority==='urgent'?'#b83229':item.priority==='important'?'#98600a':C.brand,backgroundColor:item.priority==='urgent'?'#fff1ef':item.priority==='important'?'#fff7e8':'#eaf6ef',borderColor:'transparent'}]}>{PR[item.priority]||'عادی'}</Text><Text style={[s.badge,{color:ST_COLOR[item.status]||C.muted,borderColor:'transparent',backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9'}]}>{ST[item.status]||item.status||'جدید'}</Text></View></View>
               <View style={s.metaRow}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={s.meta} numberOfLines={2}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text></View>
               {item.current_owner_name ? <View style={s.ownerRow}><MaterialCommunityIcons name="account-check-outline" color={C.brand} size={16}/><Text style={s.ownerText}>مسئول جاری: {item.current_owner_name}</Text></View> : (tab==='inbox' ? <Text style={s.ownerText}>مسئول جاری: شما</Text> : null)}
               <Text style={s.snippet} numberOfLines={3}>{item.body}</Text>
@@ -601,6 +601,8 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  reportBadges:{alignItems:'flex-start',gap:5,maxWidth:106,flexShrink:1},
+
   detailBadgeRow:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
   detailBadge:{fontFamily:FONT.bold,fontSize:11,overflow:'hidden',borderRadius:12,paddingHorizontal:12,paddingVertical:7},
   detailReportTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:18,textAlign:'right',lineHeight:30},
