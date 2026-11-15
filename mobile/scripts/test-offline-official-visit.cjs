@@ -87,6 +87,21 @@ const api=context.api;
     'Report replay must have an idempotency path');
   const sourceApi=fs.readFileSync(path.join(__dirname,'../src/api.js'),'utf8');
   assert.match(sourceApi,/restoreEmbeddedQueueAssets/,'Nested media must be restored before replay');
+  // A manual attendance selfie is a large inline base64 field, NOT the
+  // official visit photo_data field. Its bytes must persist outside AsyncStorage.
+  const manualPhoto='data:image/jpeg;base64,'+'M'.repeat(190000);
+  await api.enqueue({path:'/my/requests',client_uuid:'manual-41',method:'POST',body:{
+    type:'manual',manual_kind:'in',the_date:'1405-08-24',
+    in_time:'08:00',client_uuid:'manual-41',selfie_data:manualPhoto
+  }});
+  rows=await api.pending();
+  assert.equal(rows.length,1);
+  assert.ok(rows[0].body.selfie_data.__khatyar_offline_asset,'Manual selfie must be preserved as an app-private file');
+  assert.ok(photos.size===1,'One permanent selfie asset is expected');
+  assert.ok(!storage.get('offline_queue_v2').includes('M'.repeat(10000)),'Large selfie must never be stored directly in AsyncStorage');
+  await api.retryOne('manual-41',async item=>{assert.equal(item.path,'/my/requests');return{id:55,ok:true};});
+  assert.equal((await api.pending()).length,0,'Confirmed manual request must leave offline queue');
+  assert.equal(photos.size,0,'Selfie file must be deleted only after confirmed delivery');
   const broken='[broken-json';
   storage.set('offline_queue_v2',broken);
   await assert.rejects(api.pending(),/صف آفلاین/);
