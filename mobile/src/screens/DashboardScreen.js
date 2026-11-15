@@ -126,6 +126,7 @@ export default function DashboardScreen({ navigation }) {
   const [menuSearch, setMenuSearch] = useState('');
   const [myPhoto, setMyPhoto] = useState(user?.photo || null);
   const [orgContext, setOrgContext] = useState({ zoneName: '', chiefName: '' });
+  const [profileRank, setProfileRank] = useState({ roleTitle: '', stars: null });
   const [weather, setWeather] = useState(null);
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [clockNow, setClockNow] = useState(() => new Date());
@@ -180,7 +181,13 @@ export default function DashboardScreen({ navigation }) {
   };
   // The session rank can be inferred from a generic role label; for leadership roles
   // use the precise administrative role title before that coarse fallback.
-  const rankCount = Math.max(rankCountFor(user?.role_title || user?.role_name || user?.role), Math.max(0, Math.min(5, Number(user?.rank_stars) || 0)));
+  const rankCount = Math.max(
+    rankCountFor(profileRank.roleTitle),
+    rankCountFor(user?.role_title),
+    rankCountFor(user?.role_name),
+    rankCountFor(user?.role),
+    Math.max(0, Math.min(5, Number(profileRank.stars ?? user?.rank_stars ?? 0) || 0)),
+  );
 
   useEffect(() => {
     let active = true;
@@ -245,6 +252,9 @@ export default function DashboardScreen({ navigation }) {
       if (!active || !p || typeof p !== 'object') return;
       if (p.photo) setMyPhoto(p.photo);
       setOrgContext({ zoneName: String(p.zone_name || '').trim(), chiefName: String(p.zone_chief_inspector_name || '').trim() });
+      // Full profile may have a more precise position/rank than the login session.
+      setProfileRank({roleTitle:String(p.role_title || p.role_name || p.role || '').trim(),
+        stars:p.rank_stars ?? p.stars ?? p.rank_count ?? null});
     };
     // اطلاعات منطقه و سربازرس از کش بلافاصله پس از بازشدن داشبورد خوانده می‌شود.
     AsyncStorage.getItem(profileCacheKey).then((raw) => {
@@ -450,7 +460,9 @@ export default function DashboardScreen({ navigation }) {
         {!!orgContext.zoneName && <Text maxFontSizeMultiplier={1.35} style={s.orgTxt} numberOfLines={2}>منطقه: {orgContext.zoneName}</Text>}
         {!!orgContext.chiefName && <Text maxFontSizeMultiplier={1.35} style={s.orgTxt} numberOfLines={2}>سربازرس: {orgContext.chiefName}</Text>}
       </View>
-      {rankCount > 0 && <View style={s.rankRow}><RankInsignia count={rankCount}/><Text maxFontSizeMultiplier={1.15} style={s.rankHint}>{faNum(rankCount)} نشان درجه</Text></View>}
+      <View style={s.rankRow} accessibilityLabel={rankCount>0?`${rankCount} نشان درجه`:'درجه برای این سمت تعیین نشده است'}>
+        {rankCount>0?<><RankInsignia count={rankCount}/><Text maxFontSizeMultiplier={1.15} style={s.rankHint}>{faNum(rankCount)} نشان درجه</Text></>:<Text style={s.rankHint}>درجه ثبت نشده</Text>}
+      </View>
     </View>
   </View>
   <View style={s.profileInfoDivider}/>
@@ -495,12 +507,12 @@ const s = StyleSheet.create({
   brandName: { color:'#fff', fontFamily:FONT.bold, fontSize:22, textAlign:'right', lineHeight:30 },
   brandSubtitle: { color:'#c8eee2', fontFamily:FONT.regular, fontSize:12, textAlign:'right' },
   brandAccent: { width:27, height:3, borderRadius:5, backgroundColor:'#e3c56e', alignSelf:'flex-start', marginTop:5 },
-  quickActions: { flexDirection:'row-reverse', flexWrap:'wrap', justifyContent:'space-between', alignItems:'flex-start', columnGap:4,rowGap:8 },
-  quickActionsLarge: {columnGap:5,rowGap:9},
+  quickActions: { flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start', alignItems:'flex-start', columnGap:3,rowGap:5, alignSelf:'flex-start', maxWidth:'100%' },
+  quickActionsLarge: {columnGap:4,rowGap:7},
   topLarge: {flexDirection:'column', alignItems:'stretch'},
   rankRow: {flexDirection:'row-reverse',alignItems:'center',justifyContent:'flex-start',gap:7,flexWrap:'wrap',marginTop:3,minHeight:18},
   rankHint: {fontFamily:FONT.regular,fontSize:10,color:'#d7f9e7',textAlign:'right'},
-  quickAction: { flexGrow:1, flexShrink:1, flexBasis:49, minWidth:48, maxWidth:90, minHeight:64, alignItems:'center', justifyContent:'flex-start', gap:3 },
+  quickAction: { width:57, minHeight:64, alignItems:'center', justifyContent:'flex-start', gap:3 },
   quickActionIcon: { height:37, width:39, borderRadius:12, alignItems:'center', justifyContent:'center', position:'relative', backgroundColor:'rgba(255,255,255,0.11)', borderColor:'rgba(127,231,200,0.30)', borderWidth:1 },
   quickActionLabel: { color:'#fff', fontFamily:FONT.bold, fontSize:9.5, lineHeight:14,textAlign:'center', writingDirection:'rtl', width:'100%', flexShrink:1 },
   quickBadge: { position:'absolute', top:-7, right:-5, minWidth:25, height:22, borderRadius:12, paddingHorizontal:4, backgroundColor:'#f05b38', borderWidth:2, borderColor:'#075d4b', alignItems:'center', justifyContent:'center' },
