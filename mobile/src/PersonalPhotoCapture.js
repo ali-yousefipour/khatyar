@@ -22,6 +22,7 @@ export default function PersonalPhotoCapture({
   systemCameraFirst = false,
   autoConfirm = false,
   manualSystemCamera = false,
+  compressOnConfirm = false,
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
@@ -89,6 +90,7 @@ export default function PersonalPhotoCapture({
       const uri = result?.assets?.[0]?.uri;
       if (!uri) throw new Error('system_camera_no_image');
       setBusy(true);
+      if(compressOnConfirm&&!autoConfirm){setPreview({uri,dataUrl:null});setMessage('تصویر را بررسی و سپس تأیید کنید.');return;}
       const dataUrl = await compressToDataUri(uri);
       if (generation !== captureGeneration.current) return;
       if (!dataUrl) throw new Error('camera_base64_missing');
@@ -107,6 +109,17 @@ export default function PersonalPhotoCapture({
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, permission?.granted]);
+
+  async function confirmPhoto(){
+    if(busy||!preview)return;
+    setBusy(true);
+    try{
+      const dataUrl=preview.dataUrl||await compressToDataUri(preview.uri);
+      if(!dataUrl)throw new Error('camera_base64_missing');
+      await onCapture(dataUrl);
+    }catch(_){setMessage('فشرده‌سازی یا آماده‌سازی تصویر انجام نشد. دوباره تلاش کنید.');}
+    finally{setBusy(false)}
+  }
 
   if (!permission) {
     return <View style={styles.center}><ActivityIndicator color={C.brand} /></View>;
@@ -146,8 +159,8 @@ export default function PersonalPhotoCapture({
             >
               <Text style={styles.secondaryButtonText}>گرفتن دوباره</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={() => onCapture(preview.dataUrl)}>
-              <Text style={styles.primaryButtonText}>تأیید تصویر</Text>
+            <TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={confirmPhoto} disabled={busy}>
+              <Text style={styles.primaryButtonText}>{busy?'در حال آماده‌سازی…':'تأیید تصویر'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
