@@ -102,6 +102,11 @@ if (strpos($path, '/api') !== 0) {
     $canonical = 'https://khat-yar.ir' . $canonicalPath;
     $publicHtml = @file_get_contents(__DIR__ . '/landing.html');
     if ($publicHtml === false) { http_response_code(503); echo 'Public page unavailable'; exit; }
+    // Make the requested page visible in the initial HTML, even without JavaScript.
+    // The client script still enhances navigation and animations when available.
+    $pageMarker = '<div class="page" data-page="' . $canonicalPath . '">';
+    $activeMarker = '<div class="page active" data-page="' . $canonicalPath . '">';
+    $publicHtml = str_replace($pageMarker, $activeMarker, $publicHtml);
     $escapeMeta = static fn(string $v):string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $publicHtml = preg_replace('~<title>.*?</title>~si', '<title>' . $escapeMeta($seoTitle) . '</title>', $publicHtml, 1);
     $publicHtml = preg_replace('~<meta name="description" content="[^"]*">~i', '<meta name="description" content="' . $escapeMeta($seoDescription) . '">', $publicHtml, 1);
