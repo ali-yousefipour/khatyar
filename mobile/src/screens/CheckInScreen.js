@@ -120,6 +120,7 @@ function CheckInCore({ viewportHeight }) {
   const surplusAlertShownRef = useRef(false);
   const PRESENCE_RANDOM_CACHE_KEY = 'presence_random_schedule_v1';
   const LOCAL_OPEN_KEY = 'attendance_local_open_v1';
+  const LOCAL_CONFIG_KEY = 'attendance_checkin_config_v1:' + String(user?.id||'unknown');
   const LOCAL_WORKED_KEY = 'attendance_local_worked_v1';
   const REMEMBER_SOUND = 'remember.mp3';
   const REMEMBER_CHANNEL_ID = 'attendance_8h_reminder_v1';
@@ -154,6 +155,7 @@ function CheckInCore({ viewportHeight }) {
         })):[]
       }));
       await AsyncStorage.setItem('presence_line_metadata_v1',JSON.stringify({user_id:Number(user?.id||0),lines,cached_at:Date.now()}));
+      if(user?.id&&Array.isArray(config?.lines))await AsyncStorage.setItem('attendance_checkin_config_v1:'+String(user.id),JSON.stringify({...config,open:null}));
     } catch {}
   };
   const getAuthorizedWifi = async () => {
@@ -347,7 +349,8 @@ function CheckInCore({ viewportHeight }) {
     // اول کش محلی را بخوان؛ ثبت حضور باید حتی بدون اینترنت بتواند از آخرین
     // اطلاعات خطوط مجاز و جلسهٔ باز استفاده کند. سپس نسخهٔ تازه را در پس‌زمینه بگیر.
     try {
-      let cachedCfg = await cachedValue('/my/checkin-config');
+      const savedConfig=await AsyncStorage.getItem(LOCAL_CONFIG_KEY).catch(()=>null);
+      let cachedCfg=savedConfig?JSON.parse(savedConfig):null;
       if(!cachedCfg?.lines?.length){
         const allowed=await readAllowedLines(user?.id);
         const saved=await AsyncStorage.getItem('presence_line_metadata_v1').catch(()=>null);
