@@ -3,7 +3,7 @@ import {useAuth} from '../auth';
 import {getAppConfig} from '../appconfig';
 import {applyManualRequestLocally, getProvisionalManual, reconcileProvisionalManual} from '../manualAttendance';
 import {pending as pendingOfflineRequests} from '../offline';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import * as DocumentPicker from 'expo-document-picker';
@@ -267,6 +267,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
   const submit = async () => {
     if (cfg.manual && !theDate) return Alert.alert('توجه', 'تاریخ را از تقویم انتخاب کنید.');
+    if (cfg.manual && !selfie) return Alert.alert('تصویر سلفی لازم است', 'ابتدا با دوربین اصلی گوشی یک عکس سلفی بگیرید، سپس درخواست تردد دستی را ثبت کنید.');
     if (cfg.manual && (manualKind === 'in' || manualKind === 'both') && !inTime) return Alert.alert('توجه', 'ساعت ورود را انتخاب کنید.');
     if (cfg.manual && (manualKind === 'out' || manualKind === 'both') && !outTime) return Alert.alert('توجه', 'ساعت خروج را انتخاب کنید.');
     if (!cfg.manual && unit === 'hourly' && !theDate) return Alert.alert('توجه', 'تاریخ را از تقویم انتخاب کنید.');
@@ -346,7 +347,11 @@ function NewRequest({ onDone, initialType, initialDate }) {
             {manualKind!=='in'&&<View style={{ flex: 1 }}><TimeField label="ساعت خروج" value={outTime} onPick={setOutTime} /></View>}
           </View>
           {manualKind==='out'&&<Text style={s.subWarn}>درخواست فقط خروج، پس از تأیید به ورود باز همان روز متصل می‌شود.</Text>}
-          <TouchableOpacity style={s.attachBtn} onPress={takeSelfie}><Text style={s.attachT}>{selfie ? '✓ سلفی گرفته شد (تعویض)' : '📷 الصاق عکس سلفی'}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.attachBtn} disabled={busy} onPress={takeSelfie}>
+            <Text style={s.attachT}>{busy ? 'در حال پردازش تصویر…' : selfie ? '✓ عکس سلفی دریافت شد · گرفتن دوباره' : '📷 گرفتن سلفی با دوربین گوشی'}</Text>
+          </TouchableOpacity>
+          {selfie ? <Image source={{uri:selfie}} resizeMode="contain" accessibilityLabel="تصویر سلفی ثبت‌شده برای درخواست تردد دستی"
+            style={{width:116,height:145,borderRadius:12,alignSelf:'flex-end',backgroundColor:'#e8eff2',marginTop:7}}/> : null}
         </>
       ) : unit === 'hourly' ? (
         <>
