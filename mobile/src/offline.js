@@ -56,6 +56,15 @@ async function deleteEmbeddedAssets(value) {
 }
 async function deleteQueuedPhoto(item) {
   await deleteEmbeddedAssets(item?.body);
+  // Multipart attachments are copied into app-owned document storage by
+  // queueMultipart(). Clean up that copy only after confirmed delivery.
+  if(item?.kind==='multipart' && typeof item.fileUri==='string') {
+    const multipartUri=item.fileUri;
+    if((FileSystem.documentDirectory||'') && multipartUri.startsWith(FileSystem.documentDirectory) &&
+       multipartUri.includes('offline-') && multipartUri.includes(String(item.client_uuid||''))) {
+      await FileSystem.deleteAsync(multipartUri,{idempotent:true}).catch(()=>{});
+    }
+  }
   const uri=item?.body?.photo_file_uri;
   if(typeof uri==='string' && uri.startsWith(FileSystem.documentDirectory||'') && uri.includes('official-visit-')) {
     await FileSystem.deleteAsync(uri,{idempotent:true}).catch(()=>{});
