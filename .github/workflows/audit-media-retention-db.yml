@@ -87,7 +87,7 @@ jobs:
             $crons=[];
             $checkTable->execute(['cron_run_log']);
             if((int)$checkTable->fetchColumn()){
-              $q=$pdo->query("SELECT cron_key,last_run_at,last_status,last_source,run_count FROM cron_run_log WHERE cron_key IN ('cleanup','daily') ORDER BY cron_key");
+              $q=$pdo->query("SELECT cron_key,last_run_at,last_status,last_source,run_count, CASE WHEN last_message LIKE '%Class%Media%' THEN 'missing_media_class' WHEN last_message LIKE '%SQLSTATE%' THEN 'sql_error' WHEN last_message LIKE '%پاکسازی تصاویر حضور مسئولین%' THEN 'official_visit_delete_error' WHEN last_message LIKE '%Media retention cleanup%' THEN 'shared_cleanup_error' WHEN last_message LIKE '%Fatal%' THEN 'fatal_error' ELSE 'other_error' END AS last_error_kind FROM cron_run_log WHERE cron_key IN ('cleanup','daily') ORDER BY cron_key");
               $crons=$q->fetchAll(PDO::FETCH_ASSOC);
             }
             $response=['ok'=>true,'settings'=>$settings,'media'=>$results,'cron'=>$crons];
