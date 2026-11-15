@@ -14,6 +14,7 @@ let appStateSub = null;
 let netUnsubscribe = null;
 let internetTimer = null;
 let lastInternetOffCheckpoint = 0;
+let telemetryQueueWrite = Promise.resolve();
 
 // ارسال رویداد با زمان دقیق رخداد. اگر آفلاین بود، در صف ذخیره و بعداً با همان زمان ارسال می‌شود.
 export function sendTelemetry(kind, meta) {
@@ -23,17 +24,21 @@ export function sendTelemetry(kind, meta) {
 }
 
 async function queueTelemetry(ev) {
-  try {
+  // Several GPS/Internet transitions may fail together. Serialize the
+  // fallback journal so the last write cannot erase an earlier event.
+  telemetryQueueWrite = telemetryQueueWrite.catch(() => {}).then(async () => {
     const raw = await AsyncStorage.getItem(TKEY);
     const q = raw ? JSON.parse(raw) : [];
     q.push(ev);
     await AsyncStorage.setItem(TKEY, JSON.stringify(q.slice(-500)));
-  } catch (e) {}
+  });
+  return telemetryQueueWrite.catch(() => {});
 }
 
 // ارسال رویدادهای ذخیره‌شدهٔ آفلاین در اولین اتصال
 export async function flushTelemetry() {
   try {
+    await telemetryQueueWrite.catch(() => {});
     const raw = await AsyncStorage.getItem(TKEY);
     const q = raw ? JSON.parse(raw) : [];
     if (!q.length) return;
