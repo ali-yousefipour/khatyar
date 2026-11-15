@@ -5087,7 +5087,7 @@ function _manual_provisional_schema(){
 }
 function _manual_provisional_record(int $requestId){
   _manual_provisional_schema();
-  return Db::one("SELECT request_id,attendance_id,kind,previous_checkout FROM manual_attendance_provisional WHERE request_id=?",[$requestId]);
+  return Db::one("SELECT request_id,user_id,attendance_id,kind,previous_checkout FROM manual_attendance_provisional WHERE request_id=?",[$requestId]);
 }
 function _manual_provisional_apply(array $request,int $requestId,int $userId): ?int {
   if(($request['type']??'')!=='manual')return null;
@@ -5241,11 +5241,13 @@ route('GET', '/api/my/requests', function($p,$b,$u){
 
 // User deletion hides an unfinished request without losing its review history.
 route('DELETE', '/api/my/requests/{id}', function($p,$b,$u){
+  $existingManual=Db::one("SELECT id,type FROM requests WHERE id=? AND user_id=? AND status='pending'",[(int)$p['id'],(int)$u['id']]);
   if(!Db::one("SHOW COLUMNS FROM requests WHERE Field='user_deleted_at'")){
     Db::run('ALTER TABLE requests ADD COLUMN user_deleted_at DATETIME NULL');
   }
   $updated=Db::run("UPDATE requests SET status='canceled',pending_on=NULL,user_deleted_at=NOW() WHERE id=? AND user_id=? AND status='pending' AND user_deleted_at IS NULL",[(int)$p['id'],(int)$u['id']]);
   if($updated->rowCount()!==1)Http::error('این درخواست دیگر در انتظار تأیید نیست یا قبلاً حذف شده است.',409);
+  if(($existingManual['type']??'')==='manual')_manual_provisional_revert((int)$p['id']);
   try{Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=? AND status='active'",[(int)$p['id']]);}catch(Throwable $e){error_log('request substitute cancellation failed: '.$e->getMessage());}
   return ['ok'=>true,'status'=>'canceled','deleted'=>true];
 });
@@ -5256,6 +5258,7 @@ route('POST', '/api/my/requests/{id}/cancel', function($p,$b,$u){
   if (!$r) Http::error('یافت نشد', 404);
   if (!in_array($r['status'], ['pending','approved'])) Http::error('این درخواست قابل لغو نیست', 422);
   Db::run("UPDATE requests SET status='canceled', pending_on=NULL WHERE id=?", [$p['id']]);
+  if(($r['type']??'')==='manual')_manual_provisional_revert((int)$p['id']);
   // اگر شیفت جایگزینی برای این درخواست ساخته شده بود، غیرفعال شود
   try { Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=?", [$p['id']]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   return ['ok'=>true, 'status'=>'canceled'];
@@ -6049,6 +6052,7 @@ route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   try{
     if(!Db::one("SELECT id FROM requests WHERE id=? FOR UPDATE",[$id]))Http::error('درخواست یافت نشد',404);
     if(_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=?",[$id]);
+    _manual_provisional_revert($id);
     Db::run("DELETE FROM requests WHERE id=?",[$id]);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
