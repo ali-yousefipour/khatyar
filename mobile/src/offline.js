@@ -17,7 +17,45 @@ async function preserveQueuedPhoto(item, clientUuid) {
   await FileSystem.writeAsStringAsync(uri,photo.slice(comma+1),{encoding:FileSystem.EncodingType.Base64});
   return {...item,body:{...body,photo_data:null,photo_file_uri:uri,photo_mime:photo.slice(5,comma).split(';')[0]}};
 }
+// Persist embedded photo/PDF data URIs as files. This supports report
+// attachments and complaint signatures, not only official visit photos.
+async function persistEmbeddedAssets(value,clientUuid,created,index={n:0}) {
+  if(typeof value==='string') {
+    const match=/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(value);
+    if(!match || value.length<8192)return value;
+    const dir=FileSystem.documentDirectory;
+    if(!dir)throw new Error('فضای دائمی برای ذخیره پیوست آفلاین در دسترس نیست.');
+    const ext=match[1]==='application/pdf'?'pdf':match[1].split('/')[1];
+    const uri=`${dir}offline-asset-${String(clientUuid).replace(/[^a-zA-Z0-9_-]/g,'')}-${++index.n}.${ext}`;
+    await FileSystem.writeAsStringAsync(uri,match[2],{encoding:FileSystem.EncodingType.Base64});
+    created.push(uri);
+    return {__khatyar_offline_asset:uri,mime:match[1]};
+  }
+  if(Array.isArray(value)) {
+    const out=[];
+    for(const part of value)out.push(await persistEmbeddedAssets(part,clientUuid,created,index));
+    return out;
+  }
+  if(value && typeof value==='object') {
+    const out={};
+    for(const [key,part] of Object.entries(value))
+      out[key]=await persistEmbeddedAssets(part,clientUuid,created,index);
+    return out;
+  }
+  return value;
+}
+async function deleteEmbeddedAssets(value) {
+  if(!value || typeof value!=='object')return;
+  if(typeof value.__khatyar_offline_asset==='string'){
+    const uri=value.__khatyar_offline_asset;
+    if((FileSystem.documentDirectory||'') && uri.startsWith(FileSystem.documentDirectory) && uri.includes('offline-asset-'))
+      await FileSystem.deleteAsync(uri,{idempotent:true}).catch(()=>{});
+    return;
+  }
+  for(const part of Object.values(value))await deleteEmbeddedAssets(part);
+}
 async function deleteQueuedPhoto(item) {
+  await deleteEmbeddedAssets(item?.body);
   const uri=item?.body?.photo_file_uri;
   if(typeof uri==='string' && uri.startsWith(FileSystem.documentDirectory||'') && uri.includes('official-visit-')) {
     await FileSystem.deleteAsync(uri,{idempotent:true}).catch(()=>{});
@@ -31,7 +69,16 @@ export async function enqueue(item={}) {
     const clientUuid=typeof item.client_uuid==='string'&&item.client_uuid.trim()?item.client_uuid:uuid();
     if(queue.some(x=>String(x.client_uuid||'')===String(clientUuid)))return clientUuid;
     const owner=await readVerifiedUser().catch(()=>null);
-    const stored=await preserveQueuedPhoto(item,clientUuid);
+    let stored;
+    const created=[];
+    try {
+      stored=await preserveQueuedPhoto(item,clientUuid);
+      stored={...stored,body:await persistEmbeddedAssets(stored.body,clientUuid,created)};
+    } catch(error) {
+      for(const uri of created)await FileSystem.deleteAsync(uri,{idempotent:true}).catch(()=>{});
+      if(stored)await deleteQueuedPhoto(stored);
+      throw error;
+    }
     const record={...stored,client_uuid:clientUuid,owner_user_id:owner?.id||null,
       type:item.type||item.path||'unknown',queued_at:Number(item.queued_at||Date.now()),attempts:Number(item.attempts||0)};
     try{await AsyncStorage.setItem(KEY,JSON.stringify([...queue,record]));}
