@@ -290,7 +290,7 @@ export function InboxReportsScreen({ navigation }) {
         {bulkBusy && <ActivityIndicator color={C.brand}/>}
       </View>}
       <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows || []} keyExtractor={(it) => String(it.id)} refreshing={refreshing} onRefresh={load}
-        ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{error?'دریافت گزارش‌ها ناموفق بود.':query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
+        ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name={tab==='archived'?'archive-outline':'text-box-search-outline'} size={46} color={C.brand}/><Text style={s.empty}>{error?'دریافت گزارش‌ها ناموفق بود.':query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
         renderItem={({ item, index }) => (
           <View>
             {groupBy !== 'none' && (index === 0 || (groupBy === 'priority' ? PR[(rows||[])[index-1]?.priority] : ST[(rows||[])[index-1]?.status]) !== (groupBy === 'priority' ? PR[item.priority] : ST[item.status])) && <View style={s.groupHeader}><Text style={s.groupText}>{groupBy === 'priority' ? (PR[item.priority] || 'عادی') : (ST[item.status] || 'نامشخص')}</Text></View>}
@@ -458,10 +458,15 @@ export function ReportDetailScreen({ route, navigation }) {
           <TextInput style={s.input} value={eBody} onChangeText={setEBody} multiline placeholder="متن گزارش" placeholderTextColor={C.muted} />
           <View style={s.actRow}><TouchableOpacity style={[s.btn, { flex: 1 }]} onPress={saveEdit} disabled={busy}><Text style={s.btnTxt}>ذخیره</Text></TouchableOpacity><TouchableOpacity style={[s.btnGhost, { flex: 1 }]} onPress={() => setEditing(false)}><Text style={s.btnGhostTxt}>انصراف</Text></TouchableOpacity></View>
         </>) : (<>
-          <Text style={s.title}>{r.subject}</Text>
+          <View style={s.detailBadgeRow}>
+            <Text style={[s.detailBadge,{backgroundColor:r.priority==='urgent'?'#fff0ed':'#eaf6ef',color:r.priority==='urgent'?'#bd3d32':C.brand}]}>{PR[r.priority]||'عادی'}</Text>
+            <Text style={[s.detailBadge,{backgroundColor:'#f0edff',color:'#6547b8'}]}>{ST[r.status]||r.status||'جدید'}</Text>
+          </View>
+          <Text style={s.detailReportTitle}>{r.subject}</Text>
+          <Text style={s.detailNumber}>گزارش شماره: {String(id).toLocaleString('fa-IR')}</Text>
           <Text style={s.meta}>از {r.first_name} {r.last_name} · {fj(r.created_at)} · اولویت: {PR[r.priority] || 'عادی'}</Text>
           <View style={s.ownerRow}><MaterialCommunityIcons name="account-check-outline" size={17} color={C.brand}/><Text style={s.ownerText}>مسئول جاری: {r.current_owner_name || 'تعیین‌نشده'}</Text></View>
-          <Text style={s.body}>{r.body}</Text>
+          <View style={s.detailTextPanel}><Text style={s.body}>{r.body}</Text></View>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت PDF این گزارش با امضاها و یادداشت‌های گردش" disabled={pdfBusy} style={[s.btn,s.pdfButton,pdfBusy&&{opacity:.6}]} onPress={exportReportPdf}>
             <MaterialCommunityIcons name="file-pdf-box" color="#fff" size={21}/><Text style={s.btnTxt}>{pdfBusy?'در حال ساخت PDF…':'دریافت PDF گزارش با امضا و یادداشت‌ها'}</Text>
           </TouchableOpacity>
@@ -487,6 +492,7 @@ export function ReportDetailScreen({ route, navigation }) {
             <>
               {gallery.length > 0 && (
                 <View style={{ marginTop: 10 }}>
+                  <View style={s.detailSectionHead}><MaterialCommunityIcons name="paperclip" color={C.brand} size={19}/><Text style={s.detailSectionTitle}>پیوست‌ها</Text></View>
                   <Text style={s.meta}>
                     {gallery.length > 1
                       ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):`
@@ -595,6 +601,12 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  detailBadgeRow:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
+  detailBadge:{fontFamily:FONT.bold,fontSize:11,overflow:'hidden',borderRadius:12,paddingHorizontal:12,paddingVertical:7},
+  detailReportTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:18,textAlign:'right',lineHeight:30},
+  detailNumber:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:6,marginBottom:12},
+  detailTextPanel:{backgroundColor:'#f8fbf9',borderRadius:14,paddingHorizontal:13,paddingVertical:13,marginTop:13,borderWidth:1,borderColor:'#e7efea'},
+
   senderFilterBox:{marginHorizontal:12,marginVertical:8,borderWidth:1,borderColor:'#d4e4dc',borderRadius:13,backgroundColor:'#f9fcfa'},
   senderFilterToggle:{flexDirection:'row-reverse',alignItems:'center',gap:8,paddingHorizontal:12,minHeight:47},
   senderFilterName:{flex:1,textAlign:'right',fontFamily:FONT.bold,fontSize:12,color:C.ink},
