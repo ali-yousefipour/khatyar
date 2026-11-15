@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {useAuth} from '../auth';
 import {getAppConfig} from '../appconfig';
 import {applyManualRequestLocally, getProvisionalManual, reconcileProvisionalManual} from '../manualAttendance';
+import {pending as pendingOfflineRequests} from '../offline';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
@@ -122,7 +123,7 @@ const manualTimeSummary = (r) => {
   const exit = r.out_time ? `خروج ${faDigits(r.out_time)}` : '';
   return [entry, exit].filter(Boolean).join(' · ') || 'ساعت تردد ثبت نشده';
 };
-const STATUS = { pending: ['در انتظار بررسی', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'], canceled: ['لغوشده', '#64748b'] };
+const STATUS = { queued: ['در صف ارسال آفلاین', '#a16207'], pending: ['در انتظار بررسی', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'], canceled: ['لغوشده', '#64748b'] };
 
 function ApprovalTimeline({ item }) {
   const steps = Array.isArray(item.approval_steps) ? item.approval_steps : [];
@@ -432,6 +433,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
 }
 
 function MyRequests() {
+  const {user}=useAuth();
   const [rows, setRows] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [bal, setBal] = useState(null);
@@ -442,17 +444,29 @@ function MyRequests() {
   const { width } = useWindowDimensions();
   const load = async () => {
     setLoadError('');
+    let items=null;
     try {
-      const response = await request('/my/requests', { noStore:true,forceNetwork:true,queueIfOffline:false });
-      const items = Array.isArray(response) ? response :
+      const response = await request('/my/requests', { noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:8000 });
+      items = Array.isArray(response) ? response :
         (Array.isArray(response?.requests) ? response.requests :
         (Array.isArray(response?.rows) ? response.rows :
         (Array.isArray(response?.data) ? response.data : null)));
       if (!items) throw new Error('ساختار پاسخ فهرست درخواست‌ها نامعتبر است.');
-      setRows(items);
+      await reconcileProvisionalManual(user?.id,items).catch(()=>{});
     } catch (error) {
-      setLoadError(error?.message || 'دریافت درخواست‌ها ناموفق بود.');
-      setRows((previous) => previous || []);
+      setLoadError(error?.message || 'دریافت آنلاین درخواست‌ها ناموفق بود؛ موارد ذخیره‌شدهٔ آفلاین همچنان نمایش داده می‌شوند.');
+    }
+    try {
+      const queue=await pendingOfflineRequests();
+      const local=queue.filter(item=>item.path==='/my/requests'&&String(item.owner_user_id)===String(user?.id))
+        .map(item=>({...(item.body||{}),id:item.client_uuid,status:'queued',
+          client_uuid:item.client_uuid,type:item.body?.type||'manual',
+          created_at:new Date(item.queued_at||Date.now()).toISOString()}));
+      const merged=[...(items||[]),...local.filter(row=>!(items||[]).some(remote=>String(remote.client_uuid||'')===String(row.client_uuid)))];
+      setRows(previous=>items?merged:[...(previous||[]).filter(item=>item.status!=='queued'),...local]);
+    } catch(error) {
+      setRows(previous=>items||previous||[]);
+      setLoadError(error?.message||'خواندن صف ذخیره‌شدهٔ آفلاین ممکن نشد.');
     }
   };
   const removeRequest = (item) => {
