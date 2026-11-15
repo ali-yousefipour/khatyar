@@ -7644,6 +7644,12 @@ function _field_alert_recipient_accepts($recipientId,$eventType,$subjectUserId){
 }
 function _field_alert_type_from_setting($key){ return ['station_exit_notify'=>'station_exit','station_enter_notify'=>'station_enter','vpn_on_notify'=>'vpn_on','gps_off_notify'=>'gps_off','internet_off_notify'=>'internet_off','attendance_checkin_notify'=>'attendance_checkin','attendance_checkout_notify'=>'attendance_checkout'][$key]??''; }
 function _field_alert_targets($settingKey, $userId) {
+  // Exempt personnel must never generate GPS, Internet-off or VPN warnings
+  // for supervisors, even if an older Android build submits a queued event.
+  if (in_array($settingKey, ['gps_off_notify','internet_off_notify','vpn_on_notify'], true)) {
+    $subject = Db::one('SELECT security_exempt FROM users WHERE id=? LIMIT 1', [(int)$userId]);
+    if ((int)($subject['security_exempt'] ?? 0) === 1) return [];
+  }
   $cfg=_req_setting($settingKey,null);
   if($cfg===null && $settingKey==='internet_off_notify')
     $cfg=_req_setting('gps_off_notify',['enabled'=>false]);
