@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { compressToDataUri } from '../img';
@@ -34,6 +32,8 @@ export default function ReportsScreen({ navigation }) {
   const [priority, setPriority] = useState('normal');
   const [reportSubjects, setReportSubjects] = useState([]);
   const [subjectMode, setSubjectMode] = useState('other');
+  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+  const [subjectSearch, setSubjectSearch] = useState('');
   const [managers, setManagers] = useState([]);
   const [allTargets, setAllTargets] = useState([]);
   const [targetMode, setTargetMode] = useState('manager');
@@ -220,19 +220,6 @@ export default function ReportsScreen({ navigation }) {
     setAttachments((prev) => [...prev, ...picked].slice(0, 5));
   }
 
-  async function pickPdf() {
-    const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true });
-    if (res.canceled) return;
-    const picked = [];
-    for (const a of (res.assets || []).slice(0, 5)) {
-      try {
-        const b64 = await FileSystem.readAsStringAsync(a.uri, { encoding: FileSystem.EncodingType.Base64 });
-        picked.push({ name: a.name || 'file.pdf', mime_type: 'application/pdf', data: `data:application/pdf;base64,${b64}` });
-      } catch (_) {}
-    }
-    setAttachments((prev) => [...prev, ...picked].slice(0, 5));
-  }
-
   function removeAttachment(idx) { setAttachments((prev) => prev.filter((_, i) => i !== idx)); }
 
   async function exportPdf() {
@@ -295,14 +282,29 @@ export default function ReportsScreen({ navigation }) {
         <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingHorizontal:width<360?11:16}]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <View style={s.draftNotice}><MaterialCommunityIcons name="content-save-check-outline" size={19} color={C.brand}/><Text style={s.draftNoticeText}>{draftStatus || 'متن گزارش به‌صورت خودکار روی این دستگاه ذخیره می‌شود. پیوست‌ها ذخیره نمی‌شوند.'}</Text></View>
           <View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="file-document-edit-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>موضوع و اولویت گزارش</Text></View><Text style={s.label}>موضوع گزارش</Text>
-          <View style={s.mgrWrap}>{reportSubjects.map((x)=><TouchableOpacity key={x.id} style={[s.mgrChip,subjectMode===String(x.id)&&s.mgrChipOn]} onPress={()=>{setSubjectMode(String(x.id));setSubject(x.title||'')}}><Text style={[s.mgrChipTxt,subjectMode===String(x.id)&&s.white]}>{x.title}</Text></TouchableOpacity>)}<TouchableOpacity style={[s.mgrChip,subjectMode==='other'&&s.mgrChipOn]} onPress={()=>{setSubjectMode('other');setSubject('')}}><Text style={[s.mgrChipTxt,subjectMode==='other'&&s.white]}>سایر</Text></TouchableOpacity></View>
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:subjectDropdownOpen}} style={s.subjectPickerTrigger} onPress={()=>{setSubjectSearch('');setSubjectDropdownOpen(open=>!open);}}>
+            <MaterialCommunityIcons name="chevron-down" size={22} color={C.brand}/>
+            <Text style={s.subjectPickerValue}>{subjectMode==='other'?'سایر (موضوع دلخواه)':(reportSubjects.find(x=>String(x.id)===subjectMode)?.title||'انتخاب موضوع گزارش')}</Text>
+            <MaterialCommunityIcons name="format-list-bulleted" size={19} color={C.brand}/>
+          </TouchableOpacity>
+          {subjectDropdownOpen && <View style={s.subjectDropdown}>
+            <View style={s.subjectSearchRow}><MaterialCommunityIcons name="magnify" size={20} color={C.muted}/><TextInput autoFocus value={subjectSearch} onChangeText={setSubjectSearch} style={s.subjectSearchInput} placeholder="جستجوی لحظه‌ای موضوع…" placeholderTextColor={C.muted}/></View>
+            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always" style={s.subjectOptions}>
+              {[...reportSubjects.map(x=>({id:String(x.id),title:String(x.title||'')})),{id:'other',title:'سایر (موضوع دلخواه)'}].filter(x=>x.title.toLocaleLowerCase('fa-IR').includes(subjectSearch.trim().toLocaleLowerCase('fa-IR'))).map(x=>
+                <TouchableOpacity accessibilityRole="button" key={x.id} style={[s.subjectOption,subjectMode===x.id&&s.subjectSelected]} onPress={()=>{setSubjectMode(x.id);setSubject(x.id==='other'?'':x.title);setSubjectDropdownOpen(false);setSubjectSearch('');}}>
+                  <MaterialCommunityIcons name={subjectMode===x.id?'check-circle':'circle-outline'} size={18} color={C.brand}/>
+                  <Text style={s.subjectOptionText}>{x.title}</Text>
+                </TouchableOpacity>)}
+              {![...reportSubjects.map(x=>String(x.title||'')),'سایر (موضوع دلخواه)'].some(title=>title.toLocaleLowerCase('fa-IR').includes(subjectSearch.trim().toLocaleLowerCase('fa-IR')))&&<Text style={s.subjectEmpty}>موضوعی پیدا نشد.</Text>}
+            </ScrollView>
+          </View>}
           {subjectMode==='other'?<TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="موضوع دلخواه را وارد کنید…" placeholderTextColor={C.muted}/>:null}
           <Text style={s.label}>اولویت گزارش</Text>
           <View style={s.priorityWrap}>{Object.entries(PRIORITY).map(([k, v]) => <TouchableOpacity key={k} style={[s.priorityChip, priority === k && s.priorityOn]} onPress={() => setPriority(k)}><Text style={[s.priorityTxt, priority === k && s.white]}>{v}</Text></TouchableOpacity>)}</View>
           </View><View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="text-box-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>شرح گزارش و پیوست‌ها</Text></View><Text style={s.label}>متن گزارش</Text><TextInput style={[s.input, s.bodyInput]} value={body} onChangeText={setBody} multiline placeholder="شرح گزارش…" placeholderTextColor={C.muted} />
           <View style={s.formHint}><Text style={s.formHintText}>{faNum(body.trim().length)} نویسه · شرح روشن، زمان و مکان رویداد و اقدام مورد انتظار را ثبت کنید.</Text></View>
-          <Text style={s.label}>پیوست‌ها (حداکثر ۵ تصویر یا PDF)</Text>
-          <View style={s.attachRow}><TouchableOpacity style={s.attach} onPress={pickImage}><MaterialCommunityIcons name="image-plus" size={19} color={C.brand}/><Text style={s.attachTxt}>افزودن تصویر</Text></TouchableOpacity><TouchableOpacity style={s.attach} onPress={pickPdf}><MaterialCommunityIcons name="file-pdf-box" size={19} color={C.brand}/><Text style={s.attachTxt}>افزودن PDF</Text></TouchableOpacity></View>
+          <Text style={s.label}>پیوست‌ها (حداکثر ۵ تصویر)</Text>
+          <View style={s.attachRow}><TouchableOpacity accessibilityRole="button" style={s.attach} onPress={pickImage}><MaterialCommunityIcons name="image-plus" size={19} color={C.brand}/><Text style={s.attachTxt}>افزودن تصویر</Text></TouchableOpacity></View>
           {attachments.map((a, idx) => <View key={`${a.name}-${idx}`} style={s.attItem}>{String(a.mime_type || '').startsWith('image') ? <Image source={{ uri: a.data }} style={s.thumb} /> : null}<Text style={s.attName}>{a.name}</Text><TouchableOpacity onPress={() => removeAttachment(idx)}><Text style={s.attDel}>حذف</Text></TouchableOpacity></View>)}
           </View><View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="account-arrow-left-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>گیرندگان گزارش</Text></View><Text style={[s.label, { marginTop: 14 }]}>گیرنده گزارش</Text>
           <View style={s.mgrWrap}><TouchableOpacity style={[s.mgrChip, targetMode === 'manager' && s.mgrChipOn]} onPress={() => { setTargetMode('manager'); setSelectedRole(''); setTargetQuery(''); setToUserId(managers.length === 1 ? managers[0].id : null); }}><Text style={[s.mgrChipTxt, targetMode === 'manager' && s.white]}>مقام بالادست</Text></TouchableOpacity><TouchableOpacity style={[s.mgrChip, targetMode === 'specific' && s.mgrChipOn]} onPress={() => { setTargetMode('specific'); setToUserId(null); setSelectedRole(''); setTargetQuery(''); setShowTargetModal(true); }}><Text style={[s.mgrChipTxt, targetMode === 'specific' && s.white]}>ارسال برای شخص دیگر</Text></TouchableOpacity></View>
@@ -363,6 +365,17 @@ function applyTemplate(template, reports) {
 }
 
 const s = StyleSheet.create({
+  subjectPickerTrigger:{flexDirection:'row-reverse',alignItems:'center',gap:8,backgroundColor:'#f8fcfa',borderWidth:1,borderColor:'#b9d7c9',borderRadius:14,minHeight:52,paddingHorizontal:12,marginTop:8},
+  subjectPickerValue:{fontFamily:FONT.bold,color:C.ink,flex:1,textAlign:'right',fontSize:13},
+  subjectDropdown:{borderWidth:1,borderColor:'#d8e6de',borderRadius:15,backgroundColor:'#fff',padding:9,marginTop:5,elevation:3},
+  subjectSearchRow:{flexDirection:'row-reverse',alignItems:'center',gap:8,borderRadius:11,borderWidth:1,borderColor:C.line,backgroundColor:'#f6faf8',paddingHorizontal:10,minHeight:45},
+  subjectSearchInput:{flex:1,textAlign:'right',color:C.ink,fontFamily:FONT.regular,fontSize:13,paddingVertical:8},
+  subjectOptions:{maxHeight:220},
+  subjectOption:{flexDirection:'row-reverse',alignItems:'center',gap:9,minHeight:45,paddingHorizontal:11,borderBottomWidth:1,borderBottomColor:'#edf3ef',borderRadius:8},
+  subjectSelected:{backgroundColor:'#eaf6ef'},
+  subjectOptionText:{flex:1,textAlign:'right',fontFamily:FONT.regular,fontSize:13,color:C.ink},
+  subjectEmpty:{textAlign:'center',fontFamily:FONT.regular,color:C.muted,padding:16},
+
   sentOwner: {flexDirection:'row-reverse',alignItems:'center',gap:5,paddingVertical:5},
   sentOwnerTxt: {fontFamily:FONT.regular,color:C.brand,textAlign:'right',fontSize:12},
   groupHeader: {padding:9,backgroundColor:'#eef2f9',borderRadius:10,marginBottom:8},
