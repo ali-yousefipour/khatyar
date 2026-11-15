@@ -1,0 +1,35 @@
+<?php
+require_once __DIR__.'/../lib/Jwt.php';
+function checkPermanent(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
+$secret='synthetic-android-refresh-secret';
+$identity=['sub'=>19,'device_id'=>'android-device-19','dt'=>'android'];
+$expiredRefresh=Jwt::sign($identity+['t'=>'r'],$secret,-3600);
+$expiredAccess=Jwt::sign($identity+['t'=>'a'],$secret,-3600);
+$expiredWebRefresh=Jwt::sign(['sub'=>19,'device_id'=>'browser-19','dt'=>'web','t'=>'r'],$secret,-3600);
+$expiredMedia=Jwt::sign($identity+['t'=>'media'],$secret,-3600);
+checkPermanent(Jwt::verify($expiredRefresh,$secret)===null,'Expired Android refresh cannot authorize ordinary API access');
+$persisted=Jwt::verify($expiredRefresh,$secret,true);
+checkPermanent(is_array($persisted)&&$persisted['device_id']==='android-device-19','Only signed Android refresh is eligible for server-controlled lifetime');
+checkPermanent(Jwt::verify($expiredAccess,$secret,true)===null,'Expired Android access must never be accepted');
+checkPermanent(Jwt::verify($expiredWebRefresh,$secret,true)===null,'Expired web refresh must never be accepted');
+checkPermanent(Jwt::verify($expiredMedia,$secret,true)===null,'Expired media tokens must never be accepted');
+checkPermanent(Jwt::verify($expiredRefresh,'wrong-secret',true)===null,'Signature validation must not be skipped');
+$missingDevice=Jwt::sign(['sub'=>19,'dt'=>'android','t'=>'r'],$secret,-3600);
+checkPermanent(Jwt::verify($missingDevice,$secret,true)===null,'Persistent refresh must bind a device');
+$missingUser=Jwt::sign(['dt'=>'android','device_id'=>'android-device-19','t'=>'r'],$secret,-3600);
+checkPermanent(Jwt::verify($missingUser,$secret,true)===null,'Persistent refresh must bind a real user');
+$badToken=substr($expiredRefresh,0,-2).'xx';
+checkPermanent(Jwt::verify($badToken,$secret,true)===null,'Modified tokens must not authenticate');
+$routes=file_get_contents(__DIR__.'/../lib/routes.php');
+$router=file_get_contents(__DIR__.'/../app/index.php');
+$mobileApi=file_get_contents(__DIR__.'/../../mobile/src/api.js');
+$mobileAuth=file_get_contents(__DIR__.'/../../mobile/src/auth.js');
+checkPermanent(str_contains($routes,"Jwt::verify(\$providedRefresh, \$GLOBALS['CONFIG']['jwt_secret'], true)"),'Renew route uses restricted durable verification');
+checkPermanent(str_contains($routes,'AND device_id=? LIMIT 1'),'Refresh checks exact device ID');
+checkPermanent(str_contains($routes,"if (!$s || $s['revoked_at'])"),'Admin-revoked sessions must never renew');
+checkPermanent(str_contains($routes,"\$unlimited = \$dtype === 'web'"),'Android login has no role exemption');
+checkPermanent(str_contains($router,"\$unlimitedRole = \$dt === 'web'"),'Android API access has no role exemption');
+checkPermanent(str_contains($router,'SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1'),'API checks the registered device');
+checkPermanent(str_contains($mobileApi,'onSessionRevoked')&&str_contains($mobileAuth,'onSessionRevoked'),'Mobile handles only confirmed remote revocation');
+checkPermanent(str_contains($mobileAuth,'setInterval(()=>{validate().catch(()=>{})},120000)'),'Foreground app periodically validates server revocation');
+echo "PASS Android permanent renewal: expiration override restricted to signed refresh and bound active device; all access tokens still expire\n";
