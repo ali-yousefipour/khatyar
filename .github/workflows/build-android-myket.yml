@@ -6,7 +6,7 @@ on:
       version:
         description: "Version matching mobile/package.json"
         required: true
-        default: "2.0.1"
+        default: "2.0.2"
   push:
     branches:
       - "main"
@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: android-myket-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   myket:
@@ -365,9 +365,9 @@ jobs:
           fi
           mkdir -p ../release
           cp "$APK" ../release/khatyar-myket-${{ steps.version.outputs.version }}.apk
-          cp "$APK" ../release/khatyar.apk
+          cp "$APK" ../release/khat-yar.apk
           (cd ../release && sha256sum "khatyar-myket-${{ steps.version.outputs.version }}.apk" > "khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256")
-          (cd ../release && sha256sum khatyar.apk > khatyar.apk.sha256)
+          (cd ../release && sha256sum khat-yar.apk > khat-yar.apk.sha256)
 
       - name: Upload Myket signed APK
         uses: actions/upload-artifact@v4
@@ -377,38 +377,43 @@ jobs:
             release/khatyar-myket-${{ steps.version.outputs.version }}.apk
             release/khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256
             release/khatyar-sms-app-hash.txt
+            release/khat-yar.apk
+            release/khat-yar.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
-      # GitHub Actions artifacts are downloadable as ZIP files. A GitHub Release
-      # asset is published separately so the Android updater can use a direct APK URL.
-      - name: Publish direct APK to latest GitHub Release
+      # Signed APK is built in the private source repository, but published
+      # only to the public binary-distribution repository.
+      # KHATYAR_RELEASES_TOKEN must be a fine-grained token with
+      # Contents: Read and Write on ali-yousefipour/khatyar-releases.
+      - name: Publish verified APK to public khatyar-releases
         if: github.ref == 'refs/heads/main'
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.KHATYAR_RELEASES_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
-          TARGET_SHA: ${{ github.sha }}
+          PUBLIC_REPO: ali-yousefipour/khatyar-releases
         run: |
           set -euo pipefail
-          TAG="v${VERSION}"
-          test -s release/khatyar.apk
-          test -s release/khatyar.apk.sha256
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" release/khatyar.apk release/khatyar.apk.sha256 --clobber
-            gh release edit "$TAG" --latest
+          test -n "${GH_TOKEN:-}" || { echo "::error::Configure KHATYAR_RELEASES_TOKEN with Contents write permission on $PUBLIC_REPO"; exit 1; }
+          test -s release/khat-yar.apk
+          test -s release/khat-yar.apk.sha256
+          (cd release && sha256sum -c khat-yar.apk.sha256)
+          visibility="$(gh repo view "$PUBLIC_REPO" --json visibility --jq '.visibility')"
+          test "$visibility" = PUBLIC || { echo "::error::Target repository must be public"; exit 1; }
+          tag="v$VERSION"
+          if gh release view "$tag" -R "$PUBLIC_REPO" >/dev/null 2>&1; then
+            gh release upload "$tag" release/khat-yar.apk release/khat-yar.apk.sha256 -R "$PUBLIC_REPO" --clobber
+            gh release edit "$tag" -R "$PUBLIC_REPO" --latest
           else
-            gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \
-              --target "$TARGET_SHA" \
-              --title "خطیار ${VERSION}" \
-              --generate-notes \
-              --latest
+            gh release create "$tag" release/khat-yar.apk release/khat-yar.apk.sha256 -R "$PUBLIC_REPO" --title "خطیار $VERSION" --notes "APK امضاشده خطیار نسخه $VERSION" --latest
           fi
-          mkdir -p "$RUNNER_TEMP/release-check"
-          gh release download "$TAG" --pattern 'khatyar.apk.sha256' --dir "$RUNNER_TEMP/release-check" --clobber
-          cmp release/khatyar.apk.sha256 "$RUNNER_TEMP/release-check/khatyar.apk.sha256"
-          echo "Direct APK: https://github.com/${{ github.repository }}/releases/latest/download/khatyar.apk"
-          echo "Versioned APK: https://github.com/${{ github.repository }}/releases/download/$TAG/khatyar.apk"
+          mkdir -p "$RUNNER_TEMP/public-apk-check"
+          gh release download "$tag" -R "$PUBLIC_REPO" -p khat-yar.apk.sha256 -D "$RUNNER_TEMP/public-apk-check" --clobber
+          cmp release/khat-yar.apk.sha256 "$RUNNER_TEMP/public-apk-check/khat-yar.apk.sha256"
+          gh release view "$tag" -R "$PUBLIC_REPO" --json assets --jq '.assets[].name' | grep -qx 'khat-yar.apk'
+          echo "Stable public APK URL: https://github.com/$PUBLIC_REPO/releases/latest/download/khat-yar.apk"
+          echo "Versioned public APK URL: https://github.com/$PUBLIC_REPO/releases/download/$tag/khat-yar.apk"
 
       - name: Remove signing keystore
         if: always()
