@@ -58,7 +58,8 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   if(!open?.start||!Number.isFinite(open.start))return null;
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
-  const id=String(open.attendance_id||open.start);
+  // The clock-in epoch (not the temporary/server database ID) survives offline sync.
+  const id=String(Math.floor(open.start/1000));
   if(Number(existing?.user_id)===Number(userId)&&existing?.attendance_id===id&&existing?.items?.length)return existing;
   if(existing?.items?.length)for(const item of existing.items)if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
   const items=[];
