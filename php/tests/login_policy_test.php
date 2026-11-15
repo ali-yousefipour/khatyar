@@ -92,6 +92,12 @@ check(callRoute('GET','/api/session/web-login-config')['method']==='sms_otp','In
 check(callRoute('POST','/api/session/start',$body)['device_type']==='android','Android password login');
 Db::$session=['device_id'=>'device-old','revoked_at'=>null];
 rejects(fn()=>callRoute('POST','/api/session/start',$body),409);
+// A privileged administrative role must NOT bypass the one-phone rule.
+Db::$user['role_title']='مدیر کل';
+Db::$user['is_admin']=1;
+rejects(fn()=>callRoute('POST','/api/session/start',$body),409);
+Db::$user['role_title']='employee';
+Db::$user['is_admin']=0;
 $registered['POST /api/admin/users/{id}/revoke-device'](['id'=>7],['device_type'=>'android'],['id'=>1]);
 Jwt::$payload=['sub'=>7,'dt'=>'android','device_id'=>'device-old','t'=>'r'];
 rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
