@@ -105,7 +105,7 @@ export async function vpnStatus() {
   _vpnRuntimeState.negative = !candidate ? Math.min(2, _vpnRuntimeState.negative + 1) : 0;
   if (_vpnRuntimeState.positive >= 2) _vpnRuntimeState.on = true;
   if (_vpnRuntimeState.negative >= 2) _vpnRuntimeState.on = false;
-  const country = await getIpCountry().catch(() => null);
+  const country = (_vpnRuntimeState.on || candidate) ? await getIpCountry().catch(() => null) : null;
   return {
     on: _vpnRuntimeState.on,
     country,
