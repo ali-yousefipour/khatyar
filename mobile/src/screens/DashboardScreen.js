@@ -255,7 +255,10 @@ export default function DashboardScreen({ navigation }) {
     request('/my/device-info', { method: 'POST', body: { device_model: [Device.manufacturer, Device.modelName].filter(Boolean).join(' ') || Device.deviceName || '', android_version: Platform.OS === 'android' ? `Android ${Device.osVersion || ''}` : Device.osVersion || '', app_version: require('expo-constants').default?.expoConfig?.version || '' } }).catch(() => {});
   }, [user?.id]);
 
-  const load = () => {
+  const lastSummaryRefreshRef = useRef(0);
+  const load = ({force=false}={}) => {
+    if(!force&&Date.now()-lastSummaryRefreshRef.current<30000)return;
+    lastSummaryRefreshRef.current=Date.now();
     swr('/my/dashboard', setStats); swr('/my/stats', setMyStats);
   };
 
@@ -390,7 +393,7 @@ export default function DashboardScreen({ navigation }) {
   const manualSync = async () => {
     if (syncing) return;
     setSyncing(true);
-    try { setSyncDetail('پاک‌سازی کش و آغاز همگام‌سازی…'); const keys = await AsyncStorage.getAllKeys(); const cacheKeys = keys.filter((k) => String(k).startsWith('cache:')); if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys); flushQueuedRequests({force:true}).catch(() => {}); load(); Alert.alert('بروزرسانی آغاز شد', 'دریافت اطلاعات جدید و ارسال موارد ذخیره‌شده در پس‌زمینه انجام می‌شود. وضعیت موارد ارسال‌نشده را در «صف ارسال» بررسی کنید.'); } catch (e) { Alert.alert('خطا', 'آغاز بروزرسانی ناموفق بود.'); } finally { setSyncDetail(''); setSyncing(false); }
+    try { setSyncDetail('پاک‌سازی کش و آغاز همگام‌سازی…'); const keys = await AsyncStorage.getAllKeys(); const cacheKeys = keys.filter((k) => String(k).startsWith('cache:')); if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys); flushQueuedRequests({force:true}).catch(() => {}); load({force:true}); Alert.alert('بروزرسانی آغاز شد', 'دریافت اطلاعات جدید و ارسال موارد ذخیره‌شده در پس‌زمینه انجام می‌شود. وضعیت موارد ارسال‌نشده را در «صف ارسال» بررسی کنید.'); } catch (e) { Alert.alert('خطا', 'آغاز بروزرسانی ناموفق بود.'); } finally { setSyncDetail(''); setSyncing(false); }
   };
 
   useLayoutEffect(() => {
