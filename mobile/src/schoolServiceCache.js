@@ -4,6 +4,7 @@ import { request } from './api';
 const KEY='school_service_master_cache_v2';
 const memory={data:null};
 let refreshPromise=null;
+let cacheEpoch=0;
 
 const uniqById=(rows=[])=>{const m=new Map();for(const x of Array.isArray(rows)?rows:[]){const id=String(x?.id??'');if(id)m.set(id,x);}return [...m.values()];};
 
@@ -29,7 +30,8 @@ export async function readSchoolServiceCache(){
 
 export async function refreshSchoolServiceCache(){
   if(refreshPromise)return refreshPromise;
-  refreshPromise=(async()=>{
+  const epoch=cacheEpoch;
+  const task=(async()=>{
     let boot;
     try{
       // یک درخواست bootstrap کل اطلاعات موردنیاز را می‌گیرد؛ این مسیر هم سریع‌تر
@@ -60,11 +62,13 @@ export async function refreshSchoolServiceCache(){
     companies:uniqById(companies),
     schools:uniqById(schools)
   };
-  memory.data=data;
+    if(epoch!==cacheEpoch)return null;
+    memory.data=data;
     await AsyncStorage.setItem(KEY,JSON.stringify({data}));
     return data;
   })();
-  try{return await refreshPromise}finally{refreshPromise=null}
+  refreshPromise=task;
+  try{return await task}finally{if(refreshPromise===task)refreshPromise=null}
 }
 
 export async function loadSchoolServiceCache({refresh=true}={}){
@@ -73,4 +77,4 @@ export async function loadSchoolServiceCache({refresh=true}={}){
   try{return await refreshSchoolServiceCache()}catch(_){return cached}
 }
 
-export function clearSchoolServiceCache(){memory.data=null;return AsyncStorage.removeItem(KEY).catch(()=>{});}
+export function clearSchoolServiceCache(){cacheEpoch++;memory.data=null;refreshPromise=null;return AsyncStorage.removeItem(KEY).catch(()=>{});}
