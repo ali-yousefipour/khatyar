@@ -6,6 +6,12 @@ on:
     paths:
       - '.github/workflows/deploy-public-design.yml'
       - 'php/app/landing.html'
+      - 'php/app/index.php'
+      - 'php/app/robots.txt'
+      - 'php/app/sitemap.xml'
+      - 'php/app/contact-submit.php'
+      - 'php/app/public-stats.php'
+      - 'php/app/.htaccess'
       - 'php/app/panel.html'
       - 'php/app/assets/organizational-public.css'
       - 'php/app/assets/organizational-login.css'
@@ -22,7 +28,7 @@ permissions:
 
 # Independent of the heavyweight PHP deploy; do not cancel FTP uploads mid-transfer.
 concurrency:
-  group: khatyar-public-design
+  group: php-production-deploy
   cancel-in-progress: false
 
 jobs:
@@ -41,7 +47,7 @@ jobs:
           set -euo pipefail
           cd php
           files=(
-            app/landing.html app/panel.html
+            app/landing.html app/panel.html app/index.php app/contact-submit.php app/public-stats.php app/robots.txt app/sitemap.xml app/.htaccess
             app/assets/public-accurate.css app/assets/login-accurate.css
             app/assets/organizational-public.css app/assets/organizational-login.css
             app/assets/login-premium.js
@@ -53,6 +59,9 @@ jobs:
             test -s "$file" || { echo "ERROR: missing/empty $file"; exit 1; }
           done
           node --check app/assets/login-premium.js
+          php -l app/index.php
+          php -l app/contact-submit.php
+          php -l app/public-stats.php
           grep -q 'khatyar-hero-emerald-v3.webp' app/landing.html
           grep -q 'organizational-public.css' app/landing.html
           grep -q 'organizational-login.css' app/panel.html
@@ -102,6 +111,10 @@ jobs:
               app/assets/login-premium.js; do
               printf 'put %s -o /khat-yar.ir/%s\n' "$GITHUB_WORKSPACE/php/$path" "${path#app/}"
             done
+            # Update public route/controller files together with SEO and security files.
+            for path in app/index.php app/contact-submit.php app/public-stats.php app/robots.txt app/sitemap.xml app/.htaccess; do
+              printf 'put %s -o /khat-yar.ir/%s\\n' "$GITHUB_WORKSPACE/php/$path" "${path#app/}"
+            done
             # HTML is uploaded LAST, after its assets, to avoid broken visual references.
             echo "put $GITHUB_WORKSPACE/php/app/landing.html -o /khat-yar.ir/landing.html"
             echo "put $GITHUB_WORKSPACE/php/app/panel.html -o /khat-yar.ir/panel.html"
@@ -147,4 +160,15 @@ jobs:
           grep -q 'organizational-login.css?v=20261114.emerald2' "$login" || {
             echo 'ERROR: login still serves stale HTML'; exit 1;
           }
-          echo 'Production homepage, login, and branded images verified.'
+          # Verify the actual dynamic PHP route, not just the static landing.html asset.
+          for route in / /features /about /contact; do
+            local_body="$(mktemp)"
+            curl --fail --silent --show-error --location --max-time 35 -H 'Cache-Control: no-cache' "$base$route?design_verify=$GITHUB_SHA" -o "$local_body"
+            grep -q 'rel="canonical"' "$local_body" || { echo "ERROR: SEO metadata missing on $route"; exit 1; }
+            grep -q 'data-page="' "$local_body" || { echo "ERROR: public landing content missing on $route"; exit 1; }
+            rm -f "$local_body"
+          done
+          for path in robots.txt sitemap.xml; do
+            curl --fail --silent --show-error --location --max-time 35 -H 'Cache-Control: no-cache' "$base/$path?design_verify=$GITHUB_SHA" | head -c 100 >/dev/null
+          done
+          echo 'Production public routes, SEO endpoints and branded images verified.'
