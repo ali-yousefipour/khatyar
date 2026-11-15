@@ -45,9 +45,17 @@ export async function storePresencePolicy(userId,config) {
 }
 export async function currentPresencePolicy(userId,request) {
   const cached=await cachedPresencePolicy(userId);
-  if(cached?.day===policyDay())return cached;
+  if(cached?.day===policyDay()&&!cached.stale)return cached;
   try { return await storePresencePolicy(userId,await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000})); }
-  catch { return cached; }
+  catch {
+    if(cached?.day!==policyDay()&&cached){
+      const fallback={...cached,day:policyDay(),stale:true};
+      await AsyncStorage.setItem(MODE_KEY,JSON.stringify(fallback)).catch(()=>{});
+      await scheduleFixedAlerts(fallback).catch(()=>{});
+      return fallback;
+    }
+    return cached;
+  }
 }
 function checkInTimestamp(value) {
   if(!value)return NaN;
