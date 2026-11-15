@@ -50,6 +50,7 @@ async function installLocalAlerts(schedule) {
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(item.ts*1000)}
       });
       item.notification_id=identifier;
+      await AsyncStorage.setItem('presence_random_notified:'+item.request_id,'1');
     }catch{}
   }
 }
