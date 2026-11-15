@@ -408,7 +408,10 @@ function CheckInCore({ viewportHeight }) {
         // Pending manual exit closes the displayed attendance immediately, including offline.
         setOpen(null);
       } else if(serverOpen){
-        const displayOpen=pendingManualState&&currentManual.start_ms
+        const samePendingSession=pendingManualState&&currentManual.start_ms&&serverStart!=null&&
+          Math.abs(serverStart-Number(currentManual.start_ms))<=5*60000&&
+          !currentManual.end_ms;
+        const displayOpen=samePendingSession
           ? {...serverOpen,provisional:true,manual_request_id:currentManual.request_id}
           : serverOpen;
         await persistLocalOpen(serverOpen);
