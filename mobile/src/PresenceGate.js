@@ -49,10 +49,10 @@ export default function PresenceGate({navigationRef}){
      await openNotificationRef.current?.(item);
      if(!alive||dueRef.current)return;
     }
-    if(!cfg?.enabled||!cfg?.required){setDueStable(null);return;}
+    if(!cfg?.enabled||(!cfg?.random_enabled&&!cfg?.required)){setDueStable(null);return;}
     const now=tehranNow(),win=Math.max(1,Number(cfg.window_minutes||1));
 
-    // حالت تصادفی: برنامه از سرور/کش جلسهٔ باز خوانده می‌شود؛ ساعت‌های دستی کاملاً کنار گذاشته می‌شوند.
+    // حالت تصادفی: زمان‌بندی از ورود محلی ساخته و مستقل از اتصال شبکه ذخیره می‌شود.
     if(cfg.random_enabled){
       const open=await localAttendanceSession(userId);
       if(!open)return;
@@ -67,7 +67,7 @@ export default function PresenceGate({navigationRef}){
         const requestId=String(item.request_id||('rnd_'+schedule.attendance_id+'_'+item.ts));
         const key='presence_random_done:'+requestId;
         const expiredKey='presence_random_expired:'+requestId;
-        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey))continue;
+        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)||(await localPresenceCompletions())[requestId])continue;
         const notifKey='presence_random_notified:'+requestId;
         if(!await AsyncStorage.getItem(notifKey)){
           await AsyncStorage.setItem(notifKey,'1');
@@ -180,7 +180,8 @@ export default function PresenceGate({navigationRef}){
     key:due.key,
     expiredKey:due.expiredKey,
     immediate:!!due.immediate,
-    requestId:due.requestId||''
+    requestId:due.requestId||'',
+    random:!!due.random
    });
   }catch(e){
    openedRef.current=false;
