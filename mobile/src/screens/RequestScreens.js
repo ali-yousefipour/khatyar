@@ -208,6 +208,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
   const groups = [
     {title:'اضافه‌کار و مازاد حضور',icon:'clock-plus-outline',items:[['اضافه‌کار',data?.overtime,C.ok],['مازاد حضور',data?.surplus,C.slate],['مازاد تبدیل‌شده به اضافه‌کار',data?.adjusted_ot,C.ok]]},
     {title:'کسری و تأخیر',icon:'clock-alert-outline',items:[['کسری کار',data?.shortage,C.danger],['غیبت',data?.absent_min,C.danger],['تأخیر ورود',data?.late_in,C.danger],['تعجیل خروج',data?.early_out,C.danger]]},
+    {title:'کسر کار خاموشی GPS و اینترنت',icon:'shield-alert-outline',items:[['خاموشی GPS',data?.gps_inactive_minutes??null,C.danger],['خاموشی اینترنت',data?.internet_inactive_minutes??null,C.danger]]},
     {title:'کارکرد ویژه',icon:'calendar-clock-outline',items:[['شب‌کاری',data?.night],['جمعه‌کاری',data?.friday],['تعطیل‌کاری',data?.holiday],['تردد دستی',data?.manual_min]]},
     {title:'مرخصی و مأموریت',icon:'calendar-account-outline',items:[['مرخصی استحقاقی',data?.annual_min],['مرخصی استعلاجی',data?.sick_min],['مأموریت',data?.mission_min]]}
   ];
@@ -224,10 +225,10 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
         <View style={s.workPrimaryGrid}>
           {[['روزهای حضور',`${faNum(data.present_days||0)} روز`,'calendar-check-outline'],['کارکرد',hm(data.worked),'clock-check-outline'],['موظفی',hm(data.expected),'calendar-clock'],['اضافه‌کار',hm(data.overtime),'clock-plus-outline']].map(([label,value,icon])=><View key={label} style={s.workPrimaryCard}><View style={s.workPrimaryCardHead}><MaterialCommunityIcons name={icon} size={20} color={C.brand}/><Text style={s.workPrimaryLabel}>{label}</Text></View><Text style={s.workPrimaryValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text></View>)}
         </View>
-        <View style={s.workNotice}><MaterialCommunityIcons name="information-outline" size={19} color={C.brand}/><Text style={s.workNoticeText}>{['auto','floating'].includes(data.shift_type)?'کسر کار روز جاری برای شیفت‌های بدون ساعت‌بندی پس از پایان روز نهایی می‌شود.':'کسر کار روز جاری فقط بر پایه زمان سپری‌شده از بازه‌های شیفت محاسبه می‌شود.'}</Text></View>
+        <View style={s.workNotice}><MaterialCommunityIcons name="information-outline" size={19} color={C.brand}/><Text style={s.workNoticeText}>{['auto','floating'].includes(data.shift_type)?'کسر کار روز جاری برای شیفت‌های بدون ساعت‌بندی پس از پایان روز نهایی می‌شود.':'کسر کار روز جاری فقط بر پایه زمان سپری‌شده از بازه‌های شیفت محاسبه می‌شود.'} زمان‌های مشترک خاموشی GPS و اینترنت فقط یک بار از زمان کارکرد کسر می‌شوند و ارقام این دو ردیف نباید دوباره از کسری کار کم شوند.</Text></View>
         {groups.map((group)=><View key={group.title} style={s.workGroup}>
           <View style={s.workGroupHeading}><MaterialCommunityIcons name={group.icon} size={21} color={C.brand}/><Text style={s.workGroupTitle}>{group.title}</Text></View>
-          {group.items.map(([label,value,color])=><View key={label} style={s.workMetricRow}><Text style={s.workMetricLabel}>{label}</Text><Text style={[s.workMetricValue,color&&{color}]}>{hm(value)}</Text></View>)}
+          {group.items.map(([label,value,color])=><View key={label} style={s.workMetricRow}><Text style={s.workMetricLabel}>{label}</Text><Text style={[s.workMetricValue,color&&{color}]}>{value===null||value===undefined?'—':hm(value)}</Text></View>)}
         </View>)}
       </> : <View style={s.workGroup}><Text style={s.muted}>{loadError||'برای این ماه شیفت یا ترددی ثبت نشده است.'}</Text></View>}
       {slip && (slip.gross > 0 || slip.net > 0) ? <View style={s.workGroup}>
