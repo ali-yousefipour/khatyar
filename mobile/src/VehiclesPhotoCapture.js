@@ -128,10 +128,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       let nearest=station;
       try {
         const open=JSON.parse(await AsyncStorage.getItem('attendance_local_open_v1')||'null');
-        const config=await cachedValue('/my/checkin-config');
+        const snapshot=JSON.parse(await AsyncStorage.getItem('presence_line_metadata_v1')||'null');
+        const stored=Number(snapshot?.user_id)===Number(user?.id)?snapshot:null;
+        const config=stored||await cachedValue('/my/checkin-config');
         const line=(config?.lines||[]).find(item=>Number(item.id)===Number(open?.line_id));
-        lineName=String(line?.name||line?.title||line?.code||'');
-        const candidates=[...(Array.isArray(line?.stations)?line.stations:[]),...(Array.isArray(config?.stations)?config.stations:[])];
+        lineName=String([line?.code,line?.origin,line?.destination].filter(Boolean).join(' ـ ')||line?.name||'');
+        const candidates=[...(config?.lines||[]).flatMap(item=>Array.isArray(item.geofences)?item.geofences:[]),...(Array.isArray(config?.stations)?config.stations:[])];
         let best=Infinity;
         for(const candidate of candidates){
           const a=Number(candidate?.center_lat??candidate?.lat??candidate?.latitude);
