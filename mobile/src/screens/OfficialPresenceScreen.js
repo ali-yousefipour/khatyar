@@ -41,8 +41,10 @@ export default function OfficialPresenceScreen() {
   const [requiredDataReady, setRequiredDataReady] = useState(false);
   const cacheKey = user?.id ? `@khatyar:official-presence:reference:v1:${user.id}` : null;
   const cameraBusyRef = useRef(false);
+  const loadSequenceRef = useRef(0);
 
   const load = async () => {
+    const sequence=++loadSequenceRef.current;
     setLoading(true);
     setSyncWarning('');
     let snapshot = null;
@@ -54,6 +56,7 @@ export default function OfficialPresenceScreen() {
             && typeof data.require_photo === 'boolean') snapshot = data;
       } catch (_) {}
     }
+    if(sequence!==loadSequenceRef.current)return;
     if(snapshot){
       setOfficials(snapshot.officials);
       setLines(snapshot.lines);
@@ -71,6 +74,7 @@ export default function OfficialPresenceScreen() {
         request('/my/official-visits', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
         request('/officials/config', { noStore: true, queueIfOffline: false, timeoutMs: 12000 }),
       ]);
+      if(sequence!==loadSequenceRef.current)return;
       const [o,l,h,cfg] = results;
       const validOfficials=o.status==='fulfilled' && Array.isArray(o.value);
       const validLines=l.status==='fulfilled' && Array.isArray(l.value);
@@ -103,6 +107,7 @@ export default function OfficialPresenceScreen() {
       else if (snapshot && Array.isArray(snapshot.history))setHistory(snapshot.history);
       else setSyncWarning('سوابق بازدید فعلاً به‌روز نیست؛ ثبت جدید با اطلاعات معتبر همچنان امکان‌پذیر است.');
     } catch (error) {
+      if(sequence!==loadSequenceRef.current)return;
       if(snapshot){
         setOfficials(snapshot.officials);
         setLines(snapshot.lines);
@@ -115,13 +120,14 @@ export default function OfficialPresenceScreen() {
         setLoadError('اطلاعات اولیه بازدید دریافت نشد. ابتدا هنگام اتصال به اینترنت این صفحه را باز کنید.');
       }
     } finally {
-      setLoading(false);
+      if(sequence===loadSequenceRef.current)setLoading(false);
     }
   };
   useEffect(() => {
     setOfficials([]);setLines([]);setHistory([]);setPicked(null);setPhoto(null);
     setRequiredDataReady(false);setUsingOfflineSnapshot(false);setLoadError('');
     load();
+    return () => {loadSequenceRef.current++;};
   }, [cacheKey]);
 
   const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
@@ -144,7 +150,11 @@ export default function OfficialPresenceScreen() {
   async function submit() {
     if (!requiredDataReady || loadError) return Alert.alert('اطلاعات ناقص', 'ابتدا اطلاعات ضروری مسئولان و خطوط را دریافت کنید.');
     if (!picked) return Alert.alert('توجه', 'یک مسئول را انتخاب کنید.');
+    if (!officials.some(o => String(o.id)===String(picked.id)))
+      return Alert.alert('اطلاعات مسئول تغییر کرده', 'فهرست مسئولان را تازه‌سازی و شخص را دوباره انتخاب کنید.');
     if (!lineId) return Alert.alert('توجه', 'انتخاب خط الزامی است.');
+    if (!lines.some(l => String(l.id)===String(lineId)))
+      return Alert.alert('خط نامعتبر', 'برای ثبت بازدید خطی را از فهرست مجاز خود انتخاب کنید.');
     if (!note.trim()) return Alert.alert('توجه', 'درج توضیحات الزامی است.');
     if (reqPhoto && !photo) return Alert.alert('عکس الزامی است', 'پیوست عکس حضور مسئول الزامی است.');
     setBusy(true);
