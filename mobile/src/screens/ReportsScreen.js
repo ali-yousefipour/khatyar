@@ -44,6 +44,9 @@ export default function ReportsScreen({ navigation }) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [listError, setListError] = useState('');
   const [listBusy, setListBusy] = useState(false);
+  const [sentSelection, setSentSelection] = useState([]);
+  const [bulkSentBusy, setBulkSentBusy] = useState(false);
+  const [sentPriorityFilter, setSentPriorityFilter] = useState('all');
 
   const load = useCallback(async () => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
@@ -78,11 +81,35 @@ export default function ReportsScreen({ navigation }) {
     return () => clearTimeout(timer);
   }, [tab, load]);
 
-  const sortedMine = useMemo(() => mine.filter(r => !sentQuery.trim() || [r.subject,r.body,r.sender_name,r.sender].some(v=>String(v||'').includes(sentQuery.trim()))).sort((a, b) => {
+  const sortedMine = useMemo(() => mine.filter(r => (sentPriorityFilter === 'all' || r.priority === sentPriorityFilter) && (!sentQuery.trim() || [r.subject,r.body,r.sender_name,r.sender].some(v=>String(v||'').includes(sentQuery.trim())))).sort((a, b) => {
     const aa = new Date(a.created_at || 0).getTime();
     const bb = new Date(b.created_at || 0).getTime();
     return sortNewest ? bb - aa : aa - bb;
-  }), [mine, sortNewest, sentQuery]);
+  }), [mine, sortNewest, sentQuery, sentPriorityFilter]);
+
+  const shownSentIds = sortedMine.map(item => String(item.id));
+  const selectedSentIds = sentSelection.filter(id => shownSentIds.includes(id));
+  const allSentSelected = shownSentIds.length > 0 && shownSentIds.every(id => selectedSentIds.includes(id));
+  const deleteSelectedSent = () => {
+    if (!selectedSentIds.length || bulkSentBusy) return;
+    Alert.alert('حذف گزارش‌های ارسالی', `حذف ${selectedSentIds.length.toLocaleString('fa-IR')} گزارش؟ گزارش‌هایی که گیرنده مشاهده کرده است ممکن است قابل حذف نباشند. برای مدیر، حذف می‌تواند سراسری باشد.`, [
+      { text: 'انصراف', style: 'cancel' },
+      { text: 'تأیید حذف', style: 'destructive', onPress: async () => {
+        setBulkSentBusy(true);
+        const failed = [], success = [];
+        for (const id of selectedSentIds) {
+          try {
+            await request(`/reports/${id}`, { method: 'DELETE', queueIfOffline: false });
+            success.push(id);
+          } catch (e) { failed.push({ id, message: e?.message || 'خطا' }); }
+        }
+        setMine(previous => previous.filter(item => !success.includes(String(item.id))));
+        setSentSelection(failed.map(item => item.id));
+        setBulkSentBusy(false);
+        Alert.alert('نتیجه حذف گروهی', `${success.length.toLocaleString('fa-IR')} موفق، ${failed.length.toLocaleString('fa-IR')} ناموفق${failed.length ? `؛ گزارش ${failed[0].id}: ${failed[0].message}` : ''}`);
+      }},
+    ]);
+  };
 
   const roles = useMemo(() => {
     const map = new Map();
@@ -217,9 +244,23 @@ export default function ReportsScreen({ navigation }) {
         <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <View style={s.sentHero}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={23} color={C.brand}/><View style={s.sentHeroText}><Text style={s.sectionTitle}>سوابق گزارش‌های ارسال‌شده</Text><Text style={s.sentCount}>{faNum(sortedMine.length)} گزارش</Text></View><TouchableOpacity accessibilityRole="button" disabled={listBusy} onPress={load}><MaterialCommunityIcons name="refresh" size={23} color={C.brand}/></TouchableOpacity></View><TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
           <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><MaterialCommunityIcons name="file-pdf-box" size={17} color="#fff"/><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
+          <View style={s.sentBulkRow}>
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:allSentSelected}} disabled={bulkSentBusy || !shownSentIds.length} onPress={() => setSentSelection(previous => allSentSelected ? previous.filter(id => !shownSentIds.includes(id)) : Array.from(new Set([...previous, ...shownSentIds])))} style={s.sentSelectAll}>
+              <MaterialCommunityIcons name={allSentSelected?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/>
+              <Text style={s.sentBulkText}>انتخاب همه نتایج ({faNum(shownSentIds.length)})</Text>
+            </TouchableOpacity>
+            <Text style={s.sentBulkText}>{faNum(selectedSentIds.length)} انتخاب</Text>
+          </View>
+          <View style={s.sentPriorityRow}>
+            {['all','normal','important','urgent'].map(key => <TouchableOpacity key={key} onPress={() => {setSentPriorityFilter(key);setSentSelection([]);}} style={[s.sentPriorityChip,sentPriorityFilter===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentPriorityFilter===key&&{color:'#fff'}]}>{key==='all'?'همه اولویت‌ها':PRIORITY[key]}</Text></TouchableOpacity>)}
+          </View>
+          {selectedSentIds.length > 0 && <View style={s.sentBulkRow}>
+            <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={deleteSelectedSent} style={[s.sentPriorityChip,{borderColor:'#e9b3b3'}]}><MaterialCommunityIcons name="delete-outline" size={18} color={C.danger}/><Text style={[s.sentPriorityTxt,{color:C.danger}]}>{bulkSentBusy?'در حال حذف…':'حذف انتخاب‌شده‌ها'}</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={() => setSentSelection([])}><Text style={s.sentBulkText}>لغو انتخاب</Text></TouchableOpacity>
+          </View>}
           {!!listError && <View style={{backgroundColor:'#fff2f0',borderWidth:1,borderColor:'#efc5bf',borderRadius:13,padding:14,marginTop:10}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{listError} اطلاعات قبلی ممکن است قدیمی باشند.</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{minHeight:48,alignItems:'center',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View>}
           {sortedMine.length === 0 && !listError && <Text style={s.empty}>{listBusy?'در حال دریافت گزارش‌ها…':'گزارشی مطابق جستجو یافت نشد.'}</Text>}
-          {sortedMine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity>)}
+          {sortedMine.map((r) => <View key={r.id} style={[s.card,selectedSentIds.includes(String(r.id))&&{borderColor:C.brand,borderWidth:2}]}><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:selectedSentIds.includes(String(r.id))}} accessibilityLabel={`انتخاب گزارش ${r.id}`} style={s.sentCardCheck} onPress={() => setSentSelection(previous => previous.includes(String(r.id)) ? previous.filter(id=>id!==String(r.id)) : [...previous,String(r.id)])}><MaterialCommunityIcons name={selectedSentIds.includes(String(r.id))?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.sentBulkText}>انتخاب</Text></TouchableOpacity><TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity></View>)}
         </ScrollView>
       )}
       <ReportPersonPickerModal
@@ -244,6 +285,15 @@ function applyTemplate(template, reports) {
 }
 
 const s = StyleSheet.create({
+  sentBulkRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingVertical: 8, flexWrap: 'wrap' },
+  sentSelectAll: { minHeight: 44, flexDirection: 'row-reverse', alignItems: 'center', gap: 7 },
+  sentBulkText: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
+  sentPriorityRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 7, marginVertical: 8 },
+  sentPriorityChip: { minHeight: 40, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  sentPriorityActive: { backgroundColor: C.brand, borderColor: C.brand },
+  sentPriorityTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
+  sentCardCheck: { alignSelf: 'flex-end', flexDirection: 'row-reverse', alignItems: 'center', gap: 6, minHeight: 40 },
+
   sectionCard:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dceae2',borderRadius:21,padding:16,marginBottom:13,elevation:1},
   sectionHead:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
   sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',flex:1},
