@@ -7,6 +7,7 @@ import{useAuth}from'./auth';
 import{startPresenceAlarm,stopPresenceAlarm}from'./presenceAlarm';
 import*as Notifications from'expo-notifications';
 import{tehranGregorianParts}from'./jdate';
+import {currentPresencePolicy, localAttendanceSession, ensureLocalRandomSchedule, localPresenceCompletions} from './presenceLocalSchedule';
 
 function tehranNow(){const p=tehranGregorianParts(new Date());if(!p){const d=new Date();return{day:d.toISOString().slice(0,10),minutes:d.getHours()*60+d.getMinutes()};}return{day:`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`,minutes:p.hour*60+p.minute};}
 function slotToMinutes(s){const m=/^(\d{2}):(\d{2})$/.exec(s);return m?(+m[1])*60+(+m[2]):-1;}
@@ -21,7 +22,7 @@ export default function PresenceGate({navigationRef}){
  const mountedRef=useRef(false);
  const openedRef=useRef(false);
  const wizardWasActiveRef=useRef(false);
- const RANDOM_CACHE_KEY='presence_random_schedule_v1';
+ const RANDOM_CACHE_KEY='presence_local_schedule_v2';
  const checkingRef=useRef(false);
  const openNotificationRef=useRef(null);
  const userId=Number(user?.id||0);
@@ -40,7 +41,7 @@ export default function PresenceGate({navigationRef}){
    if(!alive||dueRef.current||checkingRef.current)return;
    checkingRef.current=true;
    try{
-    const cfg=await request('/my/presence-config',{auth:true,noStore:true});
+    const cfg=await currentPresencePolicy(userId,request);
     if(!alive)return;
     cfgRef.current=cfg||{};
     if(dueRef.current)return;
@@ -53,20 +54,9 @@ export default function PresenceGate({navigationRef}){
 
     // حالت تصادفی: برنامه از سرور/کش جلسهٔ باز خوانده می‌شود؛ ساعت‌های دستی کاملاً کنار گذاشته می‌شوند.
     if(cfg.random_enabled){
-      let schedule=null;
-      try{ const raw=await AsyncStorage.getItem(RANDOM_CACHE_KEY); if(raw){const x=JSON.parse(raw);if(Number(x?.user_id)===userId&&Number(x?.attendance_id)>0&&Array.isArray(x?.items)&&x.items.length)schedule=x;} }catch{}
-      try{
-        const remote=await request('/my/presence-random-schedule',{auth:true,noStore:true,timeoutMs:8000});
-        if(Array.isArray(remote?.items)){
-          if(remote.items.length){
-            schedule={user_id:userId,attendance_id:Number(remote.attendance_id||0),items:remote.items,cached_at:Date.now()};
-            await AsyncStorage.setItem(RANDOM_CACHE_KEY,JSON.stringify(schedule));
-          }else{
-            schedule=null;
-            await AsyncStorage.removeItem(RANDOM_CACHE_KEY);
-          }
-        }
-      }catch{}
+      const open=await localAttendanceSession(userId);
+      if(!open)return;
+      const schedule=await ensureLocalRandomSchedule(userId,open);
       if(!schedule?.items?.length||!schedule.attendance_id)return;
       for(const item of schedule.items){
         const at=Number(item.ts||0)*1000;
@@ -122,7 +112,7 @@ export default function PresenceGate({navigationRef}){
    if(dueRef.current)return;
    let cfg=cfgRef.current||{};
    if(!immediate&&!cfgRef.current){
-    try{cfg=await request('/my/presence-config',{auth:true,noStore:true});cfgRef.current=cfg||{};}catch(e){cfg={};}
+    try{cfg=await currentPresencePolicy(userId,request);cfgRef.current=cfg||{};}catch(e){cfg={};}
    }
    if(!alive||dueRef.current)return;
    const now=tehranNow();
@@ -131,7 +121,7 @@ export default function PresenceGate({navigationRef}){
    const random=!!(data.random===true||data.random==='true'||data.random===1||data.random==='1');
    const key=immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`;
    const expiredKey=random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`;
-   if(await AsyncStorage.getItem(key))return;
+   if(await AsyncStorage.getItem(key)||(await localPresenceCompletions())[requestId])return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
    const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
    const randomTimestamp= random ? /^rnd_\d+_(\d{10})$/.exec(requestId)?.[1] : null;
