@@ -204,7 +204,16 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
     delete body.photo_file_uri;
     delete body.photo_mime;
   }
-  return request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
+  const result=await request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
+  if(item.path==='/my/presence-check'&&result?.ok&&!result?.queued&&body?.request_id){
+    try{
+      const key='presence_local_completions_v1';
+      const map=JSON.parse(await AsyncStorage.getItem(key)||'{}');
+      map[String(body.request_id)]={status:'done',time:Date.now()};
+      await AsyncStorage.setItem(key,JSON.stringify(map));
+    }catch{}
+  }
+  return result;
 }
 export async function flushQueuedRequests(options={}){
   return flushOfflineQueue(item=>sendPersistedQueueItem(item,true),{force:!!options.force});
