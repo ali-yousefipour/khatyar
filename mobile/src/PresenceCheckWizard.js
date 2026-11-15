@@ -10,9 +10,12 @@ import VehiclesPhotoCapture from'./VehiclesPhotoCapture';
 import{playSound}from'./soundFx';
 import{stopPresenceAlarm}from'./presenceAlarm';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {markLocalPresenceCompleted} from './presenceLocalSchedule';
+import {useAuth} from './auth';
 
 export default function PresenceCheckWizard(){
  const navigation=useNavigation();
+ const {user}=useAuth();
  const route=useRoute();
  const p=route.params||{};
  const slot=String(p.slot||'');
@@ -33,7 +36,7 @@ export default function PresenceCheckWizard(){
  const finishedRef=useRef(false);
  const allowExitRef=useRef(false);
 
- useEffect(()=>{getAppConfig(true).catch(()=>{});},[]);
+ useEffect(()=>{getAppConfig().catch(()=>{});},[]);
  useEffect(()=>{
    if(step==='selfie')playSound('presenceSelfie').catch(()=>{});
    if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});
@@ -92,15 +95,21 @@ export default function PresenceCheckWizard(){
          selfie,
          vehicles_photo:vehiclesUrl,
          lat:coords?.lat??coordsRef.current?.lat??null,
-         lng:coords?.lng??coordsRef.current?.lng??null
+         lng:coords?.lng??coordsRef.current?.lng??null,
+         request_id:requestId,
+         random:!!p.random || requestId.startsWith('local_'),
+         immediate,
+         captured_at:new Date().toISOString(),
+         client_uuid:'presence_'+String(user?.id||'')+'_'+requestId.replace(/[^a-zA-Z0-9_-]/g,'_')
        },
        timeoutMs:60000,
        noStore:true,
-       queueIfOffline:false
+       queueIfOffline:true
      });
-     if(!r?.ok||r?.queued||!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)throw new Error('سرور ثبت صحت‌سنجی را تأیید نکرد.');
+     if(!r?.ok||(!r?.queued&&(!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)))throw new Error('ثبت یا ذخیره در صف تأیید نشد.');
      finishedRef.current=true;
      if(doneKey)await AsyncStorage.setItem(doneKey,'1');
+     await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done');
      await stopPresenceAlarm();
      setSending(false);
      setStep('done');
@@ -123,8 +132,8 @@ export default function PresenceCheckWizard(){
  const mm=String(Math.floor(secs/60)).padStart(2,'0');
  const ss=String(secs%60).padStart(2,'0');
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst autoConfirm onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst autoConfirm onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst manualSystemCamera onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst manualSystemCamera onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
 
  return <View style={s.page}>
    <View style={s.header}>
