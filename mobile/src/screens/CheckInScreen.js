@@ -149,7 +149,7 @@ function CheckInCore({ viewportHeight }) {
       const lines=(config?.lines||[]).map(line=>({
         id:line.id,code:line.code,origin:line.origin,destination:line.destination,
         geofences:Array.isArray(line.geofences)?line.geofences.map(f=>({
-          id:f.id,name:f.name,center_lat:f.center_lat,center_lng:f.center_lng,radius_m:f.radius_m,
+          id:f.id,name:f.name,type:f.type||((f.polygon&&String(f.polygon)!=='[]')?'polygon':'circle'),color:f.color,center_lat:f.center_lat,center_lng:f.center_lng,radius_m:f.radius_m,
           polygon:f.polygon
         })):[]
       }));
