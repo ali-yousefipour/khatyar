@@ -1668,6 +1668,7 @@ const ss = StyleSheet.create({
 
 const presenceStatus = {
   done: ['انجام‌شده', '#17634b', '#e6f5ed'],
+  queued: ['انجام‌شده (در صف ارسال)', '#17634b', '#e6f5ed'],
   pending: ['در انتظار انجام', '#704500', '#fff1d5'],
   missed: ['انجام‌نشده', '#9b2929', '#fceaea'],
 };
