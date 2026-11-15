@@ -5,6 +5,11 @@ import { imageSource } from './api';
 const key=id=>'profile-photo-cache:v1:'+String(id);
 const safeId=id=>String(id).replace(/[^a-zA-Z0-9_-]/g,'');
 const inflight=new Map();
+function sourceIdentity(source){
+  if(!/^data:image\//i.test(source))return source;
+  let hash=2166136261;for(let i=0;i<source.length;i++){hash^=source.charCodeAt(i);hash=Math.imul(hash,16777619)}
+  return 'embedded:'+source.length+':'+(hash>>>0).toString(16);
+}
 
 export async function readProfilePhotoCache(userId){
   if(!userId)return null;
@@ -21,8 +26,9 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
   if(!userId||!source)return null;
   const remote=typeof source==='string'?source:source.uri;
   if(!remote)return null;
+  const sourceKey=sourceIdentity(remote);
   const existing=await readProfilePhotoCache(userId);
-  if(!force&&existing?.source===remote)return existing.uri;
+  if(!force&&existing?.source===sourceKey)return existing.uri;
   if(inflight.has(String(userId)))return inflight.get(String(userId));
   const task=(async()=>{
     const base=FileSystem.documentDirectory;
@@ -44,7 +50,7 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
       if(!info.exists||!info.size)throw new Error('photo_empty');
       await FileSystem.deleteAsync(filename,{idempotent:true}).catch(()=>{});
       await FileSystem.moveAsync({from:temp,to:filename});
-      await AsyncStorage.setItem(key(userId),JSON.stringify({uri:filename,source:remote,cached_at:Date.now()}));
+      await AsyncStorage.setItem(key(userId),JSON.stringify({uri:filename,source:sourceKey,cached_at:Date.now()}));
       return filename;
     }catch{
       await FileSystem.deleteAsync(temp,{idempotent:true}).catch(()=>{});
