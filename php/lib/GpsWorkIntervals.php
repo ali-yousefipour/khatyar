@@ -45,6 +45,53 @@ function gps_work_explicit_off_intervals(array $events, int $fromTs, int $toTs, 
 
 
 /**
+ * Confirmed OFF state windows. A state-change event marks the START of an
+ * outage, never evidence of 30 minutes preceding the event. Each completed
+ * 30-minute block is counted only when a later explicit ON event or repeated
+ * OFF checkpoint confirms the time elapsed. Unpaired single OFF events do
+ * not create a deduction (legacy client safety).
+ *
+ * Accepts internet_off/internet_on and legacy offline/online aliases as well
+ * as gps_off/gps_on. Results are clipped to the attendance interval.
+ */
+function work_confirmed_off_intervals(array $events, int $fromTs, int $toTs, string $offKind, string $onKind, int $interval=1800): array {
+  if ($fromTs<=0 || $toTs<=$fromTs || $interval<=0) return [];
+  $offKinds=$offKind==='internet_off'?['internet_off','offline']:[$offKind];
+  $onKinds=$onKind==='internet_on'?['internet_on','online']:[$onKind];
+  usort($events,static function($a,$b){
+    $aTs=is_numeric($a['at']??null)?(int)$a['at']:strtotime((string)($a['at']??''));
+    $bTs=is_numeric($b['at']??null)?(int)$b['at']:strtotime((string)($b['at']??''));
+    return $aTs<=>$bTs;
+  });
+  $start=null;$lastOff=null;$ranges=[];
+  foreach ($events as $event) {
+    $ts=is_numeric($event['at']??null)?(int)$event['at']:strtotime((string)($event['at']??''));
+    $kind=(string)($event['kind']??'');
+    if(!$ts || $ts>$toTs || ($ts<$fromTs-86400))continue;
+    if(in_array($kind,$offKinds,true)) {
+      if($start===null)$start=$ts;
+      $lastOff=$ts;
+    } elseif(in_array($kind,$onKinds,true) && $start!==null) {
+      $end=$start+intdiv(max(0,$ts-$start),$interval)*$interval;
+      if($end>$start)$ranges[]=[max($start,$fromTs),min($end,$toTs)];
+      $start=null;$lastOff=null;
+    }
+  }
+  // No recovery yet: use only an OFF checkpoint beyond the start. Never
+  // extrapolate a single OFF event to the present clock.
+  if($start!==null && $lastOff!==null && $lastOff>$start) {
+    $end=$start+intdiv($lastOff-$start,$interval)*$interval;
+    if($end>$start)$ranges[]=[max($start,$fromTs),min($end,$toTs)];
+  }
+  $ranges=array_values(array_filter($ranges,static fn($r)=>$r[1]>$r[0]));
+  usort($ranges,static fn($a,$b)=>$a[0]<=>$b[0]);
+  $merged=[];
+  foreach($ranges as $range){$last=count($merged)-1;if($last<0||$range[0]>$merged[$last][1])$merged[]=$range;else $merged[$last][1]=max($merged[$last][1],$range[1]);}
+  return $merged;
+}
+
+
+/**
  * Administrative waivers never erase device GPS evidence.
  * Only an exact matched calculated deduction range can be waived.
  */
