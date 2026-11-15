@@ -5,6 +5,26 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'php/**'
+      - '.github/workflows/deploy-php.yml'
+      # Public brochure files are deployed by the dedicated lightweight, serialized workflow.
+      - '!php/app/landing.html'
+      - '!php/app/index.php'
+      - '!php/app/robots.txt'
+      - '!php/app/sitemap.xml'
+      - '!php/app/contact-submit.php'
+      - '!php/app/public-stats.php'
+      - '!php/app/.htaccess'
+      - '!php/app/panel.html'
+      - '!php/app/assets/organizational-public.css'
+      - '!php/app/assets/public-accurate.css'
+      - '!php/app/assets/organizational-login.css'
+      - '!php/app/assets/login-accurate.css'
+      - '!php/app/assets/login-premium.js'
+      - '!php/app/assets/khatyar-hero-emerald-v3.webp'
+      - '!php/app/assets/khatyar-footer-emerald-v3.webp'
+      - '!php/app/assets/khatyar-login-emerald-v3.webp'
   workflow_dispatch:
 
 permissions:
