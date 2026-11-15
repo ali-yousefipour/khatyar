@@ -133,7 +133,6 @@ export function todayFaLong() {
 }
 
 // --- توابع کمکی برای فیلتر و شمارش بر اساس تاریخ شمسی ---
-export { g2j };
 export function jParts(s) {
   if (!s) return null;
   const m = String(s).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
