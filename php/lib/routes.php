@@ -2434,7 +2434,7 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
     error_log('gps work explicit-off query failed; no penalty without evidence: '.$e->getMessage());
     return [];
   }
-  return work_confirmed_off_intervals($events,$fromTs,$toTs,'gps_off','gps_on',$interval);
+  return gps_work_effective_intervals((int)$userId,work_confirmed_off_intervals($events,$fromTs,$toTs,'gps_off','gps_on',$interval));
 }
 // Public, non-sensitive Android policy: also protects the pre-login screen.
 route('GET', '/api/app/screenshot-policy', function($p,$b,$u){
