@@ -102,6 +102,7 @@ export function startTelemetry(opts = {}) {
   // وضعیت GPS با فاصلهٔ تنظیم‌شده (روشن/خاموش بودن سرویس موقعیت)
   let lastGps = null;
   let lastGpsOffCheckpoint = 0;
+  let lastHeartbeatAt = 0;
   const checkGps = async () => {
     try {
       const enabled = await Location.hasServicesEnabledAsync();
@@ -113,7 +114,10 @@ export function startTelemetry(opts = {}) {
         lastGpsOffCheckpoint = Date.now();
         sendTelemetry('gps_off', { checkpoint: true });
       }
-      sendTelemetry('heartbeat');
+      if(Date.now()-lastHeartbeatAt>=5*60*1000){
+        lastHeartbeatAt=Date.now();
+        sendTelemetry('heartbeat');
+      }
     } catch (e) {}
   };
   // Security-exempt accounts must never generate GPS-off warnings or penalties.
