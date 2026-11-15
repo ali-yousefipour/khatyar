@@ -100,6 +100,7 @@ jobs:
           php php/tests/employment_period_test.php
           node mobile/scripts/test-update-contract.cjs
           node mobile/scripts/test-app-lock-timeout.cjs
+          node mobile/scripts/test-domain-cutover-contract.cjs
           node mobile/scripts/test-payroll-period-title.cjs
           php php/tests/presence_street_geocode_test.php
           php php/tests/presence_random_dispatch_test.php
