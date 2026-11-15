@@ -359,7 +359,15 @@ function _attendance_reject_log($userId,$lineId,$method,$lat,$lng,$accuracy,$rea
 // خودِ کد PHP کاملاً سالم است. مسیر دوم بدون کلمات حساس (login/auth) این مشکل را دور
 // می‌زند. مسیر اول برای سازگاری با نسخه‌های قدیمی‌تر اپ که هنوز نصب هستند نگه داشته شده.
 function _login_method($deviceType) {
-  $method = _req_setting($deviceType === 'android' ? 'app_login_method' : 'web_login_method', $deviceType === 'android' ? 'password' : 'sms_otp');
+  $key = $deviceType === 'android' ? 'app_login_method' : 'web_login_method';
+  $fallback = $deviceType === 'android' ? 'password' : 'sms_otp';
+  // A broken or partially migrated settings table must not turn the entire
+  // login screen into HTTP 500. Invalid *explicit* settings remain an error.
+  try { $method = _req_setting($key, $fallback); }
+  catch (Throwable $error) {
+    error_log('login_method_settings_unavailable key='.$key.' class='.get_class($error));
+    return $fallback;
+  }
   if (!in_array($method, ['password', 'sms_otp', 'bale_otp'], true)) Http::error('روش ورود تنظیم‌شده معتبر نیست؛ با مدیر سامانه تماس بگیرید.', 503);
   return $method;
 }
@@ -414,9 +422,9 @@ $loginHandler = function ($p, $b, $unused = null, $verifiedOtpUserId = null) {
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
   // Fast path first: exact username lookup can use the normal username index.
   // Only legacy rows containing incidental whitespace fall back to TRIM().
-  try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE u.username=? LIMIT 1", [$username]); $u["role_title"]=""; $u["level"]=0; $u["is_admin"]=0; }
+  try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE u.username=? LIMIT 1", [$username]); if($u){$u["role_title"]="";$u["level"]=0;$u["is_admin"]=0;} }
   if (!$u) {
-    try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login trimmed role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE TRIM(u.username)=? LIMIT 1", [$username]); $u["role_title"]=""; $u["level"]=0; $u["is_admin"]=0; }
+    try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login trimmed role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE TRIM(u.username)=? LIMIT 1", [$username]); if($u){$u["role_title"]="";$u["level"]=0;$u["is_admin"]=0;} }
   }
   if (!$u || !$u['is_active'] || ($verifiedOtpUserId === null ? !password_verify($password, $u['password_hash']) : (int)$u['id'] !== (int)$verifiedOtpUserId)) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
@@ -470,7 +478,9 @@ $loginHandler = function ($p, $b, $unused = null, $verifiedOtpUserId = null) {
   if ($dtype === 'android' && !$u['allow_android']) Http::error('ورود با اپ اندروید برای این حساب مجاز نیست', 403);
   if ($dtype === 'web' && !$u['allow_web']) Http::error('ورود با وب‌اپلیکیشن برای این حساب مجاز نیست', 403);
   $sess = Db::one("SELECT device_id, revoked_at FROM user_sessions WHERE user_id=? AND device_type=?", [$u['id'], $dtype]);
-  $unlimited = in_array($u['role_title'], ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'], true);
+  // A user may have only one active Android device, including administrator roles.
+  // Browser sessions retain their existing independent behavior.
+  $unlimited = $dtype === 'web' && in_array($u['role_title']??'', ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'], true);
   if (!$sess || $sess['revoked_at'] || $unlimited) {
     Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model) VALUES(?,?,?,?)
              ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL,created_at=NOW()",
@@ -510,7 +520,10 @@ $refreshHandler = function ($p, $b) {
     _web_cookie_same_origin();
     $providedRefresh = (string)($_COOKIE['__Host-khatyar_refresh'] ?? '');
   }
-  $payload = Jwt::verify($providedRefresh, $GLOBALS['CONFIG']['jwt_secret']);
+  // Only this route may authenticate a signed, expired Android refresh token.
+  // Its continued validity is controlled by user_sessions; admin revocation
+  // and device mismatch take precedence over any JWT lifetime.
+  $payload = Jwt::verify($providedRefresh, $GLOBALS['CONFIG']['jwt_secret'], true);
   if (!$payload || ($payload['t'] ?? '') !== 'r') Http::error('توکن تمدید نامعتبر است', 401);
   $dt = $payload['dt'] ?? 'web';
   $deviceId = (string)($payload['device_id'] ?? '');
