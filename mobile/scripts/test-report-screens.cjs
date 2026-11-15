@@ -47,4 +47,28 @@ assertAll(sent, [
   "orderedSent.map",
   "current_owner_name",
 ], 'Sent/new report');
+// Regression: all inbox, forwarded, CC and archived tabs share the collapsed-by-default filter.
+assertAll(inbox, [
+  "const [advancedOpen, setAdvancedOpen] = useState(false)",
+  "accessibilityState={{expanded:advancedOpen}}",
+  "advancedOpen && <View style={s.filterContent}>",
+  "setAdvancedOpen(false)",
+  "setSenderPickerOpen(false)",
+  "پاک‌سازی فیلترها",
+  "اعمال فیلترها",
+  "senderFilterQuery",
+], 'Inbox advanced filters');
+assertAll(sent, [
+  "const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false)",
+  "const [subjectSearch, setSubjectSearch] = useState('')",
+  "subjectDropdownOpen && <View style={s.subjectDropdown}>",
+  "جستجوی لحظه‌ای موضوع",
+  "subjectMode==='other'",
+  "افزودن تصویر",
+  "const [sentFiltersOpen, setSentFiltersOpen] = useState(false)",
+], 'Send report and sent report UX');
+assert.ok(!sent.includes('pickPdf'), 'PDF picker must be absent from new report form');
+assert.ok(!sent.includes('افزودن PDF'), 'PDF attachment action must be absent');
+assert.ok(!sent.includes("expo-document-picker"), 'PDF picker dependency import must be absent');
+assert.ok(!sent.includes("application/pdf;base64"), 'No PDF attachment encoding in send report');
 console.log('PASS report UX source contracts');
