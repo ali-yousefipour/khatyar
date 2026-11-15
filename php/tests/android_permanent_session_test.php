@@ -26,7 +26,7 @@ $mobileApi=file_get_contents(__DIR__.'/../../mobile/src/api.js');
 $mobileAuth=file_get_contents(__DIR__.'/../../mobile/src/auth.js');
 checkPermanent(str_contains($routes,"Jwt::verify(\$providedRefresh, \$GLOBALS['CONFIG']['jwt_secret'], true)"),'Renew route uses restricted durable verification');
 checkPermanent(str_contains($routes,'AND device_id=? LIMIT 1'),'Refresh checks exact device ID');
-checkPermanent(str_contains($routes,"if (!$s || $s['revoked_at'])"),'Admin-revoked sessions must never renew');
+checkPermanent(str_contains($routes,"if (!\$s || \$s['revoked_at'])"),'Admin-revoked sessions must never renew');
 checkPermanent(str_contains($routes,"\$unlimited = \$dtype === 'web'"),'Android login has no role exemption');
 checkPermanent(str_contains($router,"\$unlimitedRole = \$dt === 'web'"),'Android API access has no role exemption');
 checkPermanent(str_contains($router,'SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1'),'API checks the registered device');
