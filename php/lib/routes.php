@@ -366,7 +366,8 @@ function _login_method($deviceType) {
   try { $method = _req_setting($key, $fallback); }
   catch (Throwable $error) {
     error_log('login_method_settings_unavailable key='.$key.' class='.get_class($error));
-    return $fallback;
+    // Fail closed: guessing password would bypass an administrator's OTP-only policy.
+    Http::error('تنظیمات ورود موقتاً از سرور دریافت نمی‌شود؛ لطفاً دوباره تلاش کنید.', 503);
   }
   if ($method === null || $method === '') $method = $fallback;
   if (!in_array($method, ['password', 'sms_otp', 'bale_otp'], true)) Http::error('روش ورود تنظیم‌شده معتبر نیست؛ با مدیر سامانه تماس بگیرید.', 503);
