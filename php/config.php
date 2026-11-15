@@ -23,12 +23,29 @@ return [
   'db_user' => getenv('DB_USER') ?: 'h301194_app',
   'db_pass' => getenv('DB_PASS') ?: '',
   'jwt_secret' => getenv('JWT_SECRET') ?: (function(){
+    // Never create a new in-memory JWT key on every request when PHP cannot
+    // write to a shared host. That silently invalidates all other sessions.
     $f = __DIR__ . '/.jwt_secret';
-    if (is_file($f)) return trim(file_get_contents($f));
-    $secret = bin2hex(random_bytes(48));
-    @file_put_contents($f, $secret, LOCK_EX);
-    @chmod($f, 0600);
-    return $secret;
+    $handle = @fopen($f, 'c+');
+    if (!$handle) {
+      error_log('JWT_SECRET missing and persisted key cannot be opened');
+      throw new RuntimeException('JWT signing key is not persisted');
+    }
+    try {
+      if (!flock($handle, LOCK_EX)) throw new RuntimeException('Cannot lock JWT signing key');
+      rewind($handle);
+      $secret = trim((string)stream_get_contents($handle));
+      if (strlen($secret) < 32) {
+        if ($secret !== '') throw new RuntimeException('Persisted JWT signing key is too short');
+        $secret = bin2hex(random_bytes(48));
+        rewind($handle);
+        if (!ftruncate($handle, 0) || fwrite($handle, $secret) !== strlen($secret) || !fflush($handle))
+          throw new RuntimeException('Cannot persist JWT signing key');
+        @chmod($f, 0600);
+      }
+      flock($handle, LOCK_UN);
+      return $secret;
+    } finally { fclose($handle); }
   })(),
   'access_ttl' => 30 * 24 * 3600, // نشست تا زمان خروج
   'refresh_ttl' => 30 * 24 * 3600,
