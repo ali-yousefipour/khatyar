@@ -12,7 +12,7 @@ import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
 import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
 import { readAppItems, refreshAppItems } from './appItemPermissions';
-import {readProfilePhotoCache,cacheProfilePhoto} from './profilePhotoCache';
+import {readProfilePhotoCache,cacheProfilePhoto,peekProfilePhotoCache} from './profilePhotoCache';
 
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', 'bell-outline'],
@@ -53,7 +53,7 @@ function isUserQueueItem(item) {
 export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTheftAlarm }) {
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
-  const [photo, setPhoto] = React.useState(null);
+  const [photo, setPhoto] = React.useState(()=>peekProfilePhotoCache(user?.id));
   const [photoFailed, setPhotoFailed] = React.useState(false);
   const [photoOpen, setPhotoOpen] = React.useState(false);
   const [photoBusy, setPhotoBusy] = React.useState(false);
@@ -141,7 +141,7 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTh
   };
 
   React.useEffect(()=>{
-    let active=true;setPhoto(null);setPhotoFailed(false);
+    let active=true;setPhoto(peekProfilePhotoCache(user?.id));setPhotoFailed(false);
     (async()=>{const cached=await readProfilePhotoCache(user?.id);if(active&&cached?.uri)setPhoto(cached.uri);
       if(!cached?.uri&&user?.photo){const uri=await cacheProfilePhoto(user?.id,user.photo);if(active&&uri)setPhoto(uri);}
     })().catch(()=>{});
