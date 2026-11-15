@@ -167,8 +167,7 @@ function SchoolServicePreloader(){const{user}=useAuth();React.useEffect(()=>{if(
       request('/my/shift-schedule',{timeoutMs:8000}),
       request('/my/app-config',{timeoutMs:8000}),
       refreshAllowedLines(user.id),
-      request('/my/lines',{timeoutMs:8000}),
-      request('/me/full-profile',{timeoutMs:8000})
+      request('/my/lines',{timeoutMs:8000})
     ])}catch(_){}
   })();let netSub=null;try{netSub=Network.addNetworkStateListener(s=>{if(alive&&s?.isInternetReachable===true){refresh();refreshDashboardContext();}})}catch(_){}return()=>{alive=false;try{netSub?.remove()}catch(_){}}},[user?.id]);return null;}
 function CustomDrawerOverlay(){
