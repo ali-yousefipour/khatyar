@@ -141,6 +141,7 @@ export default function ReportsScreen({ navigation }) {
     return (sortNewest ? -1 : 1) * compare;
   }), [mine, sortNewest, sentQuery, sentPriorityFilter, sentStatusFilter, sentSort]);
 
+  const sentGroupLabel = (r) => sentGroup === 'priority' ? (PRIORITY[r.priority] || 'بدون اولویت') : sentGroup === 'status' ? (STATUS[r.status] || r.status || 'نامشخص') : '';
   const orderedSent = useMemo(() => {
     if (sentGroup === 'none') return sortedMine;
     return [...sortedMine].sort((a, b) => {
@@ -148,7 +149,6 @@ export default function ReportsScreen({ navigation }) {
       return order || (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     });
   }, [sortedMine, sentGroup]);
-  const sentGroupLabel = (r) => sentGroup === 'priority' ? (PRIORITY[r.priority] || 'بدون اولویت') : sentGroup === 'status' ? (STATUS[r.status] || r.status || 'نامشخص') : '';
   const sentGroupCounts = sortedMine.reduce((acc, r) => {
     const key = sentGroupLabel(r);
     if (key) acc[key] = (acc[key] || 0) + 1;
