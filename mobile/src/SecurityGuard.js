@@ -22,7 +22,7 @@ export default function SecurityGuard({ children }) {
   const checkEnabledAt = useRef(0);
   const activeUserId = useRef(null);
   const SECURITY_START_DELAY_MS = 60000;
-  const exempt = !!(user && user.security_exempt);
+  const exempt = Number(user?.security_exempt||0)===1 || user?.security_exempt===true;
 
   // خواندن تنظیمات امنیتی از سرور
   useEffect(() => {
@@ -41,7 +41,7 @@ export default function SecurityGuard({ children }) {
   }, [user?.id]);
 
   const check = useCallback(async () => {
-    if (Platform.OS !== 'android' || !user?.id || exempt || Date.now() < checkEnabledAt.current) { setBlocked(false); return; }
+    if (Platform.OS !== 'android' || !user?.id || exempt || AppState.currentState!=='active' || Date.now() < checkEnabledAt.current) { setBlocked(false); return; }
     // تا وقتی تنظیمات سرور لود نشده، بررسی نکن (از بلاک اشتباه جلوگیری می‌کند)
     if (!policy.loaded) { setBlocked(false); return; }
     try {
@@ -57,7 +57,7 @@ export default function SecurityGuard({ children }) {
   }, [exempt, policy, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || exempt) { setBlocked(false);setReasons([]);return undefined; }
+    if (!user?.id || exempt) { if(!user?.id){activeUserId.current=null;checkEnabledAt.current=0;}setBlocked(false);setReasons([]);return undefined; }
     if (activeUserId.current !== String(user.id)) {
       activeUserId.current = String(user.id);
       checkEnabledAt.current = Date.now() + SECURITY_START_DELAY_MS;
