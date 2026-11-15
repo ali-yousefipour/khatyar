@@ -9375,6 +9375,14 @@ route('POST', '/api/reports', function($p,$b,$u){
   _ensure_reports_index();
   $eventAt = _app_client_time($b);
   if (empty($b['subject']) || empty($b['body'])) Http::error('ورودی نامعتبر', 400);
+  // A lost HTTP acknowledgment must not create two reports, two routing
+  // chains or two sets of notifications after the offline queue replays.
+  // Only de-duplicate payloads carrying the stable client operation UUID.
+  if (!empty($b['client_uuid'])) {
+    $previous = Db::one("SELECT id FROM reports WHERE sender_id=? AND subject=? AND body=? AND created_at=? AND deleted_at IS NULL LIMIT 1",
+      [(int)$u['id'],(string)$b['subject'],(string)$b['body'],$eventAt]);
+    if ($previous) return ['id'=>(int)$previous['id'],'ok'=>true,'duplicate'=>true];
+  }
   enforce_attachment('reports', $b['attachment_name'] ?? null, $b['attachment_data'] ?? null);
   // محدودیت تعداد گزارش روزانهٔ هر کاربر
   $dailyLimit = (int)_req_setting('report_daily_limit', 0);
