@@ -6,6 +6,10 @@ on:
       - 'mobile/src/screens/InboxScreen.js'
       - 'mobile/src/screens/ReportsScreen.js'
       - 'mobile/src/components/ReportPersonPickerModal.js'
+      - 'mobile/src/screens/OfficialPresenceScreen.js'
+      - 'mobile/src/offline.js'
+      - 'mobile/src/api.js'
+      - 'mobile/scripts/test-offline-official-visit.cjs'
       - 'mobile/src/screens/DashboardScreen.js'
       - 'mobile/src/components/DashboardTiles.js'
       - 'mobile/scripts/test-dashboard-menu-design.cjs'
@@ -31,4 +35,5 @@ jobs:
         run: |
           node scripts/test-report-screens.cjs
           node scripts/test-dashboard-menu-design.cjs
-          node -e "const fs=require('node:fs');const p=require('@babel/parser');for(const f of ['src/screens/DashboardScreen.js','src/components/DashboardTiles.js']){p.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});console.log('PASS JSX:',f)}"
+          node scripts/test-offline-official-visit.cjs
+          node -e "const fs=require('node:fs');const p=require('@babel/parser');for(const f of ['src/screens/DashboardScreen.js','src/components/DashboardTiles.js','src/screens/OfficialPresenceScreen.js','src/offline.js','src/api.js']){p.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});console.log('PASS JSX:',f)}"
