@@ -12,6 +12,7 @@ import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
 import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
 import { readAppItems, refreshAppItems } from './appItemPermissions';
+import {readProfilePhotoCache,cacheProfilePhoto} from './profilePhotoCache';
 
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', 'bell-outline'],
@@ -24,7 +25,7 @@ const ITEMS = [
 const MENU_SECTIONS = [
   { title: 'پیام‌ها و اطلاع‌رسانی', icon: 'message-text-outline', routes: ['Notifications', 'Messages'] },
   { title: 'حساب و کارکرد', icon: 'account-circle-outline', routes: ['WorkSummary', 'Profile'] },
-  { title: 'برنامه و پشتیبانی', icon: 'cog-outline', routes: ['SendQueue', 'Settings', 'Help'] },
+  { title: 'برنامه و پشتیبانی', icon: 'cog-outline', routes: ['SendQueue', 'AppUpdateCheck', 'Settings', 'Help'] },
 ];
 
 function normRole(value) {
@@ -52,7 +53,7 @@ function isUserQueueItem(item) {
 export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTheftAlarm }) {
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
-  const [photo, setPhoto] = React.useState(user?.photo || null);
+  const [photo, setPhoto] = React.useState(null);
   const [photoFailed, setPhotoFailed] = React.useState(false);
   const [photoOpen, setPhotoOpen] = React.useState(false);
   const [photoBusy, setPhotoBusy] = React.useState(false);
@@ -139,16 +140,13 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTh
     ]);
   };
 
-  React.useEffect(() => { setPhoto(user?.photo || null); setPhotoFailed(false); }, [user?.photo]);
-  React.useEffect(() => {
-    let active = true;
-    const refreshPhoto = () => request('/me/full-profile', { noStore: true, timeoutMs: 10000 })
-      .then(profile => { if (active && profile?.photo) { setPhoto(profile.photo); setPhotoFailed(false); } })
-      .catch(() => {});
-    refreshPhoto();
-    const unsubscribe = navigation.addListener('focus', refreshPhoto);
-    return () => { active = false; unsubscribe(); };
-  }, [navigation, user?.id]);
+  React.useEffect(()=>{
+    let active=true;setPhoto(null);setPhotoFailed(false);
+    (async()=>{const cached=await readProfilePhotoCache(user?.id);if(active&&cached?.uri)setPhoto(cached.uri);
+      if(!cached?.uri&&user?.photo){const uri=await cacheProfilePhoto(user?.id,user.photo);if(active&&uri)setPhoto(uri);}
+    })().catch(()=>{});
+    return()=>{active=false};
+  },[user?.id,user?.photo]);
 
   const changePhoto = async () => {
     try {
@@ -161,7 +159,7 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTh
       const uploaded = await uploadFile('/me/photo', {}, 'photo', asset.uri, asset.fileName || 'profile.jpg', asset.mimeType || 'image/jpeg', { queueIfOffline: false });
       if (!uploaded?.ok && !uploaded?.path) throw new Error('سرور عکس را ذخیره نکرد.');
       const profile = await request('/me/full-profile', { noStore: true });
-      if (profile?.photo) { setPhoto(profile.photo); setPhotoFailed(false); }
+      if (profile?.photo) { const uri=await cacheProfilePhoto(user?.id,profile.photo,{force:true});if(uri)setPhoto(uri);setPhotoFailed(false); }
       await refreshUser?.();
       Alert.alert('عکس به‌روز شد', 'تصویر حساب کاربری با موفقیت تغییر کرد.');
     } catch (error) {
@@ -209,7 +207,8 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTh
   const items = [
     ...ITEMS,
     ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), 'cloud-upload-outline'],
-  ].filter(([route]) => roleAppAccess.includes(route));
+    ['AppUpdateCheck','بررسی به‌روزرسانی برنامه','update'],
+  ].filter(([route]) => route==='AppUpdateCheck'||roleAppAccess.includes(route));
   const sections = MENU_SECTIONS.map(section => ({
     ...section, entries: section.routes.map(route => items.find(item => item[0] === route)).filter(Boolean),
   })).filter(section => section.entries.length > 0);
