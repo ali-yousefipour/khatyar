@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Switch, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { request } from '../api';
+import {useAuth} from '../auth';
+import {readExpiryPreferences,saveExpiryPreferences} from '../expiryDisplayPreferences';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
@@ -12,6 +14,7 @@ const TYPE_ROWS = [
 ];
 
 export default function ExpiryNotificationSettingsScreen() {
+  const {user}=useAuth();
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,14 +25,17 @@ export default function ExpiryNotificationSettingsScreen() {
     setLoading(true);
     setError('');
     try {
-      const data = await request('/my/expiry-notification-settings', { noStore: true });
+      const stored=await readExpiryPreferences(user?.id);
+      if(stored)setCfg(stored);
+      const data = await request('/my/expiry-notification-settings', { noStore: true,queueIfOffline:false });
       if (!data || typeof data !== 'object' || !data.types) throw new Error('پاسخ تنظیمات نامعتبر است.');
       setCfg(data);
+      await saveExpiryPreferences(user?.id,data);
       setDirty(false);
     } catch (e) {
       setError(e?.message || 'دریافت تنظیمات ناموفق بود.');
     } finally { setLoading(false); }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -53,10 +59,11 @@ export default function ExpiryNotificationSettingsScreen() {
         check_days: Math.max(0, Math.min(365, Number(cfg.check_days || 0))),
         repeat_days: Math.max(1, Math.min(365, Number(cfg.repeat_days || 30))),
       };
-      const saved = await request('/my/expiry-notification-settings', { method: 'POST', body });
-      setCfg(saved);
+      await saveExpiryPreferences(user?.id,body);
+      const saved = await request('/my/expiry-notification-settings', { method: 'POST', body,queueIfOffline:true });
+      setCfg(saved?.queued?body:saved);
       setDirty(false);
-      Alert.alert('ذخیره شد', 'تنظیمات اعلان‌های پایان اعتبار ذخیره شد.');
+      Alert.alert(saved?.queued?'در صف ارسال':'ذخیره شد',saved?.queued?'انتخاب‌های شما روی این گوشی اعمال و برای همگام‌سازی با سرور در صف ذخیره شد.':'تنظیمات اعلان‌های پایان اعتبار ذخیره شد.');
     } catch (e) {
       Alert.alert('خطا', e.message || 'ذخیره تنظیمات ناموفق بود.');
     } finally { setBusy(false); }
