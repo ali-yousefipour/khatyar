@@ -161,7 +161,7 @@ const pollFailRef=useRef(0),reconnectRef=useRef(false),nextReconnectRef=useRef(0
 const poll=async()=>{
   if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current)return;
   pollingRef.current=true;const requestedChannel=Number(channelRef.current),generation=sessionRef.current;
-  try{const response=await request(`/radio-api-v2.php?op=poll&channel_id=${requestedChannel}&after=${lastIdRef.current}`,{noStore:true});
+  try{const response=await request(`/radio-api-v2.php?op=poll&channel_id=${requestedChannel}&after=${lastIdRef.current}&wait_ms=3500`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
     pollFailRef.current=0;setLoadError('');const channelBusy=!!response.busy;setBusy(channelBusy);setSpeaker(response.speaker_id?{id:Number(response.speaker_id),name:response.speaker_name||'کاربر در حال صحبت',role:response.speaker_role||''}:null);
     if(lastBusyRef.current!==null&&lastBusyRef.current!==channelBusy&&!recordingRef.current){playEffect(channelBusy?'channel_busy':'channel_free',channelBusy?squelchClosePlayer:squelchOpenPlayer)}lastBusyRef.current=channelBusy;
@@ -178,7 +178,7 @@ const poll=async()=>{
 const pollAll=async()=>{
   if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||!listenAllRef.current||pollAllRef.current||resyncingRef.current)return;
   pollAllRef.current=true;const generation=sessionRef.current;
-  try{const response=await request(`/radio-api-v2.php?op=poll-all&after=${listenAllLastIdRef.current}`,{noStore:true});
+  try{const response=await request(`/radio-api-v2.php?op=poll-all&after=${listenAllLastIdRef.current}&wait_ms=3500`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
     const activeSpeaker=activeListenAllSpeaker(response);
     setBusy(!!activeSpeaker);setSpeaker(activeSpeaker);
