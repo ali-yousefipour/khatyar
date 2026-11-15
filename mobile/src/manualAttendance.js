@@ -1,9 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {g2j,tehranGregorianParts} from './jdate';
 
-const KEY='manual_attendance_provisional_v1';
+const ROOT='manual_attendance_provisional_v2:';
+const LEGACY='manual_attendance_provisional_v1';
 const p2=n=>String(n).padStart(2,'0');
-export function currentTehranJdate(){const t=tehranGregorianParts(new Date());const [y,m,d]=g2j(t.year,t.month,t.day);return [y,p2(m),p2(d)].join('-');}
+const key=id=>ROOT+String(Number(id)||0);
+const active=e=>!['rejected','canceled'].includes(String(e?.status||''));
+export function currentTehranJdate(){
+  const t=tehranGregorianParts(new Date());
+  if(!t)return '';
+  const [y,m,d]=g2j(t.year,t.month,t.day);
+  return [y,p2(m),p2(d)].join('-');
+}
 export function manualTimeToEpoch(jdate,clock){
   if(String(jdate).replace(/\//g,'-')!==currentTehranJdate())return null;
   if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(clock)))return null;
@@ -12,56 +20,101 @@ export function manualTimeToEpoch(jdate,clock){
   const [hours,minutes]=clock.split(':').map(Number);
   return Date.UTC(t.year,t.month-1,t.day,hours,minutes)-210*60000;
 }
-export async function getProvisionalManual(userId){
+async function readEntries(userId){
+  if(!Number(userId))return [];
   try{
-    const row=JSON.parse(await AsyncStorage.getItem(KEY)||'null');
-    return row&&Number(row.user_id)===Number(userId)?row:null;
-  }catch{return null;}
+    const saved=JSON.parse(await AsyncStorage.getItem(key(userId))||'null');
+    if(Array.isArray(saved?.entries))return saved.entries;
+    // One-time upgrade of records created immediately before this version.
+    const old=JSON.parse(await AsyncStorage.getItem(LEGACY)||'null');
+    if(Number(old?.user_id)===Number(userId)&&old?.request_uuid){
+      await AsyncStorage.setItem(key(userId),JSON.stringify({entries:[old]}));
+      await AsyncStorage.removeItem(LEGACY);
+      return [old];
+    }
+  }catch{}
+  return [];
+}
+async function persistEntries(userId,entries){
+  await AsyncStorage.setItem(key(userId),JSON.stringify({entries}));
+}
+function derived(userId,entries){
+  const valid=entries.filter(active).sort((a,b)=>Number(a.updated_at||0)-Number(b.updated_at||0));
+  if(!valid.length)return null;
+  let start=null,end=null;
+  const recent=valid[valid.length-1];
+  for(const item of valid){
+    if(Number.isFinite(Number(item.start_ms))&&Number(item.start_ms)>0){
+      start=Number(item.start_ms);end=item.end_ms?Number(item.end_ms):null;
+    } else if(Number.isFinite(Number(item.end_ms))&&Number(item.end_ms)>0){
+      end=Number(item.end_ms);
+    }
+  }
+  const outstanding=valid.some(row=>['queued','pending'].includes(row.status));
+  return {...recent,user_id:Number(userId),start_ms:start,end_ms:end,
+    status:outstanding?'pending':recent.status};
+}
+export async function getProvisionalManual(userId){
+  return derived(userId,await readEntries(userId));
 }
 export async function saveProvisionalManual(userId,data){
-  const now=Date.now();
-  if(!userId||!data?.request_uuid)throw new Error('اطلاعات ثبت موقت تردد ناقص است.');
-  const row={...data,user_id:Number(userId),status:data.status||'pending',updated_at:now};
-  await AsyncStorage.setItem(KEY,JSON.stringify(row));
-  return row;
+  if(!Number(userId)||!data?.request_uuid)throw new Error('اطلاعات ثبت موقت تردد ناقص است.');
+  const entries=await readEntries(userId);
+  const entry={...data,user_id:Number(userId),status:data.status||'pending',updated_at:Date.now()};
+  const existing=entries.findIndex(e=>e.request_uuid===entry.request_uuid);
+  if(existing>=0)entries[existing]={...entries[existing],...entry};
+  else entries.push(entry);
+  await persistEntries(userId,entries.slice(-80));
+  return derived(userId,entries);
 }
 export async function clearProvisionalManual(userId){
-  const row=await getProvisionalManual(userId);
-  if(row)await AsyncStorage.removeItem(KEY);
+  await AsyncStorage.removeItem(key(userId));
 }
 export async function applyManualRequestLocally(userId,body,clientUuid,queued,serverId){
   const kind=String(body.manual_kind||'both');
   const jdate=String(body.the_date||'').replace(/\//g,'-');
-  const current=await getProvisionalManual(userId);
-  let start=current?.start_ms||null;
-  let end=current?.end_ms||null;
-  if(kind==='in'||kind==='both')start=manualTimeToEpoch(jdate,body.in_time);
-  if(kind==='out'||kind==='both')end=manualTimeToEpoch(jdate,body.out_time);
-  if(!start&&!end)return null;
-  const saved=await saveProvisionalManual(userId,{
+  const start=(kind==='in'||kind==='both')?manualTimeToEpoch(jdate,body.in_time):null;
+  const end=(kind==='out'||kind==='both')?manualTimeToEpoch(jdate,body.out_time):null;
+  if(!start&&!end)return null; // Historical requests are saved, but do not impersonate current live attendance.
+  return saveProvisionalManual(userId,{
     request_uuid:String(clientUuid),request_id:serverId||null,
-    start_ms:start,end_ms:end,kind,jdate,status:queued?'queued':'pending',
-    ...(current?.start_ms&&!start?{start_ms:current.start_ms}:{})
+    start_ms:start,end_ms:end,kind,jdate,status:queued?'queued':'pending'
   });
-  return saved;
+}
+export async function markManualRequestSynced(userId,clientUuid,requestId){
+  const entries=await readEntries(userId);
+  const i=entries.findIndex(item=>String(item.request_uuid)===String(clientUuid));
+  if(i<0)return;
+  entries[i]={...entries[i],status:'pending',request_id:Number(requestId),updated_at:Date.now()};
+  await persistEntries(userId,entries);
+}
+export async function markManualOrdinaryCheckout(userId,endTime=Date.now()){
+  if(!await getProvisionalManual(userId))return;
+  await saveProvisionalManual(userId,{
+    request_uuid:'ordinary_checkout_'+String(endTime),kind:'checkout',jdate:currentTehranJdate(),
+    end_ms:Number(endTime),start_ms:null,status:'approved'
+  });
 }
 export function provisionalOpen(row){
-  if(!row?.start_ms||row?.end_ms||row.status==='rejected'||row.status==='canceled')return null;
+  if(!row?.start_ms||row?.end_ms||['rejected','canceled'].includes(row.status))return null;
   const ms=Number(row.start_ms);
   if(!Number.isFinite(ms)||Date.now()-ms>14*3600000||ms>Date.now()+300000)return null;
-  const date=new Date(ms+210*60000);
-  const check_in=`${date.getUTCFullYear()}-${p2(date.getUTCMonth()+1)}-${p2(date.getUTCDate())} ${p2(date.getUTCHours())}:${p2(date.getUTCMinutes())}:00`;
-  return{id:'manual_provisional_'+row.request_uuid,check_in,method:'manual_pending',provisional:true,owner_user_id:row.user_id};
+  const d=new Date(ms+210*60000);
+  const check_in=`${d.getUTCFullYear()}-${p2(d.getUTCMonth()+1)}-${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:00`;
+  return {id:'manual_provisional_'+row.request_uuid,check_in,method:'manual_pending',provisional:row.status!=='approved',owner_user_id:row.user_id};
 }
 export async function reconcileProvisionalManual(userId,rows){
-  const row=await getProvisionalManual(userId);
-  if(!row||!Array.isArray(rows))return row;
-  const match=rows.find(item=>(row.request_id&&String(item.id)===String(row.request_id))||(row.request_uuid&&String(item.client_uuid||'')===row.request_uuid));
-  if(!match)return row;
-  if(['rejected','canceled'].includes(String(match.status))){
-    await clearProvisionalManual(userId);return null;
+  const entries=await readEntries(userId);
+  if(!Array.isArray(rows)||!entries.length)return derived(userId,entries);
+  let changed=false;
+  for(const item of entries){
+    if(item.kind==='checkout')continue;
+    const match=rows.find(remote=>(item.request_id&&String(remote.id)===String(item.request_id))||
+      (item.request_uuid&&String(remote.client_uuid||'')===String(item.request_uuid)));
+    if(match&&(item.status!==match.status||Number(item.request_id)!==Number(match.id))){
+      item.status=match.status||'pending';item.request_id=match.id||item.request_id;changed=true;
+    }
   }
-  const next={...row,status:match.status||'pending',request_id:match.id||row.request_id};
-  await AsyncStorage.setItem(KEY,JSON.stringify(next));
-  return next;
+  if(changed)await persistEntries(userId,entries);
+  return derived(userId,entries);
 }
