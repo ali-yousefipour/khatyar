@@ -58,6 +58,24 @@ jobs:
                   }
               }
           } catch (Throwable $e) { $out['checks']['database']=['ok'=>false,'error'=>check_error($e)]; }
+          // Report only index structure, never session/device identifiers.
+          try {
+              $indexes=$db->query('SHOW INDEX FROM user_sessions')->fetchAll(PDO::FETCH_ASSOC);
+              $keys=[];
+              foreach($indexes as $index){
+                  $name=(string)$index['Key_name'];
+                  $keys[$name]['unique']=(int)$index['Non_unique']===0;
+                  $keys[$name]['columns'][(int)$index['Seq_in_index']]=(string)$index['Column_name'];
+              }
+              $hasUnique=false;
+              foreach($keys as $key){
+                  ksort($key['columns']);
+                  if($key['unique'] && array_values($key['columns'])===['user_id','device_type'])$hasUnique=true;
+              }
+              $out['checks']['single_device_unique_index']=['ok'=>$hasUnique];
+          }catch(Throwable $e){
+              $out['checks']['single_device_unique_index']=['ok'=>false,'error'=>check_error($e)];
+          }
           $candidates = array_unique(array_filter([
               ini_get('error_log'), __DIR__.'/error_log', dirname(__DIR__).'/error_log',
               dirname(__DIR__,2).'/error_log', dirname(__DIR__,3).'/error_log',
