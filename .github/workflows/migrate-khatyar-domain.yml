@@ -126,6 +126,37 @@ jobs:
           code="$(curl -sSI -L --max-time 40 -o /dev/null -w '%{http_code}' https://khat-yar.ir/releases/khatyar-2.0.2.apk)"
           test "$code" = 200 || { echo "New APK is not publicly downloadable"; exit 1; }
           echo 'Verified release APK on khat-yar.ir.'
+      - name: Activate mandatory 2.0.2 update after release and domain verification
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/khatyar-release/khatyar.apk"
+          test -s "$apk"
+          sha="$(sha256sum "$apk" | awk '{print $1}')"
+          token="$(openssl rand -hex 32)"
+          installer="khatyar-cutover-$(openssl rand -hex 12).php"
+          cp .github/scripts/khatyar-cutover-activate.php "$RUNNER_TEMP/$installer"
+          sed -i "s/__ACTIVATION_TOKEN__/$token/g;s/__APK_SHA256__/$sha/g" "$RUNNER_TEMP/$installer"
+          cleanup() {
+            lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "
+              set ftp:ssl-force false; set ftp:ssl-protect-data false;
+              set ftp:passive-mode true; rm /khat-yar.ir/assets/$installer; bye" >/dev/null 2>&1 || true
+            rm -f "$RUNNER_TEMP/$installer"
+          }
+          trap cleanup EXIT
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "
+            set cmd:fail-exit yes; set ftp:ssl-force false; set ftp:ssl-protect-data false;
+            set ftp:passive-mode true;
+            put $RUNNER_TEMP/$installer -o /khat-yar.ir/assets/$installer; bye"
+          response="$(curl --fail --silent --show-error --max-time 40 -X POST --data-urlencode "token=$token" "https://khat-yar.ir/assets/$installer")"
+          echo "$response" | grep -q '"min_version":"2.0.2"'
+          curl --fail --silent --show-error --max-time 30 "https://khat-yar.ir/api/app/version" > "$RUNNER_TEMP/cutover-version.json"
+          php -r '$v=json_decode(file_get_contents($argv[1]),true);if(($v["min_version"]??null)!=="2.0.2"||($v["latest_version"]??null)!=="2.0.2"||($v["apk_url"]??null)!=="https://khat-yar.ir/releases/khatyar-2.0.2.apk"||!preg_match("/^[a-f0-9]{64}$/",$v["apk_sha256"]??""))exit(1);' "$RUNNER_TEMP/cutover-version.json"
+          echo 'Verified mandatory version 2.0.2 and SHA-pinned APK download in live API.'
       - name: Document cutover readiness
         run: |
           echo 'New domain smoke checks passed. Keep old domain online until signed 2.0.2 APK is published and its download verified.'
