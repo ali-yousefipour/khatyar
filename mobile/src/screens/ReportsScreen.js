@@ -57,6 +57,7 @@ export default function ReportsScreen({ navigation }) {
   const [sentStatusFilter, setSentStatusFilter] = useState('all');
   const [sentSort, setSentSort] = useState('date');
   const [sentGroup, setSentGroup] = useState('none');
+  const [sentFiltersOpen, setSentFiltersOpen] = useState(false);
 
   const load = useCallback(async () => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
@@ -274,6 +275,7 @@ export default function ReportsScreen({ navigation }) {
 
   return (
     <View style={s.page}>
+      <View style={s.reportHero}><View style={s.reportHeroRow}><MaterialCommunityIcons name={tab==='send'?'send-outline':'clipboard-check-outline'} size={25} color="#f1d69b"/><Text style={s.reportHeroTitle}>{tab==='send'?'ارسال گزارش':'گزارش‌های ارسال‌شده'}</Text></View><Text style={s.reportHeroSub}>{tab==='send'?'ثبت گزارش جدید و انتخاب گیرندگان':'سوابق گزارش‌ها و وضعیت رسیدگی'}</Text></View>
       <View style={s.tabs}>
         <TouchableOpacity style={[s.tab, tab === 'send' && s.tabOn]} onPress={() => setTab('send')}><MaterialCommunityIcons name="send-outline" size={19} color={tab==='send'?'#fff':C.brand}/><Text style={[s.tabTxt, tab === 'send' && s.tabTxtOn]}>ارسال گزارش</Text></TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'sent' && s.tabOn]} onPress={() => setTab('sent')}><MaterialCommunityIcons name="clipboard-check-outline" size={19} color={tab==='sent'?'#fff':C.brand}/><Text style={[s.tabTxt, tab === 'sent' && s.tabTxtOn]}>گزارشات ارسال‌شده</Text></TouchableOpacity>
@@ -316,15 +318,14 @@ export default function ReportsScreen({ navigation }) {
       ) : (
         <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <View style={s.sentHero}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={23} color={C.brand}/><View style={s.sentHeroText}><Text style={s.sectionTitle}>سوابق گزارش‌های ارسال‌شده</Text><Text style={s.sentCount}>{faNum(sortedMine.length)} گزارش</Text></View><TouchableOpacity accessibilityRole="button" disabled={listBusy} onPress={load}><MaterialCommunityIcons name="refresh" size={23} color={C.brand}/></TouchableOpacity></View><TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
-          <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><MaterialCommunityIcons name="file-pdf-box" size={17} color="#fff"/><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
-          <View style={s.sentBulkRow}>
-            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:allSentSelected}} disabled={bulkSentBusy || !shownSentIds.length} onPress={() => setSentSelection(previous => allSentSelected ? previous.filter(id => !shownSentIds.includes(id)) : Array.from(new Set([...previous, ...shownSentIds])))} style={s.sentSelectAll}>
-              <MaterialCommunityIcons name={allSentSelected?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/>
-              <Text style={s.sentBulkText}>انتخاب همه نتایج ({faNum(shownSentIds.length)})</Text>
-            </TouchableOpacity>
-            <Text style={s.sentBulkText}>{faNum(selectedSentIds.length)} انتخاب</Text>
-          </View>
-          <View style={s.sentPriorityRow}>
+          <View style={s.sentFilterPanel}>
+             <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:sentFiltersOpen}} onPress={()=>setSentFiltersOpen(open=>!open)} style={s.sentFilterHeading}>
+               <View style={s.sentFilterTitleRow}><MaterialCommunityIcons name="filter-variant" color={C.brand} size={21}/><Text style={s.sentFilterTitle}>فیلترهای پیشرفته</Text></View>
+               <MaterialCommunityIcons name={sentFiltersOpen?'chevron-up':'chevron-down'} color={C.brand} size={22}/>
+             </TouchableOpacity>
+             {sentFiltersOpen && <View style={s.sentFilterContent}>
+               <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><MaterialCommunityIcons name="file-pdf-box" size={17} color="#fff"/><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
+               <View style={s.sentPriorityRow}>
             {['all','normal','important','urgent'].map(key => <TouchableOpacity key={key} onPress={() => {setSentPriorityFilter(key);setSentSelection([]);}} style={[s.sentPriorityChip,sentPriorityFilter===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentPriorityFilter===key&&{color:'#fff'}]}>{key==='all'?'همه اولویت‌ها':PRIORITY[key]}</Text></TouchableOpacity>)}
           </View>
           <View style={s.sentPriorityRow}>
@@ -333,6 +334,19 @@ export default function ReportsScreen({ navigation }) {
           <View style={s.sentBulkRow}><Text style={s.sentBulkText}>مرتب‌سازی</Text>{['date','subject','priority'].map(key=><TouchableOpacity key={key} onPress={()=>setSentSort(key)} style={[s.sentPriorityChip,sentSort===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentSort===key&&{color:'#fff'}]}>{key==='date'?'تاریخ':key==='subject'?'موضوع':'اولویت'}</Text></TouchableOpacity>)}</View>
           <View style={s.sentBulkRow}><Text style={s.sentBulkText}>دسته‌بندی</Text>{['none','status','priority'].map(key=><TouchableOpacity key={key} onPress={()=>setSentGroup(key)} style={[s.sentPriorityChip,sentGroup===key&&s.sentPriorityActive]}><Text style={[s.sentPriorityTxt,sentGroup===key&&{color:'#fff'}]}>{key==='none'?'بدون گروه':key==='status'?'وضعیت':'اولویت'}</Text></TouchableOpacity>)}</View>
           {sentGroup !== 'none' && <View style={s.sentPriorityRow}>{Object.entries(sentGroupCounts).map(([name,count])=><View key={name} style={s.sentPriorityChip}><Text style={s.sentPriorityTxt}>{name} · {faNum(count)}</Text></View>)}</View>}
+               <View style={s.sentFilterFooter}>
+                 <TouchableOpacity style={s.sentFilterClear} onPress={()=>{setSentPriorityFilter('all');setSentStatusFilter('all');setSentSort('date');setSortNewest(true);setSentGroup('none');setSentSelection([]);}}><MaterialCommunityIcons name="restore" size={17} color={C.brand}/><Text style={s.sentBulkText}>پاک‌سازی فیلترها</Text></TouchableOpacity>
+                 <TouchableOpacity style={s.sentFilterApply} onPress={()=>setSentFiltersOpen(false)}><MaterialCommunityIcons name="check" size={17} color="#fff"/><Text style={[s.sentBulkText,{color:'#fff'}]}>اعمال فیلترها</Text></TouchableOpacity>
+               </View>
+             </View>}
+           </View>
+           <View style={s.sentBulkRow}>
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:allSentSelected}} disabled={bulkSentBusy || !shownSentIds.length} onPress={() => setSentSelection(previous => allSentSelected ? previous.filter(id => !shownSentIds.includes(id)) : Array.from(new Set([...previous, ...shownSentIds])))} style={s.sentSelectAll}>
+              <MaterialCommunityIcons name={allSentSelected?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/>
+              <Text style={s.sentBulkText}>انتخاب همه نتایج ({faNum(shownSentIds.length)})</Text>
+            </TouchableOpacity>
+            <Text style={s.sentBulkText}>{faNum(selectedSentIds.length)} انتخاب</Text>
+          </View>
           {selectedSentIds.length > 0 && <View style={s.sentBulkRow}>
             <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={deleteSelectedSent} style={[s.sentPriorityChip,{borderColor:'#e9b3b3'}]}><MaterialCommunityIcons name="delete-outline" size={18} color={C.danger}/><Text style={[s.sentPriorityTxt,{color:C.danger}]}>{bulkSentBusy?'در حال حذف…':'حذف انتخاب‌شده‌ها'}</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" disabled={bulkSentBusy} onPress={() => setSentSelection([])}><Text style={s.sentBulkText}>لغو انتخاب</Text></TouchableOpacity>
@@ -365,6 +379,20 @@ function applyTemplate(template, reports) {
 }
 
 const s = StyleSheet.create({
+  reportHero:{backgroundColor:'#075f51',paddingHorizontal:20,paddingTop:21,paddingBottom:19,borderBottomLeftRadius:23,borderBottomRightRadius:23,elevation:2},
+  reportHeroRow:{flexDirection:'row-reverse',alignItems:'center',gap:9},
+  reportHeroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:20,textAlign:'right',flex:1},
+  reportHeroSub:{fontFamily:FONT.regular,color:'#dcefe6',fontSize:12,lineHeight:21,textAlign:'right',marginTop:7},
+
+  sentFilterPanel:{borderWidth:1,borderColor:'#dbe9e1',borderRadius:19,backgroundColor:'#fff',marginTop:13,marginBottom:11,overflow:'hidden',elevation:1},
+  sentFilterHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',paddingHorizontal:15,minHeight:54},
+  sentFilterTitleRow:{flexDirection:'row-reverse',gap:8,alignItems:'center'},
+  sentFilterTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},
+  sentFilterContent:{padding:12,borderTopWidth:1,borderTopColor:'#eaf1eb'},
+  sentFilterFooter:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',paddingTop:12,marginTop:10,borderTopWidth:1,borderTopColor:'#eaf0ec'},
+  sentFilterClear:{flexDirection:'row-reverse',gap:5,alignItems:'center',minHeight:45,paddingHorizontal:7},
+  sentFilterApply:{flexDirection:'row-reverse',gap:5,alignItems:'center',backgroundColor:C.brand,borderRadius:11,minHeight:45,paddingHorizontal:13},
+
   subjectPickerTrigger:{flexDirection:'row-reverse',alignItems:'center',gap:8,backgroundColor:'#f8fcfa',borderWidth:1,borderColor:'#b9d7c9',borderRadius:14,minHeight:52,paddingHorizontal:12,marginTop:8},
   subjectPickerValue:{fontFamily:FONT.bold,color:C.ink,flex:1,textAlign:'right',fontSize:13},
   subjectDropdown:{borderWidth:1,borderColor:'#d8e6de',borderRadius:15,backgroundColor:'#fff',padding:9,marginTop:5,elevation:3},
