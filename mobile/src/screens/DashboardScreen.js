@@ -551,7 +551,7 @@ const s = StyleSheet.create({
   clearSearchText: { color: C.muted, fontSize: 23, lineHeight: 27 },
   clearSearchDisabled: { opacity: 0.25 },
   menuTabs: { paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row-reverse' },
-  menuTab: { flex:1,minHeight: 42, justifyContent: 'center', paddingVertical: 7, paddingHorizontal: 6, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.line },
+  menuTab: { minHeight: 48,flex:1, justifyContent: 'center', paddingVertical: 7, paddingHorizontal: 6, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.line },
   menuTabOn: { backgroundColor: C.brand, borderColor: C.brand },
   menuTabTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 11, textAlign: 'center' },
   menuTabTxtOn: { color: '#fff' },
