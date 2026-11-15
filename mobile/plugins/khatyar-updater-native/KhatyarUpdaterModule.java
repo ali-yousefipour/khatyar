@@ -42,7 +42,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private static final String NAME = "KhatyarUpdater";
     private static final String PREFS = "khatyar_updater";
     private static final String KEY_PENDING_URI = "pending_install_uri";
-    private static final String TRUSTED_UPDATE_HOST = "app.yousefipour.ir";
+    private static final String TRUSTED_UPDATE_HOST = "khat-yar.ir";
     private static final String TRUSTED_GITHUB_RAW_HOST = "raw.githubusercontent.com";
     private static final String TRUSTED_GITHUB_RELEASE_HOST = "github.com";
     private static final String TRUSTED_GITHUB_ASSET_HOST = "release-assets.githubusercontent.com";
