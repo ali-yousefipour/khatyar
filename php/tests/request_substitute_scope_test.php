@@ -2,6 +2,7 @@
 class Http {static function error($message,$code=400){throw new RuntimeException($message,$code);}}
 class Db {
   static $insert=[];
+  static function pdo(){return new class {function beginTransaction(){} function commit(){} function inTransaction(){return false;} function rollBack(){}};}
   static function one($sql,$args=[]){
     if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7];
     return ['Field'=>'substitute_user_id'];
@@ -11,6 +12,8 @@ class Db {
 }
 class Push {static function send(...$args){} static function notify(...$args){}}
 function _ensure_requests_table(){}
+function _manual_provisional_schema(){}
+function _manual_provisional_apply($body,$requestId,$userId){return null;}
 function _req_policy_options($uid,$required=true){return ['leave_require_substitute'=>$GLOBALS['requireSub']??true];}
 function _zone_leave_requirement_storage(){}
 function _req_approver($uid){return 99;}
