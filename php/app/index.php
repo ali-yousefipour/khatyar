@@ -334,8 +334,8 @@ foreach ($routes as $r) {
     } else {
       $sess = Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? LIMIT 1", [$user['id'], $dt]);
     }
-    $unlimitedRole = in_array($user['role_title'], ['مدیر کل', 'رییس اداره بازرسی', 'نیروی اداری ارشد'], true);
-    if (!$sess || $sess['revoked_at'] || (!$unlimitedRole && $sess['device_id'] !== ($payload['device_id'] ?? ''))) Http::error('نشست منقضی یا باطل شده است', 401);
+    $unlimitedRole = $dt === 'web' && in_array($user['role_title']??'', ['مدیر کل', 'رییس اداره بازرسی', 'نیروی اداری ارشد'], true);
+    if (!$sess || $sess['revoked_at'] || (!$unlimitedRole && $sess['device_id'] !== ($payload['device_id'] ?? ''))) Http::error('نشست این دستگاه توسط مدیر باطل شده یا دستگاه دیگری جایگزین شده است', 401);
     $user['device_id'] = $payload['device_id'] ?? null; $user['device_type'] = $dt;
     // A compulsory password reset is an API policy, not merely a client-side screen.
     if (!empty($user['must_change_pw']) && !in_array($path, [
