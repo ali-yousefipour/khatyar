@@ -334,7 +334,7 @@ export function ProfileScreen({ navigation }) {
   }
 
   if (photoCaptureOpen) {
-    return <PersonalPhotoCapture facing="front" systemCameraFirst title="تغییر عکس پرسنلی" instruction="لطفاً تصویر سلفی خود را بگیرید" uniformNotice={false} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
+    return <PersonalPhotoCapture facing="front" systemCameraFirst compressOnConfirm title="تغییر عکس پرسنلی" instruction="لطفاً تصویر سلفی خود را بگیرید" uniformNotice={false} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
   }
 
   return (
