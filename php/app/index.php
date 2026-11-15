@@ -71,9 +71,9 @@ if ($path === '/health' || $path === '/api/health') {
       'بهبود بارگذاری اطلاعات تاریخ اشتغال و اطمینان از ذخیره صحیح آن در ویرایش کاربر',
       'اصلاح فرآیند باندل و انتشار فایل‌های پنل و کتابخانه‌های ضروری روی هاست',
     ],
-    'download_url' => 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk',
-    'release_url' => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
-    'apk_asset' => 'khatyar.apk',
+    'download_url' => 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest/download/khat-yar.apk',
+    'release_url' => 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest',
+    'apk_asset' => 'khat-yar.apk',
   ];
   // A web server returning 200 while the database is unavailable is not healthy.
   // Deployment and monitoring must detect this instead of reporting success.
