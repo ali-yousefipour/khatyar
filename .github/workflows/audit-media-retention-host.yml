@@ -1,0 +1,77 @@
+name: Audit Khatyar host media retention (read only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-media-retention-host.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory FTP media directories (read-only, aggregate counts)
+        shell: bash
+        env:
+          KHATYAR_FTP_HOST: 2870352177.cloudylink.com
+          KHATYAR_FTP_USER: ${{ secrets.FTP_USERNAME }}
+          KHATYAR_FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,datetime,ftplib,time
+          host=os.environ['KHATYAR_FTP_HOST']
+          user=os.environ.get('KHATYAR_FTP_USER','')
+          password=os.environ.get('KHATYAR_FTP_PASSWORD','')
+          if not user or not password: raise RuntimeError('FTP secrets not set')
+          ftp=ftplib.FTP(timeout=25)
+          ftp.connect(host,21);ftp.login(user,password)
+          ftp.set_pasv(True)
+          print('FTP login successful; only aggregated media metadata will be printed.')
+          root_checks=['/khat-yar.ir/uploads','/khat-yar.ir/public/uploads','/public/uploads','/uploads','/khat-yar.ir/app/uploads']
+          categories=['reports','thumbs','checklists','presence','visits','selfies','covert']
+          now=datetime.datetime.now(datetime.timezone.utc)
+          cutoff={7:0,30:0,90:0,180:0}
+          def scan(directory,limit=10000):
+            stack=[directory];count=0;size=0;old={7:0,30:0,90:0,180:0};unknown_date=0;unreadable=0;dirs=0
+            while stack and count<limit and dirs<1500:
+              current=stack.pop();dirs+=1
+              try:
+                listing=list(ftp.mlsd(current))
+              except (ftplib.error_perm,OSError,EOFError):
+                unreadable+=1;continue
+              for name,metadata in listing:
+                if name in ('.','..') or '/' in name:continue
+                kind=metadata.get('type','').lower()
+                if kind=='dir':stack.append(current.rstrip('/')+'/'+name);continue
+                if kind not in ('file',''):continue
+                count+=1;size+=int(metadata.get('size','0') or 0)
+                try:
+                  dt=datetime.datetime.strptime(metadata['modify'][:14],'%Y%m%d%H%M%S').replace(tzinfo=datetime.timezone.utc)
+                  age=(now-dt).total_seconds()/86400
+                  for days in old:
+                    if age>days:old[days]+=1
+                except (KeyError,ValueError):unknown_date+=1
+                if count>=limit:break
+            return dict(count=count,megabytes=round(size/1048576,2),older_than_days=old,unknown_modify=unknown_date,unreadable_dirs=unreadable,truncated=bool(stack or count>=limit),directories_visited=dirs)
+          def accessible(path):
+            try:
+              list(ftp.mlsd(path));return True
+            except (ftplib.error_perm,OSError,EOFError):return False
+          for root in root_checks:
+            exists=accessible(root)
+            print('ROOT',root,'accessible=',exists)
+            if not exists:continue
+            for category in categories:
+              p=root.rstrip('/')+'/'+category
+              if not accessible(p):
+                print('CATEGORY',category,'present=False');continue
+              print('CATEGORY',category,scan(p))
+          ftp.quit()
+          PY
