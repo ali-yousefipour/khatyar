@@ -56,6 +56,9 @@ jobs:
           node --check php/app/assets/work-contracts-admin.js
           php php/tests/radio_shift_gate_test.php
           node mobile/scripts/test-radio-shift-native.cjs
+          node mobile/scripts/test-radio-live.cjs
+          node mobile/scripts/test-radio-connection-recovery.cjs
+          node mobile/scripts/test-radio-compact-ui.cjs
           node mobile/scripts/test-security-longpoll-contract.cjs
           node mobile/scripts/test-qa-regressions.cjs
           php -l php/app/radio-api-v2.php
