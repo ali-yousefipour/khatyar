@@ -6,14 +6,14 @@ import { currentVersion } from '../updater';
 
 export default function AboutAppScreen({ navigation }) {
   const { width } = useWindowDimensions();
-  const openSite=async()=>{try{await Linking.openURL('https://www.mobinshot.ir')}catch(_){Alert.alert('بازکردن وب‌سایت ممکن نیست','اتصال اینترنت و مرورگر دستگاه را بررسی کنید.');}};
+  const openSite=async()=>{try{await Linking.openURL('https://happco.ir')}catch(_){Alert.alert('بازکردن وب‌سایت ممکن نیست','اتصال اینترنت و مرورگر دستگاه را بررسی کنید.');}};
   const callSupport=async()=>{try{await Linking.openURL('tel:09982118899')}catch(_){Alert.alert('تماس برقرار نشد','شماره پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹');}};
   const rows=[
     ['نام برنامه','خطیار — سامانه مدیریت و نظارت بر ناوگان تاکسیرانی'],
     ['نسخه',currentVersion()],
-    ['تولیدکننده','علی یوسفی‌پور'],
-    ['شرکت','مبین شات'],
-    ['وب‌سایت','www.mobinshot.ir'],
+    ['تولیدکننده','گروه برنامه‌نویسی همیاران مشهد'],
+    ['شرکت','گروه برنامه‌نویسی همیاران مشهد'],
+    ['وب‌سایت','happco.ir'],
     ['پشتیبانی','۰۹۹۸۲۱۱۸۸۹۹'],
     ['شرایط استفاده','استفاده از خطیار برای کاربران مجاز سازمانی است و کاربر موظف است از حساب، اطلاعات و امکانات سامانه مطابق مقررات و دستورالعمل‌های سازمان استفاده کند.'],
   ];
@@ -21,7 +21,7 @@ export default function AboutAppScreen({ navigation }) {
     <View style={s.hero}><Text style={s.brand}>خطیار</Text><Text style={s.title}>درباره برنامه</Text><Text style={s.sub}>اطلاعات رسمی برنامه</Text></View>
     <View style={s.card}>{rows.map(([label,value])=><View key={label} style={s.row}><Text style={s.label}>{label}</Text><Text selectable style={s.value}>{value}</Text></View>)}</View>
     <View style={s.actions}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن وب‌سایت مبین شات" style={s.btn} onPress={openSite}><MaterialCommunityIcons name="web" size={21} color="#fff"/><Text style={s.btnText}>باز کردن وب‌سایت</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن وب‌سایت همیاران مشهد" style={s.btn} onPress={openSite}><MaterialCommunityIcons name="web" size={21} color="#fff"/><Text style={s.btnText}>باز کردن وب‌سایت</Text></TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" style={s.btnSecondary} onPress={callSupport}><MaterialCommunityIcons name="phone-outline" size={21} color={C.brand}/><Text style={s.btnSecondaryText}>تماس با پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹</Text></TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" style={s.btnSecondary} onPress={()=>navigation?.navigate?.('PrivacyPolicy')}><MaterialCommunityIcons name="shield-lock-outline" size={21} color={C.brand}/><Text style={s.btnSecondaryText}>سیاست حریم خصوصی</Text></TouchableOpacity>
     </View>
