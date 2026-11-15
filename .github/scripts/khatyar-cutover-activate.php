@@ -13,7 +13,7 @@ require dirname(__DIR__, 2) . '/lib/Db.php';
 $values = [
     'app_latest_version' => '2.0.2',
     'app_min_version' => '2.0.2',
-    'app_apk_url' => 'https://khat-yar.ir/releases/khatyar-2.0.2.apk',
+    'app_apk_url' => 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest/download/khat-yar.apk',
     'app_apk_sha256' => '__APK_SHA256__',
 ];
 $db = Db::pdo();
