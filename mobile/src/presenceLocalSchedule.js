@@ -12,7 +12,7 @@ export async function cachedPresencePolicy(userId) {
   try { const p=JSON.parse(await AsyncStorage.getItem(MODE_KEY)||'null'); return Number(p?.user_id)===Number(userId)?p:null; } catch { return null; }
 }
 export async function storePresencePolicy(userId,config) {
-  const policy={user_id:Number(userId),day:policyDay(),saved_at:Date.now(),enabled:!!config.enabled,required:!!config.required,random_enabled:!!config.random_enabled,slots:Array.isArray(config.slots)?config.slots:[],window_minutes:Number(config.window_minutes||3),alarm:config.alarm!==false,immediate_requests:[]};
+  const policy={user_id:Number(userId),day:policyDay(),saved_at:Date.now(),enabled:!!config.enabled,required:!!config.required,assigned:config.assigned===undefined?!!config.required:!!config.assigned,random_enabled:!!config.random_enabled,slots:Array.isArray(config.slots)?config.slots:[],window_minutes:Number(config.window_minutes||3),alarm:config.alarm!==false,immediate_requests:[]};
   await AsyncStorage.setItem(MODE_KEY,JSON.stringify(policy));
   return policy;
 }
@@ -33,6 +33,7 @@ export async function localAttendanceSession(userId) {
   try {
     const open=JSON.parse(await AsyncStorage.getItem('attendance_local_open_v1')||'null');
     if(!open?.check_in||open?.check_out)return null;
+    if(Number(open.owner_user_id||0)!==Number(userId))return null;
     const start=checkInTimestamp(open.check_in);
     return Number.isFinite(start)?{user_id:Number(userId),attendance_id:String(open.id||''),start}:null;
   }catch{return null;}
