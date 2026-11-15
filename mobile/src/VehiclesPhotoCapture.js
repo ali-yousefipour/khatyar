@@ -12,9 +12,12 @@ import { getAppConfig } from './appconfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCameraSession } from './cameraSession';
 import { launchCamera, ImagePicker } from './cameraLock';
-import { request } from './api';
+import { request, cachedValue } from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useAuth} from './auth';
 
 export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false, autoConfirm = false, manualSystemCamera = false }) {
+  const {user}=useAuth();
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
   const shotRef = useRef(null);
@@ -24,7 +27,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [cameraReady, setCameraReady] = useState(false);
   const [shot, setShot] = useState(null);
   const [metaBusy, setMetaBusy] = useState(false);
-  const [stamp, setStamp] = useState({ date: '', coords: 'در حال دریافت موقعیت…', street: '', dist: '', source: '' });
+  const [stamp, setStamp] = useState({ date: '', coords: 'در حال دریافت موقعیت…', street: '', dist: '', source: '', operator: '', line: '', nearest: '' });
   const [coords, setCoords] = useState(null);
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
@@ -121,15 +124,33 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         } catch (_) {}
       }
 
+      let lineName='',nearestName='';
+      let nearest=station;
+      try {
+        const open=JSON.parse(await AsyncStorage.getItem('attendance_local_open_v1')||'null');
+        const config=await cachedValue('/my/checkin-config');
+        const line=(config?.lines||[]).find(item=>Number(item.id)===Number(open?.line_id));
+        lineName=String(line?.name||line?.title||line?.code||'');
+        const candidates=[...(Array.isArray(line?.stations)?line.stations:[]),...(Array.isArray(config?.stations)?config.stations:[])];
+        let best=Infinity;
+        for(const candidate of candidates){
+          const a=Number(candidate?.center_lat??candidate?.lat??candidate?.latitude);
+          const b=Number(candidate?.center_lng??candidate?.lng??candidate?.longitude);
+          if(!Number.isFinite(a)||!Number.isFinite(b)||!a||!b)continue;
+          const d=haversine(lat,lng,a,b);
+          if(d<best){best=d;nearest=candidate;nearestName=String(candidate?.name||candidate?.title||candidate?.station_name||'');}
+        }
+        if(!nearestName&&nearest)nearestName=String(nearest?.name||nearest?.title||nearest?.station_name||'');
+      }catch{}
       let dist = '';
-      if (station?.center_lat != null && station?.center_lng != null) {
+      if (nearest?.center_lat != null && station?.center_lng != null) {
         try {
-          const d = haversine(lat, lng, +station.center_lat, +station.center_lng);
-          const edge = station.radius_m ? Math.max(0, d - (+station.radius_m)) : d;
+          const d = haversine(lat, lng, +nearest.center_lat, +nearest.center_lng);
+          const edge = nearest.radius_m ? Math.max(0, d - (+nearest.radius_m)) : d;
           dist = `فاصله تا ایستگاه: ${faNum(Math.round(edge))} متر`;
         } catch (_) {}
       }
-      return { lat, lng, street, dist, source };
+      return { lat, lng, street, dist, source, lineName, nearestName };
     } catch (_) {
       return { lat: null, lng: null, street: '', dist: '' };
     }
@@ -203,6 +224,8 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         coords: loc.lat != null && loc.lng != null
           ? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}` : 'موقعیت نامشخص',
         street: loc.street || '', dist: loc.dist || '', source: loc.source || '',
+        operator:[user?.first_name,user?.last_name].filter(Boolean).join(' ')||user?.name||'',
+        line:loc.lineName||'', nearest:loc.nearestName||'',
       }));
     }).catch(() => {
       if (generation === captureGeneration.current) {
@@ -302,6 +325,9 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               <Text style={s.stampDate}>{stamp.date}</Text>
               <View style={s.stampDivider}/>
               <Text style={s.stampTxt}>موقعیت جغرافیایی: {stamp.coords}</Text>
+              <Text style={s.stampTxt}>کاربر: {stamp.operator || 'نامشخص'}</Text>
+              <Text style={s.stampTxt}>خط فعالیت: {stamp.line || 'نامشخص'}</Text>
+              <Text style={s.stampTxt}>نزدیک‌ترین ایستگاه: {stamp.nearest || 'نامشخص'}</Text>
               {stamp.street ? <Text style={s.stampTxt}>نشانی: {stamp.street}</Text> : null}
               {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
               {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
