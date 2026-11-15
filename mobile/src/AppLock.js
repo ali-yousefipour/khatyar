@@ -12,7 +12,8 @@ export const LOCK_TIMEOUT_SECONDS=[10,20,30,60,120,360];
 const DEFAULT_CFG={enabled:false,type:'pin4',timeoutSeconds:30,useBiometric:true};
 export function lockTimeoutSeconds(cfg){const seconds=Number(cfg?.timeoutSeconds??(Number(cfg?.timeoutMin)>=0?Number(cfg.timeoutMin)*60:30));return LOCK_TIMEOUT_SECONDS.includes(seconds)?seconds:30}
 export async function getLockConfig(){try{const x=await AsyncStorage.getItem(CFG_KEY);const c=x?{...DEFAULT_CFG,...JSON.parse(x)}:DEFAULT_CFG;if(c.type==='pin')c.type='pin4';c.timeoutSeconds=lockTimeoutSeconds(c);return c}catch{return DEFAULT_CFG}}
-export async function setLockConfig(c){const next={...DEFAULT_CFG,...c};next.timeoutSeconds=lockTimeoutSeconds(next);await AsyncStorage.setItem(CFG_KEY,JSON.stringify(next));DeviceEventEmitter.emit('khatyar.appLock.configChanged',next)}
+let configWrite=Promise.resolve();
+export function setLockConfig(c){const next={...DEFAULT_CFG,...c};next.timeoutSeconds=lockTimeoutSeconds(next);configWrite=configWrite.catch(()=>{}).then(async()=>{await AsyncStorage.setItem(CFG_KEY,JSON.stringify(next));DeviceEventEmitter.emit('khatyar.appLock.configChanged',next);});return configWrite;}
 export async function lockAppNow(){const config=await getLockConfig();if(!config.enabled)return false;DeviceEventEmitter.emit('khatyar.appLock.lockNow');return true}
 export async function setLockSecret(v){await SecureStore.setItemAsync(SECRET_KEY,String(v),{keychainAccessible:SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY})}
 export async function getLockSecret(){try{return await SecureStore.getItemAsync(SECRET_KEY)}catch{return null}}
