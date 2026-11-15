@@ -4,7 +4,7 @@ import { startAppCacheRetention } from './cacheRetention';
 import { startOfflineQueueSync } from './offlineBootstrap';
 
 const extra = Constants.expoConfig?.extra || {};
-const BUILD_DEFAULT = extra.defaultApiBase || 'https://app.yousefipour.ir/api';
+const BUILD_DEFAULT = 'https://khat-yar.ir/api';
 export const FEATURES = {
   bgTracking: extra.enableBgTracking !== false,
 };
@@ -15,7 +15,7 @@ startAppCacheRetention();
 startOfflineQueueSync();
 
 let _base = BUILD_DEFAULT;
-export async function loadApiBase() { const saved = await SecureStore.getItemAsync('api_base'); _base = saved || BUILD_DEFAULT; return _base; }
-export async function setApiBase(url) { _base = url.replace(/\/$/, ''); await SecureStore.setItemAsync('api_base', _base); }
-export async function isServerConfigured() { const saved = await SecureStore.getItemAsync('api_base'); return !!saved || !!BUILD_DEFAULT; }
+export async function loadApiBase() { _base = BUILD_DEFAULT; await SecureStore.deleteItemAsync('api_base').catch(()=>{}); return _base; }
+export async function setApiBase(url) { const candidate = String(url || '').replace(/\/$/, ''); if (candidate !== BUILD_DEFAULT) throw new Error('نشانی سرور در این نسخه ثابت است.'); _base = BUILD_DEFAULT; }
+export async function isServerConfigured() { return true; }
 export const apiBase = () => _base;
