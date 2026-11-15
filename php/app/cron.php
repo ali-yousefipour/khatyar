@@ -26,6 +26,7 @@ require "$ROOT/lib/Http.php";
 require "$ROOT/lib/Push.php";
 require "$ROOT/lib/Sms.php";
 require "$ROOT/lib/ShiftCalc.php";
+require "$ROOT/lib/Media.php";
 require "$ROOT/lib/Bale.php";
 require "$ROOT/lib/MessengerBots.php";
 $CONFIG = require "$ROOT/config.php";
@@ -153,49 +154,26 @@ function cron_birthday(&$log) {
 
 // ---------- ۵) پاکسازی تصاویر قدیمی ----------
 function cron_cleanup(&$log) {
-  // هر نوع رسانه با کلید نگهداری مخصوص خودش (هماهنگ با تنظیمات پنل)
-  $attDays   = (int)_setting('attachment_retention_days', 0);
-  $formDays  = (int)_setting('form_attachment_retention_days', 0);
-  $presDays  = (int)_setting('presence_retention_days', 0);
-  $covertDays = (int)_setting('covert_selfie_retention_days', 0); // پاک‌سازی خودکار سلفی نامحسوس
-  $cleared = 0;
-  $clean = function($table, $col, $dcol, $days) use (&$cleared) {
-    if ($days <= 0) return;
-    $cutoff = date('Y-m-d H:i:s', time() - $days * 86400);
-    // اگر ستون مسیر فایل وجود دارد، ابتدا فایل‌های فیزیکی قدیمی را حذف کن
-    $pathCol = (strpos($col,'attachment')!==false) ? 'attachment_path'
-             : (($col==='photo_data') ? 'photo_path' : ($col.'_path'));
-    try {
-      $olds = Db::all("SELECT `$pathCol` p FROM `$table` WHERE `$pathCol` IS NOT NULL AND `$pathCol`<>'' AND `$dcol` < ?", [$cutoff]);
-      foreach ($olds as $o) { if (!empty($o['p'])) Media::delete($o['p']); }
-      $cleared += (int)Db::run("UPDATE `$table` SET `$pathCol`=NULL WHERE `$pathCol` IS NOT NULL AND `$dcol` < ?", [$cutoff]);
-    } catch (\Throwable $e) { /* ستون path ممکن است نباشد */ }
-    // پاکسازی base64 قدیمی هم (برای رکوردهای مهاجرت‌نشده)
-    try { $cleared += (int)Db::run("UPDATE `$table` SET `$col`=NULL WHERE `$col` IS NOT NULL AND `$dcol` < ?", [$cutoff]); }
-    catch (\Throwable $e) { /* جدول/ستون ممکن است نباشد */ }
-  };
-  // پیوست گزارش‌ها و پیام‌ها
-  $clean('reports', 'attachment_data', 'created_at', $attDays);
-  $clean('notices', 'attachment_data', 'created_at', $attDays);
-  try { $clean('messages', 'attachment_data', 'created_at', $attDays); } catch (\Throwable $e) {}
-  // پیوست فرم‌ها و چک‌لیست‌ها
-  $clean('checklist_submissions', 'photo_data', 'created_at', $formDays);
-  try { $clean('form_submissions', 'attachment_data', 'created_at', $formDays); } catch (\Throwable $e) {}
-  // تصاویر صحت‌سنجی حضور و سلفی‌ها
-  $officialCleanup = _cleanup_official_visit_photos();
-  $cleared += $officialCleanup['rows'];
-  // سلفی نامحسوس — تنظیم جداگانه (covert_selfie_retention_days)، اگر ۰ باشد از presence استفاده می‌شود
-  $effCovert = $covertDays > 0 ? $covertDays : $presDays;
-  if ($effCovert > 0) {
-    $cov_cutoff = date('Y-m-d H:i:s', time() - $effCovert * 86400);
-    try {
-      $covPaths = Db::all("SELECT photo_path p FROM covert_selfies WHERE created_at < ? AND photo_path IS NOT NULL AND photo_path<>''", [$cov_cutoff]);
-      foreach ($covPaths as $cp) { if (!empty($cp['p'])) Media::delete($cp['p']); }
-      $cleared += (int)Db::run("DELETE FROM covert_selfies WHERE created_at < ?", [$cov_cutoff]);
-    } catch (\Throwable $e) {}
+  // Use the same retention policy as the authenticated admin cleanup endpoint.
+  // The old independent cron implementation skipped report_attachments and
+  // presence_checks, causing files to remain even after their configured expiry.
+  if (!function_exists('_run_retention_cleanup')) {
+    throw new \RuntimeException('Shared media retention handler is unavailable');
   }
-  $log['cleanup'] = ['cleared'=>$cleared,'attachment_days'=>$attDays,'form_days'=>$formDays,'presence_days'=>$presDays,'official_visits'=>$officialCleanup,'covert_selfie_days'=>$effCovert];
-  if ($officialCleanup['errors']) throw new \RuntimeException('خطا در پاکسازی تصاویر حضور مسئولین: '.implode('؛ ',$officialCleanup['errors']));
+  $result = _run_retention_cleanup();
+  $log['cleanup'] = [
+    'ok' => !empty($result['ok']),
+    'cleared' => (int)($result['cleared_rows'] ?? 0),
+    'deleted_files' => (int)($result['deleted_files'] ?? 0),
+    'sections' => $result['sections'] ?? [],
+    'error_count' => count($result['errors'] ?? []),
+  ];
+  if (empty($result['ok'])) {
+    // Fail the job visibly. Never silently report success when filesystem
+    // or DB cleanup failed; the administrator can retry after fixing the error.
+    error_log('Scheduled media retention cleanup had '.count($result['errors'] ?? []).' error(s)');
+    throw new \RuntimeException('Media retention cleanup was incomplete');
+  }
 }
 
 function cron_mission_scoring_eod(&$log) {
