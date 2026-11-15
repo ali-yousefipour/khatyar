@@ -75,13 +75,13 @@ Db::$rows=[
  ['user_id'=>22,'attendance_id'=>101,'check_in'=>date('Y-m-d H:i:s',$now-3600),'schedule_json'=>null],
 ];
 $r=$GLOBALS['presenceCron']([],[],null);
-assertPresence($r['ok']===true&&$r['sent']===3,'Each scheduled request and newly initialized user must receive a notification');
-assertPresence(Db::$scheduleCalls===1,'Cron generates missing schedules for a checked-in user');
-assertPresence(count(array_unique(array_column(Db::$notices,'id')))==3,'Each request has its own stable ID');
+assertPresence($r['ok']===true&&$r['sent']===0,'Random cron must not send server notifications');
+assertPresence(Db::$scheduleCalls===0,'Cron must not generate random schedules');
+assertPresence(count(Db::$notices)===0,'Random notifications are local only');
 $r=$GLOBALS['presenceCron']([],[],null);
 assertPresence($r['sent']===0,'Cron retry must not resend the same request');
-assertPresence(count(Db::$notices)===3,'Duplicate notifications were generated');
-echo "PASS presence random cron: server-side generation, distinct per-slot requests, idempotent retries\n";
+assertPresence(count(Db::$notices)===0,'Server must never send random notifications');
+echo "PASS presence random cron disabled: device owns the schedule\n";
 
 // Use real circle/polygon geometry and intercept Bale delivery and geocoding.
 class BaleBot {

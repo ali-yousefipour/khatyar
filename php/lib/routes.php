@@ -881,18 +881,10 @@ route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
   return ['date'=>$today,'items'=>array_values($items)];
 });
 
+// Time slots for random presence checks are now created and persisted on Android.
+// Keep this compatibility endpoint read-only; it must not generate schedules.
 route('GET', '/api/my/presence-random-schedule', function($p,$b,$u){
-  $cfgRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
-  $cfg=$cfgRow?json_decode($cfgRow['value'],true):[];
-  if(!_presence_random_schedule_enabled($cfg)) return ['ok'=>true,'enabled'=>false,'items'=>[]];
-  $open=Db::one("SELECT id,check_in FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1",[$u['id']]);
-  if(!$open)return ['ok'=>true,'enabled'=>true,'items'=>[]];
-  $jdate=_presence_today_jdate();
-  $presenceRequired=false;
-  try{$rr=Db::one("SELECT presence_required FROM users WHERE id=?",[$u['id']]);$presenceRequired=!empty($rr['presence_required']);}catch(Throwable $e){}
-  if(!_presence_is_required_for_user((int)$u['id'],$cfg,$presenceRequired,$jdate,strtotime($open['check_in']))) return ['ok'=>true,'enabled'=>true,'items'=>[]];
-  $items=_presence_random_schedule_for_attendance((int)$u['id'],(int)$open['id'],$open['check_in'],$cfg);
-  return ['ok'=>true,'enabled'=>true,'attendance_id'=>(int)$open['id'],'items'=>_presence_random_schedule_payload($items)];
+  return ['ok'=>true,'enabled'=>true,'source'=>'device','items'=>[]];
 });
 
 // Notify responsible levels 1-4 only when a saved verification is genuinely outside
@@ -980,7 +972,13 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   if (!is_string($selfie) || strpos($selfie,'data:image/')!==0) Http::error('عکس سلفی معتبر لازم است.',422);
   if (!is_string($veh) || strpos($veh,'data:image/')!==0) Http::error('عکس خودروهای خط معتبر لازم است.',422);
   if(!_presence_photo_columns_ready())Http::error('ساختار ذخیره تصاویر صحت‌سنجی روی سرور آماده نیست. مدیر سامانه باید ستون‌های تصاویر جدول presence_checks و دسترسی دیتابیس را بررسی کند.',503);
-  $date=date('Y-m-d');
+  // Offline submissions retain the photo capture date, not the later sync date.
+  // Reject impossible or unreasonably old device timestamps.
+  $capturedRaw=(string)($b['captured_at']??'');
+  $capturedTs=$capturedRaw!==''?strtotime($capturedRaw):time();
+  if(!$capturedTs || $capturedTs>time()+300 || $capturedTs<time()-30*86400) Http::error('زمان ثبت تصویر معتبر نیست.',422);
+  $date=date('Y-m-d',$capturedTs);
+  $capturedAt=date('Y-m-d H:i:s',$capturedTs);
   $selfiePath=null;$vehiclePath=null;
   // Storage and database writes are separate failure domains. Never leave
   // orphan files or replace a successful prior check when a retry fails.
@@ -991,12 +989,12 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
     $vehiclePath=Media::saveBase64($veh,'presence',1280,68);
     if (!$vehiclePath)throw new RuntimeException('vehicle file persistence failed');
     if($ex){
-      Db::run("UPDATE presence_checks SET selfie_path=?,vehicles_photo_path=?,lat=?,lng=?,captured_at=NOW() WHERE id=?",
-        [$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,(int)$ex['id']]);
+      Db::run("UPDATE presence_checks SET selfie_path=?,vehicles_photo_path=?,lat=?,lng=?,captured_at=? WHERE id=?",
+        [$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt,(int)$ex['id']]);
       $id=(int)$ex['id'];
     }else{
-      $id=(int)Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng) VALUES(?,?,?,?,?,?,?)",
-        [(int)$u['id'],$slot,$date,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null]);
+      $id=(int)Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng,captured_at) VALUES(?,?,?,?,?,?,?,?)",
+        [(int)$u['id'],$slot,$date,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt]);
     }
     if($id<=0)throw new RuntimeException('presence insert did not return a positive ID');
   } catch (Throwable $failure) {
@@ -1009,7 +1007,14 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
     Http::error('ثبت صحت‌سنجی روی سرور انجام نشد. وضعیت فضای ذخیره‌سازی و ساختار جدول presence_checks بررسی شود.',503);
   }
   // Notifications/geofencing are best-effort and must never reverse a durable save.
-  try{_presence_outside_lines_bale_alert($id,(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);}
+  try {
+    $modeRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
+    $mode=$modeRow?json_decode($modeRow['value'],true):[];
+    // Bale outside-line alerts only apply to fixed scheduled checks.
+    if(empty($mode['random_enabled']) && empty($b['random']) && empty($b['immediate'])) {
+      _presence_outside_lines_bale_alert($id,(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);
+    }
+  }
   catch(Throwable $notificationError){error_log('presence-check auxiliary alert failed: '.get_class($notificationError));}
   return ['ok'=>true,'id'=>$id];
 });
@@ -1041,67 +1046,7 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
       $sent += count($targets);
     }
   }
-  // در حالت تصادفی، ساعت‌های دستی عمداً نادیده گرفته می‌شوند.
-  // زمان‌بندی تصادفی: زمان‌ها از لحظهٔ ثبت ورود هر پرسنل مستقل هستند و فقط تا وقتی حضور باز است ارسال می‌شوند.
-  if(_presence_random_schedule_enabled($cfg)){
-    _ensure_presence_random_schedule_schema();
-    // Generate schedules on the SERVER for every eligible open attendance.
-    // Previously schedules only existed after a handset fetched its personal API.
-    $generated=0;$eligible=0;$randomErrors=0;
-    try{
-      $rows=Db::all("SELECT sa.id attendance_id,sa.user_id,sa.check_in,u.presence_required,prs.schedule_json
-        FROM staff_attendance sa
-        JOIN users u ON u.id=sa.user_id AND u.is_active=1 AND u.presence_required=1
-        LEFT JOIN presence_random_schedules prs ON prs.attendance_id=sa.id
-        WHERE sa.check_out IS NULL AND sa.check_in IS NOT NULL AND sa.check_in<=NOW()
-          AND sa.check_in>=DATE_SUB(NOW(),INTERVAL 24 HOUR)
-        ORDER BY sa.id DESC LIMIT 5000");
-      $jdate=_presence_today_jdate();
-      foreach($rows as $row){
-        $uid=(int)$row['user_id'];$attendanceId=(int)$row['attendance_id'];
-        if(!_presence_is_required_for_user($uid,$cfg,true,$jdate,$now))continue;
-        $eligible++;
-        try{
-          $dailySent=_presence_random_daily_sent_count($uid);
-          if($dailySent>=PRESENCE_RANDOM_DAILY_LIMIT)continue;
-          $items=!empty($row['schedule_json'])?json_decode($row['schedule_json'],true):null;
-          if(!is_array($items)||!count($items)){
-            // An insert collision means the app initialized the same session simultaneously.
-            $items=_presence_random_schedule_for_attendance($uid,$attendanceId,$row['check_in'],$cfg);
-            $generated++;
-          }
-          foreach(_presence_random_limited_schedule($items) as $it){
-            if($dailySent>=PRESENCE_RANDOM_DAILY_LIMIT)break;
-            $at=(int)($it['ts']??0);if($at<=0)continue;
-            $itemWin=max(1,min(10,(int)($it['window_minutes']??$win)));
-            // Deliver during the ACTUAL request validity window, not a hard 70-second
-            // window that may be missed by delayed cron invocations.
-            if($now<$at||$now>=$at+$itemWin*60)continue;
-            $slot=(string)($it['slot']??date('H:i',$at));
-            $requestId='rnd_'.$attendanceId.'_'.$at;
-            // Dedupe by each individual random request, not by entire attendance.
-            // This also prevents duplicated push on a retried background job.
-            $dup=Db::one("SELECT id FROM notifications WHERE user_id=? AND data LIKE ? LIMIT 1",
-              [$uid,'%'. $requestId .'%']);
-            if($dup)continue;
-            Push::notify([$uid],'صحت‌سنجی حضور',"لطفاً ظرف {$itemWin} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.",[
-              'type'=>'presence_check','slot'=>$slot,'presence_slot'=>$slot,'window_minutes'=>$itemWin,
-              'random'=>true,'ts'=>$at,'presence_random_attendance'=>$attendanceId,'request_id'=>$requestId
-            ]);
-            $sent++;
-            $dailySent++;
-          }
-        }catch(Throwable $e){
-          $randomErrors++;
-          error_log('presence random delivery failed uid='.$uid.' attendance='.$attendanceId.' error='.get_class($e));
-        }
-      }
-    }catch(Throwable $e){
-      $randomErrors++;
-      error_log('presence random cron query failed: '.get_class($e).' '.$e->getMessage());
-    }
-    if($randomErrors)return ['ok'=>false,'sent'=>$sent,'eligible'=>$eligible,'generated'=>$generated,'errors'=>$randomErrors];
-  }
+  // Random verification is device-scheduled. Cron only sends fixed-time notices.
   return ['ok'=>true,'sent'=>$sent];
 }, true);
 
@@ -1251,31 +1196,8 @@ route('GET', '/api/admin/presence-violations', function($p,$b,$u){
   foreach ($done as $d) $doneSet[$d['user_id'].'|'.$d['slot_date'].'|'.$d['slot']] = true;
   $out=[]; $now=time();
 
-  if(!empty($cfg['random_enabled'])){
-    _ensure_presence_random_schedule_schema();
-    $rows=Db::all("SELECT prs.user_id,prs.schedule_json,CONCAT(us.first_name,' ',us.last_name) name,r.title role
-      FROM presence_random_schedules prs
-      JOIN users us ON us.id=prs.user_id
-      LEFT JOIN roles r ON r.id=us.role_id
-      JOIN staff_attendance sa ON sa.id=prs.attendance_id
-      WHERE us.is_active=1 AND us.presence_required=1
-        AND DATE(sa.check_in) <= ? AND (sa.check_out IS NULL OR DATE(sa.check_out) >= ?)
-      ORDER BY prs.id DESC",[$to,$from]);
-    foreach($rows as $row){
-      $items=json_decode($row['schedule_json']??'',true);
-      if(!is_array($items))continue;
-      foreach(_presence_random_limited_schedule($items) as $it){
-        $ts=(int)($it['ts']??0); if(!$ts)continue;
-        $ds=date('Y-m-d',$ts);
-        if($ds<$from||$ds>$to)continue;
-        if($ts+$grace*60>$now)continue;
-        $slot=(string)($it['slot']??date('H:i',$ts));
-        if(!empty($doneSet[$row['user_id'].'|'.$ds.'|'.$slot]))continue;
-        $out[]=['user_id'=>(int)$row['user_id'],'name'=>$row['name'],'role'=>$row['role'],'slot_date'=>$ds,'slot'=>$slot,'type'=>'عدم ارسال صحت‌سنجی حضور'];
-      }
-    }
-    return $out;
-  }
+  // No centrally issued random times exist. Do not fabricate missed checks.
+  if(!empty($cfg['random_enabled'])) return [];
 
   $slots = $cfg['slots'] ?? []; if (!$slots) return [];
   $aud = $cfg['audience'] ?? 'all_required';
@@ -2709,20 +2631,9 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     try { _gps_work_record_event((int)$u['id'], 'gps_on', $eventAt, ['source'=>'attendance_checkin','attendance_id'=>(int)$id,'interval_minutes'=>30]); }
     catch (Throwable $e) { error_log('GPS check-in verification event failed: '.$e->getMessage()); }
   }
-  $presenceSchedule=[];
-  try{
-    $pcRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
-    $pcfg=$pcRow?json_decode($pcRow['value'],true):[];
-    $presenceRequired=false;
-    try{$pr=Db::one("SELECT presence_required FROM users WHERE id=?",[$u['id']]);$presenceRequired=!empty($pr['presence_required']);}catch(Throwable $e){}
-    [$pjy,$pjm,$pjd]=gregorian_to_jalali((int)date('Y',strtotime($eventAt)),(int)date('n',strtotime($eventAt)),(int)date('j',strtotime($eventAt)));
-    $pjdate=sprintf('%04d-%02d-%02d',$pjy,$pjm,$pjd);
-    if(_presence_random_schedule_enabled($pcfg) && _presence_is_required_for_user((int)$u['id'],$pcfg,$presenceRequired,$pjdate,strtotime($eventAt))){
-      $presenceSchedule=_presence_random_schedule_for_attendance((int)$u['id'],(int)$id,$eventAt,$pcfg);
-    }
-  }catch(Throwable $e){ error_log('presence random schedule suppressed: '.$e->getMessage()); }
+  // Client schedules random notifications from the saved attendance time.
   try { _notify_attendance_action('checkin',(int)$u['id'],$lineId ?: null,$method,$inStation,$eventAt); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  return ['ok'=>true, 'id'=>$id, 'check_in'=>$eventAt, 'presence_random_schedule'=>_presence_random_schedule_payload($presenceSchedule)];
+  return ['ok'=>true, 'id'=>$id, 'check_in'=>$eventAt];
 });
 
 // ثبت خروج
