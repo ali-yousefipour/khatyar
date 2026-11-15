@@ -5,6 +5,8 @@ import { imageSource } from './api';
 const key=id=>'profile-photo-cache:v1:'+String(id);
 const safeId=id=>String(id).replace(/[^a-zA-Z0-9_-]/g,'');
 const inflight=new Map();
+const memory=new Map();
+export function peekProfilePhotoCache(userId){return memory.get(String(userId))?.uri||null;}
 function sourceIdentity(source){
   if(!/^data:image\//i.test(source))return source;
   let hash=2166136261;for(let i=0;i<source.length;i++){hash^=source.charCodeAt(i);hash=Math.imul(hash,16777619)}
@@ -18,7 +20,8 @@ export async function readProfilePhotoCache(userId){
     const saved=raw?JSON.parse(raw):null;
     if(!saved?.uri||!saved?.source)return null;
     const info=await FileSystem.getInfoAsync(saved.uri);
-    return info.exists?saved:null;
+    if(info.exists){memory.set(String(userId),saved);return saved;}
+    memory.delete(String(userId));return null;
   }catch{return null}
 }
 
@@ -50,7 +53,9 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
       if(!info.exists||!info.size)throw new Error('photo_empty');
       await FileSystem.deleteAsync(filename,{idempotent:true}).catch(()=>{});
       await FileSystem.moveAsync({from:temp,to:filename});
-      await AsyncStorage.setItem(key(userId),JSON.stringify({uri:filename,source:sourceKey,cached_at:Date.now()}));
+      const metadata={uri:filename,source:sourceKey,cached_at:Date.now()};
+      await AsyncStorage.setItem(key(userId),JSON.stringify(metadata));
+      memory.set(String(userId),metadata);
       return filename;
     }catch{
       await FileSystem.deleteAsync(temp,{idempotent:true}).catch(()=>{});
