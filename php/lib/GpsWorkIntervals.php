@@ -120,6 +120,45 @@ function gps_work_waiver_schema(): void {
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   $ready=true;
 }
+
+/**
+ * Subtract administrative waivers from confirmed GPS ranges BEFORE computing
+ * worked minutes. A waiver may cover part of a calculated outage.
+ * If waiver records cannot be read, do not levy an unverifiable penalty.
+ */
+function gps_work_effective_intervals(int $userId, array $ranges): array {
+  if (!$ranges) return [];
+  $start=min(array_column($ranges,0));
+  $end=max(array_column($ranges,1));
+  try {
+    gps_work_waiver_schema();
+    $waivers=Db::all("SELECT start_at,end_at FROM gps_work_waivers WHERE user_id=? AND end_at>? AND start_at<?",[
+      $userId,date('Y-m-d H:i:s',$start),date('Y-m-d H:i:s',$end)
+    ]);
+  } catch (Throwable $e) {
+    error_log('GPS work waiver evidence unavailable: '.$e->getMessage());
+    return [];
+  }
+  $effective=[];
+  foreach ($ranges as $range) {
+    $parts=[$range];
+    foreach ($waivers as $waiver) {
+      $a=strtotime((string)($waiver['start_at']??''));
+      $b=strtotime((string)($waiver['end_at']??''));
+      if (!$a || !$b || $b<=$a) continue;
+      $next=[];
+      foreach ($parts as [$left,$right]) {
+        if ($b<=$left || $a>=$right) { $next[]=[$left,$right]; continue; }
+        if ($a>$left)$next[]=[$left,min($a,$right)];
+        if ($b<$right)$next[]=[max($b,$left),$right];
+      }
+      $parts=$next;
+    }
+    foreach ($parts as $part) if ($part[1]>$part[0]) $effective[]=$part;
+  }
+  return $effective;
+}
+
 function gps_work_waived_ranges(int $userId, string $day): array {
   gps_work_waiver_schema();
   return Db::all("SELECT start_at,end_at FROM gps_work_waivers WHERE user_id=? AND start_at>=? AND start_at<?",
