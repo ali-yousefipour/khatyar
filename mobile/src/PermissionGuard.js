@@ -66,7 +66,7 @@ export default function PermissionGuard({children}){
       if(notification?.status!=='granted'){
         if(notification?.status==='undetermined'){
           const requested=await callModuleAsync(Notifications,'requestPermissionsAsync',null);
-          if(requested?.status==='granted'){return check();}
+          if(requested?.status==='granted'){setTimeout(()=>{if(mounted.current)check();},0);return;}
         }
         setRuntimeIssue({type:'notifications'});setCameraExplanation(false);setMicExplanation(false);return;
       }
@@ -79,7 +79,7 @@ export default function PermissionGuard({children}){
         if(!explained){setCameraExplanation(true);return;}
         if(cam?.status==='undetermined'){
           const requested=await callModuleAsync(ImagePicker,'requestCameraPermissionsAsync',null);
-          if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);return check();}
+          if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);setTimeout(()=>{if(mounted.current)check();},0);return;}
         }
         setRuntimeIssue({type:'camera'});setCameraExplanation(false);return;
       }
@@ -91,7 +91,7 @@ export default function PermissionGuard({children}){
         if(!explainedMic){setMicExplanation(true);return;}
         if(mic?.status==='undetermined'){
           const requested=await callModuleAsync(Audio,'requestRecordingPermissionsAsync',null);
-          if(requested?.granted){setMicExplanation(false);setRuntimeIssue(null);return check();}
+          if(requested?.granted){setMicExplanation(false);setRuntimeIssue(null);setTimeout(()=>{if(mounted.current)check();},0);return;}
         }
         setRuntimeIssue({type:'microphone'});setMicExplanation(false);return;
       }
@@ -101,7 +101,7 @@ export default function PermissionGuard({children}){
       if(!locationPerm?.granted){
         if(locationPerm?.status==='undetermined'){
           const requested=await callModuleAsync(Location,'requestForegroundPermissionsAsync',null);
-          if(requested?.granted){setRuntimeIssue(null);return check();}
+          if(requested?.granted){setRuntimeIssue(null);setTimeout(()=>{if(mounted.current)check();},0);return;}
         }
         setRuntimeIssue({type:'locationPermission'});return;
       }
