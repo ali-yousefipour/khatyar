@@ -20,6 +20,7 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import {ensureLocalRandomSchedule, clearLocalRandomSchedule, currentPresencePolicy, localPresenceCompletions, localAttendanceSession, PRESENCE_LOCAL_SCHEDULE_KEY} from '../presenceLocalSchedule';
+import {getProvisionalManual, provisionalOpen, reconcileProvisionalManual} from '../manualAttendance';
 import NetInfo from '@react-native-community/netinfo';
 import WifiManager from 'react-native-wifi-reborn';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
@@ -122,7 +123,17 @@ function CheckInCore({ viewportHeight }) {
   const REMEMBER_SOUND = 'remember.mp3';
   const REMEMBER_CHANNEL_ID = 'attendance_8h_reminder_v1';
   const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify({...value,owner_user_id:Number(user?.id||0)})); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
-  const readLocalOpen = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_OPEN_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
+  const readLocalOpen = async () => {
+    try {
+      const manual=await getProvisionalManual(user?.id);
+      const raw=await AsyncStorage.getItem(LOCAL_OPEN_KEY);
+      const stored=raw?JSON.parse(raw):null;
+      if(manual?.end_ms&&['queued','pending'].includes(manual.status))return null;
+      const provisional=provisionalOpen(manual);
+      if(provisional)return provisional;
+      return stored&&Number(stored.owner_user_id)===Number(user?.id)?stored:null;
+    }catch{return null;}
+  };
   const readLocalWorked = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_WORKED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
   const persistLocalWorked = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_WORKED_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_WORKED_KEY); } catch {} };
 
@@ -341,10 +352,15 @@ function CheckInCore({ viewportHeight }) {
         if (loadEpoch === attendanceStateEpochRef.current) setOpen(localOpen || null);
       }
     } catch {}
-    const [cfgResult, timerResult] = await Promise.allSettled([
+    const pendingManual=await getProvisionalManual(user?.id);
+    const [cfgResult, timerResult, manualResult] = await Promise.allSettled([
       request('/my/checkin-config', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
       request('/my/work-timer', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
+      pendingManual?request('/my/requests', {noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:6500}):Promise.resolve(null),
     ]);
+    const currentManual=manualResult.status==='fulfilled'&&Array.isArray(manualResult.value)
+      ? await reconcileProvisionalManual(user?.id,manualResult.value)
+      : pendingManual;
     if (loadEpoch !== attendanceStateEpochRef.current) return;
     if (timerResult && timerResult.status === 'fulfilled') {
       setTimerInfo(timerResult.value);
@@ -376,10 +392,21 @@ function CheckInCore({ viewportHeight }) {
       if (loadEpoch !== attendanceStateEpochRef.current) return;
       // وقتی API آنلاین با موفقیت پاسخ داده، وضعیت جلسهٔ سرور مرجع قطعی است.
       // نباید جلسهٔ قدیمیِ کش‌شده بعد از Auto-close دوباره به‌عنوان جلسهٔ باز نمایش داده شود.
-      const serverOpen = fresh.open || null;
-      if (serverOpen) {
+      const serverOpen=fresh.open||null;
+      const pendingManualState=currentManual&&['pending','queued'].includes(currentManual.status);
+      const manualEnded=pendingManualState&&!!currentManual.end_ms;
+      const fallback=provisionalOpen(currentManual);
+      if(manualEnded){
+        // Pending manual exit closes the displayed attendance immediately, including offline.
+        setOpen(null);
+      } else if(serverOpen){
+        const displayOpen=pendingManualState&&currentManual.start_ms
+          ? {...serverOpen,provisional:true,manual_request_id:currentManual.request_id}
+          : serverOpen;
         await persistLocalOpen(serverOpen);
-        setOpen(serverOpen);
+        setOpen(displayOpen);
+      } else if(fallback){
+        setOpen(fallback);
       } else {
         await persistLocalOpen(null);
         setOpen(null);
@@ -858,6 +885,9 @@ function CheckInCore({ viewportHeight }) {
     finally { setBusy(false); }
   }
   async function doCheckout() {
+    // Before an online checkout, send the pending manual check-in first so the
+    // server has the matching provisional attendance ID. Offline preserves FIFO.
+    if(open?.provisional){try{await flushQueuedRequests({force:true})}catch{}}
     // خروج جاری نیز باید هر load قدیمی را بی‌اعتبار کند؛ مخصوصاً loadای که
     // بعد از خروج قبلی در پس‌زمینه باقی مانده و ممکن است open=null را دیر برگرداند.
     attendanceStateEpochRef.current += 1;
@@ -1052,7 +1082,9 @@ function CheckInCore({ viewportHeight }) {
                 {!liveTimer?'در حال دریافت اطلاعات کارکرد…':liveTimer.phase==='unassigned'?'شیفت فعالی تخصیص داده نشده است':liveTimer.phase==='duty'?`باقی‌مانده موظفی: ${fmtHM(liveTimer.remaining)}`:liveTimer.phase==='overtime'?`اضافه‌کار مجاز: ${faNum(liveTimer.overtime)} از ${faNum(liveTimer.cap)} دقیقه`:`مازاد حضور: ${faNum(liveTimer.surplus)} دقیقه · سقف اضافه‌کار تکمیل`}
               </Text>
             </View>
-            <Text style={s.mapTimerSource}>محاسبه کارکرد براساس اطلاعات سرور</Text>
+            {open?.provisional
+              ? <Text style={[s.mapTimerSource,{color:'#a16207'}]}>حضور موقت بر اساس درخواست تردد دستی؛ در صورت رد مسئول از کارکرد حذف می‌شود.</Text>
+              : <Text style={s.mapTimerSource}>محاسبه کارکرد براساس اطلاعات سرور</Text>}
           </View>}
         </View>
         <View pointerEvents="box-none" style={s.mapOverlayBottom}>
