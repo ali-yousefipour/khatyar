@@ -49,6 +49,18 @@ const api=context.api;
   assert.equal(await api.flush(async()=>{calls++;return {ok:true}},{force:true}),1);
   assert.equal((await api.pending()).length,0);
   assert.equal(photos.size,0,'confirmed send cleans up the preserved photo');
+  const attachment='data:image/png;base64,'+'A'.repeat(180000);
+  await api.enqueue({path:'/reports',client_uuid:'nested',body:{
+    subject:'offline report',attachments:[attachment],signature:attachment
+  }});
+  rows=await api.pending();
+  const nested=rows.find(x=>x.client_uuid==='nested');
+  assert.ok(nested.body.attachments[0].__khatyar_offline_asset);
+  assert.ok(nested.body.signature.__khatyar_offline_asset);
+  assert.ok(photos.size===2,'nested image assets are persisted outside AsyncStorage');
+  assert.ok(!storage.get('offline_queue_v2').includes('A'.repeat(10000)));
+  await api.retryOne('nested',async()=>({ok:true}));
+  assert.equal(photos.size,0,'all nested files are cleaned after successful send');
   await Promise.all([api.enqueue({path:'/api/one',client_uuid:'a'}),api.enqueue({path:'/api/two',client_uuid:'b'})]);
   assert.equal((await api.pending()).length,2,'concurrent writes must not overwrite each other');
   const broken='[broken-json';
