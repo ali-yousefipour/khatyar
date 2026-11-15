@@ -7,6 +7,7 @@ const STATE_KEY = 'vpn_monitor_state_v2';
 const MAX_QUEUE = 100;
 const REQUIRED_CONFIRMATIONS = 2;
 let timer = null;
+let startupTimer = null;
 let running = false;
 let inFlight = false;
 
@@ -147,15 +148,21 @@ export async function checkVpnNow({ force = false } = {}) {
   } finally { inFlight = false; }
 }
 
-export function startVpnMonitor({ intervalSeconds = 60 } = {}) {
+export function startVpnMonitor({ intervalSeconds = 60, initialDelayMs = 60000 } = {}) {
   if (running) return;
   running = true;
   const ms = Math.max(30000, Number(intervalSeconds || 60) * 1000);
-  setTimeout(() => { flushVpnQueue(); checkVpnNow({ force: true }); }, 2500);
-  timer = setInterval(() => checkVpnNow(), ms);
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    if (!running) return;
+    flushVpnQueue().catch(() => {});
+    checkVpnNow({ force: true }).catch(() => {});
+    timer = setInterval(() => checkVpnNow().catch(() => {}), ms);
+  }, Math.max(60000, Number(initialDelayMs || 60000)));
 }
 
 export function stopVpnMonitor() {
   running = false;
   if (timer) { clearInterval(timer); timer = null; }
+  if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
 }
