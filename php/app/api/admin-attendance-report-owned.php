@@ -66,13 +66,63 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
       }
     }
 
+    // کسری GPS/برنامه برای هر session فقط به تاریخ ورود همان session تعلق دارد.
+    // این کار از شکستن یک شیفت شب بین دو روز و نمایش کسری گمراه‌کننده در روز بعد جلوگیری می‌کند.
+    $gpsRanges = [];
+    $gpsDetails = [];
+    foreach ($owned as $attendanceRow) {
+      $sessionIn = strtotime((string)($attendanceRow['check_in'] ?? ''));
+      $sessionOut = !empty($attendanceRow['check_out']) ? strtotime((string)$attendanceRow['check_out']) : time();
+      if (!$sessionIn || !$sessionOut || $sessionOut <= $sessionIn) continue;
+      $badRanges = _gps_work_invalid_intervals((int)$userId, $sessionIn, $sessionOut, empty($attendanceRow['check_out']));
+      if (!$badRanges) continue;
+      foreach ($badRanges as $bad) {
+        $rangeA=(int)($bad[0]??0); $rangeB=(int)($bad[1]??0);
+        if ($rangeB > $rangeA) $gpsRanges[]=[$rangeA,$rangeB];
+      }
+    }
+    usort($gpsRanges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
+    $gpsInvalidSeconds=0; $gpsStart=null; $gpsEnd=null;
+    foreach($gpsRanges as $range) {
+      if($gpsStart===null) { $gpsStart=$range[0]; $gpsEnd=$range[1]; continue; }
+      if($range[0]<=$gpsEnd) $gpsEnd=max($gpsEnd,$range[1]);
+      else { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; $gpsStart=$range[0]; $gpsEnd=$range[1]; }
+    }
+    if($gpsStart!==null) { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; }
+    usort($gpsDetails,static fn($a,$b)=>strcmp($a['start_at'],$b['start_at']));
+    // Admin waiver suppresses the deducted minutes; original GPS evidence remains intact.
+    require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
+    $gpsDetails=array_values(array_filter($gpsDetails,static function($detail) use ($userId) {
+      return !gps_work_is_waived((int)$userId,(string)$detail['start_at'],(string)$detail['end_at']);
+    }));
+    $gpsInvalidSeconds=0;
+    foreach($gpsDetails as $detail)$gpsInvalidSeconds+=max(0,strtotime($detail['end_at'])-strtotime($detail['start_at']));
+    $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
+    if(isset($day['data']) && is_array($day['data']))$day['data']['gps_inactive_minutes']=$day['gps_inactive_minutes'];
+    $day['gps_inactive_details']=$gpsDetails;
+    require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
+    $internetDetails=internet_work_daily_details((int)$userId,$owned);
+    $day['internet_inactive_details']=$internetDetails;
+    $day['internet_inactive_minutes']=array_sum(array_column($internetDetails,'minutes'));
+    if(isset($day['data'])&&is_array($day['data']))$day['data']['internet_inactive_minutes']=$day['internet_inactive_minutes'];
     $sessions = [];
     foreach ($punches as $p) {
       $in = !empty($p['in_full']) ? strtotime($p['in_full']) : 0;
       $out = !empty($p['out_full']) ? strtotime($p['out_full']) : 0;
       if ($in && $out) {
         [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
-        if ($out > $in) $sessions[] = ['in'=>$in,'out'=>$out,'clip_start'=>$in,'clip_end'=>$out];
+        if ($out > $in) {
+          // The daily report must use the same effective penalty windows
+          // that it displays, after GPS/internet waivers. Do not subtract
+          // overlapping minutes twice.
+          $blocked=[];
+          foreach(array_merge($gpsDetails,$internetDetails) as $detail){
+            $badFrom=max($in,strtotime((string)$detail['start_at']));
+            $badTo=min($out,strtotime((string)$detail['end_at']));
+            if($badFrom && $badTo>$badFrom)$blocked[]=[$badFrom,$badTo];
+          }
+          $sessions[] = ['in'=>$in,'out'=>$out,'clip_start'=>$in,'clip_end'=>$out,'gps_invalid'=>$blocked];
+        }
       }
     }
 
@@ -123,45 +173,6 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     // A late clock-in is independently recorded by ShiftCalc::dayWork.
     // Do not confuse late_in with shortage: eligible leave may cover a gap.
 
-    // کسری GPS/برنامه برای هر session فقط به تاریخ ورود همان session تعلق دارد.
-    // این کار از شکستن یک شیفت شب بین دو روز و نمایش کسری گمراه‌کننده در روز بعد جلوگیری می‌کند.
-    $gpsRanges = [];
-    $gpsDetails = [];
-    foreach ($owned as $attendanceRow) {
-      $sessionIn = strtotime((string)($attendanceRow['check_in'] ?? ''));
-      $sessionOut = !empty($attendanceRow['check_out']) ? strtotime((string)$attendanceRow['check_out']) : time();
-      if (!$sessionIn || !$sessionOut || $sessionOut <= $sessionIn) continue;
-      $badRanges = _gps_work_invalid_intervals((int)$userId, $sessionIn, $sessionOut, empty($attendanceRow['check_out']));
-      if (!$badRanges) continue;
-      foreach ($badRanges as $bad) {
-        $rangeA=(int)($bad[0]??0); $rangeB=(int)($bad[1]??0);
-        if ($rangeB > $rangeA) $gpsRanges[]=[$rangeA,$rangeB];
-      }
-    }
-    usort($gpsRanges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
-    $gpsInvalidSeconds=0; $gpsStart=null; $gpsEnd=null;
-    foreach($gpsRanges as $range) {
-      if($gpsStart===null) { $gpsStart=$range[0]; $gpsEnd=$range[1]; continue; }
-      if($range[0]<=$gpsEnd) $gpsEnd=max($gpsEnd,$range[1]);
-      else { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; $gpsStart=$range[0]; $gpsEnd=$range[1]; }
-    }
-    if($gpsStart!==null) { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; }
-    usort($gpsDetails,static fn($a,$b)=>strcmp($a['start_at'],$b['start_at']));
-    // Admin waiver suppresses the deducted minutes; original GPS evidence remains intact.
-    require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
-    $gpsDetails=array_values(array_filter($gpsDetails,static function($detail) use ($userId) {
-      return !gps_work_is_waived((int)$userId,(string)$detail['start_at'],(string)$detail['end_at']);
-    }));
-    $gpsInvalidSeconds=0;
-    foreach($gpsDetails as $detail)$gpsInvalidSeconds+=max(0,strtotime($detail['end_at'])-strtotime($detail['start_at']));
-    $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
-    if(isset($day['data']) && is_array($day['data']))$day['data']['gps_inactive_minutes']=$day['gps_inactive_minutes'];
-    $day['gps_inactive_details']=$gpsDetails;
-    require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
-    $internetDetails=internet_work_daily_details((int)$userId,$owned);
-    $day['internet_inactive_details']=$internetDetails;
-    $day['internet_inactive_minutes']=array_sum(array_column($internetDetails,'minutes'));
-    if(isset($day['data'])&&is_array($day['data']))$day['data']['internet_inactive_minutes']=$day['internet_inactive_minutes'];
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
     $day['worked'] = $hm($w['worked'] ?? 0);
