@@ -6,6 +6,15 @@ RewriteCond %{HTTP_HOST} ^(www\.)?khat-yar\.ir$ [NC]
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
 RewriteRule ^ https://khat-yar.ir%{REQUEST_URI} [R=308,L,NE]
+# Deny hidden configuration/backup files (keep ACME .well-known available).
+RewriteRule (^|/)\\.(?!well-known(?:/|$)) - [F,L,NC]
+# Never execute uploaded scripts, even when accidentally placed in a public folder.
+RewriteRule ^uploads/.*\\.(?:php[0-9]?|phtml|phar|cgi|pl|sh)$ - [F,L,NC]
+# Block accidentally published backup exports and private key material.
+<FilesMatch "\\.(?:bak|backup|old|orig|sql|sqlite|db|pem|key|p12|pfx|jks)$">
+  Require all denied
+</FilesMatch>
+
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
