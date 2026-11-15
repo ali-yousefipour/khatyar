@@ -415,6 +415,7 @@ public final class KhatyarRadioService extends Service {
         endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
       }
       if(initializing)endpoint+="&initialize=1";
+       else endpoint+="&wait_ms=3500";
       String body = get(endpoint, token);
       if ("__RADIO_FORBIDDEN__".equals(body)) {
         synchronized(this) { revokeRadioAccess(); }
