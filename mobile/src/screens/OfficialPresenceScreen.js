@@ -156,7 +156,7 @@ export default function OfficialPresenceScreen() {
     if (!lines.some(l => String(l.id)===String(lineId)))
       return Alert.alert('خط نامعتبر', 'برای ثبت بازدید خطی را از فهرست مجاز خود انتخاب کنید.');
     if (!note.trim()) return Alert.alert('توجه', 'درج توضیحات الزامی است.');
-    if (reqPhoto && !photo) return Alert.alert('عکس الزامی است', 'پیوست عکس حضور مسئول الزامی است.');
+    if ((reqPhoto || usingOfflineSnapshot) && !photo) return Alert.alert('عکس الزامی است', 'برای ثبت آفلاین عکس الزامی است؛ ممکن است سیاست الزام عکس در سرور تغییر کرده باشد.');
     setBusy(true);
     try {
       let lat, lng;
@@ -246,7 +246,7 @@ export default function OfficialPresenceScreen() {
         </ModalKeyboardView>
       </Modal>
 
-      <View style={s.sectionRow}><MaterialCommunityIcons name="camera-outline" size={20} color={C.brand}/><Text style={s.label}>۴. عکس حضور مسئول {reqPhoto ? '(الزامی)' : '(اختیاری)'}</Text></View>
+      <View style={s.sectionRow}><MaterialCommunityIcons name="camera-outline" size={20} color={C.brand}/><Text style={s.label}>۴. عکس حضور مسئول {reqPhoto || usingOfflineSnapshot ? '(الزامی)' : '(اختیاری)'}</Text></View>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={photo ? 'گرفتن دوباره عکس حضور مسئول' : 'گرفتن عکس حضور مسئول'} style={s.photoBtn} onPress={takePhoto}>
         <Text style={s.photoBtnTxt}>{photo ? '✓ عکس گرفته شد (تعویض)' : '📷 گرفتن عکس'}</Text>
       </TouchableOpacity>
