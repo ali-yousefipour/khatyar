@@ -116,8 +116,12 @@ export function startTelemetry(opts = {}) {
       sendTelemetry('heartbeat');
     } catch (e) {}
   };
-  checkGps().catch(() => {});
-  gpsTimer = setInterval(checkGps, gpsCheckMs);
+  // Security-exempt accounts must never generate GPS-off warnings or penalties.
+  // Keep network/activity telemetry available but skip GPS enforcement signals.
+  if(!opts.securityExempt){
+    checkGps().catch(() => {});
+    gpsTimer = setInterval(checkGps, gpsCheckMs);
+  }
 }
 
 export function stopTelemetry() {
