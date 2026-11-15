@@ -13,7 +13,12 @@ assert.equal(cardRoutes.length, 37, 'Do not inadvertently remove dashboard featu
 assert.equal(new Set(cardRoutes).size, 37, 'Each dashboard route should be unique');
 for (const route of cardRoutes) assert.ok(iconRoutes.includes(route), `Missing vector icon for ${route}`);
 assert.doesNotMatch(cards, /icon3d:|glyph:/, 'All menu tiles must use one scalable vector icon family');
-assert.match(dashboard, /CATEGORY_LABELS\[categoryOf\(m\.r\)\]/, 'Category should be legible on each card');
+assert.match(dashboard, /\['favorites', 'موارد دلخواه'\]/, 'Favorites tab must exist');
+assert.doesNotMatch(dashboard, /\['general', 'عمومی'\]/, 'Old category tabs should be removed');
+assert.match(dashboard, /favoriteRoutes\.includes\(m\.r\)/, 'Favorites must be restricted to accessible cards');
+assert.match(dashboard, /dashboard-favorites:v1:/, 'Favorites must be scoped by account');
+assert.match(dashboard, /fontScale > 1\.6/, 'Dashboard grid must respond to large system fonts');
+assert.match(dashboard, /rankCountFor/, 'Rank insignia must be derived from user role');
 assert.match(dashboard, /label=\{m\.t\}/, 'Every tool must receive its actual label');
 assert.match(tiles, /accessibilityLabel=\{label\}/, 'Every tool must expose its label');
 assert.match(dashboard, /menuTab: \{ minHeight: 48/, 'Category chips should have >=48dp touch targets');
@@ -25,4 +30,4 @@ for (const route of [...itemRoutes, 'SendQueue']) assert.ok(sections.includes(`'
 assert.match(drawer, /roleAppAccess\.includes\(route\)/, 'Drawer must continue to filter unauthorized links');
 assert.match(drawer, /paddingTop:insets\.top\+14/, 'Drawer header should honor the status bar safe area');
 assert.match(drawer, /roleAccessError/, 'Drawer needs a recoverable network-error state');
-console.log('PASS dashboard/menu redesign: 37 icons, accessible cards, role-scoped grouped drawer');
+console.log('PASS dashboard/menu redesign: responsive cards, favorites, rank labels, role-scoped drawer');
