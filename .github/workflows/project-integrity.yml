@@ -97,6 +97,7 @@ jobs:
           node mobile/scripts/test-selfie-delivery.cjs
           node mobile/scripts/test-presence-camera.js
           node mobile/scripts/test-presence-local-scheduling.cjs
+          node mobile/scripts/test-manual-attendance-offline.cjs
           node php/tests/selfie_ui_test.cjs
           php -l php/lib/GpsWorkIntervals.php
           php -l php/app/api/admin-attendance-report-owned.php
