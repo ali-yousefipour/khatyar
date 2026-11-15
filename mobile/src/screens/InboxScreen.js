@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Switch, Linking, useWindowDimensions } from 'react-native';
-import { request, imageSource, cachedValue } from '../api';
+import { request, imageSource, cachedValue, invalidateCachedValue } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inJRange } from '../jdate';
 import ImageViewer from '../components/ImageViewer';
@@ -216,7 +216,21 @@ export function ReportDetailScreen({ route, navigation }) {
     if ((action === 'note' || action === 'reply') && !note.trim()) { Alert.alert('خطا', 'متن را وارد کنید'); return; }
     setBusy(true);
     try {
-      await request('/reports/' + id + '/action', { method: 'POST', body: { action, note, to_user_id: toUserId || null, confidential_history: action === 'forward' && confidentialForward ? 1 : 0 } });
+      const result=await request('/reports/' + id + '/action', {
+        method: 'POST',
+        body: { action, note, to_user_id: toUserId || null, confidential_history: action === 'forward' && confidentialForward ? 1 : 0 },
+        queueIfOffline: false,
+      });
+      if (result?.queued || !result?.ok || (action === 'reply' && (!result?.routed || !result?.to_user_id)))
+        throw new Error('سرور انتقال گزارش به کارتابل فرستنده را تأیید نکرد. دوباره تلاش کنید.');
+      if(action==='reply'||action==='forward'){
+        // A stale offline snapshot must not reinsert the handed-off report
+        // when the inbox regains focus after returning from this screen.
+        await Promise.allSettled([
+          invalidateCachedValue('/my/inbox-reports'),
+          invalidateCachedValue('/my/forwarded-reports'),
+        ]);
+      }
       setTextModalMode(null);
       setShowPersonPicker(false);
       if (action === 'reply') {
