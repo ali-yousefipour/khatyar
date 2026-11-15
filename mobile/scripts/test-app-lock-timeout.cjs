@@ -19,4 +19,6 @@ assert.match(app,/onStartShouldSetResponderCapture=/,'Nested screen taps must re
 assert.match(app,/onMoveShouldSetResponderCapture=/,'Drag gestures must reset inactivity');
 assert.match(app,/Date\.now\(\)-lastInteraction\.current>=lockTimeoutSeconds\(cfgRef\.current\)\*1000/);
 assert.match(app,/next\.timeoutSeconds=lockTimeoutSeconds\(next\)/,'Runtime updates must normalize duration');
+assert.match(app,/configWrite=configWrite\.catch\(\(\)=>\{\}\)\.then\(async\(\)=>/,'Changes to lock timeout are serialized');
+assert.match(settings,/await setLockConfig\(c\);setCfg\(c\)/,'UI confirms a lock change only after storage succeeds');
 console.log('PASS all 6 lock timeout choices, nested gestures, and persisted configuration');
