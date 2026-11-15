@@ -9,7 +9,7 @@ class FakeConnection {
   function rollBack(){$this->active=false;$this->rollbacks++;}
 }
 class Db {
-  static $request,$writes=[],$failAttendance=false,$changed=1,$open=null,$pdo,$subConflict=false;
+  static $request,$report=null,$routeOwner=null,$failReply=false,$writes=[],$failAttendance=false,$changed=1,$open=null,$pdo,$subConflict=false;
   static function pdo(){return self::$pdo??=new FakeConnection;}
   static function all($sql,$params=[]){
     if(str_contains($sql,'FROM request_edit_history') || str_contains($sql,'FROM request_approval_steps'))return [];
@@ -19,17 +19,21 @@ class Db {
     if(str_contains($sql,'FROM users'))return ['id'=>$params[0],'name'=>'جایگزین آزمون'];
     if(str_contains($sql,'FROM substitute_assignments'))return str_contains($sql,'JOIN requests')&&self::$subConflict?['id'=>99]:null;
     if(str_contains($sql,'FROM staff_attendance'))return self::$open;
+    if(str_contains($sql,'FROM reports WHERE id='))return self::$report;
+    if(str_contains($sql,'FROM report_routes WHERE report_id='))return self::$routeOwner===null?null:['to_user_id'=>self::$routeOwner];
     if(str_contains($sql,'FROM requests'))return self::$request;
     throw new LogicException($sql);
   }
   static function run($sql,$params=[]){
     if(self::$failAttendance&&str_contains($sql,'INSERT INTO staff_attendance'))throw new RuntimeException('simulated storage failure');
+    if(self::$failReply&&str_contains($sql,'INSERT INTO report_routes'))throw new RuntimeException('simulated reply storage failure');
     if(str_contains($sql,'request_approval_steps'))return new class {function rowCount(){return 1;}};
     self::$writes[]=[$sql,$params];return new class {function rowCount(){return Db::$changed;}};
   }
 }
 class Push {static function send(...$args){}}
 function _req_notify_sms(...$args){}
+function _report_audit(...$args){}
 function _db_table_exists_safe($name){return true;}
 function check($ok,$label){if(!$ok)throw new LogicException($label);}
 function denied($fn,$code){try{$fn();}catch(RuntimeException $e){check($e->getCode()===$code,'wrong error: '.$e->getMessage());return;}throw new LogicException('unexpected success');}
@@ -92,4 +96,29 @@ Db::$request=null;denied(fn()=>$handlers['GET/api/admin/requests/{id}/detail']([
 Db::$request=['id'=>3];
 $a=strpos($source,"route('DELETE', '/api/admin/requests/{id}'");$b=strpos($source,'// خروجی اکسل گزارش',$a);eval(substr($source,$a,$b-$a));Db::$writes=[];
 $handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(str_contains(Db::$writes[0][0],"status='canceled'"),'delete releases substitute');
+// Real report action handler: reply must atomically return ownership to sender.
+$a=strpos($source,"route('POST', '/api/reports/{id}/action'");
+$b=strpos($source,"\n});",$a);
+check($a!==false && $b!==false,'reply action route available');
+eval(substr($source,$a,$b-$a+4));
+$reportAction=$handlers['POST/api/reports/{id}/action'];
+Db::$report=['id'=>41,'sender_id'=>17,'subject'=>'Test report'];
+Db::$routeOwner=29;
+Db::$writes=[];Db::$failReply=false;
+$beforeCommits=Db::pdo()->commits;
+$response=$reportAction(['id'=>41],['action'=>'reply','note'=>'Reply text'],['id'=>29]);
+check(!empty($response['ok'])&&!empty($response['routed'])&&(int)$response['to_user_id']===17,'reply handoff acknowledged with original sender');
+$routes=array_values(array_filter(Db::$writes,fn($x)=>str_contains($x[0],'INSERT INTO report_routes')));
+check(count($routes)===1 && $routes[0][1]===[41,17,'Reply text',29], 'reply routes to sender, not current reviewer');
+check(count(array_filter(Db::$writes,fn($x)=>str_contains($x[0],"status='answered'")))===1,'report status is answered');
+check(Db::pdo()->commits===$beforeCommits+1,'route and status commit together');
+$previousWrites=count(Db::$writes);
+$previousRollbacks=Db::pdo()->rollbacks;
+Db::$routeOwner=77;
+denied(fn()=>$reportAction(['id'=>41],['action'=>'reply','note'=>'stale'],['id'=>29]),409);
+check(count(Db::$writes)===$previousWrites && Db::pdo()->rollbacks===$previousRollbacks+1,'old owner cannot reply or modify handoff');
+Db::$routeOwner=29;Db::$failReply=true;
+denied(fn()=>$reportAction(['id'=>41],['action'=>'reply','note'=>'failure'],['id'=>29]),500);
+check(Db::pdo()->rollbacks===$previousRollbacks+2,'database failure rolls back reply');
+Db::$failReply=false;
 echo "PASS request report: filter boundaries, parameterization, atomic approval, concurrency, overnight/out-only attendance, substitute and delete cleanup\n";
