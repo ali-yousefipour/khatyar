@@ -1,0 +1,72 @@
+name: Public site security and SEO audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'php/app/landing.html'
+      - 'php/app/robots.txt'
+      - 'php/app/sitemap.xml'
+      - 'php/app/.htaccess'
+      - 'php/app/contact-submit.php'
+      - 'php/app/public-stats.php'
+      - 'php/app/index.php'
+      - '.github/workflows/public-site-security-seo.yml'
+permissions:
+  contents: read
+jobs:
+  public-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP, XML, and SEO source contracts
+        run: |
+          set -euo pipefail
+          php -l php/app/index.php
+          php -l php/app/contact-submit.php
+          php -l php/app/public-stats.php
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          import re
+          page=Path('php/app/landing.html').read_text()
+          routes=Path('php/app/index.php').read_text()
+          contact=Path('php/app/contact-submit.php').read_text()
+          robot=Path('php/app/robots.txt').read_text()
+          sitemap=Path('php/app/sitemap.xml').read_text()
+          ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls=[x.text for x in ET.fromstring(sitemap).findall('.//s:loc',ns)]
+          expected=['https://khat-yar.ir'+p for p in ('/','/features','/about','/faq','/contact')]
+          assert urls==expected,(urls,expected)
+          assert 'Sitemap: https://khat-yar.ir/sitemap.xml' in robot
+          assert 'Disallow: /api/' in robot
+          assert 'Disallow: /assets/' not in robot
+          assert "https://khat-yar.ir';" in contact
+          assert 'https://app.yousefipour.ir' not in contact.split('$allowedOrigin=')[1].split(';')[0]
+          for item in ('rel="canonical"','application/ld+json','og:title','script-src-attr', 'X-Robots-Tag: noindex'):
+            assert item in routes,item
+          assert 'data-page="/features"' in page and 'data-page="/contact"' in page
+          assert not re.search(r'\son(?:click|error|load|submit)=',page,re.I)
+          print('PASS public SEO + security source contracts')
+          PY
+      - name: Probe production public routes (informative until deployed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in / /features /about /faq /contact; do
+            out="$(mktemp)"
+            headers="$(mktemp)"
+            code="$(curl -L --silent --show-error --max-time 20 -D "$headers" -o "$out" -w '%{http_code}' "https://khat-yar.ir$route" || true)"
+            echo "$route HTTP $code"
+            if [ "$code" = 200 ]; then
+              grep -qi '<html' "$out"
+              if ! grep -q 'rel="canonical"' "$out"; then echo "::warning::New public SEO metadata not deployed at $route yet"; fi
+            else echo "::warning::Public route $route not reachable at check time"; fi
+            rm -f "$out" "$headers"
+          done
+          for route in /robots.txt /sitemap.xml; do
+            code="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' "https://khat-yar.ir$route" || true)"
+            echo "$route HTTP $code"
+            if [ "$code" != 200 ]; then echo "::warning::$route not deployed yet"; fi
+          done
