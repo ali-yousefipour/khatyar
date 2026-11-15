@@ -46,6 +46,13 @@ export default function SendQueueScreen(){
  const load=React.useCallback(async({silent=false}={})=>{if(!silent)setLoading(true);try{const q=await pending();setItems(q.filter(x=>!hidden(x)));setError('')}catch(e){setError(e?.message||'خواندن صف ارسال ناموفق بود.')}finally{if(!silent)setLoading(false)}},[]);
  React.useEffect(()=>{load();const t=setInterval(()=>load({silent:true}),4000);return()=>clearInterval(t)},[load]);
  const retryOne=async id=>{setRetrying(x=>({...x,[id]:true}));try{await retryQueuedRequest(id);await load()}catch(e){Alert.alert('ارسال ناموفق',e?.message||'ارسال انجام نشد.')}finally{setRetrying(x=>({...x,[id]:false}))}};
+ const confirmRetry=item=>{
+   if(item.owner_user_id)return retryOne(item.client_uuid);
+   Alert.alert('بررسی ثبت قدیمی','حساب ثبت‌کننده این مورد در نسخه قدیمی ذخیره نشده است. فقط اگر مطمئن هستید این ثبت متعلق به حساب فعلی شماست، ارسال دستی را تأیید کنید.',[
+     {text:'انصراف',style:'cancel'},
+     {text:'تأیید و ارسال',onPress:()=>retryOne(item.client_uuid)},
+   ]);
+ };
  const retryAll=async()=>{if(busy)return;setBusy(true);try{await flushQueuedRequests({force:true});await load()}catch(e){setError(e?.message||'ارسال موارد صف ناموفق بود.')}finally{setBusy(false)}};
  return <View style={s.page}>
   <View style={s.head}><View style={s.heroRow}><MaterialCommunityIcons name="cloud-sync-outline" size={28} color="#f4d99e"/><Text style={s.title}>صف ارسال</Text></View><Text style={s.sub}>{items.length?'موارد ارسال‌نشده منتظر ارسال هستند.':'صف ارسال خالی است.'}</Text></View>
@@ -57,7 +64,7 @@ export default function SendQueueScreen(){
     <View style={s.row}><View style={s.badge}><Text style={s.badgeText}>در صف</Text></View><Text style={s.cardTitle}>{label(item)}</Text></View>
     <Text style={s.detail}>{detail(item)}</Text>
     <Text style={s.time}>تلاش قبلی: {Number(item.attempts||0)} بار</Text>
-    <TouchableOpacity style={s.retry} disabled={!!retrying[item.client_uuid]} onPress={()=>retryOne(item.client_uuid)}><Text style={s.retryText}>{retrying[item.client_uuid]?'در حال ارسال…':'تلاش مجدد برای ارسال'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.retry} disabled={!!retrying[item.client_uuid]} onPress={()=>confirmRetry(item)}><Text style={s.retryText}>{retrying[item.client_uuid]?'در حال ارسال…':'تلاش مجدد برای ارسال'}</Text></TouchableOpacity>
    </View>)}
   </ScrollView>
  </View>
