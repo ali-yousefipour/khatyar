@@ -33,15 +33,15 @@ const fileSystem={
   moveAsync:async({from,to})=>{files.set(to,files.get(from));files.delete(from);},
   deleteAsync:async uri=>{deleted.push(uri);files.delete(uri);},
 };
-const exports={};
+const sandboxExports={};
 const modules={
   '@react-native-async-storage/async-storage':{__esModule:true,default:storage},
   'expo-file-system/legacy':fileSystem,
   './api':{imageSource:source=>({uri:source})}
 };
-vm.runInNewContext(compiled,{exports,require:name=>{if(!(name in modules))throw Error('Unexpected import: '+name);return modules[name]},Date,Math,Map,JSON,RegExp,Number,String});
+vm.runInNewContext(compiled,{exports:sandboxExports,require:name=>{if(!(name in modules))throw Error('Unexpected import: '+name);return modules[name]},Date,Math,Map,JSON,RegExp,Number,String});
 (async()=>{
-  const {cacheProfilePhoto,readProfilePhotoCache}=exports;
+  const {cacheProfilePhoto,readProfilePhotoCache}=sandboxExports;
   const first=await cacheProfilePhoto(42,'https://example.invalid/photo-1.jpg');
   assert.ok(first?.startsWith('file:///documents/profile-photo-42-'));
   assert.equal(files.get(first),'https://example.invalid/photo-1.jpg');
