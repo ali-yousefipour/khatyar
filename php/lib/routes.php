@@ -8093,16 +8093,16 @@ route('GET', '/api/app/version', function($p,$b,$u){
   $configuredLatest = $get('app_latest_version', APP_VERSION);
   if (!is_scalar($configuredLatest)) $configuredLatest = APP_VERSION;
   $latestVersion = version_compare((string)$configuredLatest, APP_VERSION, '<') ? APP_VERSION : (string)$configuredLatest;
-  $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk';
+  $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest/download/khat-yar.apk';
   $apkUrl = trim((string)$get('app_apk_url', $defaultApkUrl));
-  if ($apkUrl === '' || strpos($apkUrl, 'khatyar-1.5.7.apk') !== false) $apkUrl = $defaultApkUrl;
+  if ($apkUrl === '' || strpos($apkUrl, 'khatyar-1.5.7.apk') !== false || strpos($apkUrl, 'github.com/ali-yousefipour/khatyar/releases/') !== false || strpos($apkUrl, 'khat-yar.ir/releases/') !== false) $apkUrl = $defaultApkUrl;
   return [
     'latest_version' => $latestVersion,
     'min_version'    => $get('app_min_version', '0.0.0'),
     'apk_url'        => $apkUrl,
     'apk_sha256'     => $get('app_apk_sha256', ''),
-    'release_url'    => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
-    'apk_asset'     => 'khatyar.apk',
+    'release_url'    => 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest',
+    'apk_asset'     => 'khat-yar.apk',
     'notes'          => $get('app_update_notes', ''),
     'site_version'   => SITE_VERSION,
     'app_version'    => APP_VERSION,
