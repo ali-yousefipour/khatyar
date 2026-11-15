@@ -159,7 +159,7 @@ const playFile=async(message,{generation=sessionRef.current,manual=false,all=fal
 };
 const pollFailRef=useRef(0),reconnectRef=useRef(false),nextReconnectRef=useRef(0);
 const poll=async()=>{
-  if(!user?.id||!enabledRef.current||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current)return;
+  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current)return;
   pollingRef.current=true;const requestedChannel=Number(channelRef.current),generation=sessionRef.current;
   try{const response=await request(`/radio-api-v2.php?op=poll&channel_id=${requestedChannel}&after=${lastIdRef.current}`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
@@ -176,7 +176,7 @@ const poll=async()=>{
   finally{pollingRef.current=false;}
 };
 const pollAll=async()=>{
-  if(!user?.id||!enabledRef.current||!listenAllRef.current||pollAllRef.current||resyncingRef.current)return;
+  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||!listenAllRef.current||pollAllRef.current||resyncingRef.current)return;
   pollAllRef.current=true;const generation=sessionRef.current;
   try{const response=await request(`/radio-api-v2.php?op=poll-all&after=${listenAllLastIdRef.current}`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
