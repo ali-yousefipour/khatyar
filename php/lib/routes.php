@@ -2429,7 +2429,7 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
     $queryFrom=date('Y-m-d H:i:s',max(1,$fromTs-86400));
     $events=Db::all("SELECT kind,at FROM user_activity
       WHERE user_id=? AND kind IN ('gps_off','gps_on') AND at>=? AND at<=?
-      ORDER BY at ASC,id ASC",[(int)$userId,$queryFrom,$queryTo]);
+      ORDER BY at ASC,id ASC",[(int)$userId,$queryFrom,date('Y-m-d H:i:s',$toTs+86400)]);
   } catch (Throwable $e) {
     error_log('gps work explicit-off query failed; no penalty without evidence: '.$e->getMessage());
     return [];
