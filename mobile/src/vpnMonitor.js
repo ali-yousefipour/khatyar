@@ -68,7 +68,7 @@ export async function collectVpnSnapshot() {
   // A stale/virtual interface alone is never enough. A candidate needs either
   // OS transport + another signal, or two consecutive confirmations.
   const rawCandidate = signalCount >= 2 || (transportVpn && activeTunnelInterfaces.length > 0);
-  const ip = await publicIpInfo().catch(() => ({ publicIp: null, country: null }));
+  const ip = rawCandidate ? await publicIpInfo().catch(() => ({ publicIp: null, country: null })) : { publicIp: null, country: null };
 
   return {
     vpn_candidate: rawCandidate,
