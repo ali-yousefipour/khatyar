@@ -7,6 +7,7 @@ let timer = null;
 let listeners = new Set();
 let current = { messages: 0, reports: 0, total: 0 };
 let loading = false;
+let lastSuccessAt=0;
 let appStateSub = null;
 
 function emit(next) {
@@ -20,12 +21,13 @@ async function updateLauncherBadge(total) {
   } catch (_) {}
 }
 
-export async function refreshUnreadCounts() {
-  if (loading) return current;
+export async function refreshUnreadCounts({force=false}={}) {
+  if (loading||(!force&&Date.now()-lastSuccessAt<12000)) return current;
   loading = true;
   try {
     const d = await request('/my/unread-counts', { noStore: true });
     emit(d || {});
+    lastSuccessAt=Date.now();
     await updateLauncherBadge(d?.total || 0);
   } catch (_) {}
   finally { loading = false; }
@@ -44,7 +46,7 @@ export function subscribeUnreadCounts(fn) {
 export function startUnreadPolling() {
   if (timer) return;
   refreshUnreadCounts();
-  timer = setInterval(refreshUnreadCounts, 15000);
+  timer = setInterval(refreshUnreadCounts, 45000);
   appStateSub = AppState.addEventListener('change', state => { if (state === 'active') refreshUnreadCounts(); });
 }
 
@@ -54,6 +56,7 @@ export function stopUnreadPolling() {
   try { appStateSub?.remove?.(); } catch (_) {}
   appStateSub = null;
   timer = null;
+  lastSuccessAt=0;
 }
 
 export function unreadLabel(n) { return Number(n || 0) > 99 ? '+۹۹' : faNum(Number(n || 0)); }
