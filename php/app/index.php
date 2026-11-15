@@ -19,6 +19,9 @@ require "$ROOT/lib/ShiftCalc.php"; require "$ROOT/lib/Media.php"; require "$ROOT
 if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
 if (is_file("$ROOT/lib/SubstituteShift.php")) require "$ROOT/lib/SubstituteShift.php";
 $CONFIG = require "$ROOT/config.php";
+// A reused hosting .env may still point at the previous virtual host.
+// The new application's canonical URL must follow the verified HTTP host.
+if (strtolower((string)($_SERVER['HTTP_HOST'] ?? '')) === 'khat-yar.ir') $CONFIG['public_url'] = 'https://khat-yar.ir';
 header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: SAMEORIGIN'); header("Content-Security-Policy: frame-ancestors 'self'"); header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)'); header('Cross-Origin-Resource-Policy: same-origin');
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
