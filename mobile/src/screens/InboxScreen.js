@@ -30,6 +30,11 @@ export function InboxReportsScreen({ navigation }) {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkPicker, setBulkPicker] = useState(false);
+  const [bulkTargets, setBulkTargets] = useState([]);
+  const [bulkTargetBusy, setBulkTargetBusy] = useState(false);
   const loadSerial = useRef(0);
   const tabSnapshots = useRef({});
 
@@ -63,6 +68,7 @@ export function InboxReportsScreen({ navigation }) {
     return Object.entries(m).map(([id, name]) => ({ id, name }));
   }, [data]);
 
+  useEffect(() => { setSelectedIds([]); }, [tab]);
   const rows = useMemo(() => {
     if (!data) return null;
     let r = data;
@@ -72,6 +78,66 @@ export function InboxReportsScreen({ navigation }) {
     if (query.trim()) { const q = query.trim().toLocaleLowerCase(); r = r.filter((x) => [x.subject,x.body,x.first_name,x.last_name,x.plate,x.cc_by_name].some((v) => String(v||'').toLocaleLowerCase().includes(q))); }
     return r;
   }, [data, from, to, sender, statusF, query]);
+
+  const visibleIds = useMemo(() => (rows || []).map(r => String(r.id)), [rows]);
+  const chosenIds = selectedIds.filter(id => visibleIds.includes(id));
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => chosenIds.includes(id));
+  const toggleSelected = (id) => {
+    const key = String(id);
+    setSelectedIds(previous => previous.includes(key) ? previous.filter(v => v !== key) : [...previous, key]);
+  };
+  const chooseAllVisible = () => setSelectedIds(previous => allVisibleSelected
+    ? previous.filter(id => !visibleIds.includes(id))
+    : Array.from(new Set([...previous, ...visibleIds])));
+
+  const runBulk = (operation, targetId = null) => {
+    if (bulkBusy || !chosenIds.length) return;
+    if (operation === 'forward' && (!targetId || tab !== 'inbox')) return;
+    const count = chosenIds.length;
+    const name = operation === 'forward' ? 'ارجاع' : operation === 'delete' ? 'حذف' : tab === 'archived' ? 'خروج از بایگانی' : 'بایگانی';
+    const description = operation === 'delete'
+      ? 'حذف برای فرستنده یا مدیر ممکن است به حذف کامل منجر شود. این عملیات برای سایر کاربران فقط گزارش را از فهرست خودشان حذف می‌کند.'
+      : operation === 'forward' ? 'گزارش‌های انتخاب‌شده به کارتابل گیرنده منتقل می‌شوند.' : 'فقط وضعیت بایگانی حساب شما تغییر می‌کند.';
+    Alert.alert(`${name} گروهی`, `${count.toLocaleString('fa-IR')} گزارش انتخاب شده است.\\n${description}`, [
+      { text: 'انصراف', style: 'cancel' },
+      { text: 'تأیید', style: operation === 'delete' ? 'destructive' : 'default', onPress: async () => {
+        setBulkPicker(false);
+        setBulkBusy(true);
+        const succeeded = [];
+        const failed = [];
+        for (const id of chosenIds) {
+          try {
+            if (operation === 'archive') {
+              await request(`/my/inbox-reports/${id}/archive`, { method: 'POST', body: { archive: tab !== 'archived' }, queueIfOffline: false });
+            } else if (operation === 'delete') {
+              await request(`/reports/${id}`, { method: 'DELETE', queueIfOffline: false });
+            } else {
+              await request(`/reports/${id}/action`, { method: 'POST', body: { action: 'forward', to_user_id: Number(targetId) }, queueIfOffline: false });
+            }
+            succeeded.push(id);
+          } catch (error) { failed.push({ id, reason: error?.message || 'خطای نامشخص' }); }
+        }
+        setSelectedIds(failed.map(item => item.id));
+        // Both inbox and archive snapshots can become stale after changes.
+        tabSnapshots.current = {};
+        await load();
+        setBulkBusy(false);
+        Alert.alert('نتیجه عملیات گروهی', `${succeeded.length.toLocaleString('fa-IR')} موفق، ${failed.length.toLocaleString('fa-IR')} ناموفق${failed.length ? `\\nنمونه خطا (گزارش ${failed[0].id}): ${failed[0].reason}` : ''}`);
+      }},
+    ]);
+  };
+
+  const openBulkForward = async () => {
+    if (bulkBusy || !chosenIds.length || tab !== 'inbox') return;
+    setBulkTargetBusy(true);
+    try {
+      const targets = await request('/my/forward-targets', { queueIfOffline: false });
+      if (!Array.isArray(targets)) throw new Error('فهرست گیرندگان معتبر نیست.');
+      setBulkTargets(targets);
+      setBulkPicker(true);
+    } catch (error) { Alert.alert('خطا در دریافت گیرندگان', error?.message || 'تلاش مجدد کنید.'); }
+    finally { setBulkTargetBusy(false); }
+  };
 
   async function toggleArchive(item) {
     if(archiveBusy !== null)return;
@@ -99,7 +165,7 @@ export function InboxReportsScreen({ navigation }) {
           {id:'forwarded',label:'ارجاع‌های من',icon:'share-outline'},
           {id:'cc',label:'رونوشت‌های من',icon:'content-copy'},
           {id:'archived',label:'بایگانی',icon:'archive-outline'},
-        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setTab(t.id);setSender(null);setStatusF(null);setQuery('');}}>
+        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setSelectedIds([]);setTab(t.id);setSender(null);setStatusF(null);setQuery('');}}>
           <MaterialCommunityIcons name={t.icon} size={19} color={tab===t.id?'#fff':C.brand}/><Text numberOfLines={2} style={[s.tabTxt,tab===t.id&&s.tabTxtOn]}>{t.label}</Text>
         </TouchableOpacity>)}
       </View>
@@ -119,11 +185,29 @@ export function InboxReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
       </ScrollView>
-      <View style={s.listSummary}><Text style={s.listSummaryTitle}>{(rows || []).length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها</Text></View>
+      <View style={s.listSummary}><Text style={s.listSummaryTitle}>{(rows || []).length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها · انتخاب چندتایی</Text></View>
+      <View style={s.bulkHeader}>
+        <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: allVisibleSelected }} disabled={bulkBusy || !visibleIds.length} onPress={chooseAllVisible} style={s.bulkSelect}>
+          <MaterialCommunityIcons name={allVisibleSelected ? 'checkbox-marked' : 'checkbox-blank-outline'} color={C.brand} size={23}/>
+          <Text style={s.bulkSelectText}>{allVisibleSelected ? 'لغو انتخاب همه' : 'انتخاب همه نتایج فیلترشده'}</Text>
+        </TouchableOpacity>
+        <Text style={s.bulkCount}>{chosenIds.length.toLocaleString('fa-IR')} انتخاب</Text>
+      </View>
+      {chosenIds.length > 0 && <View style={s.bulkActions}>
+        {tab === 'inbox' && <TouchableOpacity disabled={bulkBusy || bulkTargetBusy} accessibilityRole="button" style={s.bulkAction} onPress={openBulkForward}><MaterialCommunityIcons name="share-outline" size={19} color={C.brand}/><Text style={s.bulkActionText}>{bulkTargetBusy ? 'دریافت کاربران…' : 'ارجاع گروهی'}</Text></TouchableOpacity>}
+        {(tab === 'inbox' || tab === 'archived') && <TouchableOpacity disabled={bulkBusy} accessibilityRole="button" style={s.bulkAction} onPress={() => runBulk('archive')}><MaterialCommunityIcons name="archive-outline" size={19} color={C.brand}/><Text style={s.bulkActionText}>{tab === 'archived' ? 'بازیابی گروهی' : 'بایگانی گروهی'}</Text></TouchableOpacity>}
+        <TouchableOpacity disabled={bulkBusy} accessibilityRole="button" style={[s.bulkAction, s.bulkDanger]} onPress={() => runBulk('delete')}><MaterialCommunityIcons name="delete-outline" size={19} color={C.danger}/><Text style={[s.bulkActionText, { color: C.danger }]}>حذف گروهی</Text></TouchableOpacity>
+        <TouchableOpacity disabled={bulkBusy} accessibilityRole="button" onPress={() => setSelectedIds([])} style={s.bulkAction}><Text style={s.bulkActionText}>لغو انتخاب</Text></TouchableOpacity>
+        {bulkBusy && <ActivityIndicator color={C.brand}/>}
+      </View>}
       <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows || []} keyExtractor={(it) => String(it.id)} refreshing={refreshing} onRefresh={load}
         ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{error?'دریافت گزارش‌ها ناموفق بود.':query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
         renderItem={({ item }) => (
-          <View style={s.card}>
+          <View style={[s.card,chosenIds.includes(String(item.id))&&s.bulkCardSelected]}>
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`انتخاب گزارش ${item.id}`} accessibilityState={{checked:chosenIds.includes(String(item.id))}} disabled={bulkBusy} onPress={() => toggleSelected(item.id)} style={s.bulkCardCheck}>
+              <MaterialCommunityIcons name={chosenIds.includes(String(item.id))?'checkbox-marked':'checkbox-blank-outline'} size={24} color={C.brand}/>
+              <Text style={s.bulkSelectText}>انتخاب گزارش</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: item.id })}>
               <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line,backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9' }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text></View>
               <View style={s.metaRow}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={s.meta} numberOfLines={2}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text></View>
@@ -136,6 +220,7 @@ export function InboxReportsScreen({ navigation }) {
             </TouchableOpacity> : null}
           </View>
         )} />
+      <ReportPersonPickerModal visible={bulkPicker} targets={bulkTargets} title={`ارجاع ${chosenIds.length.toLocaleString('fa-IR')} گزارش به`} onClose={() => setBulkPicker(false)} onSelect={(person) => runBulk('forward', person.id)}/>
       <JDatePicker visible={!!pick} onClose={() => setPick(null)} initial={null}
         onSelect={(d) => { const v = { jy: d.jy, jm: d.jm, jd: d.jd }; if (pick === 'from') setFrom(v); else setTo(v); }} />
     </View>
@@ -416,6 +501,17 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  bulkHeader: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 9 },
+  bulkSelect: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7, minHeight: 42 },
+  bulkSelectText: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
+  bulkCount: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
+  bulkActions: { flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  bulkAction: { borderRadius: 11, borderColor: C.line, borderWidth: 1, backgroundColor: '#fff', paddingHorizontal: 11, minHeight: 43, flexDirection: 'row-reverse', alignItems: 'center', gap: 5 },
+  bulkActionText: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
+  bulkDanger: { borderColor: '#f3c2c2', backgroundColor: '#fff6f6' },
+  bulkCardSelected: { borderColor: C.brand, borderWidth: 2, backgroundColor: '#f4f9ff' },
+  bulkCardCheck: { flexDirection: 'row-reverse', alignSelf: 'flex-end', alignItems: 'center', gap: 5, minHeight: 40, paddingHorizontal: 7 },
+
   wrap: { flex: 1, backgroundColor: '#f3f8f6' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
