@@ -34,23 +34,23 @@ const tehranGregorianParts=()=>{
   return{year:get('year'),month:get('month'),day:get('day')};
 };
 const script=source.replace(/^import[^\n]*\n/gm,'').replace(/\bexport\s+/g,'');
-const module=new Function('AsyncStorage','Notifications','ensurePresenceChannel','tehranGregorianParts',script+
+const localModule=new Function('AsyncStorage','Notifications','ensurePresenceChannel','tehranGregorianParts',script+
  '\nreturn {currentPresencePolicy,storePresencePolicy,ensureLocalRandomSchedule,localAttendanceSession,markLocalPresenceCompleted,localPresenceCompletions,clearLocalRandomSchedule};')(
  AsyncStorage,Notifications,async()=>{},tehranGregorianParts
 );
 (async()=>{
   let fetched=0;
   const query=async()=>{fetched++;return {enabled:true,required:false,assigned:true,random_enabled:true,window_minutes:3,slots:[]}};
-  const policy1=await module.currentPresencePolicy(42,query);
-  const policy2=await module.currentPresencePolicy(42,query);
+  const policy1=await localModule.currentPresencePolicy(42,query);
+  const policy2=await localModule.currentPresencePolicy(42,query);
   assert.equal(fetched,1,'Presence mode must be fetched only once on the same Tehran day');
   assert.deepEqual(policy1,policy2);
   const start=Date.now()+300000;
   await AsyncStorage.setItem('attendance_local_open_v1',JSON.stringify({id:'local123',owner_user_id:42,check_in:new Date(start).toISOString()}));
-  assert.ok(await module.localAttendanceSession(42));
-  assert.equal(await module.localAttendanceSession(99),null,'Offline attendance must be user-scoped');
-  const open=await module.localAttendanceSession(42);
-  const schedule=await module.ensureLocalRandomSchedule(42,open,3);
+  assert.ok(await localModule.localAttendanceSession(42));
+  assert.equal(await localModule.localAttendanceSession(99),null,'Offline attendance must be user-scoped');
+  const open=await localModule.localAttendanceSession(42);
+  const schedule=await localModule.ensureLocalRandomSchedule(42,open,3);
   assert.equal(schedule.items.length,6,'Three checks per four-hour block, six per shift/day');
   for(let i=0;i<schedule.items.length;i++){
     const row=schedule.items[i],block=Math.floor(i/3);
@@ -58,12 +58,12 @@ const module=new Function('AsyncStorage','Notifications','ensurePresenceChannel'
     assert.ok(row.ts*1000<start+(block+1)*4*3600000,'Random check must stay in its four-hour block');
   }
   const originalCount=notifications.length;
-  const same=await module.ensureLocalRandomSchedule(42,{...open,attendance_id:'server543'},3);
+  const same=await localModule.ensureLocalRandomSchedule(42,{...open,attendance_id:'server543'},3);
   assert.deepEqual(schedule.items,same.items,'Offline-to-online ID migration must keep random checks stable');
   assert.equal(notifications.length,originalCount,'Local reminders must not duplicate after a refresh');
-  await module.markLocalPresenceCompleted(schedule.items[0].request_id,'queued');
-  assert.equal((await module.localPresenceCompletions())[schedule.items[0].request_id].status,'queued');
-  await module.clearLocalRandomSchedule();
+  await localModule.markLocalPresenceCompleted(schedule.items[0].request_id,'queued');
+  assert.equal((await localModule.localPresenceCompletions())[schedule.items[0].request_id].status,'queued');
+  await localModule.clearLocalRandomSchedule();
   assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null);
   console.log('PASS local random presence: daily config, offline clock-in, 3+3 checks, dedupe, completion and cleanup');
 })().catch(error=>{console.error(error);process.exitCode=1;});
