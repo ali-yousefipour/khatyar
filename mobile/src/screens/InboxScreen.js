@@ -35,6 +35,13 @@ export function InboxReportsScreen({ navigation }) {
   const [bulkPicker, setBulkPicker] = useState(false);
   const [bulkTargets, setBulkTargets] = useState([]);
   const [bulkTargetBusy, setBulkTargetBusy] = useState(false);
+  const [actionOnly, setActionOnly] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [groupBy, setGroupBy] = useState('none');
+  const [undoArchive, setUndoArchive] = useState(null);
+  const [undoBusy, setUndoBusy] = useState(false);
   const loadSerial = useRef(0);
   const tabSnapshots = useRef({});
 
@@ -68,16 +75,30 @@ export function InboxReportsScreen({ navigation }) {
     return Object.entries(m).map(([id, name]) => ({ id, name }));
   }, [data]);
 
-  useEffect(() => { setSelectedIds([]); }, [tab]);
+  useEffect(() => { setSelectedIds([]); setActionOnly(false); }, [tab]);
   const rows = useMemo(() => {
     if (!data) return null;
     let r = data;
     if (from || to) { const f = from ? [from.jy, from.jm, from.jd] : null; const t = to ? [to.jy, to.jm, to.jd] : null; r = r.filter((x) => inJRange(x.created_at, f, t)); }
     if (sender) r = r.filter((x) => String(x.sender_id) === String(sender));
     if (statusF) r = r.filter((x) => x.status === statusF);
+    if (priorityFilter !== 'all') r = r.filter((x) => (x.priority || 'normal') === priorityFilter);
+    if (tab === 'inbox' && actionOnly) r = r.filter((x) => x.status !== 'answered' && x.last_action !== 'reply');
     if (query.trim()) { const q = query.trim().toLocaleLowerCase(); r = r.filter((x) => [x.subject,x.body,x.first_name,x.last_name,x.plate,x.cc_by_name].some((v) => String(v||'').toLocaleLowerCase().includes(q))); }
-    return r;
-  }, [data, from, to, sender, statusF, query]);
+    return [...r].sort((a, b) => {
+      let diff = 0;
+      if (sortBy === 'subject') diff = String(a.subject || '').localeCompare(String(b.subject || ''), 'fa');
+      else if (sortBy === 'priority') diff = ({urgent:3,important:2,normal:1}[a.priority]||0) - ({urgent:3,important:2,normal:1}[b.priority]||0);
+      else diff = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      return newestFirst ? -diff : diff;
+    });
+  }, [data, from, to, sender, statusF, query, priorityFilter, actionOnly, tab, sortBy, newestFirst]);
+  const groupCounts = useMemo(() => (rows||[]).reduce((acc,r) => {
+    if (groupBy==='none') return acc;
+    const group=groupBy==='priority' ? (PR[r.priority] || 'عادی') : (ST[r.status] || 'نامشخص');
+    acc[group]=(acc[group]||0)+1;
+    return acc;
+  }, {}), [rows, groupBy]);
 
   const visibleIds = useMemo(() => (rows || []).map(r => String(r.id)), [rows]);
   const chosenIds = selectedIds.filter(id => visibleIds.includes(id));
@@ -118,6 +139,7 @@ export function InboxReportsScreen({ navigation }) {
           } catch (error) { failed.push({ id, reason: error?.message || 'خطای نامشخص' }); }
         }
         setSelectedIds(failed.map(item => item.id));
+        if (operation === 'archive' && succeeded.length) setUndoArchive({ids:succeeded, archive:tab === 'archived', label:tab === 'archived'?'بازیابی':'بایگانی'});
         // Both inbox and archive snapshots can become stale after changes.
         tabSnapshots.current = {};
         try { await load(); } finally { setBulkBusy(false); }
@@ -138,6 +160,22 @@ export function InboxReportsScreen({ navigation }) {
     finally { setBulkTargetBusy(false); }
   };
 
+  async function restoreArchive() {
+    if (!undoArchive || undoBusy || bulkBusy || archiveBusy !== null) return;
+    setUndoBusy(true);
+    const failed = [];
+    for (const id of undoArchive.ids) {
+      try {
+        await request(`/my/inbox-reports/${id}/archive`, {method:'POST',body:{archive:undoArchive.archive},queueIfOffline:false});
+      } catch (e) { failed.push({id,message:e?.message||'خطا'}); }
+    }
+    tabSnapshots.current = {};
+    setUndoArchive(failed.length ? {...undoArchive, ids:failed.map(x=>x.id)} : null);
+    await load();
+    setUndoBusy(false);
+    Alert.alert('بازگردانی بایگانی', failed.length ? `${failed.length.toLocaleString('fa-IR')} مورد بازگردانده نشد؛ ${failed[0].message}` : 'تغییر بایگانی بازگردانده شد.');
+  }
+
   async function toggleArchive(item) {
     if(archiveBusy !== null)return;
     setArchiveBusy(item.id);
@@ -146,6 +184,7 @@ export function InboxReportsScreen({ navigation }) {
       const remaining=(tabSnapshots.current[tab] || data || []).filter(r=>String(r.id)!==String(item.id));
       tabSnapshots.current[tab]=remaining;setData(remaining);
       delete tabSnapshots.current[tab==='archived'?'inbox':'archived'];
+      setUndoArchive({ids:[String(item.id)],archive:tab==='archived',label:tab==='archived'?'بازیابی':'بایگانی'});
       Alert.alert('ثبت شد', tab==='archived'?'گزارش از بایگانی خارج شد.':'گزارش به بایگانی منتقل شد.');
       load();
     } catch (e) { Alert.alert('عملیات انجام نشد', e?.message || 'لطفاً دوباره تلاش کنید.'); }
@@ -184,6 +223,21 @@ export function InboxReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
       </ScrollView>
+      <View style={s.advancedFilters}>
+        {tab==='inbox' && <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:actionOnly}} onPress={()=>{setActionOnly(v=>!v);setSelectedIds([]);}} style={[s.advancedChip,actionOnly&&s.advancedActive]}><MaterialCommunityIcons name="clipboard-alert-outline" size={17} color={actionOnly?'#fff':C.brand}/><Text style={[s.advancedText,actionOnly&&{color:'#fff'}]}>نیازمند اقدام من</Text></TouchableOpacity>}
+        {['all','normal','important','urgent'].map(k=><TouchableOpacity key={k} onPress={()=>{setPriorityFilter(k);setSelectedIds([]);}} style={[s.advancedChip,priorityFilter===k&&s.advancedActive]}><Text style={[s.advancedText,priorityFilter===k&&{color:'#fff'}]}>{k==='all'?'همه اولویت‌ها':PR[k]}</Text></TouchableOpacity>)}
+      </View>
+      <View style={s.advancedFilters}>
+        <Text style={s.advancedText}>مرتب‌سازی:</Text>
+        {['date','subject','priority'].map(k=><TouchableOpacity key={k} onPress={()=>setSortBy(k)} style={[s.advancedChip,sortBy===k&&s.advancedActive]}><Text style={[s.advancedText,sortBy===k&&{color:'#fff'}]}>{k==='date'?'تاریخ':k==='subject'?'موضوع':'اولویت'}</Text></TouchableOpacity>)}
+        <TouchableOpacity onPress={()=>setNewestFirst(v=>!v)} style={s.advancedChip}><MaterialCommunityIcons name={newestFirst?'sort-descending':'sort-ascending'} color={C.brand} size={18}/><Text style={s.advancedText}>{newestFirst?'نزولی':'صعودی'}</Text></TouchableOpacity>
+      </View>
+      <View style={s.advancedFilters}>
+        <Text style={s.advancedText}>دسته‌بندی:</Text>
+        {['none','status','priority'].map(k=><TouchableOpacity key={k} onPress={()=>setGroupBy(k)} style={[s.advancedChip,groupBy===k&&s.advancedActive]}><Text style={[s.advancedText,groupBy===k&&{color:'#fff'}]}>{k==='none'?'بدون گروه':k==='status'?'وضعیت':'اولویت'}</Text></TouchableOpacity>)}
+        {groupBy!=='none'&&Object.entries(groupCounts).map(([name,n])=><Text key={name} style={s.advancedText}>{name}: {n.toLocaleString('fa-IR')}</Text>)}
+      </View>
+      {undoArchive && <View style={s.undoBar}><Text style={s.undoText}>عملیات {undoArchive.label} برای {undoArchive.ids.length.toLocaleString('fa-IR')} گزارش انجام شد.</Text><TouchableOpacity disabled={undoBusy || bulkBusy} accessibilityRole="button" onPress={restoreArchive} style={s.undoButton}><MaterialCommunityIcons name="undo-variant" color="#fff" size={18}/><Text style={s.undoButtonText}>{undoBusy?'در حال بازگردانی…':'بازگرداندن'}</Text></TouchableOpacity><TouchableOpacity accessibilityLabel="بستن پیام" onPress={()=>setUndoArchive(null)}><MaterialCommunityIcons name="close" color={C.muted} size={19}/></TouchableOpacity></View>}
       <View style={s.listSummary}><Text style={s.listSummaryTitle}>{(rows || []).length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها · انتخاب چندتایی</Text></View>
       <View style={s.bulkHeader}>
         <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: allVisibleSelected }} disabled={bulkBusy || !visibleIds.length} onPress={chooseAllVisible} style={s.bulkSelect}>
@@ -210,6 +264,7 @@ export function InboxReportsScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: item.id })}>
               <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line,backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9' }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text></View>
               <View style={s.metaRow}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={s.meta} numberOfLines={2}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text></View>
+              {item.current_owner_name ? <View style={s.ownerRow}><MaterialCommunityIcons name="account-check-outline" color={C.brand} size={16}/><Text style={s.ownerText}>مسئول جاری: {item.current_owner_name}</Text></View> : (tab==='inbox' ? <Text style={s.ownerText}>مسئول جاری: شما</Text> : null)}
               <Text style={s.snippet} numberOfLines={3}>{item.body}</Text>
               {(item.attachment_name || item.attachment_path || item.attachments_count > 0) ? <View style={{flexDirection:'row-reverse',alignItems:'center',gap:5}}><MaterialCommunityIcons name="paperclip" size={16} color={C.brand}/><Text style={s.hasAtt}>دارای پیوست {item.attachments_count ? `(${item.attachments_count})` : ''}</Text></View> : null}
               <View style={s.openHint}><Text style={s.openHintText}>مشاهده جزئیات</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View>
@@ -500,6 +555,17 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  advancedFilters: {flexDirection:'row-reverse',flexWrap:'wrap',gap:7,alignItems:'center',paddingHorizontal:16,marginTop:9},
+  advancedChip: {flexDirection:'row-reverse',alignItems:'center',gap:5,paddingVertical:8,paddingHorizontal:10,borderRadius:12,borderWidth:1,borderColor:C.line,backgroundColor:'#fff',minHeight:40},
+  advancedActive: {backgroundColor:C.brand,borderColor:C.brand},
+  advancedText: {fontFamily:FONT.bold,fontSize:12,color:C.ink},
+  ownerRow: {flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:7},
+  ownerText: {fontFamily:FONT.regular,fontSize:12,color:C.brand,textAlign:'right'},
+  undoBar: {flexDirection:'row-reverse',alignItems:'center',gap:8,marginHorizontal:16,marginTop:10,borderWidth:1,borderColor:C.line,borderRadius:12,padding:10,backgroundColor:'#f3f8fe'},
+  undoText: {fontFamily:FONT.regular,fontSize:12,color:C.ink,flex:1,textAlign:'right'},
+  undoButton: {flexDirection:'row-reverse',gap:5,alignItems:'center',padding:8,backgroundColor:C.brand,borderRadius:9},
+  undoButtonText: {fontFamily:FONT.bold,fontSize:12,color:'#fff'},
+
   bulkHeader: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 9 },
   bulkSelect: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7, minHeight: 42 },
   bulkSelectText: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
