@@ -7,7 +7,6 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: public, max-age=120');
-header('Access-Control-Allow-Origin: https://app.yousefipour.ir');
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
   header('Allow: GET'); http_response_code(405); echo '{"error":"Method Not Allowed"}'; exit;
 }
