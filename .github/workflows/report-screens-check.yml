@@ -19,9 +19,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: mobile/package-lock.json
-      - name: Install React Native parser dependencies
-        working-directory: mobile
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install isolated Babel parser
+        run: npm install --prefix /tmp/khatyar-report-parser --no-save --ignore-scripts --no-audit --no-fund @babel/parser@7.28.4
       - name: Validate report screens JSX and feature contracts
         working-directory: mobile
+        env:
+          NODE_PATH: /tmp/khatyar-report-parser/node_modules
         run: node scripts/test-report-screens.cjs
