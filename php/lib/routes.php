@@ -8997,6 +8997,19 @@ route('POST', '/api/official-visits', function($p, $b, $u) {
   // جلوگیری از ثبت تکراری حضور یک مسئول توسط یک کاربر برای بالا بردن رتبه
   $officialId = (int)$b['official_id'];
   $eventAt = _app_client_time($b);
+  // Replaying a queued visit must be idempotent, including after an HTTP
+  // timeout where the database write succeeded but the ACK was lost.
+  // Preserve the original client event time; rate limits must not turn a
+  // successful replay into a false 429 on the same payload.
+  $clientUuid=trim((string)($b['client_uuid']??''));
+  if($clientUuid!=='') {
+    if(strlen($clientUuid)>120 || !preg_match('/^[a-zA-Z0-9._:-]+$/D',$clientUuid))
+      Http::error('شناسه یکتای ثبت بازدید نامعتبر است.',422);
+    $prior=Db::one("SELECT id FROM official_visits WHERE recorded_by=? AND official_id=? AND line_id <=> ? AND note=? AND created_at=? LIMIT 1",[
+      (int)$u['id'],$officialId,$b['line_id']??null,(string)$b['note'],$eventAt
+    ]);
+    if($prior)return ['id'=>(int)$prior['id'],'ok'=>true,'duplicate'=>true];
+  }
   $maxPerDay = (int)_req_setting('official_visit_daily_max', 0);
   if ($maxPerDay > 0) {
     $cnt = (int)(Db::one("SELECT COUNT(*) n FROM official_visits WHERE recorded_by=? AND official_id=? AND DATE(created_at)=DATE(?)",
