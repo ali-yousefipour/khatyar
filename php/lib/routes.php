@@ -2845,7 +2845,7 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
     $segIn = max($inTs, $startTs ?: $inTs);
     $segOut = min($outTs, $endTs ?: $outTs);
     $sec = max(0, $segOut - $segIn);
-    foreach (($row['_gps_invalid'] ?? []) as $bad) {
+    foreach (($row['_work_invalid'] ?? $row['_gps_invalid'] ?? []) as $bad) {
       $badFrom=(int)($bad[0]??0); $badTo=(int)($bad[1]??0);
       if ($badTo>$badFrom) $sec -= max(0,min($segOut,$badTo)-max($segIn,$badFrom));
     }
@@ -3318,6 +3318,16 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
     FROM staff_attendance
     WHERE user_id=? AND $condition
     ORDER BY check_in", [(int)$userId,$end,$start]);
+  // Calculate both types from the same confirmed evidence and attendance
+  // sessions. Reuse the effective internet ranges after administrative waivers.
+  require_once __DIR__.'/InternetWorkIntervals.php';
+  $internetDetails=internet_work_daily_details((int)$userId,$rows);
+  $internetRanges=[];
+  foreach($internetDetails as $detail) {
+    $from=strtotime((string)($detail['start_at']??''));
+    $to=strtotime((string)($detail['end_at']??''));
+    if($from && $to && $to>$from)$internetRanges[]=[$from,$to];
+  }
   foreach ($rows as &$r) {
     $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g;
     $rowIn=strtotime($r['check_in']??'');
@@ -3333,6 +3343,13 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
     $gpsTo=min(strtotime($r['_clip_end']),$rowOut?:time());
     $pendingGpsGrace=empty($r['check_out']) && $gpsTo>=time()-60; // مهلت فقط برای نیم‌ساعت جاری؛ روزهای بسته‌شده دیگر مهلت ندارند.
     $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,$pendingGpsGrace):[];
+    $r['_internet_invalid']=[];
+    foreach($internetRanges as $range){
+      $from=max($gpsFrom,(int)$range[0]);$to=min($gpsTo,(int)$range[1]);
+      if($to>$from)$r['_internet_invalid'][]=[$from,$to];
+    }
+    // ShiftCalc subtracts the UNION, never two penalties for the same minute.
+    $r['_work_invalid']=array_merge($r['_gps_invalid'],$r['_internet_invalid']);
   }
   return $rows;
 }
@@ -3532,7 +3549,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
       // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
       // آزاد را به اشتباه غیبت ۷:۳۳ ثبت کند.
-      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):($throughJdate!==null?$reportNow:null),'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]], $rows);
+      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):($throughJdate!==null?$reportNow:null),'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_work_invalid']??$r['_gps_invalid']??[]], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
       $hasOpenSession=(bool)array_filter($rows,static fn($r)=>empty($r['check_out']));
       $isInCurrentReport=$throughJdate!==null&&strcmp($jdate,$throughJdate)<=0;
@@ -5354,7 +5371,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
   $cal=ShiftCalc::calendarDay($jdate);
   $rows=_attendance_rows_for_jdate($u['id'],$jdate,true);
-  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
+  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_work_invalid']??$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
   // بازه‌های نامعتبر را به‌صورت اجتماع بازه‌ها حساب کن؛ هم‌پوشانی جلسات/رویدادها نباید دوبار کسر شود.
   $gpsInvalidRanges=[];
