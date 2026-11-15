@@ -9497,6 +9497,8 @@ route('DELETE', '/api/reports/{id}', function($p,$b,$u){
   $id=(int)$p['id'];
   $r=Db::one("SELECT id,sender_id FROM reports WHERE id=? AND deleted_at IS NULL",[$id]);
   if(!$r) Http::error('گزارش یافت نشد',404);
+  $allowed=Db::one("SELECT r.id FROM reports r WHERE r.id=? AND (r.sender_id=? OR EXISTS(SELECT 1 FROM report_routes rr WHERE rr.report_id=r.id AND (rr.to_user_id=? OR rr.actor_id=?)) OR EXISTS(SELECT 1 FROM report_cc rc WHERE rc.report_id=r.id AND rc.to_user_id=?))",[$id,$u['id'],$u['id'],$u['id'],$u['id']]);
+  if (!$allowed && empty($u['is_admin']) && (int)($u['level']??99)>ADMIN) Http::error('اجازه حذف این گزارش را ندارید.',403);
   $reason = trim((string)($b['reason'] ?? ''));
   if((int)$r['sender_id'] === (int)$u['id'] || !empty($u['is_admin']) || (int)($u['level']??99)<=ADMIN) {
     if ((int)$r['sender_id'] === (int)$u['id'] && _report_is_read_by_receiver($id) && empty($u['is_admin']) && (int)($u['level']??99)>ADMIN) {
@@ -9537,6 +9539,9 @@ route('GET', '/api/reports/{id}', function($p,$b,$u){
   _ensure_reports_index();
   $r = Db::one("SELECT r.*, us.first_name, us.last_name, us.signature_data sender_signature, COALESCE(ro.title,'') sender_role_title FROM reports r JOIN users us ON us.id=r.sender_id LEFT JOIN roles ro ON ro.id=us.role_id WHERE r.id=? AND r.deleted_at IS NULL", [$p['id']]);
   if (!$r) Http::error('یافت نشد', 404);
+  $currentOwner = Db::one("SELECT rr.to_user_id, TRIM(CONCAT(COALESCE(o.first_name,''),' ',COALESCE(o.last_name,''))) current_owner_name FROM report_routes rr LEFT JOIN users o ON o.id=rr.to_user_id WHERE rr.report_id=? ORDER BY rr.id DESC LIMIT 1", [(int)$p['id']]);
+  $r['current_owner_id'] = isset($currentOwner['to_user_id']) ? (int)$currentOwner['to_user_id'] : null;
+  $r['current_owner_name'] = $currentOwner['current_owner_name'] ?? null;
   $isSender = ((int)$r['sender_id'] === (int)$u['id']);
   if (!$isSender) {
     try {
@@ -9594,10 +9599,22 @@ route('GET', '/api/my/forward-targets', fn($p,$b,$u) => Db::all(
 route('POST', '/api/reports/{id}/action', function($p,$b,$u){
   $action = $b['action'] ?? 'note';
   if ($action === 'forward') {
+    // Only the current inbox owner or an administrator can forward. Historical
+    // recipients cannot silently override a newer assignment.
+    $reportId=(int)$p['id'];
+    $report=Db::one("SELECT id,sender_id FROM reports WHERE id=? AND deleted_at IS NULL",[$reportId]);
+    if (!$report) Http::error('گزارش یافت نشد.',404);
+    $lastRoute=Db::one("SELECT to_user_id FROM report_routes WHERE report_id=? ORDER BY id DESC LIMIT 1",[$reportId]);
+    $isAdmin=!empty($u['is_admin']) || (int)($u['level']??99)<=ADMIN;
+    if (!$isAdmin && (!$lastRoute || (int)$lastRoute['to_user_id']!==(int)$u['id']))
+      Http::error('این گزارش دیگر در کارتابل شما نیست. فهرست را تازه‌سازی کنید.',409);
     // ارجاع: اگر مقصد مشخص شده، فقط همان؛ وگرنه به همهٔ مقام‌های بالادستی
     $targets = !empty($b['to_user_id']) ? [(int)$b['to_user_id']] : _user_managers($u['id']);
     $targets = array_values(array_filter(array_unique($targets), fn($target) => (int)$target > 0 && (int)$target !== (int)$u['id']));
     if (!$targets) Http::error('مقام بالادستی برای ارجاع تعریف نشده است', 400);
+    foreach ($targets as $to) {
+      if (!Db::one("SELECT id FROM users WHERE id=? AND is_active=1",[$to])) Http::error('گیرنده انتخاب‌شده غیرفعال یا نامعتبر است.',422);
+    }
     $rep = Db::one("SELECT subject, sender_id FROM reports WHERE id=?", [$p['id']]);
     foreach ($targets as $to) {
       Db::run("INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES(?,?,?,?,?)",
@@ -9689,7 +9706,7 @@ route('GET', '/api/my/cc-reports', function($p,$b,$u){
   _ensure_reports_index();
   return Db::all(
     "SELECT r.id, r.subject, r.body, r.status, COALESCE(r.priority,'normal') priority, r.created_at, r.attachment_name,
-            us.first_name, us.last_name, us.id sender_id,
+            us.first_name, us.last_name, us.id sender_id, (SELECT TRIM(CONCAT(COALESCE(own.first_name,''),' ',COALESCE(own.last_name,''))) FROM report_routes lr2 JOIN users own ON own.id=lr2.to_user_id WHERE lr2.report_id=r.id ORDER BY lr2.id DESC LIMIT 1) current_owner_name,
             (SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count,
             cc.created_at cc_at,
             TRIM(CONCAT(COALESCE(ab.first_name,''),' ',COALESCE(ab.last_name,''))) cc_by_name
@@ -9706,7 +9723,7 @@ route('GET', '/api/my/inbox-reports', function($p,$b,$u){
   _ensure_reports_index();
   return Db::all(
     "SELECT r.id, r.subject, r.body, r.status, COALESCE(r.priority,'normal') priority, r.created_at, r.attachment_name,
-            us.first_name, us.last_name, us.id sender_id, lr.action last_action, (SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count
+            us.first_name, us.last_name, us.id sender_id, (SELECT TRIM(CONCAT(COALESCE(own.first_name,''),' ',COALESCE(own.last_name,''))) FROM report_routes lr2 JOIN users own ON own.id=lr2.to_user_id WHERE lr2.report_id=r.id ORDER BY lr2.id DESC LIMIT 1) current_owner_name, lr.action last_action, (SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count
      FROM reports r
      JOIN users us ON us.id=r.sender_id
      JOIN (SELECT rr.report_id, rr.to_user_id, rr.action
@@ -9722,7 +9739,7 @@ route('GET', '/api/my/forwarded-reports', function($p,$b,$u){
   _ensure_reports_index();
   return Db::all(
     "SELECT DISTINCT r.id, r.subject, r.body, r.status, COALESCE(r.priority,'normal') priority, r.created_at, r.attachment_name,
-            us.first_name, us.last_name, us.id sender_id,
+            us.first_name, us.last_name, us.id sender_id, (SELECT TRIM(CONCAT(COALESCE(own.first_name,''),' ',COALESCE(own.last_name,''))) FROM report_routes lr2 JOIN users own ON own.id=lr2.to_user_id WHERE lr2.report_id=r.id ORDER BY lr2.id DESC LIMIT 1) current_owner_name,
             (SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count,
             (SELECT MAX(rr2.created_at) FROM report_routes rr2 WHERE rr2.report_id=r.id AND rr2.actor_id=? AND rr2.action='forward') forwarded_at
      FROM reports r
@@ -9736,7 +9753,7 @@ route('GET', '/api/my/inbox-reports/archived', function($p,$b,$u){
   _ensure_reports_index();
   return Db::all(
     "SELECT r.id, r.subject, r.body, r.status, COALESCE(r.priority,'normal') priority, r.created_at, r.attachment_name,
-            us.first_name, us.last_name, us.id sender_id
+            us.first_name, us.last_name, us.id sender_id, (SELECT TRIM(CONCAT(COALESCE(own.first_name,''),' ',COALESCE(own.last_name,''))) FROM report_routes lr2 JOIN users own ON own.id=lr2.to_user_id WHERE lr2.report_id=r.id ORDER BY lr2.id DESC LIMIT 1) current_owner_name
      FROM reports r JOIN users us ON us.id=r.sender_id
      JOIN report_archives ra ON ra.report_id=r.id AND ra.user_id=?
      WHERE r.deleted_at IS NULL
@@ -9744,6 +9761,9 @@ route('GET', '/api/my/inbox-reports/archived', function($p,$b,$u){
 });
 route('POST', '/api/my/inbox-reports/{id}/archive', function($p,$b,$u){
   _ensure_reports_index();
+  $reportId=(int)$p['id'];
+  $allowed=Db::one("SELECT r.id FROM reports r WHERE r.id=? AND r.deleted_at IS NULL AND (r.sender_id=? OR EXISTS(SELECT 1 FROM report_routes rr WHERE rr.report_id=r.id AND (rr.to_user_id=? OR rr.actor_id=?)) OR EXISTS(SELECT 1 FROM report_cc rc WHERE rc.report_id=r.id AND rc.to_user_id=?))",[$reportId,$u['id'],$u['id'],$u['id'],$u['id']]);
+  if (!$allowed) Http::error('اجازه بایگانی این گزارش را ندارید.',403);
   $archive = !isset($b['archive']) || !empty($b['archive']);
   if ($archive) Db::run("INSERT IGNORE INTO report_archives(report_id,user_id) VALUES(?,?)", [$p['id'], $u['id']]);
   else Db::run("DELETE FROM report_archives WHERE report_id=? AND user_id=?", [$p['id'], $u['id']]);
@@ -11949,7 +11969,7 @@ route('GET', '/api/my/lines', fn($p,$b,$u) => Db::all(
 route('GET', '/api/my/reports', function($p,$b,$u){
   _ensure_reports_index();
   $q = trim((string)($_GET['q'] ?? ''));
-  $sql = "SELECT r.id,r.subject,r.body,r.status,COALESCE(r.priority,'normal') priority,COALESCE(r.confidential_history,0) confidential_history,r.created_at,(SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count FROM reports r WHERE r.sender_id=? AND r.deleted_at IS NULL";
+  $sql = "SELECT r.id,r.subject,r.body,r.status,COALESCE(r.priority,'normal') priority,COALESCE(r.confidential_history,0) confidential_history,r.created_at,(SELECT TRIM(CONCAT(COALESCE(own.first_name,''),' ',COALESCE(own.last_name,''))) FROM report_routes lr2 JOIN users own ON own.id=lr2.to_user_id WHERE lr2.report_id=r.id ORDER BY lr2.id DESC LIMIT 1) current_owner_name,(SELECT COUNT(*) FROM report_attachments ra WHERE ra.report_id=r.id) attachments_count FROM reports r WHERE r.sender_id=? AND r.deleted_at IS NULL";
   $args = [$u['id']];
   if ($q !== '') { $sql .= " AND (r.subject LIKE ? OR r.body LIKE ?)"; $like='%'.$q.'%'; $args[]=$like; $args[]=$like; }
   $sql .= " ORDER BY r.created_at DESC LIMIT 200";
