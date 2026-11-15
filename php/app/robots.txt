@@ -1,13 +1,9 @@
 User-agent: *
 Allow: /
-Disallow: /login
-Disallow: /panel
 Disallow: /app
 Disallow: /app.html
 Disallow: /api/
 Disallow: /uploads/
-Disallow: /assets/
-Disallow: /vendor/
 Disallow: /f/
 
 Sitemap: https://khat-yar.ir/sitemap.xml
