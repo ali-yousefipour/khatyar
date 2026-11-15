@@ -2,6 +2,8 @@ import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { faNum } from '../num';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { request } from '../api';
+import {useAuth} from '../auth';
+import {readExpiryPreferences,expiryNoticeEnabled} from '../expiryDisplayPreferences';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -9,6 +11,8 @@ import {MaterialCommunityIcons} from '@expo/vector-icons';
 import DetailPageHeader from '../components/DetailPageHeader';
 
 export default function NotificationsScreen({ navigation }) {
+  const {user}=useAuth();
+  const [expiryPrefs,setExpiryPrefs]=useState(null);
   useLayoutEffect(()=>{navigation.setOptions({headerShown:false});},[navigation]);
   const [data, setData] = useState(null);
   const [opening, setOpening] = useState(false);
@@ -20,6 +24,8 @@ export default function NotificationsScreen({ navigation }) {
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
+      const prefs=await readExpiryPreferences(user?.id);
+      setExpiryPrefs(prefs);
       const d = await request('/my/notifications', { queueIfOffline: false });
       setData(d);
       setAllRead(false);
@@ -29,7 +35,7 @@ export default function NotificationsScreen({ navigation }) {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -87,8 +93,8 @@ export default function NotificationsScreen({ navigation }) {
 
   if (!data && refreshing) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
-  const items = data?.items || [];
-  const unreadCount = allRead ? 0 : Math.min((data?.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
+  const items = (data?.items || []).filter(n=>expiryNoticeEnabled(n,expiryPrefs));
+  const unreadCount = allRead ? 0 : Math.min(items.filter(n => !n.is_read).length, 99);
 
   return (
     <View style={{ flex:1, backgroundColor:'#edf8f5' }}>
