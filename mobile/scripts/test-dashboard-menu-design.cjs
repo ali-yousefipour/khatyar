@@ -30,4 +30,34 @@ for (const route of [...itemRoutes, 'SendQueue']) assert.ok(sections.includes(`'
 assert.match(drawer, /roleAppAccess\.includes\(route\)/, 'Drawer must continue to filter unauthorized links');
 assert.match(drawer, /paddingTop:insets\.top\+14/, 'Drawer header should honor the status bar safe area');
 assert.match(drawer, /roleAccessError/, 'Drawer needs a recoverable network-error state');
+// Compact dashboard UX regression guards: no oversized shortcuts or always-open KPI cards.
+for (const snippet of [
+  "const [statsExpanded, setStatsExpanded] = useState(false)",
+  "const [clockNow, setClockNow] = useState(() => new Date())",
+  "clockNow.getHours() < 19 ? 'عصر بخیر'",
+  ": 'شب بخیر'",
+  "greeting}",
+  "style={s.profileInfoRow}",
+  "todayFaLong()",
+  "weatherPresentation(weather.weather_code",
+  "statsExpanded && <View style={s.kpis}>",
+  "accessibilityState={{expanded:statsExpanded}}",
+  "style={s.toolbarControls}",
+  "setOrderModal(true)",
+  "setMenuTab(key)",
+]) assert.ok(dashboard.includes(snippet), `Dashboard: missing ${snippet}`);
+assert.match(dashboard, /quickActionIcon: \{ height:37/, 'Shortcut icons must be compact');
+assert.match(dashboard, /quickAction: \{ flexGrow:1, flexShrink:1, flexBasis:49/, 'Shortcut grid must use compact columns');
+assert.match(dashboard, /searchBox: \{ marginHorizontal: 16, marginBottom: 9, minHeight: 43/, 'Tool search must be short');
+
+const app = fs.readFileSync(path.resolve(__dirname, '../App.js'), 'utf8');
+const config = fs.readFileSync(path.resolve(__dirname, '../app.config.js'), 'utf8');
+const systemPlugin = fs.readFileSync(path.resolve(__dirname, '../plugins/withSystemNavigationContrast.js'), 'utf8');
+assert.match(app, /paddingBottom:Platform\.OS==='android'\?Math\.max\(insets\.bottom,12\)/, 'Root must protect Android system navigation area');
+assert.match(config, /withSystemNavigationContrast/, 'Android config must enable navigation contrast plugin');
+assert.match(config, /backgroundColor: '#edf8f5'/, 'Root color must match the Android navigation area');
+for (const rule of ['android:windowLightNavigationBar', 'android:navigationBarColor', 'android:enforceNavigationBarContrast']) {
+  assert.ok(systemPlugin.includes(rule), `Android navigation theme missing ${rule}`);
+}
+console.log('PASS dashboard compact UX and Android navigation contrast contracts');
 console.log('PASS dashboard/menu redesign: responsive cards, favorites, rank labels, role-scoped drawer');
