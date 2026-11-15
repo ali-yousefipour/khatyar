@@ -302,7 +302,7 @@ const s = StyleSheet.create({
 
 // فیش‌های حقوقی PDF پیوست‌شده توسط مدیر
 export function SalarySlipsScreen() {
-  const [tab, setTab] = useState('attachments');
+  const [tab, setTab] = useState('company');
   return <View style={{flex:1,backgroundColor:C.paper}}><View accessibilityRole="tablist" style={{flexDirection:'row-reverse',padding:8,gap:8,margin:12,backgroundColor:'#e8f3ef',borderRadius:18}}>{[['attachments','فیش‌های پیوستی'],['company','وضعیت حقوق ماهانه']].map(([key,label])=><TouchableOpacity key={key} accessibilityRole="tab" accessibilityState={{selected:tab===key}} onPress={()=>setTab(key)} style={{flex:1,minHeight:48,padding:12,borderRadius:15,backgroundColor:tab===key?'#075b4d':'#fff',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,textAlign:'center',color:tab===key?'#fff':C.ink}}>{label}</Text></TouchableOpacity>)}</View>{tab==='company'?<CompanyPayrollHistory/>:<SalarySlipAttachmentsScreen/>}</View>;
 }
 function SalarySlipAttachmentsScreen() {
