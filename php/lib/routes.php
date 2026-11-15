@@ -5083,6 +5083,14 @@ function _manual_provisional_schema(){
     KEY idx_map_attendance(attendance_id),
     KEY idx_map_user(user_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  Db::run("CREATE TABLE IF NOT EXISTS manual_request_submission_keys (
+    user_id INT NOT NULL,
+    client_uuid VARCHAR(110) NOT NULL,
+    request_id BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id,client_uuid),
+    KEY idx_request_id(request_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   $ready=true;
 }
 function _manual_provisional_record(int $requestId){
@@ -5190,15 +5198,28 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     if (!$hasSub) Db::run("ALTER TABLE requests ADD COLUMN substitute_user_id INT NULL");
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if($type==='manual')_manual_provisional_schema();
+  $manualUuid=trim((string)($b['client_uuid']??''));
+  if($manualUuid!==''&&!preg_match('/^[a-zA-Z0-9_-]{12,110}$/D',$manualUuid))Http::error('شناسه ثبت تردد دستی معتبر نیست.',422);
   $manualTx=$type==='manual'?Db::pdo():null;
   if($manualTx)$manualTx->beginTransaction();
   try {
+  if($type==='manual'&&$manualUuid!==''){
+    Db::run("INSERT IGNORE INTO manual_request_submission_keys(user_id,client_uuid,request_id) VALUES(?,?,NULL)",[(int)$u['id'],$manualUuid]);
+    $existingSubmission=Db::one("SELECT request_id FROM manual_request_submission_keys WHERE user_id=? AND client_uuid=? FOR UPDATE",[(int)$u['id'],$manualUuid]);
+    if(!empty($existingSubmission['request_id'])){
+      $existingId=(int)$existingSubmission['request_id'];
+      $mapped=_manual_provisional_record($existingId);
+      $manualTx->commit();
+      return ['id'=>$existingId,'minutes'=>0,'provisional_attendance_id'=>(int)($mapped['attendance_id']??0),'duplicate'=>true];
+    }
+  }
   $id = Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,attachment_name,attachment_data,selfie_data,pending_on,substitute_user_id)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     [$u['id'],$type,$unit,$b['from_jdate']??null,$b['to_jdate']??null,$b['the_date']??null,$b['from_time']??null,$b['to_time']??null,
      $b['manual_kind']??null,$b['in_time']??null,$b['out_time']??null,$minutes,$b['reason']??null,
      $b['attachment_name']??null,$b['attachment_data']??null,$b['selfie_data']??null,$approver,$sub]);
   $provisionalAttendanceId=$type==='manual' ? _manual_provisional_apply($b,(int)$id,(int)$u['id']) : null;
+  if($type==='manual'&&$manualUuid!=='')Db::run("UPDATE manual_request_submission_keys SET request_id=? WHERE user_id=? AND client_uuid=?",[ (int)$id,(int)$u['id'],$manualUuid ]);
   if($manualTx)$manualTx->commit();
   }catch(Throwable $failure){
     if($manualTx&&$manualTx->inTransaction())$manualTx->rollBack();
