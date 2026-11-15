@@ -56,7 +56,7 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   x = await checkVersion();
   assert.equal(x.failed, true);
 
-  assert.match(nativeSource, /TRUSTED_UPDATE_HOST = "khat-yar\\.ir"/);
+  assert.match(nativeSource, /TRUSTED_UPDATE_HOST = "khat-yar\.ir"/);
 assert.match(nativeSource, /TRUSTED_GITHUB_RELEASE_HOST/);
   assert.match(nativeSource, /TRUSTED_GITHUB_ASSET_HOST/);
   assert.match(nativeSource, /validateUpdateUrl\(finalUrl, !expected\.isEmpty\(\)\)/);
