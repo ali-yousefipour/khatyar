@@ -11,7 +11,7 @@ if (check.status !== 0) {
   console.error(check.stderr || check.stdout || 'Jalali module parse failed');
   process.exit(1);
 }
-if (!/export\\s+function\\s+g2j\\s*\\(/.test(source)) {
+if (!/export\s+function\s+g2j\s*\(/.test(source)) {
   throw new Error('g2j should be exported exactly once as a named function');
 }
 console.log('PASS: Jalali module parses as ESM with a unique g2j export.');
