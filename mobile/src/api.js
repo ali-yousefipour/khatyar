@@ -8,10 +8,22 @@ import {markManualRequestSynced} from './manualAttendance';
 import { setLastApi } from './crashReporter';
 let accessToken=null;const memCache={};const CACHE_MAX_AGE_MS=10*60*1000;
 const tokenListeners=new Set();
+const revokedListeners=new Set();
+export function onSessionRevoked(listener){
+  if(typeof listener!=='function')return()=>{};
+  revokedListeners.add(listener);
+  return()=>revokedListeners.delete(listener);
+}
+let revocationReported=false;
+function confirmedRevocation(){
+  if(revocationReported)return;
+  revocationReported=true;
+  for(const listener of revokedListeners){try{listener()}catch(_){}}
+}
 export function onAccessTokenChanged(listener){if(typeof listener!=='function')return()=>{};tokenListeners.add(listener);return()=>tokenListeners.delete(listener)}
-export async function setTokens(access,refresh){accessToken=access;await SecureStore.setItemAsync('access',access);if(refresh)await SecureStore.setItemAsync('refresh',refresh);for(const listener of tokenListeners){try{listener(access)}catch(_){}}}
+export async function setTokens(access,refresh){revocationReported=false;accessToken=access;await SecureStore.setItemAsync('access',access);if(refresh)await SecureStore.setItemAsync('refresh',refresh);for(const listener of tokenListeners){try{listener(access)}catch(_){}}}
 export async function loadTokens(){accessToken=await SecureStore.getItemAsync('access');return accessToken}
-export async function clearTokens(){accessToken=null;await SecureStore.deleteItemAsync('access');await SecureStore.deleteItemAsync('refresh')}
+export async function clearTokens(){revocationReported=false;accessToken=null;await SecureStore.deleteItemAsync('access');await SecureStore.deleteItemAsync('refresh')}
 async function fetchTimeout(url,opts={},ms=25000){const ctrl=new AbortController(),id=setTimeout(()=>ctrl.abort(),ms);try{return await fetch(url,{...opts,signal:ctrl.signal})}catch(e){if(e.name==='AbortError')throw new Error('ارتباط با سرور برقرار نشد (زمان انتظار به پایان رسید).');throw new Error('اتصال به سرور ممکن نشد.')}finally{clearTimeout(id)}}
 // Multiple polling requests often observe the same expired access token.
 // Serialize renewal to avoid simultaneous updates and transient logout races.
@@ -30,7 +42,7 @@ async function refreshAccess(){
           headers:{'content-type':'application/x-www-form-urlencoded; charset=UTF-8','accept':'application/json'},
           body:form.toString()
         },18000);
-        if(r.status===401||r.status===403)return false; // verified revocation/expiry
+        if(r.status===401||r.status===403){confirmedRevocation();return false;} // verified server-side session revocation
         if(!r.ok){if(r.status>=500){if(attempt===0)continue;throw transient();}return false;}
         const d=await r.json();
         if(!d?.access||!d?.refresh)throw transient();
