@@ -1,19 +1,46 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import {ensurePresenceChannel} from './notify';
+import {tehranGregorianParts} from './jdate';
 
 export const PRESENCE_LOCAL_SCHEDULE_KEY = 'presence_local_schedule_v2';
 const MODE_KEY = 'presence_daily_policy_v2';
 const MAX_RANDOM_PER_SESSION = 6;
 const BLOCK_MS = 4 * 60 * 60 * 1000;
 const DEFAULT_WINDOW_MINUTES = 3;
-const policyDay = () => new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tehran'});
+const policyDay = () => { const p=tehranGregorianParts(new Date()); return p?`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`:new Date().toISOString().slice(0,10); };
+const FIXED_KEY='presence_fixed_notifications_v1';
+async function scheduleFixedAlerts(policy){
+  if(!policy?.enabled||!policy?.assigned||policy?.random_enabled||!policy?.slots?.length)return;
+  let existing=null;
+  try{existing=JSON.parse(await AsyncStorage.getItem(FIXED_KEY)||'null')}catch{}
+  if(existing?.user_id===policy.user_id&&existing?.day===policy.day)return;
+  for(const item of existing?.items||[])if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
+  await ensurePresenceChannel();
+  const items=[];
+  for(const slot of policy.slots){
+    if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(slot)))continue;
+    const ts=Date.parse(policy.day+'T'+slot+':00+03:30');
+    if(!Number.isFinite(ts)||ts<=Date.now())continue;
+    try{
+      const notification_id=await Notifications.scheduleNotificationAsync({
+        content:{title:'صحت‌سنجی حضور',body:'زمان ثبت سلفی و تصویر ایستگاه فرا رسیده است.',sound:'presence_validation_alert.mp3',channelId:'presence_alarm',priority:Notifications.AndroidNotificationPriority.MAX,
+          data:{type:'presence_check',slot,request_id:policy.day+'_'+slot,ts:Math.floor(ts/1000),window_minutes:policy.window_minutes}},
+        trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(ts)}
+      });
+      items.push({slot,notification_id});
+      await AsyncStorage.setItem('presence_notified:'+policy.day+':'+slot,'1');
+    }catch{}
+  }
+  await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({user_id:policy.user_id,day:policy.day,items}));
+}
 export async function cachedPresencePolicy(userId) {
   try { const p=JSON.parse(await AsyncStorage.getItem(MODE_KEY)||'null'); return Number(p?.user_id)===Number(userId)?p:null; } catch { return null; }
 }
 export async function storePresencePolicy(userId,config) {
   const policy={user_id:Number(userId),day:policyDay(),saved_at:Date.now(),enabled:!!config.enabled,required:!!config.required,assigned:config.assigned===undefined?!!config.required:!!config.assigned,random_enabled:!!config.random_enabled,slots:Array.isArray(config.slots)?config.slots:[],window_minutes:Number(config.window_minutes||3),alarm:config.alarm!==false,immediate_requests:[]};
   await AsyncStorage.setItem(MODE_KEY,JSON.stringify(policy));
+  await scheduleFixedAlerts(policy).catch(()=>{});
   return policy;
 }
 export async function currentPresencePolicy(userId,request) {
@@ -70,7 +97,7 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
     for(let j=0;j<3;j++) {
       const at=Math.floor(start+margin+segment*(j+Math.random()*0.85));
       const ts=Math.floor(at/1000);
-      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(1,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
+      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
     }
   }
   const schedule={user_id:Number(userId),attendance_id:id,start:open.start,items:items.slice(0,MAX_RANDOM_PER_SESSION),created_at:Date.now()};
