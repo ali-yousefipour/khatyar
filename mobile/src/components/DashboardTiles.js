@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 
-export function DashboardTool({ label, icon, category, width, onPress }) {
+export function DashboardTool({ label, icon, category, width, onPress, favorite = false, onToggleFavorite }) {
   return <TouchableOpacity
     accessibilityRole="button"
     accessibilityLabel={label}
@@ -17,10 +17,11 @@ export function DashboardTool({ label, icon, category, width, onPress }) {
       <MaterialCommunityIcons name={icon} size={26} color={C.brand} />
     </View>
     <View style={styles.copy}>
-      <Text style={styles.title}>{label}</Text>
-      <Text style={styles.category}>{category}</Text>
+      <Text style={styles.title} maxFontSizeMultiplier={1.45}>{label}</Text>
+      {category ? <Text style={styles.category} maxFontSizeMultiplier={1.3}>{category}</Text> : null}
     </View>
     {width >= 220 && <View style={styles.arrow}><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /></View>}
+    {onToggleFavorite && <TouchableOpacity accessibilityRole="button" accessibilityLabel={favorite ? `حذف ${label} از موارد دلخواه` : `افزودن ${label} به موارد دلخواه`} onPress={(e) => { e.stopPropagation(); onToggleFavorite(); }} style={styles.favoriteButton} hitSlop={5}><MaterialCommunityIcons name={favorite ? 'star' : 'star-outline'} size={22} color={favorite ? '#e2a927' : C.slate}/></TouchableOpacity>}
     <View style={styles.toolAccent} />
   </TouchableOpacity>;
 }
@@ -29,14 +30,15 @@ export function DashboardMetric({ label, value, icon, width }) {
   return <View accessible accessibilityLabel={label + '، ' + faNum(Number(value))} style={[styles.metric, { width }]}>
     <View style={styles.metricTop}>
       <MaterialCommunityIcons name={icon} size={22} color={C.brand} />
-      <Text style={styles.value}>{faNum(Number(value))}</Text>
+      <Text style={styles.value} maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit>{faNum(Number(value))}</Text>
     </View>
-    <Text style={styles.metricLabel}>{label}</Text>
+    <Text style={styles.metricLabel} maxFontSizeMultiplier={1.45}>{label}</Text>
     <View style={styles.metricAccent} />
   </View>;
 }
 
 const styles = StyleSheet.create({
+  favoriteButton: { minWidth: 42, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#f4f8f6', flexShrink: 0 },
   tool: { minHeight: 104, borderRadius: 21, borderWidth: 1, borderColor: '#c5e9dd', backgroundColor: '#fff', padding: 13, flexDirection: 'row-reverse', alignItems: 'center', gap: 10, overflow:'hidden', elevation: 3, shadowColor: '#126a53', shadowOffset: {width:0,height:3}, shadowOpacity: 0.09, shadowRadius: 9 },
   toolAccent: { position:'absolute', bottom:0, left:0, height:5, width:54, borderTopRightRadius:9, backgroundColor:'#12a36f' },
   icon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#e0f5ec', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: '#c5e9dd' },
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
   category: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 2 },
   metric: { minHeight: 112, padding: 15, paddingBottom:19, backgroundColor:'#fff', borderRadius:20, borderWidth:1,borderColor:'#c5e9dd', overflow:'hidden', elevation:2, shadowColor:'#126a53',shadowOpacity:0.08,shadowRadius:9 },
   metricAccent: { position:'absolute', bottom:0, left:12, right:12, height:4, borderRadius:4, backgroundColor:'#38c98b' },
-  metricTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  value: { fontFamily: FONT.bold, fontSize: 26, color: C.ink, fontVariant: ['tabular-nums'] },
+  metricTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  value: { flexShrink: 1, fontFamily: FONT.bold, fontSize: 26, color: C.ink, fontVariant: ['tabular-nums'] },
   metricLabel: { fontFamily: FONT.regular, fontSize: 13, color: C.slate, textAlign: 'right', marginTop: 6 },
 });
