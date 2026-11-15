@@ -26,6 +26,7 @@ const { validateUpdateUrl, checkVersion } = context.api;
 const sha = 'a'.repeat(64);
 
 assert.equal(validateUpdateUrl('https://khat-yar.ir/release/line-app.apk'), true);
+assert.equal(validateUpdateUrl('https://app.yousefipour.ir/release/old.apk'), false, 'Old host is no longer a trusted APK origin');
 assert.equal(validateUpdateUrl('https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk'), true);
 assert.equal(validateUpdateUrl('https://github.com/ali-yousefipour/khatyar/releases/download/v1.5.15/khatyar-1.5.15.apk'), true);
 assert.equal(validateUpdateUrl('https://cdn.example.org/khatyar.apk'), false);
@@ -55,7 +56,8 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   x = await checkVersion();
   assert.equal(x.failed, true);
 
-  assert.match(nativeSource, /TRUSTED_GITHUB_RELEASE_HOST/);
+  assert.match(nativeSource, /TRUSTED_UPDATE_HOST = "khat-yar\\.ir"/);
+assert.match(nativeSource, /TRUSTED_GITHUB_RELEASE_HOST/);
   assert.match(nativeSource, /TRUSTED_GITHUB_ASSET_HOST/);
   assert.match(nativeSource, /validateUpdateUrl\(finalUrl, !expected\.isEmpty\(\)\)/);
   assert.match(nativeSource, /if\(hasPinnedHash\) return/);
