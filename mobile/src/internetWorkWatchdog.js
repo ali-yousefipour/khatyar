@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {isSecurityExempt} from './device';
 import NetInfo from '@react-native-community/netinfo';
 import {cachedValue,postOrQueue,request} from './api';
 import {getAppConfig} from './appconfig';
@@ -19,6 +20,7 @@ async function attendanceIsOpen(){
 }
 
 export async function runInternetWorkWatchdog({source='foreground',force=false}={}){
+  if(isSecurityExempt())return {checked:false,reason:'security_exempt'};
   let required=true;
   try {const cfg=await getAppConfig(false);required=cfg?.internet_work_required!==false;}catch(_){}
   if(!required||!(await attendanceIsOpen()))return {checked:false,reason:'inactive'};
