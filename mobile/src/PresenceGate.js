@@ -49,14 +49,14 @@ export default function PresenceGate({navigationRef}){
      await openNotificationRef.current?.(item);
      if(!alive||dueRef.current)return;
     }
-    if(!cfg?.enabled||(!cfg?.random_enabled&&!cfg?.required)){setDueStable(null);return;}
+    if(!cfg?.enabled||cfg?.assigned===false){setDueStable(null);return;}
     const now=tehranNow(),win=Math.max(1,Number(cfg.window_minutes||1));
 
     // حالت تصادفی: زمان‌بندی از ورود محلی ساخته و مستقل از اتصال شبکه ذخیره می‌شود.
     if(cfg.random_enabled){
       const open=await localAttendanceSession(userId);
       if(!open)return;
-      const schedule=await ensureLocalRandomSchedule(userId,open);
+      const schedule=await ensureLocalRandomSchedule(userId,open,cfg.window_minutes);
       if(!schedule?.items?.length||!schedule.attendance_id)return;
       for(const item of schedule.items){
         const at=Number(item.ts||0)*1000;
@@ -79,6 +79,7 @@ export default function PresenceGate({navigationRef}){
       return;
     }
     if(!(cfg?.slots||[]).length){setDueStable(null);return;}
+    if(!await localAttendanceSession(userId))return;
     for(const sl of cfg.slots){
      const sm=slotToMinutes(sl);
      if(sm<0||now.minutes<sm||now.minutes>=sm+win)continue;
