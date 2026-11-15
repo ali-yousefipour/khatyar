@@ -21,6 +21,7 @@ export default function PersonalPhotoCapture({
   uniformNotice = true,
   systemCameraFirst = false,
   autoConfirm = false,
+  manualSystemCamera = false,
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
@@ -55,7 +56,7 @@ export default function PersonalPhotoCapture({
       });
       if (!photo?.uri) throw new Error('camera_empty_result');
 
-      await getAppConfig(true);
+      await getAppConfig();
       const dataUrl = await compressToDataUri(photo.uri);
       if (!dataUrl) throw new Error('camera_base64_missing');
       setReady(false);
@@ -102,7 +103,7 @@ export default function PersonalPhotoCapture({
   }
 
   useEffect(() => {
-    if (!systemCameraFirst || !permission?.granted || autoCameraStarted.current) return;
+    if (!systemCameraFirst || manualSystemCamera || !permission?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, permission?.granted]);
