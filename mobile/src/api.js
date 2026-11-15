@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiBase } from './config';
 import { enqueue, flush as flushOfflineQueue, hasPendingPath, retryOne as retryOfflineItem } from './offline';
+import {markManualRequestSynced} from './manualAttendance';
 import { setLastApi } from './crashReporter';
 let accessToken=null;const memCache={};const CACHE_MAX_AGE_MS=10*60*1000;
 const tokenListeners=new Set();
@@ -206,13 +207,8 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
   }
   const result=await request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
   if(item.path==='/my/requests'&&body?.type==='manual'&&Number(result?.id)>0){
-    try{
-      const key='manual_attendance_provisional_v1';
-      const current=JSON.parse(await AsyncStorage.getItem(key)||'null');
-      if(current&&String(current.user_id)===String(item.owner_user_id)&&String(current.request_uuid)===String(item.client_uuid)){
-        await AsyncStorage.setItem(key,JSON.stringify({...current,status:'pending',request_id:Number(result.id),updated_at:Date.now()}));
-      }
-    }catch(error){console.warn('manual attendance acknowledgement storage failed:',error?.message||error);}
+    try{await markManualRequestSynced(item.owner_user_id,item.client_uuid,result.id);}
+    catch(error){console.warn('manual attendance acknowledgement storage failed:',error?.message||error);}
   }
   if(item.path==='/my/presence-check'&&result?.ok&&!result?.queued&&body?.request_id){
     try{
