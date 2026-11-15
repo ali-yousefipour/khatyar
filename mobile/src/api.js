@@ -205,6 +205,15 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
     delete body.photo_mime;
   }
   const result=await request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
+  if(item.path==='/my/requests'&&body?.type==='manual'&&Number(result?.id)>0){
+    try{
+      const key='manual_attendance_provisional_v1';
+      const current=JSON.parse(await AsyncStorage.getItem(key)||'null');
+      if(current&&String(current.user_id)===String(item.owner_user_id)&&String(current.request_uuid)===String(item.client_uuid)){
+        await AsyncStorage.setItem(key,JSON.stringify({...current,status:'pending',request_id:Number(result.id),updated_at:Date.now()}));
+      }
+    }catch(error){console.warn('manual attendance acknowledgement storage failed:',error?.message||error);}
+  }
   if(item.path==='/my/presence-check'&&result?.ok&&!result?.queued&&body?.request_id){
     try{
       const key='presence_local_completions_v1';
