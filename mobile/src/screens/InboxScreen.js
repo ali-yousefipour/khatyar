@@ -41,6 +41,8 @@ export function InboxReportsScreen({ navigation }) {
   const [newestFirst, setNewestFirst] = useState(true);
   const [groupBy, setGroupBy] = useState('none');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [senderPickerOpen, setSenderPickerOpen] = useState(false);
+  const [senderFilterQuery, setSenderFilterQuery] = useState('');
   const [undoArchive, setUndoArchive] = useState(null);
   const [undoBusy, setUndoBusy] = useState(false);
   const loadSerial = useRef(0);
@@ -209,7 +211,7 @@ export function InboxReportsScreen({ navigation }) {
           {id:'forwarded',label:'ارجاع‌های من',icon:'share-outline'},
           {id:'cc',label:'رونوشت‌های من',icon:'content-copy'},
           {id:'archived',label:'بایگانی',icon:'archive-outline'},
-        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setSelectedIds([]);setTab(t.id);setSender(null);setStatusF(null);setQuery('');setAdvancedOpen(false);}}>
+        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setSelectedIds([]);setTab(t.id);setSender(null);setStatusF(null);setQuery('');setAdvancedOpen(false);setSenderPickerOpen(false);setSenderFilterQuery('');}}>
           <MaterialCommunityIcons name={t.icon} size={19} color={tab===t.id?'#fff':C.brand}/><Text numberOfLines={2} style={[s.tabTxt,tab===t.id&&s.tabTxtOn]}>{t.label}</Text>
         </TouchableOpacity>)}
       </View>
@@ -229,11 +231,23 @@ export function InboxReportsScreen({ navigation }) {
         <TouchableOpacity style={s.fBtn} onPress={() => setPick('to')}><Text style={s.fBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
         {(from || to || sender || statusF) ? <TouchableOpacity style={s.clr} onPress={() => { setFrom(null); setTo(null); setSender(null); setStatusF(null); }}><Text style={s.clrTxt}>پاک</Text></TouchableOpacity> : null}
       </View>
-      {senders.length > 1 && (
-        <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
+      {senders.length > 1 && <View style={s.senderFilterBox}>
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:senderPickerOpen}} style={s.senderFilterToggle} onPress={()=>{setSenderPickerOpen(v=>!v);setSenderFilterQuery('');}}>
+          <MaterialCommunityIcons name="account-search-outline" size={19} color={C.brand}/>
+          <Text style={s.senderFilterName} numberOfLines={1}>{sender ? (senders.find(x=>String(x.id)===String(sender))?.name||'فرستنده'):'همه فرستندگان'}</Text>
+          <MaterialCommunityIcons name={senderPickerOpen?'chevron-up':'chevron-down'} size={20} color={C.brand}/>
+        </TouchableOpacity>
+        {senderPickerOpen && <View style={s.senderFilterChoices}>
+          <TextInput value={senderFilterQuery} onChangeText={setSenderFilterQuery} placeholder="جستجوی نام فرستنده…" placeholderTextColor={C.muted} style={s.senderFilterInput}/>
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always" style={{maxHeight:190}}>
+            {[{id:null,name:'همه فرستندگان'},...senders.filter(sd=>sd.name.toLocaleLowerCase('fa-IR').includes(senderFilterQuery.trim().toLocaleLowerCase('fa-IR')))].map((sd,idx)=><TouchableOpacity accessibilityRole="button" key={sd.id??'all'} style={s.senderOption} onPress={()=>{setSender(sd.id);setSenderPickerOpen(false);setSenderFilterQuery('');setSelectedIds([]);}}><MaterialCommunityIcons name={String(sender)===String(sd.id)?'check-circle':'circle-outline'} size={17} color={C.brand}/><Text style={s.senderOptionText}>{sd.name}</Text></TouchableOpacity>)}
+          </ScrollView>
+        </View>}
+      </View>}
+      <View style={s.statusFilterWrap}>
           <TouchableOpacity style={[s.chip, !sender && s.chipOn]} onPress={() => setSender(null)}><Text style={[s.chipTxt, !sender && { color: '#fff' }]}>همه فرستندگان</Text></TouchableOpacity>
           {senders.map((sd) => <TouchableOpacity key={sd.id} style={[s.chip, sender === sd.id && s.chipOn]} onPress={() => setSender(sd.id)}><Text style={[s.chipTxt, sender === sd.id && { color: '#fff' }]}>{sd.name}</Text></TouchableOpacity>)}
-        </ScrollView>
+        </View>
       )}
       <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
@@ -581,6 +595,15 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  senderFilterBox:{marginHorizontal:12,marginVertical:8,borderWidth:1,borderColor:'#d4e4dc',borderRadius:13,backgroundColor:'#f9fcfa'},
+  senderFilterToggle:{flexDirection:'row-reverse',alignItems:'center',gap:8,paddingHorizontal:12,minHeight:47},
+  senderFilterName:{flex:1,textAlign:'right',fontFamily:FONT.bold,fontSize:12,color:C.ink},
+  senderFilterChoices:{paddingHorizontal:8,paddingBottom:9},
+  senderFilterInput:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:10,minHeight:43,paddingHorizontal:12,color:C.ink,fontFamily:FONT.regular,textAlign:'right'},
+  senderOption:{flexDirection:'row-reverse',alignItems:'center',gap:8,paddingHorizontal:11,minHeight:42,borderBottomWidth:1,borderBottomColor:'#edf2ef'},
+  senderOptionText:{fontFamily:FONT.regular,color:C.ink,textAlign:'right',fontSize:12,flex:1},
+  statusFilterWrap:{flexDirection:'row-reverse',flexWrap:'wrap',alignItems:'center',gap:7,paddingHorizontal:12,paddingVertical:9},
+
   detailSectionHead:{flexDirection:'row-reverse',gap:8,alignItems:'center',marginTop:17,marginBottom:10,paddingHorizontal:4},
   detailSectionTitle:{fontFamily:FONT.bold,fontSize:16,color:C.ink,textAlign:'right'},
   detailSecondaryAction:{backgroundColor:'#e7f5ef',borderWidth:1,borderColor:'#bcdfce',marginTop:8},
