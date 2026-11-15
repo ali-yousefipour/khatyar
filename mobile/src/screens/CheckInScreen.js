@@ -349,14 +349,19 @@ function CheckInCore({ viewportHeight }) {
         setCfg(cachedCfg);
         await cacheAuthorizedWifi(cachedCfg);
         const localOpen = await readLocalOpen();
-        if (loadEpoch === attendanceStateEpochRef.current) setOpen(localOpen || null);
+        if (loadEpoch === attendanceStateEpochRef.current) {
+          setOpen(localOpen || null);
+          setLoading(false); // The offline dashboard must not wait for network timeouts.
+        }
       }
     } catch {}
     const pendingManual=await getProvisionalManual(user?.id);
+    let manualOnline=true;
+    if(pendingManual){try{const network=await NetInfo.fetch();manualOnline=network?.isConnected!==false&&network?.isInternetReachable!==false;}catch{}}
     const [cfgResult, timerResult, manualResult] = await Promise.allSettled([
       request('/my/checkin-config', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
       request('/my/work-timer', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
-      pendingManual?request('/my/requests', {noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:6500}):Promise.resolve(null),
+      pendingManual&&manualOnline?request('/my/requests', {noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:6500}):Promise.resolve(null),
     ]);
     const currentManual=manualResult.status==='fulfilled'&&Array.isArray(manualResult.value)
       ? await reconcileProvisionalManual(user?.id,manualResult.value)
@@ -885,9 +890,13 @@ function CheckInCore({ viewportHeight }) {
     finally { setBusy(false); }
   }
   async function doCheckout() {
-    // Before an online checkout, send the pending manual check-in first so the
-    // server has the matching provisional attendance ID. Offline preserves FIFO.
-    if(open?.provisional){try{await flushQueuedRequests({force:true})}catch{}}
+    // The queue is ordered; avoid a forced network upload during true offline use.
+    if(open?.provisional){
+      try{
+        const state=await NetInfo.fetch();
+        if(state?.isInternetReachable===true)await flushQueuedRequests({force:true});
+      }catch{}
+    }
     // خروج جاری نیز باید هر load قدیمی را بی‌اعتبار کند؛ مخصوصاً loadای که
     // بعد از خروج قبلی در پس‌زمینه باقی مانده و ممکن است open=null را دیر برگرداند.
     attendanceStateEpochRef.current += 1;
