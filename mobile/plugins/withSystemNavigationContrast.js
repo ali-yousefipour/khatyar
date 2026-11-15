@@ -13,10 +13,11 @@ module.exports = function withSystemNavigationContrast(config) {
       if (existing) existing._ = value;
       else items.push({ $: { name }, _: value });
     };
-    // Dark navigation icons on our pale mint root and OS contrast scrim on 3-button mode.
-    setItem('android:windowLightNavigationBar', 'true');
-    setItem('android:navigationBarColor', '#edf8f5');
+    // A dark navigation surface with white system icons, including three-button mode.
+    setItem('android:windowLightNavigationBar', 'false');
+    setItem('android:navigationBarColor', '#073d35');
     setItem('android:enforceNavigationBarContrast', 'true');
+    setItem('android:windowDrawsSystemBarBackgrounds', 'true');
     return mod;
   });
 };
