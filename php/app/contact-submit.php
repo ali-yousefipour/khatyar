@@ -11,7 +11,7 @@ if(($_SERVER['REQUEST_METHOD']??'')!=='POST')respond(405,'روش درخواست 
 if((int)($_SERVER['CONTENT_LENGTH']??0)>16000)respond(413,'متن پیام بیش از حد مجاز است.');
 $host=strtolower((string)($_SERVER['HTTP_HOST']??''));
 $origin=(string)($_SERVER['HTTP_ORIGIN']??'');
-$allowedOrigin='https://app.yousefipour.ir';
+$allowedOrigin='https://khat-yar.ir';
 if($origin!==$allowedOrigin)respond(403,'درخواست از مبدأ نامعتبر است.');
 $type=(string)($_SERVER['CONTENT_TYPE']??'');
 if(stripos($type,'application/x-www-form-urlencoded')!==0)respond(415,'فرمت درخواست نامعتبر است.');
