@@ -176,9 +176,9 @@ jobs:
           test -s "$RUNNER_TEMP/legacy.htaccess"
           cat > "$RUNNER_TEMP/legacy-prefix" <<'HTACCESS'
           RewriteEngine On
-          # Retain version discovery for older APKs, but disable all old-domain operations.
+          # All API operations, including version discovery, are disabled on the legacy domain.
+          # Cutover runs only after new HTTPS, DB, login, and signed APK verification.
           RewriteCond %{HTTP_HOST} ^app\.yousefipour\.ir$ [NC]
-          RewriteCond %{REQUEST_URI} !^/api/app/version/?$ [NC]
           RewriteRule ^api(/|$) - [G,L]
           RewriteCond %{HTTP_HOST} ^app\.yousefipour\.ir$ [NC]
           RewriteRule ^(.*)$ https://khat-yar.ir/$1 [R=302,L,NE]
