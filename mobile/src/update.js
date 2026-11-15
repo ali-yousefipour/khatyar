@@ -1,7 +1,7 @@
 import * as Application from 'expo-application';
 import { request } from './api';
 
-const TRUSTED_UPDATE_HOST = 'app.yousefipour.ir';
+const TRUSTED_UPDATE_HOST = 'khat-yar.ir';
 const TRUSTED_GITHUB_RELEASE_HOST = 'github.com';
 const TRUSTED_GITHUB_RAW_HOST = 'raw.githubusercontent.com';
 const TRUSTED_GITHUB_ASSET_HOST = 'release-assets.githubusercontent.com';
