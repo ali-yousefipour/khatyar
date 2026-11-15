@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {jToday,tehranGregorianParts,tehranTimeToEpochMs} from './jdate';
+import {g2j,tehranGregorianParts} from './jdate';
 
 const KEY='manual_attendance_provisional_v1';
 const p2=n=>String(n).padStart(2,'0');
-export function currentTehranJdate(){const [y,m,d]=jToday();return [y,p2(m),p2(d)].join('-');}
+export function currentTehranJdate(){const t=tehranGregorianParts(new Date());const [y,m,d]=g2j(t.year,t.month,t.day);return [y,p2(m),p2(d)].join('-');}
 export function manualTimeToEpoch(jdate,clock){
   if(String(jdate).replace(/\//g,'-')!==currentTehranJdate())return null;
   if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(clock)))return null;
