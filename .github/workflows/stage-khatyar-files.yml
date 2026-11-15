@@ -58,7 +58,7 @@ jobs:
           mirror --continue --parallel=2 /app $staging
           bye
           EOF
-          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -f "$RUNNER_TEMP/read-ftp.cmd"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "$(cat "$RUNNER_TEMP/read-ftp.cmd")"
           test -s "$staging/index.php"
           test -s "$staging/.htaccess"
           echo "Original production app downloaded, including uploaded media."
@@ -97,7 +97,7 @@ jobs:
           mirror --reverse --continue --parallel=2 $staging /khat-yar.ir
           bye
           EOF
-          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -f "$RUNNER_TEMP/write-ftp.cmd"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "$(cat "$RUNNER_TEMP/write-ftp.cmd")"
           mkdir -p "$RUNNER_TEMP/khatyar-verify"
           lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "
             set cmd:fail-exit yes; set net:timeout 60; set ftp:passive-mode true;
