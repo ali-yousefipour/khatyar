@@ -67,7 +67,7 @@ function work_confirmed_off_intervals(array $events, int $fromTs, int $toTs, str
   foreach ($events as $event) {
     $ts=is_numeric($event['at']??null)?(int)$event['at']:strtotime((string)($event['at']??''));
     $kind=(string)($event['kind']??'');
-    if(!$ts || $ts>$toTs || ($ts<$fromTs-86400))continue;
+    if(!$ts || $ts>$toTs+86400 || ($ts<$fromTs-86400))continue;
     if(in_array($kind,$offKinds,true)) {
       if($start===null)$start=$ts;
       $lastOff=$ts;
