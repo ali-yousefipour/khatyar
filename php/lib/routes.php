@@ -5,8 +5,8 @@ require_once __DIR__.'/Seniority.php';
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.5.20';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.5.20'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '2.0.2';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '2.0.2'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -8100,6 +8100,7 @@ route('GET', '/api/app/version', function($p,$b,$u){
     'latest_version' => $latestVersion,
     'min_version'    => $get('app_min_version', '0.0.0'),
     'apk_url'        => $apkUrl,
+    'apk_sha256'     => $get('app_apk_sha256', ''),
     'release_url'    => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
     'apk_asset'     => 'khatyar.apk',
     'notes'          => $get('app_update_notes', ''),
