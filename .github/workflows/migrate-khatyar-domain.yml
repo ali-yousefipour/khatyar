@@ -105,6 +105,27 @@ jobs:
           code="$(curl -sSL --max-time 25 -X POST -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}' "$base/api/session/start")"
           echo 'Unauthenticated login contract HTTP:' "$code"
           test "$code" != 000 && test "$code" -lt 500
+      - name: Publish signed APK to new domain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/khatyar-release"
+          gh release download v2.0.2 -R "$GITHUB_REPOSITORY" -p khatyar.apk -D "$RUNNER_TEMP/khatyar-release" --clobber
+          apk="$RUNNER_TEMP/khatyar-release/khatyar.apk"
+          test -s "$apk"
+          sha256sum "$apk"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "
+            set cmd:fail-exit yes; set ftp:ssl-force false; set ftp:ssl-protect-data false;
+            set ftp:passive-mode true; mkdir -p /khat-yar.ir/releases;
+            put $apk -o /khat-yar.ir/releases/khatyar-2.0.2.apk; bye"
+          code="$(curl -sSI -L --max-time 40 -o /dev/null -w '%{http_code}' https://khat-yar.ir/releases/khatyar-2.0.2.apk)"
+          test "$code" = 200 || { echo "New APK is not publicly downloadable"; exit 1; }
+          echo 'Verified release APK on khat-yar.ir.'
       - name: Document cutover readiness
         run: |
           echo 'New domain smoke checks passed. Keep old domain online until signed 2.0.2 APK is published and its download verified.'
