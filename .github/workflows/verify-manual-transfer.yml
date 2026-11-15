@@ -47,14 +47,21 @@ jobs:
             echo "GET $path anonymous HTTP $code"
             test "$code" = 401
           done
-      - name: Verify representative uploaded media and signed APK path
+      - name: Check GitHub Releases APK, not a domain-hosted APK
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          url=https://khat-yar.ir/releases/khatyar-2.0.2.apk
-          code="$(curl --silent --show-error --location --max-time 20 -o /dev/null -w '%{http_code}' -r 0-1023 "$url" || true)"
-          echo "Signed APK download HTTP $code"
-          if [ "$code" != 200 ] && [ "$code" != 206 ]; then
-            echo "::warning::New-domain signed APK not available; do not retire old domain."
+          tag="v2.0.2"
+          if ! gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::warning::Signed v2.0.2 GitHub Release has not been published yet."
+            exit 0
           fi
-          echo "Uploaded media contents require a known media manifest or authenticated sample; public smoke test cannot prove all uploads copied."
+          mkdir -p "$RUNNER_TEMP/release-check"
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p khatyar.apk.sha256 -D "$RUNNER_TEMP/release-check" --clobber
+          test -s "$RUNNER_TEMP/release-check/khatyar.apk.sha256"
+          gh release view "$tag" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'khatyar.apk'
+          echo "Signed APK and checksum are present in GitHub Releases."
+          echo "::notice::This repository is private: GitHub Release assets require authorized download; public automatic Android updates need a separately accessible URL."
+          echo "Uploaded media contents require a known media manifest or authenticated sample; this probe cannot prove all uploads copied."
