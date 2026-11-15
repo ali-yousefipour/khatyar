@@ -23,7 +23,7 @@ function kh_filter_attendance_employment(array $report, int $userId, string $fro
         return 0;
     };
     $zero=static function($v) {return is_string($v) && strpos($v,':')!==false?'00:00':0;};
-    $metrics=['worked','in_shift','expected','overtime','shortage','night','night_work','late_in','early_out','surplus','adjusted_ot','adjusted_shortage','adjusted_surplus','friday_work','holiday_work','mission','annual_leave','sick_leave','unpaid_leave','gps_inactive_minutes','absence_shortage','absence_minutes','holiday_overtime','friday_overtime','total_overtime','holiday_friday_overtime','absent','absence','present_days','friday_workday'];
+    $metrics=['worked','in_shift','expected','overtime','shortage','night','night_work','late_in','early_out','surplus','adjusted_ot','adjusted_shortage','adjusted_surplus','friday_work','holiday_work','mission','annual_leave','sick_leave','unpaid_leave','gps_inactive_minutes','internet_inactive_minutes','absence_shortage','absence_minutes','holiday_overtime','friday_overtime','total_overtime','holiday_friday_overtime','absent','absence','present_days','friday_workday'];
     $totals=[];
     $periodDays=0;$actualPresent=0;
     foreach($report['days'] as &$day){
@@ -37,6 +37,7 @@ function kh_filter_attendance_employment(array $report, int $userId, string $fro
             if(isset($day['data'])&&is_array($day['data']))foreach($day['data'] as $key=>$value)if(in_array($key,$metrics,true))$day['data'][$key]=$zero($value);
             $day['absent']=0;$day['is_absent']=false;
             $day['gps_inactive_details']=[];
+            $day['internet_inactive_details']=[];
             $day['absence_reason']='خارج از بازه همکاری';
         }else{
             $periodDays++;
