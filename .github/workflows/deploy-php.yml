@@ -283,6 +283,7 @@ jobs:
                 remote_dir="/"
               else
                 remote_dir="/${dir}"
+                if [[ "${dir}" == app* ]]; then remote_dir="/khat-yar.ir${dir#app}"; fi
               fi
 
               local_file="${GITHUB_WORKSPACE}/${file}"
@@ -383,17 +384,17 @@ jobs:
               echo 'set ssl:verify-certificate no'
               for name in school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php ZoneWorkflow.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
-                  printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/app/assets/.attendance-deploy-$name"
+                  printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/khat-yar.ir/assets/.attendance-deploy-$name"
                 fi
               done
-              printf 'put %s -o %s\n' "/tmp/${INSTALLER_NAME}" "/app/assets/${INSTALLER_NAME}"
+              printf 'put %s -o %s\n' "/tmp/${INSTALLER_NAME}" "/khat-yar.ir/assets/${INSTALLER_NAME}"
               echo 'bye'
             } >> /tmp/attendance-lib-stage.cmd
 
             lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/attendance-lib-stage.cmd)"
 
             echo "Installing protected attendance PHP libraries through the host PHP process..."
-            install_url="https://app.yousefipour.ir/assets/${INSTALLER_NAME}"
+            install_url="https://khat-yar.ir/assets/${INSTALLER_NAME}"
             response="$(curl --fail --silent --show-error --max-time 30 \
               -X POST \
               --data-urlencode "token=${ROUTES_TOKEN}" \
@@ -457,6 +458,7 @@ jobs:
               continue
             fi
             remote="/${rel}"
+            if [[ "${rel}" == app/* ]]; then remote="/khat-yar.ir/${rel#app/}"; fi
             local_sha="$(sha256sum "${file}" | awk '{print $1}')"
 
             remote_basename="$(basename "${rel}")"
@@ -504,7 +506,9 @@ jobs:
 
           while IFS= read -r rel; do
             [ -n "${rel}" ] || continue
-            echo "Deleting remote: /${rel}"
+            remote_delete="/${rel}"
+            if [[ "${rel}" == app/* ]]; then remote_delete="/khat-yar.ir/${rel#app/}"; fi
+            echo "Deleting remote: ${remote_delete}"
 
             lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
               set ftp:ssl-force false;
@@ -514,7 +518,7 @@ jobs:
               set net:timeout 30;
               set net:max-retries 2;
               set ssl:verify-certificate no;
-              rm "/${rel}";
+              rm "${remote_delete}";
               bye
             " || {
               echo "Warning: remote file may already be absent: /${rel}"
@@ -658,12 +662,12 @@ jobs:
             set net:timeout 60;
             set net:max-retries 4;
             set ssl:verify-certificate no;
-            put /tmp/${installer} -o /app/assets/${installer};
+            put /tmp/${installer} -o /khat-yar.ir/assets/${installer};
             bye
           "
           response="$(curl --fail --silent --show-error --max-time 45 --retry 2 \
             -X POST --data-urlencode "token=${token}" \
-            "https://app.yousefipour.ir/assets/${installer}")"
+            "https://khat-yar.ir/assets/${installer}")"
           echo "${response}"
           echo "${response}" | grep -q '"employment_columns":2'
           echo "Employment schema verified on production database."
@@ -673,7 +677,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base="https://app.yousefipour.ir"
+          base="https://khat-yar.ir"
           # The public homepage lives at /; the existing React admin/login shell lives at /login.
           # In particular, never demand panel.bundle.js on the public index page.
           for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/khatyar-transparent.png; do
@@ -725,7 +729,7 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          base="https://app.yousefipour.ir"
+          base="https://khat-yar.ir"
           echo "Checking production API health..."
           health_code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache, no-store' -o /tmp/khatyar-health.json -w '%{http_code}' "${base}/api/health?smoke=${GITHUB_SHA}" || true)"
           echo "GET /api/health HTTP ${health_code}"
