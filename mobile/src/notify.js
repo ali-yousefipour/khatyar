@@ -10,7 +10,7 @@ let seenMsgs = new Set();
 let primed = false;
 let primedMsg = false;
 
-async function ensurePresenceChannel() {
+export async function ensurePresenceChannel() {
   try {
     await Notifications.setNotificationChannelAsync('presence_alarm', {
       name: 'هشدار صحت‌سنجی حضور',
