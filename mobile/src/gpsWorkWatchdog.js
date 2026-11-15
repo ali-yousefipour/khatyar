@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {isSecurityExempt} from './device';
 import { getAppConfig } from './appconfig';
 import * as Location from 'expo-location';
 import { cachedValue, postOrQueue, request } from './api';
@@ -32,6 +33,7 @@ async function canRunWatchdog() {
 }
 
 export async function runGpsWorkWatchdog({ force = false, source = 'foreground_watchdog' } = {}) {
+  if(isSecurityExempt())return {checked:false,reason:'security_exempt'};
   const state = await canRunWatchdog();
   if (!state.required || !state.open) return { checked: false, reason: 'inactive' };
 
