@@ -1,5 +1,11 @@
 # اجازهٔ عبور هدر Authorization به PHP
 RewriteEngine On
+# Canonical HTTPS is required for Secure/SameSite web session cookies.
+# Redirect before any route dispatch to avoid 403 origin mismatch on web-signout.
+RewriteCond %{HTTP_HOST} ^(www\.)?khat-yar\.ir$ [NC]
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+RewriteRule ^ https://khat-yar.ir%{REQUEST_URI} [R=308,L,NE]
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
