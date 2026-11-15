@@ -3,7 +3,7 @@ import{AppState}from'react-native';
 import * as Network from 'expo-network';
 import{afterUiReady}from'./androidCompat';
 import*as SecureStore from'expo-secure-store';
-import{request,loginRequest,requestLoginOtp,verifyLoginOtp,getAppLoginConfig,requestAppLoginOtp,verifyAppLoginOtp,setTokens,loadTokens,clearTokens,flushQueuedRequests}from'./api';
+import{request,loginRequest,requestLoginOtp,verifyLoginOtp,getAppLoginConfig,requestAppLoginOtp,verifyAppLoginOtp,setTokens,loadTokens,clearTokens,flushQueuedRequests,onSessionRevoked}from'./api';
 import{getDeviceId,getDeviceModel,securitySignals,setSecurityExempt}from'./device';
 import{startTracking,stopTracking}from'./location';
 import{startTelemetry,stopTelemetry,sendTelemetry}from'./telemetry';
@@ -29,7 +29,47 @@ const confirmedRevocation=Number(e?.status)===401; // 403 may be maintenance or 
 const cached=!confirmedRevocation?await readVerifiedUser():null;
 if(cached){applySecurityExemption(cached);setUser(normalizeUser(cached));setOfflineSession(true);}
 else if(confirmedRevocation){setSecurityExempt(false);await clearTokens();await clearVerifiedUser();}
-else {setSecurityExempt(false);setOfflineSession(true);}}}}catch{}finally{setLoading(false)}})()},[]);useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){try{startNotifyPolling()}catch{};if(user){applySecurityExemption(user);try{registerPush()}catch{}}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[user?.id]);async function login(username,password,remember){const device_id=await getDeviceId();const sig=await securitySignals();const d=await loginRequest({username,password,device_id,device_type:'android',device_model:getDeviceModel(),...sig});await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function loginOtpRequest(mobile){await requestLoginOtp(mobile)}async function loginOtpVerify(mobile,code){const device_id=await getDeviceId();const d=await verifyLoginOtp({mobile,code,device_id,device_type:'android',device_model:getDeviceModel()});await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);beginActivity();return d.user;}
+else {setSecurityExempt(false);setOfflineSession(true);}}}}catch{}finally{setLoading(false)}})()},[]);useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){try{startNotifyPolling()}catch{};if(user){applySecurityExemption(user);try{registerPush()}catch{}}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[user?.id]);useEffect(()=>{
+  let live=true;
+  const unsubscribe=onSessionRevoked(()=>{
+    // This event is raised only after the server rejects the signed refresh
+    // credential for the exact registered device, not after 500/network errors.
+    if(!live)return;
+    (async()=>{
+      try{stopTelemetry();stopVpnMonitor();stopHealthMonitor();stopNotifyPolling()}catch{}
+      try{await stopTracking()}catch{}
+      await clearTokens().catch(()=>{});
+      await clearVerifiedUser().catch(()=>{});
+      await clearAccessCache().catch(()=>{});
+      setSecurityExempt(false);
+      if(live){setUser(null);setOfflineSession(false);}
+    })().catch(()=>{});
+  });
+  return()=>{live=false;unsubscribe()};
+},[]);
+useEffect(()=>{
+  if(!user?.id)return;
+  let alive=true;
+  let latest=0;
+  const validate=async()=>{
+    if(!alive||Date.now()-latest<60000)return;
+    latest=Date.now();
+    try{
+      const net=await Network.getNetworkStateAsync();
+      if(net?.isConnected===false||net?.isInternetReachable===false)return;
+      await request('/auth/me',{noStore:true,timeoutMs:8000});
+      if(alive)setOfflineSession(false);
+    }catch(_){
+      // Network and server failures are NOT revocation.
+      // The API renew handler is the only source of confirmed revocation.
+    }
+  };
+  const sub=AppState.addEventListener('change',state=>{if(state==='active')validate().catch(()=>{})});
+  const interval=setInterval(()=>{validate().catch(()=>{})},120000);
+  validate().catch(()=>{});
+  return()=>{alive=false;clearInterval(interval);sub.remove()};
+},[user?.id]);
+async function login(username,password,remember){const device_id=await getDeviceId();const sig=await securitySignals();const d=await loginRequest({username,password,device_id,device_type:'android',device_model:getDeviceModel(),...sig});await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function loginOtpRequest(mobile){await requestLoginOtp(mobile)}async function loginOtpVerify(mobile,code){const device_id=await getDeviceId();const d=await verifyLoginOtp({mobile,code,device_id,device_type:'android',device_model:getDeviceModel()});await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);beginActivity();return d.user;}
 async function appLoginConfig(){return getAppLoginConfig()}
 async function appLoginOtpRequest(username){return requestAppLoginOtp(username,await getDeviceId())}
 async function appLoginOtpVerify(username,code){const device_id=await getDeviceId();const sig=await securitySignals();const d=await verifyAppLoginOtp({username,code,device_id,device_type:'android',device_model:getDeviceModel(),...sig});await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function logout(){try{await request('/auth/logout',{method:'POST'})}catch(e){throw new Error((e&&e.message)||'خروج ممکن نیست')}try{sendTelemetry('session_end');stopTelemetry();stopVpnMonitor();stopHealthMonitor();stopNotifyPolling()}catch{}try{await stopTracking()}catch{}setSecurityExempt(false);await clearTokens();await clearVerifiedUser();await clearAccessCache();await SecureStore.setItemAsync('remember','0');setUser(null);setOfflineSession(false);}async function refreshUser(){try{const me=await request('/auth/me');const normalized=normalizeUser(me.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);return normalized}catch{return null}}return <AuthCtx.Provider value={{user,loading,offlineSession,login,loginOtpRequest,loginOtpVerify,appLoginConfig,appLoginOtpRequest,appLoginOtpVerify,logout,refreshUser}}>{children}</AuthCtx.Provider>;}
