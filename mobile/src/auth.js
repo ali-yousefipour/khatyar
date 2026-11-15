@@ -27,9 +27,9 @@ export function AuthProvider({children}){const[user,setUser]=useState(null),[loa
 // session. Preserve verified offline identity and refresh credentials.
 const confirmedRevocation=e?.confirmedRevocation===true; // 401/403 alone can be a transient gateway or token error
 const cached=!confirmedRevocation?await readVerifiedUser():null;
-if(cached){applySecurityExemption(cached);setUser(normalizeUser(cached));setOfflineSession(true);}
+if(cached){applySecurityExemption(cached);setUser(normalizeUser(cached));setOfflineSession(true);beginActivity();}
 else if(confirmedRevocation){setSecurityExempt(false);await clearTokens();await clearVerifiedUser();}
-else {setSecurityExempt(false);setOfflineSession(true);}}}}catch{}finally{setLoading(false)}})()},[]);useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){try{startNotifyPolling()}catch{};if(user){applySecurityExemption(user);try{registerPush()}catch{}}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[user?.id]);useEffect(()=>{
+else {setSecurityExempt(false);setOfflineSession(true);}}}}catch{}finally{setLoading(false)}})()},[]);useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){if(user?.id){try{startNotifyPolling()}catch{};applySecurityExemption(user);try{registerPush()}catch{}}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[user?.id]);useEffect(()=>{
   let live=true;
   const unsubscribe=onSessionRevoked(()=>{
     // This event is raised only after the server rejects the signed refresh
