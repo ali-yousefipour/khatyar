@@ -76,6 +76,17 @@ const api=context.api;
   const official=fs.readFileSync(path.join(__dirname,'../src/screens/OfficialPresenceScreen.js'),'utf8');
   assert.match(official,/@khatyar:official-presence:reference:v1:/,'Reference cache must be scoped to user');
   assert.match(official,/reqPhoto \|\| usingOfflineSnapshot/,'Offline photo policy must fail safely');
+  const routes=fs.readFileSync(path.join(__dirname,'../../php/lib/routes.php'),'utf8');
+  const officialRoute=routes.slice(routes.indexOf("route('POST', '/api/official-visits'"),routes.indexOf("route('GET', '/api/official-visits/summary'"));
+  assert.ok(officialRoute.indexOf("if($clientUuid!=='')")<officialRoute.indexOf('official_visit_daily_max'),
+    'Duplicate replay must be detected before daily rate limits');
+  assert.match(officialRoute,/u\.is_active=1|is_active=1/,'Inactive officials must be rejected');
+  assert.match(officialRoute,/in_array\(\$selectedLineId/,'Offline lines must be revalidated');
+  const reportRoute=routes.slice(routes.indexOf("route('POST', '/api/reports'"),routes.indexOf("route('GET', '/api/my/reports'"));
+  assert.ok(reportRoute.includes("Only de-duplicate payloads") || reportRoute.includes("client_uuid"),
+    'Report replay must have an idempotency path');
+  const sourceApi=fs.readFileSync(path.join(__dirname,'../src/api.js'),'utf8');
+  assert.match(sourceApi,/restoreEmbeddedQueueAssets/,'Nested media must be restored before replay');
   const broken='[broken-json';
   storage.set('offline_queue_v2',broken);
   await assert.rejects(api.pending(),/صف آفلاین/);
