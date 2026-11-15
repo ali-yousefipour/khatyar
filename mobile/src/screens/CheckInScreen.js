@@ -121,7 +121,7 @@ function CheckInCore({ viewportHeight }) {
   const LOCAL_WORKED_KEY = 'attendance_local_worked_v1';
   const REMEMBER_SOUND = 'remember.mp3';
   const REMEMBER_CHANNEL_ID = 'attendance_8h_reminder_v1';
-  const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
+  const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify({...value,owner_user_id:Number(user?.id||0)})); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
   const readLocalOpen = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_OPEN_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
   const readLocalWorked = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_WORKED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
   const persistLocalWorked = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_WORKED_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_WORKED_KEY); } catch {} };
@@ -793,9 +793,9 @@ function CheckInCore({ viewportHeight }) {
       // A local schedule is created at check-in, even when the attendance write is queued.
       try {
         const policy=await currentPresencePolicy(Number(user?.id),request);
-        if(policy?.enabled&&policy?.random_enabled) {
+        if(policy?.enabled&&policy?.random_enabled&&policy?.assigned!==false) {
           const local=await localAttendanceSession(Number(user?.id));
-          if(local)await ensureLocalRandomSchedule(Number(user?.id),local);
+          if(local)await ensureLocalRandomSchedule(Number(user?.id),local,policy.window_minutes);
         }
       } catch(error) { console.warn('presence local schedule:',error?.message||error); }
       if (appCfg?.gps_work_required) {
