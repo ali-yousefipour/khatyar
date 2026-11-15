@@ -18,4 +18,10 @@ const rules=[
 for(const [regex,message] of rules)assert.match(telemetry,regex,message);
 assert.match(api,/body:sendBody!==undefined\?JSON\.stringify\(sendBody\)/,'Request must retain payload timestamps');
 assert.match(php,/kind IN \('internet_off','internet_on','offline','online'\)/,'Legacy versions must remain supported');
-console.log('PASS GPS/Internet telemetry checkpoints, compatibility, queue and cleanup');
+const summary=fs.readFileSync(path.join(__dirname,'../src/screens/RequestScreens.js'),'utf8');
+const daily=fs.readFileSync(path.join(__dirname,'../src/screens/CheckInScreen.js'),'utf8');
+assert.match(summary,/data\?\.gps_inactive_minutes\?\?null/,'Monthly GPS penalty must be visible');
+assert.match(summary,/data\?\.internet_inactive_minutes\?\?null/,'Monthly Internet penalty must be visible');
+assert.match(summary,/value===null\|\|value===undefined\?'—'/,'Unavailable API minutes must not be rendered as zero');
+assert.match(daily,/w\.internet_invalid_min\?\?null/,'Daily Internet penalty must use API field');
+console.log('PASS GPS/Internet telemetry checkpoints, legacy events and daily/monthly UI');
