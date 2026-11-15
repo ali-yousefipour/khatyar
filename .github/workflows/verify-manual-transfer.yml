@@ -47,6 +47,23 @@ jobs:
             echo "GET $path anonymous HTTP $code"
             test "$code" = 401
           done
+      - name: Verify HTTPS-only web signout
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://khat-yar.ir
+          # Cross-origin requests must be rejected, protecting the session cookie.
+          cross="$(curl --silent --show-error --max-time 20 -X POST -H 'Origin: https://attacker.invalid' -H 'Content-Type: application/json' --data '{}' -o /dev/null -w '%{http_code}' "$base/api/session/web-signout")"
+          echo "Cross-origin signout HTTP $cross"
+          test "$cross" = 403
+          # Same-origin signout must succeed even when the browser has no active session.
+          same="$(curl --silent --show-error --max-time 20 -X POST -H 'Origin: https://khat-yar.ir' -H 'Content-Type: application/json' --data '{}' -o /dev/null -w '%{http_code}' "$base/api/session/web-signout")"
+          echo "Same-origin signout HTTP $same"
+          test "$same" = 200
+          # Plain HTTP should redirect before the PHP route checks the Origin.
+          result="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code} %{redirect_url}' -X POST -H 'Origin: http://khat-yar.ir' --data '{}' "http://khat-yar.ir/api/session/web-signout")"
+          echo "HTTP logout canonical redirect: $result"
+          [[ "$result" == 308\ https://khat-yar.ir/* ]]
       - name: Check GitHub Releases APK, not a domain-hosted APK
         shell: bash
         env:
