@@ -90,7 +90,7 @@ jobs:
             echo 'set ftp:passive-mode true'
             echo 'set ftp:prefer-epsv false'
             echo 'set ssl:verify-certificate no'
-            echo 'mkdir -p /app/assets'
+            echo 'mkdir -p /khat-yar.ir/assets'
             for path in \
               app/assets/khatyar-hero-emerald-v3.webp \
               app/assets/khatyar-footer-emerald-v3.webp \
@@ -100,11 +100,11 @@ jobs:
               app/assets/organizational-public.css \
               app/assets/organizational-login.css \
               app/assets/login-premium.js; do
-              printf 'put %s -o /%s\n' "$GITHUB_WORKSPACE/php/$path" "$path"
+              printf 'put %s -o /khat-yar.ir/%s\n' "$GITHUB_WORKSPACE/php/$path" "${path#app/}"
             done
             # HTML is uploaded LAST, after its assets, to avoid broken visual references.
-            echo "put $GITHUB_WORKSPACE/php/app/landing.html -o /app/landing.html"
-            echo "put $GITHUB_WORKSPACE/php/app/panel.html -o /app/panel.html"
+            echo "put $GITHUB_WORKSPACE/php/app/landing.html -o /khat-yar.ir/landing.html"
+            echo "put $GITHUB_WORKSPACE/php/app/panel.html -o /khat-yar.ir/panel.html"
             echo 'bye'
           } > "$command_file"
           lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -e "$(cat "$command_file")"
@@ -114,7 +114,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base='https://app.yousefipour.ir'
+          base='https://khat-yar.ir'
           for path in \
             assets/khatyar-hero-emerald-v3.webp \
             assets/khatyar-footer-emerald-v3.webp \
