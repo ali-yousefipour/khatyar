@@ -372,6 +372,8 @@ public final class KhatyarRadioService extends Service {
 
   private void pollOnce() {
     try {
+      // Native receiver polls only while the app is backgrounded; JS owns foreground updates.
+      if (isAppInForeground()) return;
       android.content.SharedPreferences p = getPrefs();
       String token = p.getString("token", ""), base = p.getString("baseUrl", "");
       long channel = p.getLong("channelId", 0L), userId = p.getLong("userId", 0L);
