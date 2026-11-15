@@ -14,7 +14,7 @@ import { useCameraSession } from './cameraSession';
 import { launchCamera, ImagePicker } from './cameraLock';
 import { request } from './api';
 
-export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false, autoConfirm = false }) {
+export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false, autoConfirm = false, manualSystemCamera = false }) {
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
   const shotRef = useRef(null);
@@ -171,7 +171,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   useEffect(() => {
-    if (!systemCameraFirst || !perm?.granted || autoCameraStarted.current) return;
+    if (!systemCameraFirst || manualSystemCamera || !perm?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, perm?.granted]);
@@ -238,7 +238,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     setBusy(true);
     setError('');
     try {
-      await getAppConfig(true);
+      await getAppConfig();
       const stamped = await captureRef(shotRef, { format: 'jpg', quality: 1 });
       const data = await compressToDataUri(stamped, {
         maxW: getImageConfig().maxWidth,
