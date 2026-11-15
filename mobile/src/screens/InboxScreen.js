@@ -98,7 +98,7 @@ export function InboxReportsScreen({ navigation }) {
     const description = operation === 'delete'
       ? 'حذف برای فرستنده یا مدیر ممکن است به حذف کامل منجر شود. این عملیات برای سایر کاربران فقط گزارش را از فهرست خودشان حذف می‌کند.'
       : operation === 'forward' ? 'گزارش‌های انتخاب‌شده به کارتابل گیرنده منتقل می‌شوند.' : 'فقط وضعیت بایگانی حساب شما تغییر می‌کند.';
-    Alert.alert(`${name} گروهی`, `${count.toLocaleString('fa-IR')} گزارش انتخاب شده است.\\n${description}`, [
+    Alert.alert(`${name} گروهی`, `${count.toLocaleString('fa-IR')} گزارش انتخاب شده است.\n${description}`, [
       { text: 'انصراف', style: 'cancel' },
       { text: 'تأیید', style: operation === 'delete' ? 'destructive' : 'default', onPress: async () => {
         setBulkPicker(false);
@@ -120,9 +120,8 @@ export function InboxReportsScreen({ navigation }) {
         setSelectedIds(failed.map(item => item.id));
         // Both inbox and archive snapshots can become stale after changes.
         tabSnapshots.current = {};
-        await load();
-        setBulkBusy(false);
-        Alert.alert('نتیجه عملیات گروهی', `${succeeded.length.toLocaleString('fa-IR')} موفق، ${failed.length.toLocaleString('fa-IR')} ناموفق${failed.length ? `\\nنمونه خطا (گزارش ${failed[0].id}): ${failed[0].reason}` : ''}`);
+        try { await load(); } finally { setBulkBusy(false); }
+        Alert.alert('نتیجه عملیات گروهی', `${succeeded.length.toLocaleString('fa-IR')} موفق، ${failed.length.toLocaleString('fa-IR')} ناموفق${failed.length ? `\nنمونه خطا (گزارش ${failed[0].id}): ${failed[0].reason}` : ''}`);
       }},
     ]);
   };
@@ -220,7 +219,7 @@ export function InboxReportsScreen({ navigation }) {
             </TouchableOpacity> : null}
           </View>
         )} />
-      <ReportPersonPickerModal visible={bulkPicker} targets={bulkTargets} title={`ارجاع ${chosenIds.length.toLocaleString('fa-IR')} گزارش به`} onClose={() => setBulkPicker(false)} onSelect={(person) => runBulk('forward', person.id)}/>
+      <ReportPersonPickerModal visible={bulkPicker} targets={bulkTargets} title={`ارجاع ${chosenIds.length.toLocaleString('fa-IR')} گزارش به`} onClose={() => setBulkPicker(false)} onSelect={(person) => { setBulkPicker(false); runBulk('forward', person.id); }}/>
       <JDatePicker visible={!!pick} onClose={() => setPick(null)} initial={null}
         onSelect={(d) => { const v = { jy: d.jy, jm: d.jm, jd: d.jd }; if (pick === 'from') setFrom(v); else setTo(v); }} />
     </View>
