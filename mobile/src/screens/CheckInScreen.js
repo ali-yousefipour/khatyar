@@ -20,7 +20,7 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import {ensureLocalRandomSchedule, clearLocalRandomSchedule, currentPresencePolicy, localPresenceCompletions, localAttendanceSession, PRESENCE_LOCAL_SCHEDULE_KEY} from '../presenceLocalSchedule';
-import {getProvisionalManual, provisionalOpen, reconcileProvisionalManual} from '../manualAttendance';
+import {getProvisionalManual, provisionalOpen, reconcileProvisionalManual, markManualOrdinaryCheckout} from '../manualAttendance';
 import NetInfo from '@react-native-community/netinfo';
 import WifiManager from 'react-native-wifi-reborn';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
@@ -128,10 +128,12 @@ function CheckInCore({ viewportHeight }) {
       const manual=await getProvisionalManual(user?.id);
       const raw=await AsyncStorage.getItem(LOCAL_OPEN_KEY);
       const stored=raw?JSON.parse(raw):null;
-      if(manual?.end_ms&&['queued','pending'].includes(manual.status))return null;
+      const storedOpen=stored&&Number(stored.owner_user_id)===Number(user?.id)?stored:null;
+      const storedStart=storedOpen?.check_in?tehranTimeToEpochMs(storedOpen.check_in):null;
+      if(manual?.end_ms&&['queued','pending'].includes(manual.status)&&(!storedStart||storedStart<=Number(manual.end_ms)))return null;
+      if(storedOpen&&manual?.end_ms&&storedStart>Number(manual.end_ms))return storedOpen;
       const provisional=provisionalOpen(manual);
-      if(provisional)return provisional;
-      return stored&&Number(stored.owner_user_id)===Number(user?.id)?stored:null;
+      return provisional||storedOpen;
     }catch{return null;}
   };
   const readLocalWorked = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_WORKED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
@@ -399,7 +401,8 @@ function CheckInCore({ viewportHeight }) {
       // نباید جلسهٔ قدیمیِ کش‌شده بعد از Auto-close دوباره به‌عنوان جلسهٔ باز نمایش داده شود.
       const serverOpen=fresh.open||null;
       const pendingManualState=currentManual&&['pending','queued'].includes(currentManual.status);
-      const manualEnded=pendingManualState&&!!currentManual.end_ms;
+      const serverStart=serverOpen?.check_in?tehranTimeToEpochMs(serverOpen.check_in):null;
+      const manualEnded=pendingManualState&&!!currentManual.end_ms&&(!serverStart||serverStart<=Number(currentManual.end_ms));
       const fallback=provisionalOpen(currentManual);
       if(manualEnded){
         // Pending manual exit closes the displayed attendance immediately, including offline.
@@ -934,6 +937,7 @@ function CheckInCore({ viewportHeight }) {
       // تبدیل شود. همچنین زمان را با checkoutClientTime دوباره محاسبه نمی‌کنیم تا
       // کارکرد محلی از سقف ۱۴ ساعت عبور نکند.
       if (r?.auto_closed) {
+        await markManualOrdinaryCheckout(user?.id,tehranTimeToEpochMs(r.auto_closed_at)||Date.now()).catch(()=>{});
         attendanceStateEpochRef.current += 1;
         setOpen(null);
         await persistLocalOpen(null);
@@ -975,6 +979,7 @@ function CheckInCore({ viewportHeight }) {
           });
         }
       } catch {}
+      await markManualOrdinaryCheckout(user?.id,tehranTimeToEpochMs(checkoutClientTime)||Date.now()).catch(()=>{});
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
       Alert.alert(
         r.queued ? 'آفلاین' : 'ثبت شد',
