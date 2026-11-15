@@ -1,0 +1,106 @@
+name: Audit Khatyar media retention DB (temporary, read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-media-retention-db.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Install FTP client
+        run: |
+          command -v lftp >/dev/null || sudo apt-get install -y -qq lftp
+      - name: Check configured retention and pending DB records
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(openssl rand -hex 32)"
+          NAME="retention-audit-$(openssl rand -hex 12).php"
+          SHA="$(printf '%s' "$TOKEN" | sha256sum | cut -d' ' -f1)"
+          DEST="/khat-yar.ir/assets/$NAME"
+          cleanup() {
+            lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "set cmd:fail-exit no; set ftp:ssl-force false; set ftp:ssl-protect-data false; rm $DEST; bye" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          cat > /tmp/khatyar-readonly-retention.php <<'PHP'
+          <?php
+          ini_set('display_errors','0');
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store, max-age=0');
+          header('X-Robots-Tag: noindex, nofollow');
+          $incoming=(string)($_SERVER['HTTP_X_KHATYAR_AUDIT']??'');
+          if(($_SERVER['REQUEST_METHOD']??'')!=='POST' || !hash_equals('AUDIT_SHA_PLACEHOLDER',hash('sha256',$incoming))){http_response_code(404);exit;}
+          $response=['ok'=>false];
+          try {
+            $root=dirname(__DIR__,2);
+            require_once "$root/lib/Db.php";
+            $pdo=Db::pdo();
+            $keys=['attachment_retention_days','form_attachment_retention_days','presence_retention_days','official_visit_retention_days','covert_selfie_retention_days'];
+            $settings=[];
+            foreach($keys as $key){
+              $st=$pdo->prepare("SELECT value FROM app_settings WHERE `key`=? LIMIT 1");
+              $st->execute([$key]);$raw=$st->fetchColumn();
+              $val=$raw!==false?json_decode($raw,true):null;
+              $settings[$key]=is_numeric($val)?(int)$val:null;
+            }
+            $checkTable=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");
+            $checkCol=$pdo->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=?");
+            $categories=[
+              'reports'=>['table'=>'reports','date'=>'created_at','days'=>$settings['attachment_retention_days'],'paths'=>['attachment_path'],'base64'=>['attachment_data']],
+              'report_attachments'=>['table'=>'report_attachments','date'=>'created_at','days'=>$settings['attachment_retention_days'],'paths'=>['file_path','thumbnail_path'],'base64'=>[]],
+              'checklists'=>['table'=>'checklist_submissions','date'=>'created_at','days'=>$settings['form_attachment_retention_days'],'paths'=>['photo_path'],'base64'=>['photo_data']],
+              'presence'=>['table'=>'presence_checks','date'=>'captured_at','days'=>$settings['presence_retention_days'],'paths'=>['selfie_path','vehicles_photo_path'],'base64'=>['selfie','vehicles_photo']],
+              'official_visits'=>['table'=>'official_visits','date'=>'created_at','days'=>$settings['official_visit_retention_days']??$settings['form_attachment_retention_days'],'paths'=>['photo_path'],'base64'=>['photo_data']],
+            ];
+            $results=[];
+            foreach($categories as $key=>$cfg) {
+              $table=$cfg['table'];$checkTable->execute([$table]);
+              if(!(int)$checkTable->fetchColumn()){$results[$key]=['table_missing'=>true];continue;}
+              $checkCol->execute([$table]);$columns=$checkCol->fetchAll(PDO::FETCH_COLUMN);
+              if(!in_array($cfg['date'],$columns,true)){$results[$key]=['date_column_missing'=>true];continue;}
+              $terms=[];foreach(array_merge($cfg['paths'],$cfg['base64']) as $col)if(in_array($col,$columns,true))
+                $terms[]="(`$col` IS NOT NULL AND `$col` <> '')";
+              if(!$terms){$results[$key]=['media_columns_missing'=>true];continue;}
+              $condition='('.implode(' OR ',$terms).')';
+              if($key==='official_visits')$condition="($condition AND COALESCE(photo_path,'') <> 'expired:retention')";
+              $sql="SELECT COUNT(*) FROM `$table` WHERE $condition";
+              $withMedia=(int)$pdo->query($sql)->fetchColumn();
+              $days=$cfg['days'];$expired=null;
+              if($days!==null && $days>0){
+                $stmt=$pdo->prepare("$sql AND `{$cfg['date']}` < DATE_SUB(NOW(), INTERVAL ? DAY)");
+                $stmt->execute([$days]);$expired=(int)$stmt->fetchColumn();
+              }
+              $results[$key]=['retention_days'=>$days,'retained_media_rows'=>$withMedia,'over_retention_media_rows'=>$expired,'retention_enabled'=>($days!==null&&$days>0)];
+            }
+            $crons=[];
+            $checkTable->execute(['cron_run_log']);
+            if((int)$checkTable->fetchColumn()){
+              $q=$pdo->query("SELECT cron_key,last_run_at,last_status,last_source,run_count FROM cron_run_log WHERE cron_key IN ('cleanup','daily') ORDER BY cron_key");
+              $crons=$q->fetchAll(PDO::FETCH_ASSOC);
+            }
+            $response=['ok'=>true,'settings'=>$settings,'media'=>$results,'cron'=>$crons];
+          }catch(Throwable $e){
+            $response=['ok'=>false,'error_type'=>get_class($e)];
+            error_log('Read-only retention audit failed: '.get_class($e));
+          }
+          @unlink(__FILE__);
+          echo json_encode($response,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+          PHP
+          sed -i "s/AUDIT_SHA_PLACEHOLDER/$SHA/" /tmp/khatyar-readonly-retention.php
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "set cmd:fail-exit yes; set ftp:ssl-force false; set ftp:ssl-protect-data false; set ssl:verify-certificate no; put /tmp/khatyar-readonly-retention.php -o $DEST; bye" >/dev/null
+          RESPONSE="$(curl --fail --silent --show-error --max-time 45 -X POST -H "X-Khatyar-Audit: $TOKEN" -H "Cache-Control: no-store" "https://khat-yar.ir/assets/$NAME")"
+          unset TOKEN
+          echo "$RESPONSE" | python3 -m json.tool
+          echo "$RESPONSE" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("ok") is True'
