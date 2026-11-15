@@ -14,15 +14,21 @@ function queueType(item){
   const p=String(item?.path||'').toLowerCase();
   if(/school-service|school.*inspection|inspection.*school/.test(p)) return 'school';
   if(/checkin|checkout|attendance|presence/.test(p)) return /driver|driver.*attendance|attendance.*driver/.test(p)?'driverAttendance':'attendance';
+  if(/official-visits/.test(p)) return 'officialVisit';
+  if(/complaints/.test(p)) return 'complaint';
+  if(/mission-visits|visit-program/.test(p)) return 'fieldVisit';
   if(/checklist/.test(p)) return 'checklist';
   if(/report/.test(p)) return 'report';
   if(/notice|warning|tazkor|تذکر/.test(p)) return 'notice';
-  return null;
+  return 'other';
 }
 function label(item){
   const p=String(item?.path||'').toLowerCase();
   if(/school-service|school.*inspection|inspection.*school/.test(p)) return 'بازدید / تذکر بازرسی سرویس مدارس';
   if(/checkin|checkout|attendance|presence/.test(p)) return /driver|driver.*attendance|attendance.*driver/.test(p)?'ثبت حضور رانندگان':'ثبت حضور کاربر';
+  if(/official-visits/.test(p)) return 'حضور مسئولین در خط';
+  if(/complaints/.test(p)) return 'ثبت و پیگیری شکایت';
+  if(/mission-visits|visit-program/.test(p)) return 'بازدید میدانی خط';
   if(/checklist/.test(p)) return 'چک‌لیست';
   if(/report/.test(p)) return 'گزارشات';
   if(/notice|warning|tazkor|تذکر/.test(p)) return 'ثبت تذکر';
@@ -32,18 +38,18 @@ function detail(item){
   const b=item?.body||item?.fields||{};
   const p=String(item?.path||'');
   const id=b?.client_uuid||item?.client_uuid||'';
-  return [label(item), id ? 'شناسه: '+String(id).slice(-8) : '', item?.last_error ? 'آخرین خطا: '+item.last_error : '', p].filter(Boolean).join(' • ');
+  return [label(item), id ? 'شناسه: '+String(id).slice(-8) : '', item?.last_error ? 'آخرین خطا: '+item.last_error : '', item?.owner_user_id ? '' : 'حساب ثبت‌کننده در صف قدیمی مشخص نیست', p].filter(Boolean).join(' • ');
 }
 export default function SendQueueScreen(){
  const [items,setItems]=React.useState([]),[busy,setBusy]=React.useState(false),[retrying,setRetrying]=React.useState({});
  const [loading,setLoading]=React.useState(true),[error,setError]=React.useState('');
- const load=React.useCallback(async({silent=false}={})=>{if(!silent)setLoading(true);try{const q=await pending();setItems(q.filter(x=>!hidden(x)&&queueType(x)));setError('')}catch(e){setError(e?.message||'خواندن صف ارسال ناموفق بود.')}finally{if(!silent)setLoading(false)}},[]);
+ const load=React.useCallback(async({silent=false}={})=>{if(!silent)setLoading(true);try{const q=await pending();setItems(q.filter(x=>!hidden(x)));setError('')}catch(e){setError(e?.message||'خواندن صف ارسال ناموفق بود.')}finally{if(!silent)setLoading(false)}},[]);
  React.useEffect(()=>{load();const t=setInterval(()=>load({silent:true}),4000);return()=>clearInterval(t)},[load]);
  const retryOne=async id=>{setRetrying(x=>({...x,[id]:true}));try{await retryQueuedRequest(id);await load()}catch(e){Alert.alert('ارسال ناموفق',e?.message||'ارسال انجام نشد.')}finally{setRetrying(x=>({...x,[id]:false}))}};
  const retryAll=async()=>{if(busy)return;setBusy(true);try{await flushQueuedRequests({force:true});await load()}catch(e){setError(e?.message||'ارسال موارد صف ناموفق بود.')}finally{setBusy(false)}};
  return <View style={s.page}>
   <View style={s.head}><View style={s.heroRow}><MaterialCommunityIcons name="cloud-sync-outline" size={28} color="#f4d99e"/><Text style={s.title}>صف ارسال</Text></View><Text style={s.sub}>{items.length?'موارد ارسال‌نشده منتظر ارسال هستند.':'صف ارسال خالی است.'}</Text></View>
-  <View style={s.stats}>{[['در انتظار',items.length,'clock-outline'],['نیازمند بررسی',items.filter(x=>!!x.last_error).length,'alert-outline'],['آماده ارسال',items.filter(x=>!x.last_error).length,'check-circle-outline']].map(([label,n,icon])=><View key={label} style={s.stat}><MaterialCommunityIcons name={icon} size={21} color={C.brand}/><Text style={s.statNumber}>{faNum(n)}</Text><Text style={s.statLabel}>{label}</Text></View>)}</View>
+  <View style={s.stats}>{[['در انتظار',items.length,'clock-outline'],['نیازمند بررسی',items.filter(x=>!!x.last_error||!x.owner_user_id).length,'alert-outline'],['آماده ارسال',items.filter(x=>!x.last_error&&!!x.owner_user_id).length,'check-circle-outline']].map(([label,n,icon])=><View key={label} style={s.stat}><MaterialCommunityIcons name={icon} size={21} color={C.brand}/><Text style={s.statNumber}>{faNum(n)}</Text><Text style={s.statLabel}>{label}</Text></View>)}</View>
   <View style={s.actions}><TouchableOpacity style={[s.primary,(busy||loading||!items.length)&&{opacity:.55}]} disabled={busy||loading||!items.length} onPress={retryAll}><Text style={s.primaryText}>{busy?'در حال ارسال…':'تلاش مجدد برای ارسال همه'}</Text></TouchableOpacity><TouchableOpacity style={s.refresh} disabled={loading} onPress={load}><Text style={s.refreshText}>{loading?'در حال دریافت…':'بروزرسانی'}</Text></TouchableOpacity></View>
   <ScrollView refreshControl={<RefreshControl refreshing={loading} onRefresh={load}/>} contentContainerStyle={s.list}>
    {error?<View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={load} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>:null}
