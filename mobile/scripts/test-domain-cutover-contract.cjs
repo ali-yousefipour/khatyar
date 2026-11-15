@@ -11,7 +11,7 @@ assert.match(version,/APP_VERSION\s*=\s*['"]2\.0\.2['"]/);
 assert.match(migration,/Verify new domain, PHP libraries, database and login/);
 assert.match(migration,/Verify public signed APK instead of copying it to the web domain/);
 assert.match(migration,/khatyar-releases/);
-assert.match(migration,/khat-yar\\.apk/);
+assert.match(migration,/khat-yar\.apk/);
 assert.ok(!migration.includes('put $apk -o /khat-yar.ir/releases'), 'APK must not be hosted on the production web domain');
 assert.match(migration,/Activate mandatory 2\.0\.2 update after release and domain verification/);
 const cutoff=migration.indexOf('Disable legacy API after successful 2.0.2 activation');
