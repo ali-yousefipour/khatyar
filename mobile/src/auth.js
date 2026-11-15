@@ -25,7 +25,7 @@ function beginActivity(){return afterUiReady(()=>beginActivityNow(),1200)}
 
 export function AuthProvider({children}){const[user,setUser]=useState(null),[loading,setLoading]=useState(true),[offlineSession,setOfflineSession]=useState(false);useEffect(()=>{(async()=>{try{const token=await loadTokens();if(token){try{const net=await Network.getNetworkStateAsync().catch(()=>null);if(net?.isConnected===false||net?.isInternetReachable===false)throw new Error('اتصال به سرور ممکن نشد.');const me=await request('/auth/me',{noStore:true,timeoutMs:4500});const normalized=normalizeUser(me.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity()}catch(e){// A transient 500, timeout or JSON/proxy error is not proof of a revoked
 // session. Preserve verified offline identity and refresh credentials.
-const confirmedRevocation=Number(e?.status)===401; // 403 may be maintenance or password-change policy
+const confirmedRevocation=e?.confirmedRevocation===true; // 401/403 alone can be a transient gateway or token error
 const cached=!confirmedRevocation?await readVerifiedUser():null;
 if(cached){applySecurityExemption(cached);setUser(normalizeUser(cached));setOfflineSession(true);}
 else if(confirmedRevocation){setSecurityExempt(false);await clearTokens();await clearVerifiedUser();}
