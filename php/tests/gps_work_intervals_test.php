@@ -52,3 +52,28 @@ assert_ranges('internet checkpoint and state aliases must not double count',[[10
   ['kind'=>'internet_off','at'=>$base+1800],['kind'=>'internet_on','at'=>$base+3650],
   ['kind'=>'online','at'=>$base+3660],
 ],$base,$base+5000,'internet_off','internet_on'));
+
+require_once __DIR__.'/../lib/ShiftCalc.php';
+// Overlap is removed once from worked time, even when GPS and Internet are
+// simultaneously down. This is the contract used by all work calculators.
+$parts=ShiftCalc::validSessionParts([
+  'in'=>$base,'out'=>$base+5400,'gps_invalid'=>[
+    [$base+600,$base+2400], // GPS confirmed unavailable
+    [$base+1800,$base+3600], // Internet confirmed unavailable
+  ],
+]);
+assert_ranges('overlapping GPS and Internet penalties are never doubled',[
+  [$base,$base+600],[$base+3600,$base+5400],
+],$parts);
+$routes=file_get_contents(__DIR__.'/../lib/routes.php');
+$owned=file_get_contents(__DIR__.'/../app/api/admin-attendance-report-owned.php');
+if (!str_contains($routes,"kind IN ('internet_off','internet_on','offline','online')") &&
+    !str_contains(file_get_contents(__DIR__.'/../lib/InternetWorkIntervals.php'),"kind IN ('internet_off','internet_on','offline','online')"))
+  throw new RuntimeException('Previous Android offline/online signals must be recognized');
+if (!str_contains($routes,"$"."w['internet_invalid_min']"))
+  throw new RuntimeException('Daily work API must return Internet-off minutes');
+if (!str_contains($routes,"'_work_invalid'"))
+  throw new RuntimeException('Live work must include combined downtime evidence');
+if (!str_contains($owned,"'gps_invalid'=>$blocked"))
+  throw new RuntimeException('Monthly report must apply the same penalty windows it displays');
+echo "PASS GPS/internet deductions are aligned in live, daily and monthly work\n";
