@@ -841,6 +841,7 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
   return [
     'enabled' => !empty($cfg['enabled']),
     'required' => $required,
+    'assigned' => $presenceRequired, // Stable across pre/post check-in; used by the device once per day
     'slots' => $cfg['slots'] ?? [],
     'window_minutes' => (int)($cfg['window_minutes'] ?? 1),
     'grace_minutes' => (int)($cfg['grace_minutes'] ?? 15),
