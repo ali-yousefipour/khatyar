@@ -168,9 +168,10 @@ async function requestImpl(path,{method='GET',body,auth=true,retry=true,noStore=
 // Avoid sending duplicate concurrent presence GETs from dashboard, check-in
 // and foreground refresh. Never merge writes or requests across auth sessions.
 const attendanceGetInflight = new Map();
+const sharedReadPaths = new Set(['/my/checkin-config','/my/work-timer','/me/full-profile','/my/app-items','/my/lines','/my/app-config','/school-service/access','/school-service/bootstrap','/weather.php']);
 export function request(path, options = {}) {
   const verb = String(options.method || 'GET').toUpperCase();
-  const key = verb === 'GET' && (path === '/my/checkin-config' || path === '/my/work-timer')
+  const key = verb === 'GET' && sharedReadPaths.has(path)
     ? String(accessToken || '') + ':' + path : null;
   if (!key) return requestImpl(path, options);
   const existing = attendanceGetInflight.get(key);
