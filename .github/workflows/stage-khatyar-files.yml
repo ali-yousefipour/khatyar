@@ -52,9 +52,9 @@ jobs:
           set net:timeout 60
           set net:max-retries 3
           set ftp:passive-mode true
-          set ftp:ssl-force false
-          set ftp:ssl-protect-data false
-          set ssl:verify-certificate no
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
           mirror --continue --parallel=2 /app $staging
           bye
           EOF
@@ -90,9 +90,9 @@ jobs:
           set net:timeout 60
           set net:max-retries 3
           set ftp:passive-mode true
-          set ftp:ssl-force false
-          set ftp:ssl-protect-data false
-          set ssl:verify-certificate no
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
           mkdir -p /khat-yar.ir
           mirror --reverse --continue --parallel=2 $staging /khat-yar.ir
           bye
@@ -101,7 +101,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/khatyar-verify"
           lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://$FTP_HOST:21" -e "
             set cmd:fail-exit yes; set net:timeout 60; set ftp:passive-mode true;
-            set ftp:ssl-force false; set ftp:ssl-protect-data false;
+            set ftp:ssl-force true; set ftp:ssl-protect-data true;
             get /khat-yar.ir/index.php -o $RUNNER_TEMP/khatyar-verify/index.php;
             get /khat-yar.ir/.htaccess -o $RUNNER_TEMP/khatyar-verify/.htaccess;
             bye"
@@ -110,20 +110,21 @@ jobs:
           echo "New domain directory and routing entrypoints verified by FTP."
           echo "Old site was not deleted or disabled."
 
-      - name: Public health probe with temporary SSL bypass (NO credentials)
+      - name: Verify public HTTPS health with certificate validation
         shell: bash
         run: |
           set -euo pipefail
-          echo "::warning::HTTPS certificate for khat-yar.ir must be repaired before any authenticated operation or legacy shutdown."
-          status="$(curl --insecure --silent --show-error --max-time 25 --retry 2 -o "$RUNNER_TEMP/khatyar-health.json" -w '%{http_code}' https://khat-yar.ir/api/health || true)"
+          echo "Checking HTTPS with strict certificate verification."
+          status="$(curl --silent --show-error --max-time 25 --retry 2 -o "$RUNNER_TEMP/khatyar-health.json" -w '%{http_code}' https://khat-yar.ir/api/health || true)"
           echo "New-domain public health HTTP: $status"
           if [ "$status" != 200 ]; then
-            echo "::warning::New domain public health is not yet usable; FTP staging is complete but cutover remains blocked."
-            exit 0
+            echo "::error::New domain public health is not ready; cutover blocked."
+            exit 1
           fi
           if php -r '$v=json_decode(file_get_contents($argv[1]),true);if(($v["ok"]??false)!==true||($v["db"]??false)!==true)exit(1);' "$RUNNER_TEMP/khatyar-health.json"; then
             echo "Public health and database connectivity returned ok, without exchanging credentials."
           else
-            echo "::warning::New-domain HTTP responds but PHP/DB health is not yet ready."
+            echo "::error::New-domain HTTP responds but PHP/DB health is not ready."
+            exit 1
           fi
           echo "Legacy API remains active until valid TLS and secure authenticated release verification."
