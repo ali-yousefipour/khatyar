@@ -32,12 +32,16 @@ function internet_work_intervals(int $userId,int $fromTs,int $toTs): array {
   } catch(Throwable $e) { error_log('internet work interval query failed: '.$e->getMessage());return []; }
 }
 function internet_work_daily_details(int $userId,array $attendanceRows): array {
+  // No attendance means no deductible time. Avoid hitting the waiver/schema
+  // tables for every empty day in monthly work reports.
+  if(!$attendanceRows)return [];
   $ranges=[];
   foreach($attendanceRows as $row){
     $start=strtotime((string)($row['check_in']??''));$end=!empty($row['check_out'])?strtotime($row['check_out']):time();
     if(!$start||!$end||$end<=$start)continue;
     foreach(internet_work_intervals($userId,$start,$end) as $r)$ranges[]=$r;
   }
+  if(!$ranges)return [];
   usort($ranges,static fn($a,$b)=>$a[0]<=>$b[0]);
   $merged=[];
   foreach($ranges as $r){$last=count($merged)-1;if($last<0||$r[0]>$merged[$last][1])$merged[]=$r;else $merged[$last][1]=max($merged[$last][1],$r[1]);}
