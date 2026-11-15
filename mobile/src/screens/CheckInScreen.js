@@ -13,7 +13,7 @@ import { getAppConfig } from '../appconfig';
 import { useAuth } from '../auth';
 import { refreshAccessCache } from '../accessCache';
 import { refreshAppItems } from '../appItemPermissions';
-import { refreshAllowedLines } from '../allowedLinesCache';
+import { refreshAllowedLines, readAllowedLines } from '../allowedLinesCache';
 import { loadSchoolServiceCache } from '../schoolServiceCache';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -92,6 +92,7 @@ function CheckInCore({ viewportHeight }) {
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
+  const mapWebRef=useRef(null);
   const [pos, setPos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lineId, setLineId] = useState(null);
@@ -346,7 +347,16 @@ function CheckInCore({ viewportHeight }) {
     // اول کش محلی را بخوان؛ ثبت حضور باید حتی بدون اینترنت بتواند از آخرین
     // اطلاعات خطوط مجاز و جلسهٔ باز استفاده کند. سپس نسخهٔ تازه را در پس‌زمینه بگیر.
     try {
-      const cachedCfg = await cachedValue('/my/checkin-config');
+      let cachedCfg = await cachedValue('/my/checkin-config');
+      if(!cachedCfg?.lines?.length){
+        const allowed=await readAllowedLines(user?.id);
+        const saved=await AsyncStorage.getItem('presence_line_metadata_v1').catch(()=>null);
+        const metadata=saved?JSON.parse(saved):null;
+        if(Array.isArray(allowed)&&Array.isArray(metadata?.lines)&&Number(metadata.user_id)===Number(user?.id)){
+          const ids=new Set(allowed.map(l=>Number(l.id)));
+          cachedCfg={lines:metadata.lines.filter(l=>ids.has(Number(l.id))),open:await readLocalOpen()};
+        }
+      }
       if (cachedCfg && typeof cachedCfg === 'object' && loadEpoch === attendanceStateEpochRef.current) {
         setCfg(cachedCfg);
         await cacheAuthorizedWifi(cachedCfg);
@@ -755,13 +765,15 @@ function CheckInCore({ viewportHeight }) {
       // قبل از ورود جدید، صف خروج آفلاین را تخلیه و وضعیت جلسه را از سرور تازه می‌کنیم.
       // اگر خروج روی گوشی ثبت شده ولی هنوز همگام نشده باشد، ورود جدید نباید قبل از
       // ارسال خروج به سرور اجرا شود.
-      try { await flushQueuedRequests({force:true}); } catch {}
+      let attendanceOnline=false;
+      try {const state=await NetInfo.fetch();attendanceOnline=state?.isConnected!==false&&state?.isInternetReachable===true;}catch{}
+      if(attendanceOnline)try { await flushQueuedRequests({force:true}); } catch {}
       try {
-        if (await hasPendingAttendanceCheckout()) {
+        if (attendanceOnline && await hasPendingAttendanceCheckout()) {
           throw new Error('خروج قبلی هنوز با سرور همگام نشده است؛ لطفاً اتصال اینترنت را بررسی کنید و چند ثانیه بعد دوباره تلاش کنید.');
         }
-        const freshCfg = await request('/my/checkin-config', { noStore: true, timeoutMs: 8000 });
-        if (freshCfg && Object.prototype.hasOwnProperty.call(freshCfg, 'open')) {
+        const freshCfg = attendanceOnline ? await request('/my/checkin-config', { noStore: true, timeoutMs: 8000 }) : null;
+        if (attendanceOnline && freshCfg && Object.prototype.hasOwnProperty.call(freshCfg, 'open')) {
           const serverOpen = freshCfg.open || null;
           if (serverOpen) {
             await persistLocalOpen(serverOpen);
@@ -1052,9 +1064,7 @@ function CheckInCore({ viewportHeight }) {
   if (!cfg?.lines?.length) return <View style={s.center}><Text style={s.muted}>خط مجازی برای شما تعریف نشده است.</Text></View>;
 
   // هنگام حضور باز، نقشه محدوده تمام خطوط مجاز را نشان می‌دهد؛ بنابراین خروج در خطی غیر از خط ورود نیز قابل مشاهده و کنترل است.
-  const mapLine = open
-    ? { geofences: (cfg?.lines || []).flatMap((l) => l.geofences || []) }
-    : line;
+  const mapLine = { geofences: (cfg?.lines || []).flatMap((l) => l.geofences || []) };
   const mapHtml = buildMapHtml(mapLine, pos, appCfg, mapRuntime);
   const availableMethods = [['gps', 'GPS', 'crosshairs-gps'], ['wifi', 'Wi-Fi', 'wifi']].filter(([key]) => {
     if (key === 'wifi') return (cfg?.lines || []).some((item) => {
@@ -1073,7 +1083,7 @@ function CheckInCore({ viewportHeight }) {
       </View>}
       {/* نقشه */}
       <View style={[s.mapBox,s.mapFullScreen,{height:viewportHeight > 0 ? viewportHeight : 420}]}>
-        <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
+        <WebView ref={mapWebRef} originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
           style={{ flex: 1 }} scrollEnabled={false}
           javaScriptEnabled domStorageEnabled mixedContentMode="always"
           setSupportMultipleWindows={false}
@@ -1119,6 +1129,9 @@ function CheckInCore({ viewportHeight }) {
           <View style={s.mapRefreshRow}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی بی‌صدای نقشه و اطلاعات برنامه" accessibilityHint="دریافت دوباره موقعیت، شیفت، خطوط و اطلاعات کش‌شده برنامه بدون نمایش پیام" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
             <MaterialCommunityIcons name={refreshingPos?'progress-clock':'refresh'} size={23} color={C.brand}/>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="نمایش تمام محدوده‌های مجاز ورود روی نقشه" style={s.mapRefreshButton} onPress={()=>mapWebRef.current?.injectJavaScript('fitAllFences();true;')}>
+            <MaterialCommunityIcons name="help-circle-outline" size={23} color={C.brand}/>
           </TouchableOpacity>
           </View>
         </View>
@@ -1571,6 +1584,18 @@ document.addEventListener('touchmove',function(e){ if(e.touches.length===1&&touc
 
 // --- zoom ---
 function changeZoom(d){ zoom=Math.max(10,Math.min(19,zoom+d)); tileEls={}; document.getElementById('osm').innerHTML=''; render(); }
+function fitAllFences(){
+  var pts=[];
+  FENCES.forEach(function(f){if(f.t==='p'&&Array.isArray(f.poly))f.poly.forEach(function(p){if(Number.isFinite(+p[0])&&Number.isFinite(+p[1]))pts.push([+p[0],+p[1]]);});
+  else if(f.t==='c'&&Number.isFinite(f.lat)&&Number.isFinite(f.lng)){var dlat=(f.r||150)/111320,dlng=dlat/Math.max(.2,Math.cos(f.lat*Math.PI/180));pts.push([f.lat-dlat,f.lng-dlng],[f.lat+dlat,f.lng+dlng]);}});
+  if(!pts.length)return;
+  var la=pts.map(function(p){return p[0]}),lo=pts.map(function(p){return p[1]});
+  cy=(Math.min.apply(null,la)+Math.max.apply(null,la))/2;cx=(Math.min.apply(null,lo)+Math.max.apply(null,lo))/2;
+  for(var z=18;z>=10;z--){var dx=(lngToTileX(Math.max.apply(null,lo),z)-lngToTileX(Math.min.apply(null,lo),z))*256;
+    var dy=(latToTileY(Math.min.apply(null,la),z)-latToTileY(Math.max.apply(null,la),z))*256;
+    if(dx<W*.78&&dy<H*.68){zoom=z;break;}}
+  render();
+}
 
 // اجرای اولیه — clamp مشهد
 var initClamped=clampCenter(cy,cx); cy=initClamped.lat; cx=initClamped.lng;
@@ -1679,7 +1704,7 @@ const s = StyleSheet.create({
   mapSliderHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7},
   mapSliderTitle:{fontFamily:FONT.bold,fontSize:12,color:C.ink},
   mapElapsed:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginLeft:6},
-  mapRefreshRow:{position:'absolute',bottom:174,left:0},
+  mapRefreshRow:{position:'absolute',bottom:174,left:0,gap:8},
   mapRefreshButton: {width:50,height:50,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'rgba(255,255,255,0.95)',elevation:3},
   refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: '#b6dccc', borderRadius: 14, paddingVertical: 12, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:8, marginBottom: 10 },
   refreshPosTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
