@@ -3,6 +3,12 @@ name: build-panel-bundle
 on:
   push:
     branches: [main]
+    paths:
+      - 'php/**/*.ts'
+      - 'php/**/*.tsx'
+      - 'php/tools/build_panel_bundle.sh'
+      - 'php/tsconfig*.json'
+      - '.github/workflows/build-panel-bundle.yml'
   workflow_dispatch:
 permissions:
   contents: write
