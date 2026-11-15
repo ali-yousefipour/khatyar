@@ -38,7 +38,7 @@ const modules={
   'expo-file-system/legacy':fileSystem,
   './api':{imageSource:source=>({uri:source})}
 };
-vm.runInNewContext(compiled,{exports:sandboxExports,require:name=>{if(!(name in modules))throw Error('Unexpected import: '+name);return modules[name]},Date,Math,Map,JSON,RegExp,Number,String});
+vm.runInNewContext(compiled,{exports:sandboxExports,FileSystem:fileSystem,AsyncStorage:storage,imageSource:source=>({uri:source}),Date,Math,Map,JSON,RegExp,Number,String});
 (async()=>{
   const {cacheProfilePhoto,readProfilePhotoCache}=sandboxExports;
   const first=await cacheProfilePhoto(42,'https://example.invalid/photo-1.jpg');
