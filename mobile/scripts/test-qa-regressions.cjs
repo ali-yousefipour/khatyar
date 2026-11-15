@@ -3,7 +3,6 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const babel=require('@babel/core');
 const root=path.resolve(__dirname,'../..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const auth=read('mobile/src/auth.js');
@@ -17,7 +16,7 @@ assert.match(permissions,/setTimeout\(\(\)=>\{if\(mounted\.current\)check\(\);\}
 assert.match(api,/!!options\.noStore,!!options\.forceNetwork/,'requests with different freshness policies cannot share in-flight responses');
 assert.match(drawer,/photoActions: \{[^\n]+flexWrap: 'wrap'/,'photo modal actions wrap on small screens');
 const source=read('mobile/src/profilePhotoCache.js');
-const compiled=babel.transformSync(source,{plugins:[require.resolve('@babel/plugin-transform-modules-commonjs')],babelrc:false,configFile:false}).code;
+const compiled=source.replace(/^import .*;\r?\n/gm,'').replace(/export (async function|function)/g,'$1')+'\nObject.assign(exports,{cacheProfilePhoto,readProfilePhotoCache});';
 const store=new Map(),files=new Map(),deleted=[];
 let failDownload=false;
 const storage={
