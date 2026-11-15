@@ -132,6 +132,14 @@ function CheckInCore({ viewportHeight }) {
         .filter((ident) => String(ident.kind || '').trim().toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.some((m) => String(m || '').trim().toLowerCase() === 'wifi')))
         .map((ident) => ({ line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
       await AsyncStorage.setItem(WIFI_BSSID_CACHE_KEY, JSON.stringify({ entries, cached_at: Date.now() }));
+      const lines=(config?.lines||[]).map(line=>({
+        id:line.id,code:line.code,origin:line.origin,destination:line.destination,
+        geofences:Array.isArray(line.geofences)?line.geofences.map(f=>({
+          id:f.id,name:f.name,center_lat:f.center_lat,center_lng:f.center_lng,radius_m:f.radius_m,
+          polygon:f.polygon
+        })):[]
+      }));
+      await AsyncStorage.setItem('presence_line_metadata_v1',JSON.stringify({user_id:Number(user?.id||0),lines,cached_at:Date.now()}));
     } catch {}
   };
   const getAuthorizedWifi = async () => {
