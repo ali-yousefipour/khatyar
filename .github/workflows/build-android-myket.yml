@@ -49,6 +49,13 @@ jobs:
           test "$VERSION" = "$(node -p "require('./mobile/app.config.js')({config:{}}).version")" || { echo "::error::Version does not match app.config.js"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Catch syntax errors before the costly Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module --check < mobile/src/jdate.js
+          echo "Jalali date module syntax is valid."
+
       - name: Verify public releases publishing permission is configured
         shell: bash
         env:
