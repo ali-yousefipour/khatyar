@@ -28,7 +28,7 @@ export async function cacheProfilePhoto(userId,source,{force=false}={}){
   if(!remote)return null;
   const sourceKey=sourceIdentity(remote);
   const existing=await readProfilePhotoCache(userId);
-  if(!force&&existing?.source===sourceKey)return existing.uri;
+  if(!force&&existing?.source===sourceKey&&Date.now()-Number(existing.cached_at||0)<12*60*60*1000)return existing.uri;
   if(inflight.has(String(userId)))return inflight.get(String(userId));
   const task=(async()=>{
     const base=FileSystem.documentDirectory;
