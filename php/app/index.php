@@ -23,7 +23,7 @@ header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: SAMEORIGIN')
 header('Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)'); header('Cross-Origin-Resource-Policy: same-origin');
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 if (strpos($_SERVER['REQUEST_URI'] ?? '', '/api') === 0) header('Cache-Control: no-store, max-age=0');
-$allowed = array_filter([$CONFIG['public_url'] ?: 'https://app.yousefipour.ir', 'https://admin.yousefipour.ir']); $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowed = array_filter([$CONFIG['public_url'] ?: 'https://khat-yar.ir', 'https://admin.yousefipour.ir']); $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin && in_array($origin, $allowed, true)) header('Access-Control-Allow-Origin: ' . $origin); header('Vary: Origin'); header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Access-Token, X-Requested-With'); header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
@@ -41,9 +41,9 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '2.0.1'; $appV = '2.0.1';
+  $siteV = '2.0.2'; $appV = '2.0.2';
   $releaseNotes = [
-    'version' => '2.0.1',
+    'version' => '2.0.2',
     'title' => 'تغییرات نسخه ۲.۰.۱',
     'items' => [
       'رفع بسته‌شدن ویزارد بازدید سرویس مدارس هنگام انتقال از مرحله پلاک به مشخصات راننده و تخلفات',
