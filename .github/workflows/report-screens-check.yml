@@ -1,0 +1,27 @@
+name: report-screens-check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/src/screens/InboxScreen.js'
+      - 'mobile/src/screens/ReportsScreen.js'
+      - 'mobile/src/components/ReportPersonPickerModal.js'
+      - 'mobile/scripts/test-report-screens.cjs'
+      - '.github/workflows/report-screens-check.yml'
+  workflow_dispatch:
+jobs:
+  report-jsx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install React Native parser dependencies
+        working-directory: mobile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate report screens JSX and feature contracts
+        working-directory: mobile
+        run: node scripts/test-report-screens.cjs
