@@ -26,7 +26,7 @@ function internet_work_intervals(int $userId,int $fromTs,int $toTs): array {
     // Legacy Android clients recorded 'offline'/'online' while newer ones
     // may report internet_off checkpoints. Both represent the same state.
     // Look back to capture an outage that started before this attendance.
-    $events=Db::all("SELECT kind,at FROM user_activity WHERE user_id=? AND kind IN ('internet_off','internet_on','offline','online') AND at>=? AND at<=? ORDER BY at,id",[$userId,date('Y-m-d H:i:s',max(1,$fromTs-86400)),date('Y-m-d H:i:s',$toTs)]);
+    $events=Db::all("SELECT kind,at FROM user_activity WHERE user_id=? AND kind IN ('internet_off','internet_on','offline','online') AND at>=? AND at<=? ORDER BY at,id",[$userId,date('Y-m-d H:i:s',max(1,$fromTs-86400)),date('Y-m-d H:i:s',$toTs+86400)]);
     $ranges=work_confirmed_off_intervals($events,$fromTs,$toTs,'internet_off','internet_on',1800);
     return $ranges;
   } catch(Throwable $e) { error_log('internet work interval query failed: '.$e->getMessage());return []; }
