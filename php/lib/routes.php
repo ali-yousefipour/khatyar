@@ -8996,6 +8996,8 @@ route('POST', '/api/official-visits', function($p, $b, $u) {
   if (empty(trim($b['note'] ?? ''))) Http::error('درج توضیحات الزامی است.', 422);
   // جلوگیری از ثبت تکراری حضور یک مسئول توسط یک کاربر برای بالا بردن رتبه
   $officialId = (int)$b['official_id'];
+  if (!Db::one("SELECT id FROM users WHERE id=? AND is_active=1",[$officialId]))
+    Http::error('مسئول انتخاب‌شده دیگر فعال نیست؛ فهرست را به‌روزرسانی کنید.',422);
   $eventAt = _app_client_time($b);
   // Replaying a queued visit must be idempotent, including after an HTTP
   // timeout where the database write succeeded but the ACK was lost.
@@ -9037,6 +9039,9 @@ route('POST', '/api/official-visits', function($p, $b, $u) {
   }
   [$lat, $lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   $lineIds = user_line_ids($u);
+  $selectedLineId=(int)($b['line_id']??0);
+  if($selectedLineId>0 && is_array($lineIds) && !in_array($selectedLineId,array_map('intval',$lineIds),true))
+    Http::error('خط انتخاب‌شده در فهرست خطوط مجاز شما نیست؛ فهرست را به‌روزرسانی کنید.',403);
   $reqRow = Db::one("SELECT value FROM app_settings WHERE `key`='official_visit_require_station'");
   $requireStation = $reqRow ? (bool)json_decode($reqRow['value'], true) : true;
   $fenceCount = 0;
