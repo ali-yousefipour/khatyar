@@ -72,7 +72,8 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   assert.match(screenSource, /downloadAndInstallUpdate\(info\)/);
   assert.match(screenSource, /khatyarUpdaterProgress/, 'Native progress events feed the update dialog');
   assert.match(screenSource, /<ActivityIndicator size="small" color=\{C\.brand\}/, 'Download spinner appears even before content length is known');
-  assert.match(appSource, /setInterval\(poll,15000\)/, 'Forced policy is polled while the app is open');
+  assert.match(appSource, /setInterval\(poll,60000\)/, 'Forced policy is polled at a bounded interval while the app is open');
+  assert.match(appSource, /Date\.now\(\)-lastPollAt<60000/, 'Foreground transitions cannot trigger repeated version checks');
   assert.match(appSource, /AppState\.addEventListener\('change',state=>\{if\(state==='active'\)poll\(\)\}\)/, 'Forced policy rechecks on foreground');
   assert.match(appSource, /if\(updateInfo\?\.required\)return/, 'Mandatory update replaces the application UI');
   assert.match(screenSource, /info\?\.notes/);
