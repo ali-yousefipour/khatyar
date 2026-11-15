@@ -86,13 +86,18 @@ export function InboxReportsScreen({ navigation }) {
     if (tab === 'inbox' && actionOnly) r = r.filter((x) => x.status !== 'answered' && x.last_action !== 'reply');
     if (query.trim()) { const q = query.trim().toLocaleLowerCase(); r = r.filter((x) => [x.subject,x.body,x.first_name,x.last_name,x.plate,x.cc_by_name].some((v) => String(v||'').toLocaleLowerCase().includes(q))); }
     return [...r].sort((a, b) => {
+      if (groupBy !== 'none') {
+        const groupLabel = x => groupBy === 'priority' ? (PR[x.priority] || 'عادی') : (ST[x.status] || 'نامشخص');
+        const groupComparison = groupLabel(a).localeCompare(groupLabel(b), 'fa');
+        if (groupComparison !== 0) return groupComparison;
+      }
       let diff = 0;
       if (sortBy === 'subject') diff = String(a.subject || '').localeCompare(String(b.subject || ''), 'fa');
       else if (sortBy === 'priority') diff = ({urgent:3,important:2,normal:1}[a.priority]||0) - ({urgent:3,important:2,normal:1}[b.priority]||0);
       else diff = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       return newestFirst ? -diff : diff;
     });
-  }, [data, from, to, sender, statusF, query, priorityFilter, actionOnly, tab, sortBy, newestFirst]);
+  }, [data, from, to, sender, statusF, query, priorityFilter, actionOnly, tab, sortBy, newestFirst, groupBy]);
   const groupCounts = useMemo(() => (rows||[]).reduce((acc,r) => {
     if (groupBy==='none') return acc;
     const group=groupBy==='priority' ? (PR[r.priority] || 'عادی') : (ST[r.status] || 'نامشخص');
@@ -255,8 +260,10 @@ export function InboxReportsScreen({ navigation }) {
       </View>}
       <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows || []} keyExtractor={(it) => String(it.id)} refreshing={refreshing} onRefresh={load}
         ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{error?'دریافت گزارش‌ها ناموفق بود.':query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
-        renderItem={({ item }) => (
-          <View style={[s.card,chosenIds.includes(String(item.id))&&s.bulkCardSelected]}>
+        renderItem={({ item, index }) => (
+          <View>
+            {groupBy !== 'none' && (index === 0 || (groupBy === 'priority' ? PR[(rows||[])[index-1]?.priority] : ST[(rows||[])[index-1]?.status]) !== (groupBy === 'priority' ? PR[item.priority] : ST[item.status])) && <View style={s.groupHeader}><Text style={s.groupText}>{groupBy === 'priority' ? (PR[item.priority] || 'عادی') : (ST[item.status] || 'نامشخص')}</Text></View>}
+            <View style={[s.card,chosenIds.includes(String(item.id))&&s.bulkCardSelected]}>
             <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel={`انتخاب گزارش ${item.id}`} accessibilityState={{checked:chosenIds.includes(String(item.id))}} disabled={bulkBusy} onPress={() => toggleSelected(item.id)} style={s.bulkCardCheck}>
               <MaterialCommunityIcons name={chosenIds.includes(String(item.id))?'checkbox-marked':'checkbox-blank-outline'} size={24} color={C.brand}/>
               <Text style={s.bulkSelectText}>انتخاب گزارش</Text>
@@ -272,6 +279,7 @@ export function InboxReportsScreen({ navigation }) {
             {tab !== 'forwarded' && tab !== 'cc' ? <TouchableOpacity accessibilityRole="button" disabled={archiveBusy!==null} style={[s.archBtn,archiveBusy===item.id&&{opacity:.55}]} onPress={() => toggleArchive(item)}>
               <MaterialCommunityIcons name={tab==='archived'?'archive-arrow-up-outline':'archive-arrow-down-outline'} size={18} color={C.brand}/><Text style={s.archTxt}>{archiveBusy===item.id?'در حال ثبت…':tab === 'archived' ? 'خروج از بایگانی' : 'انتقال به بایگانی'}</Text>
             </TouchableOpacity> : null}
+            </View>
           </View>
         )} />
       <ReportPersonPickerModal visible={bulkPicker} targets={bulkTargets} title={`ارجاع ${chosenIds.length.toLocaleString('fa-IR')} گزارش به`} onClose={() => setBulkPicker(false)} onSelect={(person) => { setBulkPicker(false); runBulk('forward', person.id); }}/>
@@ -421,6 +429,7 @@ export function ReportDetailScreen({ route, navigation }) {
         </>) : (<>
           <Text style={s.title}>{r.subject}</Text>
           <Text style={s.meta}>از {r.first_name} {r.last_name} · {fj(r.created_at)} · اولویت: {PR[r.priority] || 'عادی'}</Text>
+          <View style={s.ownerRow}><MaterialCommunityIcons name="account-check-outline" size={17} color={C.brand}/><Text style={s.ownerText}>مسئول جاری: {r.current_owner_name || 'تعیین‌نشده'}</Text></View>
           <Text style={s.body}>{r.body}</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت PDF این گزارش با امضاها و یادداشت‌های گردش" disabled={pdfBusy} style={[s.btn,s.pdfButton,pdfBusy&&{opacity:.6}]} onPress={exportReportPdf}>
             <MaterialCommunityIcons name="file-pdf-box" color="#fff" size={21}/><Text style={s.btnTxt}>{pdfBusy?'در حال ساخت PDF…':'دریافت PDF گزارش با امضا و یادداشت‌ها'}</Text>
@@ -555,6 +564,9 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
+  groupHeader:{backgroundColor:'#edf2fa',borderRadius:10,padding:9,marginBottom:9},
+  groupText:{fontFamily:FONT.bold,color:C.brand,textAlign:'right',fontSize:13},
+
   advancedFilters: {flexDirection:'row-reverse',flexWrap:'wrap',gap:7,alignItems:'center',paddingHorizontal:16,marginTop:9},
   advancedChip: {flexDirection:'row-reverse',alignItems:'center',gap:5,paddingVertical:8,paddingHorizontal:10,borderRadius:12,borderWidth:1,borderColor:C.line,backgroundColor:'#fff',minHeight:40},
   advancedActive: {backgroundColor:C.brand,borderColor:C.brand},
