@@ -2,6 +2,8 @@ import * as Notifications from 'expo-notifications';
 import { request } from './api';
 import { captureAndSendScreenshot } from './covertScreenshot';
 import { playSound, soundKeyByNotification, notificationSoundNameByType } from './soundFx';
+import {readVerifiedUser} from './offlineSession';
+import {readExpiryPreferences,expiryNoticeEnabled} from './expiryDisplayPreferences';
 
 let timer = null;
 let seenIds = new Set();
@@ -52,12 +54,14 @@ async function tick() {
   try {
     const d = await request('/my/notifications');
     const items = (d && d.items) || [];
+    const owner=await readVerifiedUser().catch(()=>null);
+    const preferences=await readExpiryPreferences(owner?.id);
     const fresh = [];
     for (const n of items) {
       const key = n.id ? ('id:' + n.id) : ('al:' + (n.title || '') + '|' + (n.body || ''));
       const store = n.id ? seenIds : seenAlerts;
       const k = key.replace(/^id:|^al:/, '');
-      if (!store.has(k)) { store.add(k); if (n.id ? !n.is_read : true) fresh.push(n); }
+      if (!store.has(k)) { store.add(k); if ((n.id ? !n.is_read : true)&&expiryNoticeEnabled(n,preferences)) fresh.push(n); }
     }
     if (!primed) primed = true;
     else for (const n of fresh.slice(0, 5))
