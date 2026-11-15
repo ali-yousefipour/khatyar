@@ -42,13 +42,26 @@ async function refreshAccess(){
           headers:{'content-type':'application/x-www-form-urlencoded; charset=UTF-8','accept':'application/json'},
           body:form.toString()
         },18000);
-        if(r.status===401||r.status===403){confirmedRevocation();return false;} // verified server-side session revocation
+        if(r.status===401||r.status===403){
+          // A WAF/proxy signature error is NOT evidence that the administrator
+          // removed the registered device session. Keep the verified local user.
+          let detail={};try{detail=await r.json()}catch(_){}
+          const reason=String(detail?.error||detail?.message||'');
+          if(r.status===401 && reason==='نشست نامعتبر است'){
+            confirmedRevocation();
+            throw Object.assign(new Error('نشست این دستگاه توسط سرور باطل شده است.'),{status:401,confirmedRevocation:true});
+          }
+          return false;
+        } // Only exact server session revocation forces logout
         if(!r.ok){if(r.status>=500){if(attempt===0)continue;throw transient();}return false;}
         const d=await r.json();
         if(!d?.access||!d?.refresh)throw transient();
         await setTokens(d.access,d.refresh);
         return true;
-      }catch(error){if(attempt===1)throw transient();}
+      }catch(error){
+        if(error?.confirmedRevocation)throw error;
+        if(attempt===1)throw transient();
+      }
     }
     throw transient();
   })();
