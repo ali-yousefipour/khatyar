@@ -1,4 +1,5 @@
 name: build-android-myket
+# Release 2.0.4 includes the dashboard grid and RTL time picker fixes.
 
 on:
   workflow_dispatch:
