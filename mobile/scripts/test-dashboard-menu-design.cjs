@@ -17,7 +17,8 @@ assert.match(dashboard, /\['favorites', 'موارد دلخواه'\]/, 'Favorites
 assert.doesNotMatch(dashboard, /\['general', 'عمومی'\]/, 'Old category tabs should be removed');
 assert.match(dashboard, /favoriteRoutes\.includes\(m\.r\)/, 'Favorites must be restricted to accessible cards');
 assert.match(dashboard, /dashboard-favorites:v1:/, 'Favorites must be scoped by account');
-assert.match(dashboard, /fontScale > 1\.6/, 'Dashboard grid must respond to large system fonts');
+assert.match(dashboard, /const cols = width >= 900 \? 4 : width >= 600 \? 3 : 2/, 'Phone dashboard needs two compact columns regardless of system font size');
+assert.match(tiles, /compactTool:/, 'Narrow dashboard cards must use a compact layout');
 assert.match(dashboard, /rankCountFor/, 'Rank insignia must be derived from user role');
 assert.match(dashboard, /label=\{m\.t\}/, 'Every tool must receive its actual label');
 assert.match(tiles, /accessibilityLabel=\{label\}/, 'Every tool must expose its label');
