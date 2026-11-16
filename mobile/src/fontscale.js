@@ -6,14 +6,15 @@ const KEY = 'fontScale';
 let FONT_SCALE = 1;
 export const getFontScale = () => FONT_SCALE;
 
-// روش امن: به‌جای دست‌کاری رندر داخلی RN (که در نسخهٔ 0.74 باعث کرش می‌شود)،
-// از allowFontScaling سیستمی استفاده می‌کنیم و مقیاس انتخابی کاربر را ذخیره می‌کنیم.
+// Keep the fixed-size operational UI independent of Android system font size.
+// RN's public defaultProps are used (not private render/JSX monkey-patching);
+// individual accessible text fields can still opt in with allowFontScaling.
 try {
-  Text.defaultProps = Text.defaultProps || {};
-  Text.defaultProps.allowFontScaling = true;
-  TextInput.defaultProps = TextInput.defaultProps || {};
-  TextInput.defaultProps.allowFontScaling = true;
-} catch (e) {}
+  Text.defaultProps = { ...(Text.defaultProps || {}), allowFontScaling: false };
+  TextInput.defaultProps = { ...(TextInput.defaultProps || {}), allowFontScaling: false };
+} catch (e) {
+  console.warn('[fontscale] Could not configure default text scaling', e?.message || e);
+}
 
 const Ctx = createContext({ scale: 1, setScale: () => {} });
 export const useFontScale = () => useContext(Ctx);
