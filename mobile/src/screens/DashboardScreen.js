@@ -108,12 +108,14 @@ let welcomedUserId = null;
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
   const welcomePlayer = useAudioPlayer(require('../../assets/sounds/welcome.mp3'));
-  const { width, fontScale } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const contentWidth = Math.min(width, 960);
-  const cols = width < 380 || fontScale > 1.6 ? 1 : width >= 900 && fontScale <= 1.25 ? 3 : 2;
+  // Tool cards have icon, label and favorite controls: do not squeeze them into narrow phone columns.
+  // Layout is based on available width, not the Android system font-scale preference.
+  const cols = width >= 900 ? 3 : width >= 600 ? 2 : 1;
   const gridGap = 12;
   const gridCardWidth = (contentWidth - 32 - gridGap * (cols - 1)) / cols;
-  const kpiCardWidth = fontScale > 1.35 || width < 365 ? '100%' : '50%';
+  const kpiCardWidth = width < 365 ? '100%' : '50%';
   const [stats, setStats] = useState({ today: 0, checklists: 0, notices: 0, reports: 0, unread: 0 });
   const [unreadCounts, setUnreadCounts] = useState({ messages: 0, reports: 0, total: 0 });
   const [myStats, setMyStats] = useState({ drivers: 0, vehicles: 0 });
@@ -440,7 +442,7 @@ export default function DashboardScreen({ navigation }) {
   return <ScrollView keyboardShouldPersistTaps="handled" persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text accessibilityLiveRegion="polite" style={s.syncText}>{syncDetail}</Text></View> : null}
   <View style={s.dashboardHero}>
     <View style={s.dashboardBrandRow}><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={khOpenDrawer} style={s.brandMenu}><MaterialCommunityIcons name="menu" size={27} color="#fff" /></TouchableOpacity><View style={s.brandCopy}><Text style={s.brandName}>خطیار</Text><Text style={s.brandSubtitle}>داشبورد مدیریتی</Text></View><KhatyarBrandMark size={42}/></View>
-    <View style={[s.quickActions, fontScale > 1.25 && s.quickActionsLarge]}>
+    <View style={s.quickActions}>
       {allowed.includes('InboxReports') && <DashboardQuickAction label="گزارشات" icon="message-text-outline" badge={unreadCounts.reports>0?unreadLabel(unreadCounts.reports):null} onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} />}
       <DashboardQuickAction label="بروزرسانی کش" icon={syncing?'sync':'database-refresh'} disabled={syncing} onPress={manualSync} />
       {allowed.includes('Notifications') && <DashboardQuickAction label="اعلان‌ها" icon="bell-outline" badge={stats.unread>0?(stats.unread>99?'۹۹+':faNum(stats.unread)):null} onPress={() => navigation.navigate('Notifications')} />}
