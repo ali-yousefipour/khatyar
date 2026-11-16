@@ -37,7 +37,8 @@ export function validateLockSecret(type,v){const s=String(v||'');if(type==='patt
 export default function AppLock({children}){
  const {user,loading}=useAuth();
  const[cfg,setCfg]=useState(null),[locked,setLocked]=useState(false),[manualLock,setManualLock]=useState(false),[secretReady,setSecretReady]=useState(false);
- const bg=useRef(null),lastInteraction=useRef(Date.now()),active=useRef(AppState.currentState==='active'),cfgRef=useRef(null),lockedRef=useRef(false);
+ const bg=useRef(null),lastInteraction=useRef(Date.now()),active=useRef(AppState.currentState!=='background'),cfgRef=useRef(null),lockedRef=useRef(false);
+ const recordActivity=useCallback(()=>{if(!lockedRef.current)lastInteraction.current=Date.now();},[]);
  const load=useCallback(async()=>{const c=await getLockConfig();const secret=await getLockSecret();cfgRef.current=c;setCfg(c);setSecretReady(!!secret);if(c.enabled&&secret){lockedRef.current=true;setLocked(true)}},[]);
  useEffect(()=>{load()},[load]);
  useEffect(()=>{const changed=DeviceEventEmitter.addListener('khatyar.appLock.configChanged',async c=>{const next={...DEFAULT_CFG,...c};next.timeoutSeconds=lockTimeoutSeconds(next);cfgRef.current=next;setCfg(next);setSecretReady(!!(await getLockSecret()));lastInteraction.current=Date.now()});const lock=DeviceEventEmitter.addListener('khatyar.appLock.lockNow',()=>{setManualLock(true);lockedRef.current=true;setLocked(true)});const sub=AppState.addEventListener('change',st=>{if(global.__APPLOCK_SUPPRESS__)return;const now=Date.now();if(st!=='active'){if(active.current)bg.current=now;active.current=false;return}active.current=true;if(cfgRef.current?.enabled&&bg.current&&now-bg.current>=lockTimeoutSeconds(cfgRef.current)*1000){lockedRef.current=true;setManualLock(false);setLocked(true)}bg.current=null;lastInteraction.current=now});const timer=setInterval(()=>{if(active.current&&!lockedRef.current&&cfgRef.current?.enabled&&Date.now()-lastInteraction.current>=lockTimeoutSeconds(cfgRef.current)*1000){lockedRef.current=true;setManualLock(false);setLocked(true)}},1000);return()=>{changed.remove();lock.remove();sub.remove();clearInterval(timer)}},[]);
@@ -47,7 +48,7 @@ export default function AppLock({children}){
  if(!cfg.enabled||!secretReady)return<AppLockSetupScreen onConfigured={()=>{lastInteraction.current=Date.now();lockedRef.current=false;setLocked(false)}}/>;
  // Keep the navigation tree mounted: radio audio, timers and verification
  // subscriptions must continue when the security overlay is visible.
- return<View style={{flex:1}} onStartShouldSetResponderCapture={()=>{if(!lockedRef.current)lastInteraction.current=Date.now();return false}} onMoveShouldSetResponderCapture={()=>{if(!lockedRef.current)lastInteraction.current=Date.now();return false}}>
+ return<View style={{flex:1}} onTouchStart={recordActivity} onTouchMove={recordActivity} onStartShouldSetResponderCapture={()=>{recordActivity();return false}} onMoveShouldSetResponderCapture={()=>{recordActivity();return false}}>
   <View style={{flex:1}} pointerEvents={locked?'none':'auto'} importantForAccessibility={locked?'no-hide-descendants':'auto'}>{children}</View>
   <Modal
     visible={locked}
