@@ -7,6 +7,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { getAccuratePosition, getGsmPosition } from '../location';
+import { isSecurityExempt } from '../device';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout, invalidateCachedValue } from '../api';
 import { getAppConfig } from '../appconfig';
@@ -810,7 +811,7 @@ function CheckInCore({ viewportHeight }) {
       } catch (e) {
         if (String(e?.message || '').includes('جلسهٔ ورودِ باز') || String(e?.message || '').includes('خروج قبلی هنوز')) throw e;
       }
-      if (appCfg?.gps_work_required) {
+      if (appCfg?.gps_work_required && !isSecurityExempt()) {
         let gpsEnabled = true;
         try { gpsEnabled = await Location.hasServicesEnabledAsync(); } catch {}
         if (!gpsEnabled) throw new Error('برای ثبت حضور، GPS باید روشن باشد.');
@@ -880,7 +881,7 @@ function CheckInCore({ viewportHeight }) {
           if(local)await ensureLocalRandomSchedule(Number(user?.id),local,policy.window_minutes);
         }
       } catch(error) { console.warn('presence local schedule:',error?.message||error); }
-      if (appCfg?.gps_work_required) {
+      if (appCfg?.gps_work_required && !isSecurityExempt()) {
         Alert.alert(
           'الزام GPS و شیفت کاری',
           'حضور شما ملزم به روشن بودن GPS و شیفت کاری میباشد و نرم افزار هر سی دقیقه یکبار وضعیت GPS شما را بررسی مینماید و در صورتی که GPS شما خاموش باشد زمان کارکرد برای شما محاسبه نمیشود.'
