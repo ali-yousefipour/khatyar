@@ -14,6 +14,15 @@ assert.match(api, /COUNT\(\*\) inspection_count/, 'server returns per-plate visi
 assert.match(api, /CONCAT\('unknown:',i\.id\)/, 'incomplete plates must not be merged');
 assert.match(api, /inspections-plate-history/, 'individual history endpoint must exist');
 assert.match(api, /_ssv_need\(\$u,'view'\)/, 'inspection histories retain permission checks');
+const dashboard = fs.readFileSync(path.join(root, 'lib/school_service_routes_extra.php'), 'utf8');
+assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard exposes inspected unique plate totals');
+assert.match(dashboard, /GROUP BY i\.plate_two,i\.plate_letter,i\.plate_three,i\.plate_region_code/, 'unique visits use all Iranian plate segments');
+assert.match(dashboard, /'inspections'=>\$inspections/, 'dashboard keeps total visits independent of distinct plates');
+assert.match(ui, /c\.visited_vehicles/, 'dashboard displays visited vehicles');
+assert.match(ui, /c\.inspections\|\|0/, 'dashboard displays all inspection records');
+assert.match(ui, /ssv-visit-history-modal/, 'visit history modal has its own scroll layout');
+assert.match(ui, /\.ssv-form-body\{flex:1 1 auto;min-height:0;overflow-y:auto/, 'scrolling is constrained to modal content');
+assert.match(ui, /data-photo-full/, 'visit photos open full-screen on click');
 assert.match(ui, /group_by_plate:'1'/, 'active admin UI requests grouped plate rows');
 assert.match(ui, /data-plate-visits/, 'visit count must open the history');
 assert.match(ui, /ssvJalaliDate\(visit\.violation_date\)/, 'history shows Jalali dates');
