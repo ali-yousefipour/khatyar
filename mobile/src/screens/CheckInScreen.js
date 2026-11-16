@@ -748,16 +748,37 @@ function CheckInCore({ viewportHeight }) {
   };
 
   const getPositionForAttendance = async () => {
-    if (pos?.lat != null && pos?.lng != null) return pos;
-    try {
-      const p = await getAccuratePosition({ samples: 2, timeoutMs: 5000, desiredAccuracy: 20, maxAccuracy: 100 });
-      if (p?.coords) {
-        const next = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false };
-        setPos(next);
-        return next;
-      }
-    } catch {}
-    return null;
+    // A network/GSM map fix is useful for display, but is not GPS proof for attendance.
+    const permitted = await Location.getForegroundPermissionsAsync().catch(() => null);
+    if (!permitted?.granted) {
+      const updated = permitted?.canAskAgain
+        ? await Location.requestForegroundPermissionsAsync().catch(() => null)
+        : null;
+      if (!updated?.granted) throw new Error('مجوز موقعیت مکانی خطیار فعال نیست. از تنظیمات گوشی دسترسی موقعیت دقیق را فعال کنید.');
+    }
+    const enabled = await Location.hasServicesEnabledAsync().catch(() => false);
+    if (!enabled) throw new Error('سرویس موقعیت مکانی گوشی خاموش است. آن را روشن کنید و دوباره تلاش کنید.');
+    const valid = (p) => p?.lat != null && p?.lng != null
+      && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))
+      && Number.isFinite(Number(p.acc)) && Number(p.acc) <= 100
+      && !p.viaGsm && Number.isFinite(Number(p.ts))
+      && Date.now() - Number(p.ts) >= -5000 && Date.now() - Number(p.ts) <= 30000;
+    // Reuse a fresh, accurate fix already shown on the map.
+    if (valid(pos)) return pos;
+    let p = await getAccuratePosition({ samples: 2, timeoutMs: 7000, desiredAccuracy: 20, maxAccuracy: 100 }).catch(() => null);
+    // On devices with a slow first fix, try the platform's recent accurate GPS fix.
+    if (!p?.coords) {
+      p = await Location.getLastKnownPositionAsync({ maxAge: 30000, requiredAccuracy: 100 }).catch(() => null);
+    }
+    if (!p?.coords || !Number.isFinite(Number(p.timestamp))
+      || Date.now() - Number(p.timestamp) > 30000
+      || (p.coords.accuracy ?? Infinity) > 100) {
+      throw new Error('موقعیت دقیق GPS دریافت نشد. در فضای باز چند لحظه صبر کنید و موقعیت را به‌روزرسانی کنید.');
+    }
+    const next = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false };
+    if (!valid(next)) throw new Error('موقعیت GPS معتبر یا به‌روز نیست. موقعیت را تازه‌سازی و دوباره تلاش کنید.');
+    setPos(next);
+    return next;
   };
 
   async function doCheckin(proof) {
