@@ -28,6 +28,7 @@ assert.match(dashboard, /_ssv_need\(\$u,'view'\)/, 'photo endpoint is permission
 assert.match(dashboard, /SELECT id FROM school_service_inspections WHERE inspector_user_id=\? AND created_at>=DATE_SUB/, 'photo endpoint only serves recent inspectors');
 assert.match(dashboard, /SELECT photo_path,photo FROM users WHERE id=\?/, 'photo endpoint reads original user account');
 assert.match(dashboard, /Media::fullPath/, 'physical profile storage is used instead of inaccessible direct URLs');
+assert.match(dashboard, /DOCUMENT_ROOT/, 'photo lookup supports uploads moved to the new domain document root');
 assert.match(ui, /api\('\/api\/school-service\/inspector-photo\/'\+uid\)/, 'dashboard fetches portraits with app authorization');
 assert.match(ui, /data-user-id/, 'inspector cards carry canonical inspector user ID');
 
