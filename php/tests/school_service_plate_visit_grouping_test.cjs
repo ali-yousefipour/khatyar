@@ -18,8 +18,10 @@ const dashboard = fs.readFileSync(path.join(root, 'lib/school_service_routes_ext
 assert.match(dashboard, /'service_companies_all_years'=>\$allYearsServiceCompanies/, 'all-time service company metric must be exposed by API');
 assert.match(dashboard, /c\.is_active=1 OR EXISTS\(SELECT 1 FROM school_service_school_companies sc WHERE sc\.company_id=c\.id\) OR EXISTS\(SELECT 1 FROM school_service_inspections i WHERE i\.company_id=c\.id\)/, 'count current companies and documented former operators without duplicates');
 assert.match(ui, /کل شرکت‌های مجری سرویس مدارس/, 'dashboard explains all-time service company metric');
-assert.match(dashboard, /SELECT id,photo_path,CASE WHEN photo_path IS NOT NULL/, 'inspector images are fetched only for matching users');
-assert.match(dashboard, /_user_photo_url\(\$photoRow\['photo_path'\]/, 'inspector photos use standard profile photo normalization');
+assert.match(dashboard, /SELECT id,photo_path,photo FROM users WHERE id IN/, 'inspector images use the canonical users profile picture fields');
+assert.match(dashboard, /_user_photo_url\(\$photoRow\['photo_path'\]\?\?null,null\)/, 'canonical profile photo files are normalized');
+assert.match(dashboard, /_user_photo_url\(null,\$photoRow\['photo'\]\)/, 'legacy profile image is independently available when file fails');
+assert.match(dashboard, /'photo_candidates'\]=\$candidates/, 'inspector API provides ordered photo alternatives');
 assert.match(dashboard, /array_chunk\(\$inspectorIds,300\)/, 'batch user photo queries without grouping binary image data');
 assert.match(ui, /ssv-inspector-cards/, 'dashboard renders inspectors as cards');
 assert.ok(ui.indexOf('<section class="ssv-inspectors-section">') < ui.indexOf('<div class="ssv-chart-grid">', ui.indexOf("if(t==='dashboard')")), 'dashboard prioritizes the inspector cards before detailed charts');
@@ -30,7 +32,10 @@ assert.match(ui, /ssv-inspector-score/, 'inspector cards show prominent 30-day v
 assert.match(ui, /ssv-kpi strong\{font-size:clamp\(34px/, 'dashboard numbers use projection-size typography');
 
 assert.match(ui, /c\.service_companies_all_years\?\?c\.active_companies\?\?0/, 'all-years company count falls back to recorded active count while older API is deployed');
-assert.match(ui, /ssvInspectorPhotoUrl\(image\)/, 'dashboard normalizes profile photo paths safely');
+assert.match(ui, /photo_candidates/, 'inspector cards use both profile photo candidates');
+assert.match(ui, /ssvInspectorPhotoUrl/, 'dashboard validates picture URLs');
+assert.match(ui, /parsed\.searchParams\.has\('token'\)/, 'signed media URLs are rendered with scoped token instead of access bearer');
+assert.match(ui, /attempt\(index\+1\)/, 'photo errors automatically fall back to the next source');
 assert.match(ui, /ssvLoadInspectorPhoto\(img\)/, 'dashboard loads each user profile photo through an authenticated request');
 assert.match(ui, /headers:S\.token\?\{Authorization:S\.token\}/, 'inspector photo requests use the same bearer authorization as school service APIs');
 assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard exposes inspected unique plate totals');
