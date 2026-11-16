@@ -21,7 +21,9 @@ assert.ok(screen.includes('function ApprovalTimeline('), 'Timeline component mis
 assert.ok(screen.includes('در انتظار بررسی:'), 'Current responsible manager must be shown');
 assert.ok(screen.includes('در مرحله بعد؛ هنوز بررسی نکرده است'), 'Future managers must be clearly distinguished from approved managers');
 assert.ok(screen.includes('تاریخچه مراحل قبلی'), 'Unknown legacy history must be disclosed');
-assert.ok(picker.includes('length: 24'), 'Time picker must display all 24 hours');
-assert.ok(picker.includes('Number(minute) <= 59'), 'Minutes must be validated');
-assert.ok(picker.includes('two(hour)'), 'Selected time must retain 24-hour format');
+assert.ok(picker.includes('length={24}') && picker.includes('length={60}'), 'Wheel picker must cover all 24 hours and 60 minutes');
+assert.ok(picker.includes("m > 59") && picker.includes("m = editingMinute ? Number(typed) : minute"), 'Custom minutes must be validated');
+assert.ok(picker.includes('formatTime(hour, m)') && picker.includes("two(hour) + ':' + two(minute)"), 'Selected time must retain the 24-hour HH:mm format');
+assert.ok(picker.includes("key: 'now'") && picker.includes("key: 'eight'"), 'Time picker must keep functional quick presets');
+assert.ok(picker.includes('allowFontScaling={false}'), 'Picker must not break under Android system font scaling');
 console.log('PASS request approval history and 24-hour picker contract');
