@@ -106,8 +106,9 @@ export default function TimePicker({ visible, onClose, onSelect, initial, label 
               <Text style={styles.previewTime} allowFontScaling={false}>{fa(currentTime)}</Text>
             </View>
             <View style={styles.columns}>
-              <SpinnerColumn label="ساعت" icon="clock-time-four-outline" value={hour} length={24} onChange={setHour} />
+              {/* On RTL Android, row-reverse positions the first item on the right. */}
               <SpinnerColumn label="دقیقه" icon="timer-outline" value={minute} length={60} onChange={chooseMinute} />
+              <SpinnerColumn label="ساعت" icon="clock-time-four-outline" value={hour} length={24} onChange={setHour} />
             </View>
             <View style={styles.minuteRow}>
               <Text style={styles.minuteHelp} allowFontScaling={false}>دقیقه دلخواه (۰۰ تا ۵۹)</Text>
