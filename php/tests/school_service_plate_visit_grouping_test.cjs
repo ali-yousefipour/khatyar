@@ -19,6 +19,9 @@ assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard expo
 assert.match(dashboard, /GROUP BY i\.plate_two,i\.plate_letter,i\.plate_three,i\.plate_region_code/, 'unique visits use all Iranian plate segments');
 assert.match(dashboard, /'inspections'=>\$inspections/, 'dashboard keeps total visits independent of distinct plates');
 assert.match(ui, /c\.visited_vehicles/, 'dashboard displays visited vehicles');
+assert.match(ui, /inspections-page\?group_by_plate=1&page=1&page_size=1/, 'dashboard counts distinct plates through the existing grouped inspections endpoint');
+assert.match(ui, /const visitedVehicleCount=groupedCount\?\?apiCount/, 'grouped server count is authoritative, API card is fallback');
+assert.match(ui, /visitedVehicleCount===null\?'—'/, 'missing count must never appear as a false zero');
 assert.match(ui, /c\.inspections\|\|0/, 'dashboard displays all inspection records');
 assert.match(ui, /ssv-visit-history-modal/, 'visit history modal has its own scroll layout');
 assert.match(ui, /\.ssv-form-body\{flex:1 1 auto;min-height:0;overflow-y:auto/, 'scrolling is constrained to modal content');
