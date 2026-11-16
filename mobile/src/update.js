@@ -23,7 +23,7 @@ export function validateUpdateUrl(value, sha256 = '') {
     // Other administrator-configured HTTPS hosts require a pinned APK digest.
     const pinned = /^[a-f0-9]{64}$/i.test(String(sha256 || '').trim());
     if (host === TRUSTED_GITHUB_RELEASE_HOST) {
-      return /^\/ali-yousefipour\/khatyar\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/[^/]+\.apk$/i.test(u.pathname) || pinned;
+      return /^\/ali-yousefipour\/(?:khatyar|khatyar-releases)\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/[^/]+\.apk$/i.test(u.pathname) || pinned;
     }
     if (host !== TRUSTED_GITHUB_RAW_HOST) return pinned;
     return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
