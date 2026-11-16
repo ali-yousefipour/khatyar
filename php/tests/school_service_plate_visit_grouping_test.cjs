@@ -23,6 +23,14 @@ assert.match(dashboard, /_user_photo_url\(\$photoRow\['photo_path'\]\?\?null,nul
 assert.match(dashboard, /_user_photo_url\(null,\$photoRow\['photo'\]\)/, 'legacy profile image is independently available when file fails');
 assert.match(dashboard, /'photo_candidates'\]=\$candidates/, 'inspector API provides ordered photo alternatives');
 assert.match(dashboard, /array_chunk\(\$inspectorIds,300\)/, 'batch user photo queries without grouping binary image data');
+assert.match(dashboard, /\/api\/school-service\/inspector-photo\/\{id\}/, 'scoped inspector photo endpoint is registered');
+assert.match(dashboard, /_ssv_need\(\$u,'view'\)/, 'photo endpoint is permission-protected');
+assert.match(dashboard, /SELECT id FROM school_service_inspections WHERE inspector_user_id=\? AND created_at>=DATE_SUB/, 'photo endpoint only serves recent inspectors');
+assert.match(dashboard, /SELECT photo_path,photo FROM users WHERE id=\?/, 'photo endpoint reads original user account');
+assert.match(dashboard, /Media::fullPath/, 'physical profile storage is used instead of inaccessible direct URLs');
+assert.match(ui, /api\('\/api\/school-service\/inspector-photo\/'\+uid\)/, 'dashboard fetches portraits with app authorization');
+assert.match(ui, /data-user-id/, 'inspector cards carry canonical inspector user ID');
+
 assert.match(ui, /ssv-inspector-cards/, 'dashboard renders inspectors as cards');
 assert.ok(ui.indexOf('<section class="ssv-inspectors-section">') < ui.indexOf('<div class="ssv-chart-grid">', ui.indexOf("if(t==='dashboard')")), 'dashboard prioritizes the inspector cards before detailed charts');
 assert.match(ui, /ssv-inspector-avatar/, 'inspector cards include photos or fallback initials');
