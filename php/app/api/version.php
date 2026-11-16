@@ -15,12 +15,12 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = trim((string)$get('app_latest_version', '2.0.3'));
-if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '2.0.3';
-$latest = version_compare($latest, '2.0.3', '<') ? '2.0.3' : $latest;
+$latest = trim((string)$get('app_latest_version', '2.0.4'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '2.0.4';
+$latest = version_compare($latest, '2.0.4', '<') ? '2.0.4' : $latest;
 $min = trim((string)$get('app_min_version', '0.0.0'));
 if (!preg_match('/^\d+\.\d+\.\d+$/', $min)) $min = '0.0.0';
-$defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk';
+$defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest/download/khat-yar.apk';
 $url = trim((string)$get('app_apk_url', $defaultApkUrl));
 // Do not replace administrator-configured links, including custom APK filenames.
 // Empty value is reported as empty so clients can show a clear configuration error.
