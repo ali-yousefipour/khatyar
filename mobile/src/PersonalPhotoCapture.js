@@ -7,7 +7,7 @@ import ActivityIndicator from './components/PulseLoadingIndicator';
 import { compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useCameraSession } from './cameraSession';
-import { launchCamera, ImagePicker } from './cameraLock';
+import { launchCamera, requestCameraAccess, ImagePicker } from './cameraLock';
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
 // انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از دوربین گرفته می‌شود.
@@ -80,6 +80,8 @@ export default function PersonalPhotoCapture({
     try {
       // Release any active CameraView before launching the phone camera app.
       if (useInlineCamera) await new Promise(resolve => setTimeout(resolve, 1200));
+      const access = await requestCameraAccess();
+      if (!access?.granted) throw new Error('camera_permission_denied');
       const result = await launchCamera({
         mediaTypes: ['images'],
         cameraType: facing === 'back' ? (ImagePicker.CameraType?.back || 'back') : (ImagePicker.CameraType?.front || 'front'),
@@ -97,8 +99,11 @@ export default function PersonalPhotoCapture({
       if (autoConfirm) { await onCapture(dataUrl); return; }
       setPreview({ uri, dataUrl });
       setMessage('تصویر را بررسی و سپس تأیید کنید.');
-    } catch (_) {
-      if (generation === captureGeneration.current) setMessage('ثبت عکس با دوربین گوشی انجام نشد. دوباره تلاش کنید یا از دوربین داخلی استفاده کنید.');
+    } catch (error) {
+      console.warn('[PersonalPhotoCapture] system camera failed:', error?.message || error);
+      if (generation === captureGeneration.current) setMessage(error?.message === 'camera_permission_denied'
+        ? 'دسترسی دوربین گوشی صادر نشده است. مجوز دوربین را در تنظیمات گوشی فعال کنید.'
+        : 'ثبت عکس با دوربین گوشی انجام نشد. دوباره تلاش کنید یا از دوربین داخلی استفاده کنید.');
     } finally {
       if (generation === captureGeneration.current) { setBusy(false); setSystemCameraOpen(false); }
     }
@@ -170,12 +175,16 @@ export default function PersonalPhotoCapture({
 
   return (
     <View style={styles.page}>
-      {systemCameraFirst ? <View style={styles.center}>
+      {systemCameraFirst && !useInlineCamera ? <View style={styles.center}>
         {busy || systemCameraOpen ? <ActivityIndicator color={C.brand} /> : null}
         <Text style={styles.permissionText}>{message}</Text>
         <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} disabled={busy || systemCameraOpen} onPress={openSystemCamera}>
           <Text style={styles.primaryButtonText}>باز کردن دوربین گوشی</Text>
         </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={() => { setUseInlineCamera(true); setReady(false); }}>
+          <Text style={styles.cancelText}>استفاده از دوربین داخلی برنامه</Text>
+        </TouchableOpacity>
+        {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
       </View> : <>
       {cameraActive && useInlineCamera && <CameraView
         key={`selfie-camera-${facing}-${cameraKey}`}
