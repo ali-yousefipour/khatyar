@@ -29,7 +29,10 @@ assert.match(ui, /addEventListener\('error'/, 'image failures use CSP-safe event
 assert.match(ui, /ssv-inspector-score/, 'inspector cards show prominent 30-day visit counts');
 assert.match(ui, /ssv-kpi strong\{font-size:clamp\(34px/, 'dashboard numbers use projection-size typography');
 
-assert.match(ui, /c\.service_companies_all_years==null\?'—'/, 'unavailable metric must not be silently shown as zero');
+assert.match(ui, /c\.service_companies_all_years\?\?c\.active_companies\?\?0/, 'all-years company count falls back to recorded active count while older API is deployed');
+assert.match(ui, /ssvInspectorPhotoUrl\(image\)/, 'dashboard normalizes profile photo paths safely');
+assert.match(ui, /ssvLoadInspectorPhoto\(img\)/, 'dashboard loads each user profile photo through an authenticated request');
+assert.match(ui, /headers:S\.token\?\{Authorization:S\.token\}/, 'inspector photo requests use the same bearer authorization as school service APIs');
 assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard exposes inspected unique plate totals');
 assert.match(dashboard, /GROUP BY i\.plate_two,i\.plate_letter,i\.plate_three,i\.plate_region_code/, 'unique visits use all Iranian plate segments');
 assert.match(dashboard, /'inspections'=>\$inspections/, 'dashboard keeps total visits independent of distinct plates');
