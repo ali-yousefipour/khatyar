@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking, TextInpu
 import { C, FONT } from '../theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { currentVersion, checkForUpdate } from '../updater';
+import DetailPageHeader from '../components/DetailPageHeader';
 
 const SECTIONS = [
   {
@@ -178,7 +179,7 @@ function Section({ section, open, onPress }) {
   );
 }
 
-export default function HelpScreen() {
+export default function HelpScreen({ navigation }) {
   const [openIndex, setOpenIndex] = useState(0);
   const [checking, setChecking] = useState(false);
   const [query, setQuery] = useState('');
@@ -198,7 +199,9 @@ export default function HelpScreen() {
   };
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <DetailPageHeader title="راهنمای برنامه" navigation={navigation} />
+      <ScrollView style={styles.page} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <Text style={styles.brand}>خطیار</Text>
         <Text style={styles.heroTitle}>راهنمای استفاده از برنامه</Text>
@@ -235,11 +238,13 @@ export default function HelpScreen() {
       </TouchableOpacity>
 
       <Text style={styles.footer}>خطیار — سامانه مدیریت و نظارت بر ناوگان تاکسیرانی</Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.paper },
   page: { flex: 1, backgroundColor: C.paper },
   content: { padding: 14, paddingBottom: 36 },
   hero: { backgroundColor: C.brand, borderRadius: 24, padding: 23, marginBottom: 12, alignItems: 'flex-end' },
