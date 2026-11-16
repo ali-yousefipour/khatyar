@@ -22,6 +22,7 @@ assert.match(dashboard, /SELECT id,photo_path,CASE WHEN photo_path IS NOT NULL/,
 assert.match(dashboard, /_user_photo_url\(\$photoRow\['photo_path'\]/, 'inspector photos use standard profile photo normalization');
 assert.match(dashboard, /array_chunk\(\$inspectorIds,300\)/, 'batch user photo queries without grouping binary image data');
 assert.match(ui, /ssv-inspector-cards/, 'dashboard renders inspectors as cards');
+assert.ok(ui.indexOf('<section class="ssv-inspectors-section">') < ui.indexOf('<div class="ssv-chart-grid">', ui.indexOf("if(t==='dashboard')")), 'dashboard prioritizes the inspector cards before detailed charts');
 assert.match(ui, /ssv-inspector-avatar/, 'inspector cards include photos or fallback initials');
 assert.match(ui, /data-inspector-photo/, 'inspector photos expose an error fallback binding');
 assert.match(ui, /addEventListener\('error'/, 'image failures use CSP-safe event listeners');
