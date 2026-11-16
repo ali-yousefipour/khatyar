@@ -44,9 +44,9 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '2.0.3'; $appV = '2.0.3';
+  $siteV = '2.0.4'; $appV = '2.0.4';
   $releaseNotes = [
-    'version' => '2.0.3',
+    'version' => '2.0.4',
     'title' => 'تغییرات نسخه ۲.۰.۳',
     'items' => [
       'رفع بسته‌شدن ویزارد بازدید سرویس مدارس هنگام انتقال از مرحله پلاک به مشخصات راننده و تخلفات',
