@@ -244,7 +244,19 @@ jobs:
           node scripts/test-radio-sfx.cjs
           node scripts/test-work-timer.cjs
 
-      - name: Generate clean Android project
+      # The Windows fast-build script reuses its generated native project when
+      # package and native configuration hashes are unchanged. GitHub runners
+      # are ephemeral, so restore the *pre-Gradle* Android source tree instead.
+      # Exact-key only: never reuse an Android template across dependency/plugin changes.
+      - name: Restore generated Android native project
+        id: native-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: mobile/android
+          key: ${{ runner.os }}-khatyar-android-native-v1-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js', 'mobile/plugins/**', 'mobile/modules/**', 'mobile/assets/**', 'mobile/react-native.config.js', 'mobile/metro.config.js', 'mobile/babel.config.js') }}
+
+      - name: Generate clean Android project when native configuration changed
+        if: steps.native-cache.outputs.cache-hit != 'true'
         working-directory: mobile
         env:
           CI: "true"
@@ -267,6 +279,15 @@ jobs:
             exit 1
           fi
           echo "CI Maven policy validated: official Google/Maven repositories only."
+
+      # Save before Gradle runs, so the cache contains only generated sources
+      # (not large APK/build directories, signing keys or transient Gradle outputs).
+      - name: Save generated Android native project
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: mobile/android
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
 
       - name: Assert generated Myket release signing configuration
         working-directory: mobile/android
