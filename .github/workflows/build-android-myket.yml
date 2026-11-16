@@ -166,16 +166,30 @@ jobs:
           console.log('Normalized ' + changed + ' Runflare tarball URLs to official npm registry.');
           NODE
 
-      - name: Regenerate dependency lockfile for aligned Expo 57 build
+      - name: Verify deterministic dependency lockfile
         working-directory: mobile
-        timeout-minutes: 12
-        env:
-          NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
         shell: bash
         run: |
-          npm install --package-lock-only --legacy-peer-deps --no-audit --no-fund --ignore-scripts
-          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); for(const [k,v] of Object.entries(p.dependencies)) if(l.packages[''].dependencies[k]!==v) throw Error('lock mismatch '+k)"
-          echo "CI lockfile regenerated for Expo 57; no lockfile changes committed."
+          set -euo pipefail
+          # Never re-resolve dependencies on every release build. A mismatched lockfile
+          # must be fixed and committed in source control before publishing an APK.
+          node <<'NODE'
+          const pkg = require('./package.json');
+          const lock = require('./package-lock.json');
+          if (lock.lockfileVersion !== 3 || !lock.packages?.['']) {
+            throw new Error('Expected a complete npm lockfile v3');
+          }
+          for (const group of ['dependencies', 'devDependencies']) {
+            const expected = pkg[group] || {};
+            const actual = lock.packages[''][group] || {};
+            for (const name of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+              if (expected[name] !== actual[name]) {
+                throw new Error(`Lockfile mismatch in ${group}: ${name}. Regenerate and commit mobile/package-lock.json.`);
+              }
+            }
+          }
+          console.log('Committed lockfile matches package.json. Skipping npm install --package-lock-only.');
+          NODE
 
       - name: Install locked mobile dependencies
         working-directory: mobile
@@ -190,9 +204,9 @@ jobs:
           echo "Effective npm registry: $(npm config get registry)"
           test "$(npm config get registry)" = "https://registry.npmjs.org/"
           echo "Starting npm ci at $(date -u +%FT%TZ)"
-          npm ci --legacy-peer-deps --no-audit --no-fund --loglevel=http --foreground-scripts 2>&1 | while IFS= read -r line; do
-            printf '[%s] %s\n' "$(date -u +%FT%TZ)" "$line"
-          done
+          # npm ci uses the locked dependency graph and the restored npm tarball cache.
+          # Keep lifecycle scripts enabled but avoid per-request HTTP logs.
+          npm ci --legacy-peer-deps --no-audit --no-fund --prefer-offline --loglevel=warn
 
       - name: Verify Expo dependency tree
         working-directory: mobile
@@ -317,6 +331,7 @@ jobs:
           # Retry only dependency-resolution failures, never compilation or bundling errors.
           for attempt in 1 2 3; do
             echo "Gradle release build attempt $attempt/3"
+            build_start=$SECONDS
             log_file="$RUNNER_TEMP/myket-gradle-attempt-$attempt.log"
             # Avoid forced re-resolution on the first try. Gradle's verified
             # module cache and local build cache are reused between workflow runs.
@@ -327,6 +342,11 @@ jobs:
             fi
             if ./gradlew "${gradle_args[@]}" \
               -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" 2>&1 | tee "$log_file"; then
+              elapsed=$((SECONDS - build_start))
+              echo "Gradle release APK built in ${elapsed}s (attempt $attempt)."
+              echo "### Android release build" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Gradle assembleRelease: ${elapsed}s (attempt $attempt)" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Gradle build cache: enabled" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             if [ "$attempt" -eq 3 ] || ! grep -Eq 'Could not (find|resolve|download|GET|HEAD)|Read timed out|Connection reset|Remote host terminated|PKIX path building failed|Could not parse POM' "$log_file"; then
