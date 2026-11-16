@@ -23,6 +23,8 @@ assert.match(dashboard, /_user_photo_url\(\$photoRow\['photo_path'\]/, 'inspecto
 assert.match(dashboard, /array_chunk\(\$inspectorIds,300\)/, 'batch user photo queries without grouping binary image data');
 assert.match(ui, /ssv-inspector-cards/, 'dashboard renders inspectors as cards');
 assert.match(ui, /ssv-inspector-avatar/, 'inspector cards include photos or fallback initials');
+assert.match(ui, /data-inspector-photo/, 'inspector photos expose an error fallback binding');
+assert.match(ui, /addEventListener\('error'/, 'image failures use CSP-safe event listeners');
 assert.match(ui, /ssv-inspector-score/, 'inspector cards show prominent 30-day visit counts');
 assert.match(ui, /ssv-kpi strong\{font-size:clamp\(34px/, 'dashboard numbers use projection-size typography');
 
