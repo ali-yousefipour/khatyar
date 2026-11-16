@@ -22,6 +22,9 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  $activeCompanies=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies WHERE is_active=1")['n']??0);
  $activeVehicles=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles WHERE is_active=1")['n']??0);
  $inspections=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE $where",$a)['n']??0);
+ // Count distinct inspected vehicle plates using all four Iranian plate segments.
+ // Repeat visits of the same vehicle count once; total inspections count every record.
+ $visitedVehicles=(int)(Db::one("SELECT COUNT(*) n FROM (SELECT 1 FROM school_service_inspections i WHERE $where AND TRIM(COALESCE(i.plate_two,''))<>'' AND TRIM(COALESCE(i.plate_three,''))<>'' AND TRIM(COALESCE(i.plate_letter,''))<>'' AND TRIM(COALESCE(i.plate_region_code,''))<>'' GROUP BY i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code) grouped_plates",$a)['n']??0);
  $inspections30=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
  $violations=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspection_violations x JOIN school_service_inspections i ON i.id=x.inspection_id JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE $where AND v.is_active=1",$a)['n']??0);
  $invalidCert=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE i.certificate_status IN ('نامعتبر','ارائه نشد') AND $where",$a)['n']??0);
@@ -91,7 +94,7 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
      if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
    }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
  }
- return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
+ return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'visited_vehicles'=>$visitedVehicles,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
 });
 route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
