@@ -15,6 +15,10 @@ assert.match(api, /CONCAT\('unknown:',i\.id\)/, 'incomplete plates must not be m
 assert.match(api, /inspections-plate-history/, 'individual history endpoint must exist');
 assert.match(api, /_ssv_need\(\$u,'view'\)/, 'inspection histories retain permission checks');
 const dashboard = fs.readFileSync(path.join(root, 'lib/school_service_routes_extra.php'), 'utf8');
+assert.match(dashboard, /'service_companies_all_years'=>\$allYearsServiceCompanies/, 'all-time service company metric must be exposed by API');
+assert.match(dashboard, /c\.is_active=1 OR EXISTS\(SELECT 1 FROM school_service_school_companies sc WHERE sc\.company_id=c\.id\) OR EXISTS\(SELECT 1 FROM school_service_inspections i WHERE i\.company_id=c\.id\)/, 'count current companies and documented former operators without duplicates');
+assert.match(ui, /کل شرکت‌های مجری سرویس مدارس/, 'dashboard explains all-time service company metric');
+assert.match(ui, /c\.service_companies_all_years==null\?'—'/, 'unavailable metric must not be silently shown as zero');
 assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard exposes inspected unique plate totals');
 assert.match(dashboard, /GROUP BY i\.plate_two,i\.plate_letter,i\.plate_three,i\.plate_region_code/, 'unique visits use all Iranian plate segments');
 assert.match(dashboard, /'inspections'=>\$inspections/, 'dashboard keeps total visits independent of distinct plates');
