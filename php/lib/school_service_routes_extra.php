@@ -118,6 +118,34 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'service_companies_all_years'=>$allYearsServiceCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'visited_vehicles'=>$visitedVehicles,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
 });
+// Dashboard inspector portraits are scoped to people with visits in the last 30 days.
+// Read the same users.photo_path / users.photo that the profile uses. Never expose
+// arbitrary user photos or disclose private storage paths to the browser.
+route('GET','/api/school-service/inspector-photo/{id}',function($p,$b,$u){
+ _ssv_need($u,'view');_ssv_tables();
+ $id=(int)($p['id']??0);
+ if($id<1)Http::error('تصویر موجود نیست.',404);
+ $hasRecent=Db::one("SELECT id FROM school_service_inspections WHERE inspector_user_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) LIMIT 1",[$id]);
+ if(!$hasRecent)Http::error('تصویر موجود نیست.',404);
+ $profile=Db::one("SELECT photo_path,photo FROM users WHERE id=? LIMIT 1",[$id]);
+ if(!$profile)Http::error('تصویر موجود نیست.',404);
+ $raw=null;
+ $path=trim((string)($profile['photo_path']??''));
+ if(preg_match('#^/?uploads/users/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|gif)$#i',$path)){
+   $full=Media::fullPath(ltrim($path,'/'));
+   if($full&&is_file($full)&&filesize($full)<=6*1024*1024)$raw=@file_get_contents($full);
+ }
+ if(!is_string($raw)||$raw===''){
+   $legacy=(string)($profile['photo']??'');
+   $encoded=preg_replace('#^data:image/[^;]+;base64,#i','',$legacy);
+   if(strlen($encoded)<=8*1024*1024)$raw=base64_decode($encoded,true);
+ }
+ if(!is_string($raw)||strlen($raw)<32||strlen($raw)>6*1024*1024)Http::error('تصویر معتبر یافت نشد.',404);
+ $info=@getimagesizefromstring($raw);
+ $mime=(string)($info['mime']??'');
+ if(!in_array($mime,['image/jpeg','image/png','image/webp','image/gif'],true))Http::error('فرمت تصویر نامعتبر است.',404);
+ return ['data_uri'=>'data:'.$mime.';base64,'.base64_encode($raw)];
+});
 route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
  _ssv_need($u,'view');_ssv_tables();$id=(int)$p['id'];
  $r=Db::one("SELECT i.*,s.name school_name,s.code school_code,s.latitude school_latitude,s.longitude school_longitude,s.address school_address,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name,COALESCE(rl.title,'') inspector_role FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id LEFT JOIN roles rl ON rl.id=u.role_id WHERE i.id=?",[$id]);
