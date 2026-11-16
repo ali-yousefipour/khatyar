@@ -24,4 +24,7 @@ assert.match(app,/next\.timeoutSeconds=lockTimeoutSeconds\(next\)/,'Runtime upda
 assert.match(app,/configWrite=configWrite\.catch\(\(\)=>\{\}\)\.then\(async\(\)=>/,'Changes to lock timeout are serialized');
 assert.match(settings,/await setLockConfig\(c\);setCfg\(c\)/,'UI confirms a lock change only after storage succeeds');
 assert.match(app,/const recordActivity=useCallback\(\(\)=>\{if\(!lockedRef\.current\)lastInteraction\.current=Date\.now\(\);\},\[\]\)/,'Activity must update unlocked timer');
+const root=fs.readFileSync(path.join(__dirname,'../App.js'),'utf8');
+assert.match(root,/DeviceEventEmitter\.emit\('khatyar\.appLock\.activity'\)/,'Navigation must report activity to app lock');
+assert.match(app,/DeviceEventEmitter\.addListener\('khatyar\.appLock\.activity',recordActivity\)/,'App lock must listen to navigation activity');
 console.log('PASS all 6 lock timeout choices, nested gestures, and persisted configuration');
