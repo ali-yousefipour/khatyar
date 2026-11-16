@@ -99,10 +99,18 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
      $inspectorPhotos=[];
      foreach(array_chunk($inspectorIds,300) as $ids){
        $marks=implode(',',array_fill(0,count($ids),'?'));
-       $photoRows=Db::all("SELECT id,photo_path,CASE WHEN photo_path IS NOT NULL AND photo_path<>'' THEN NULL ELSE photo END AS photo FROM users WHERE id IN ($marks)",$ids);
-       foreach($photoRows as $photoRow)$inspectorPhotos[(int)$photoRow['id']]=_user_photo_url($photoRow['photo_path']??null,$photoRow['photo']??null);
+       $photoRows=Db::all("SELECT id,photo_path,photo FROM users WHERE id IN ($marks)",$ids);
+       foreach($photoRows as $photoRow){
+         $primary=_user_photo_url($photoRow['photo_path']??null,null);
+         $legacy=empty($photoRow['photo'])?null:_user_photo_url(null,$photoRow['photo']);
+         $inspectorPhotos[(int)$photoRow['id']]=array_values(array_unique(array_filter([$primary,$legacy],static fn($v)=>is_string($v)&&trim($v)!=='')));
+       }
      }
-     foreach($activeInspectors as &$inspector)$inspector['photo']=$inspectorPhotos[(int)$inspector['id']]??null;
+     foreach($activeInspectors as &$inspector){
+       $candidates=$inspectorPhotos[(int)$inspector['id']]??[];
+       $inspector['photo']=$candidates[0]??null;
+       $inspector['photo_candidates']=$candidates;
+     }
      unset($inspector);
      if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
    }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
