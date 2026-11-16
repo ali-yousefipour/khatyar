@@ -44,10 +44,10 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '2.0.2'; $appV = '2.0.2';
+  $siteV = '2.0.3'; $appV = '2.0.3';
   $releaseNotes = [
-    'version' => '2.0.2',
-    'title' => 'تغییرات نسخه ۲.۰.۲',
+    'version' => '2.0.3',
+    'title' => 'تغییرات نسخه ۲.۰.۳',
     'items' => [
       'رفع بسته‌شدن ویزارد بازدید سرویس مدارس هنگام انتقال از مرحله پلاک به مشخصات راننده و تخلفات',
       'افزودن فلاشر تمام‌صفحه با چراغ‌های سفید و زرد و دکمه توقف سریع در اندروید',
