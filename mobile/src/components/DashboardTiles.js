@@ -17,8 +17,8 @@ export function DashboardTool({ label, icon, category, width, onPress, favorite 
       <MaterialCommunityIcons name={icon} size={26} color={C.brand} />
     </View>
     <View style={styles.copy}>
-      <Text style={styles.title} maxFontSizeMultiplier={1.45}>{label}</Text>
-      {category ? <Text style={styles.category} maxFontSizeMultiplier={1.3}>{category}</Text> : null}
+      <Text style={styles.title} allowFontScaling={false} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
+      {category ? <Text style={styles.category} allowFontScaling={false} numberOfLines={1} ellipsizeMode="tail">{category}</Text> : null}
     </View>
     {width >= 220 && <View style={styles.arrow}><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /></View>}
     {onToggleFavorite && <TouchableOpacity accessibilityRole="button" accessibilityLabel={favorite ? `حذف ${label} از موارد دلخواه` : `افزودن ${label} به موارد دلخواه`} onPress={(e) => { e.stopPropagation(); onToggleFavorite(); }} style={styles.favoriteButton} hitSlop={5}><MaterialCommunityIcons name={favorite ? 'star' : 'star-outline'} size={22} color={favorite ? '#e2a927' : C.slate}/></TouchableOpacity>}
@@ -30,9 +30,9 @@ export function DashboardMetric({ label, value, icon, width }) {
   return <View accessible accessibilityLabel={label + '، ' + faNum(Number(value))} style={[styles.metric, { width }]}>
     <View style={styles.metricTop}>
       <MaterialCommunityIcons name={icon} size={22} color={C.brand} />
-      <Text style={styles.value} maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit>{faNum(Number(value))}</Text>
+      <Text style={styles.value} allowFontScaling={false} numberOfLines={1} adjustsFontSizeToFit>{faNum(Number(value))}</Text>
     </View>
-    <Text style={styles.metricLabel} maxFontSizeMultiplier={1.45}>{label}</Text>
+    <Text style={styles.metricLabel} allowFontScaling={false} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
     <View style={styles.metricAccent} />
   </View>;
 }
@@ -43,8 +43,8 @@ const styles = StyleSheet.create({
   toolAccent: { position:'absolute', bottom:0, left:0, height:5, width:54, borderTopRightRadius:9, backgroundColor:'#12a36f' },
   icon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#e0f5ec', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: '#c5e9dd' },
   arrow: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, minWidth: 0 },
-  title: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, lineHeight: 23, textAlign: 'right' },
+  copy: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  title: { fontFamily: FONT.bold, color: C.ink, fontSize: 13, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl', flexShrink: 1 },
   category: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 2 },
   metric: { minHeight: 112, padding: 15, paddingBottom:19, backgroundColor:'#fff', borderRadius:20, borderWidth:1,borderColor:'#c5e9dd', overflow:'hidden', elevation:2, shadowColor:'#126a53',shadowOpacity:0.08,shadowRadius:9 },
   metricAccent: { position:'absolute', bottom:0, left:12, right:12, height:4, borderRadius:4, backgroundColor:'#38c98b' },
