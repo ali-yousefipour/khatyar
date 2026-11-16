@@ -10,4 +10,6 @@ assert.match(picker, /Array\.from\(\{length:12\},\(_,i\)=>i\*5\)/, 'five-minute 
 assert.match(picker, /Number\(minute\) <= 59/, 'invalid minutes must be rejected');
 assert.match(picker, /onSelect\(two\(hour\) \+ ':' \+ two\(Number\(minute\)\)\)/, 'API must receive unchanged HH:mm format');
 assert.match(requests, /label=\{label\} onSelect=\{onPick\}/, 'picker identifies start or end time');
+assert.match(picker, /columns: \{ flexDirection: 'row-reverse'/, 'Picker columns retain RTL Android layout');
+assert.ok(picker.indexOf('<SpinnerColumn label="دقیقه"') < picker.indexOf('<SpinnerColumn label="ساعت"'), 'With row-reverse on RTL Android, hour appears on the left and minute on the right');
 console.log('PASS request time picker UX and HH:mm contract');
