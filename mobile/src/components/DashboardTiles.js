@@ -5,23 +5,24 @@ import { C, FONT } from '../theme';
 import { faNum } from '../num';
 
 export function DashboardTool({ label, icon, category, width, onPress, favorite = false, onToggleFavorite }) {
+  const compact = Number(width) < 220;
   return <TouchableOpacity
     accessibilityRole="button"
     accessibilityLabel={label}
     accessibilityHint="ورود به بخش انتخاب‌شده"
     activeOpacity={0.84}
     onPress={onPress}
-    style={[styles.tool, { width }]}
+    style={[styles.tool, compact && styles.compactTool, { width }]}
   >
-    <View style={styles.icon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={[styles.icon, compact && styles.compactIcon]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <MaterialCommunityIcons name={icon} size={26} color={C.brand} />
     </View>
-    <View style={styles.copy}>
-      <Text style={styles.title} allowFontScaling={false} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
+    <View style={[styles.copy, compact && styles.compactCopy]}>
+      <Text style={[styles.title, compact && styles.compactTitle]} allowFontScaling={false} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
       {category ? <Text style={styles.category} allowFontScaling={false} numberOfLines={1} ellipsizeMode="tail">{category}</Text> : null}
     </View>
     {width >= 220 && <View style={styles.arrow}><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /></View>}
-    {onToggleFavorite && <TouchableOpacity accessibilityRole="button" accessibilityLabel={favorite ? `حذف ${label} از موارد دلخواه` : `افزودن ${label} به موارد دلخواه`} onPress={(e) => { e.stopPropagation(); onToggleFavorite(); }} style={styles.favoriteButton} hitSlop={5}><MaterialCommunityIcons name={favorite ? 'star' : 'star-outline'} size={22} color={favorite ? '#e2a927' : C.slate}/></TouchableOpacity>}
+    {onToggleFavorite && <TouchableOpacity accessibilityRole="button" accessibilityLabel={favorite ? `حذف ${label} از موارد دلخواه` : `افزودن ${label} به موارد دلخواه`} onPress={(e) => { e.stopPropagation(); onToggleFavorite(); }} style={[styles.favoriteButton, compact && styles.compactFavorite]} hitSlop={5}><MaterialCommunityIcons name={favorite ? 'star' : 'star-outline'} size={22} color={favorite ? '#e2a927' : C.slate}/></TouchableOpacity>}
     <View style={styles.toolAccent} />
   </TouchableOpacity>;
 }
@@ -40,6 +41,11 @@ export function DashboardMetric({ label, value, icon, width }) {
 const styles = StyleSheet.create({
   favoriteButton: { minWidth: 42, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#f4f8f6', flexShrink: 0 },
   tool: { minHeight: 104, borderRadius: 21, borderWidth: 1, borderColor: '#c5e9dd', backgroundColor: '#fff', padding: 13, flexDirection: 'row-reverse', alignItems: 'center', gap: 10, overflow:'hidden', elevation: 3, shadowColor: '#126a53', shadowOffset: {width:0,height:3}, shadowOpacity: 0.09, shadowRadius: 9 },
+  compactTool: { minHeight: 116, paddingHorizontal: 10, paddingTop: 11, paddingBottom: 12, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 6 },
+  compactIcon: { width: 40, height: 40, borderRadius: 13 },
+  compactCopy: { flex: 0, width: '100%', alignItems: 'center', minHeight: 36 },
+  compactTitle: { fontSize: 11.5, lineHeight: 17, textAlign: 'center' },
+  compactFavorite: { position: 'absolute', left: 5, top: 5, minWidth: 33, minHeight: 35, backgroundColor: 'transparent', zIndex: 1 },
   toolAccent: { position:'absolute', bottom:0, left:0, height:5, width:54, borderTopRightRadius:9, backgroundColor:'#12a36f' },
   icon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#e0f5ec', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: '#c5e9dd' },
   arrow: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
