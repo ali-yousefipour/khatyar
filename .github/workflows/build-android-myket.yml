@@ -1,5 +1,4 @@
 name: build-android-myket
-# Explicit release rebuild requested for version 2.0.3 after dashboard layout fix.
 
 on:
   workflow_dispatch:
@@ -7,7 +6,7 @@ on:
       version:
         description: "Version matching mobile/package.json"
         required: true
-        default: "2.0.3"
+        default: "2.0.4"
   push:
     branches:
       - "main"
