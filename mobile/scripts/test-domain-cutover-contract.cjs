@@ -7,7 +7,8 @@ const migration=fs.readFileSync(path.join(root,'.github/workflows/migrate-khatya
 const config=fs.readFileSync(path.join(root,'mobile/src/config.js'),'utf8');
 const version=fs.readFileSync(path.join(root,'mobile/app.config.js'),'utf8');
 assert.match(config,/BUILD_DEFAULT\s*=\s*['"]https:\/\/khat-yar\.ir\/api['"]/);
-assert.match(version,/APP_VERSION\s*=\s*['"]2\.0\.2['"]/);
+const packageVersion=JSON.parse(fs.readFileSync(path.join(root,'mobile/package.json'),'utf8')).version;
+assert.ok(version.includes("const APP_VERSION = '"+packageVersion+"'"), 'Android release version must match package.json');
 assert.match(migration,/Verify new domain, PHP libraries, database and login/);
 assert.match(migration,/Verify public signed APK instead of copying it to the web domain/);
 assert.match(migration,/khatyar-releases/);
