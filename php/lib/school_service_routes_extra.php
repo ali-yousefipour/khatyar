@@ -86,14 +86,21 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
    try{
      $activeInspectors=Db::all("SELECT $inspectorExpr id,
        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),CONCAT('بازرس #',$inspectorExpr)) name,
-       COALESCE(r.title,'') role_title,COUNT(*) inspection_count,
+       COALESCE(r.title,'') role_title,u.photo_path,
+       CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN NULL ELSE u.photo END AS legacy_photo,
+       COUNT(*) inspection_count,
        SUM(CASE WHEN i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) inspection_count_30d
        FROM school_service_inspections i
        LEFT JOIN users u ON u.id=$inspectorExpr
        LEFT JOIN roles r ON r.id=u.role_id
        WHERE $inspectorExpr IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where
-       GROUP BY $inspectorExpr,u.first_name,u.last_name,r.title
+       GROUP BY $inspectorExpr,u.first_name,u.last_name,r.title,u.photo_path,u.photo
        ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC",$a);
+     foreach($activeInspectors as &$inspector){
+       $inspector['photo']=_user_photo_url($inspector['photo_path']??null,$inspector['legacy_photo']??null);
+       unset($inspector['photo_path'],$inspector['legacy_photo']);
+     }
+     unset($inspector);
      if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
    }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
  }
