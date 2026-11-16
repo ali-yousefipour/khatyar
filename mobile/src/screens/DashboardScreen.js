@@ -110,9 +110,9 @@ export default function DashboardScreen({ navigation }) {
   const welcomePlayer = useAudioPlayer(require('../../assets/sounds/welcome.mp3'));
   const { width } = useWindowDimensions();
   const contentWidth = Math.min(width, 960);
-  // Tool cards have icon, label and favorite controls: do not squeeze them into narrow phone columns.
+  // Use a compact two-column mobile grid; wider screens can display three or four columns.
   // Layout is based on available width, not the Android system font-scale preference.
-  const cols = width >= 900 ? 3 : width >= 600 ? 2 : 1;
+  const cols = width >= 900 ? 4 : width >= 600 ? 3 : 2;
   const gridGap = 12;
   const gridCardWidth = (contentWidth - 32 - gridGap * (cols - 1)) / cols;
   const kpiCardWidth = width < 365 ? '100%' : '50%';
