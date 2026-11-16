@@ -18,6 +18,13 @@ const dashboard = fs.readFileSync(path.join(root, 'lib/school_service_routes_ext
 assert.match(dashboard, /'service_companies_all_years'=>\$allYearsServiceCompanies/, 'all-time service company metric must be exposed by API');
 assert.match(dashboard, /c\.is_active=1 OR EXISTS\(SELECT 1 FROM school_service_school_companies sc WHERE sc\.company_id=c\.id\) OR EXISTS\(SELECT 1 FROM school_service_inspections i WHERE i\.company_id=c\.id\)/, 'count current companies and documented former operators without duplicates');
 assert.match(ui, /کل شرکت‌های مجری سرویس مدارس/, 'dashboard explains all-time service company metric');
+assert.match(dashboard, /u\.photo_path/, 'inspector statistics read stored user photo paths');
+assert.match(dashboard, /_user_photo_url\(\$inspector\['photo_path'\]/, 'inspector photos use standard authenticated profile photo normalization');
+assert.match(ui, /ssv-inspector-cards/, 'dashboard renders inspectors as cards');
+assert.match(ui, /ssv-inspector-avatar/, 'inspector cards include photos or fallback initials');
+assert.match(ui, /ssv-inspector-score/, 'inspector cards show prominent 30-day visit counts');
+assert.match(ui, /ssv-kpi strong\{font-size:clamp\(34px/, 'dashboard numbers use projection-size typography');
+
 assert.match(ui, /c\.service_companies_all_years==null\?'—'/, 'unavailable metric must not be silently shown as zero');
 assert.match(dashboard, /'visited_vehicles'=>\$visitedVehicles/, 'dashboard exposes inspected unique plate totals');
 assert.match(dashboard, /GROUP BY i\.plate_two,i\.plate_letter,i\.plate_three,i\.plate_region_code/, 'unique visits use all Iranian plate segments');
