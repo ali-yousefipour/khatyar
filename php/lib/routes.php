@@ -5046,15 +5046,24 @@ function _req_decorate_my_requests(array $rows): array {
   $marks=implode(',',array_fill(0,count($ids),'?'));
   $steps=[];
   if(_db_table_exists_safe('request_approval_steps')){
-    foreach(Db::all("SELECT s.request_id,s.decision,s.note,s.created_at,
-        TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) actor_name
-        FROM request_approval_steps s LEFT JOIN users u ON u.id=s.actor_id
-        WHERE s.request_id IN ($marks) ORDER BY s.id",$ids) as $s){$steps[(int)$s['request_id']][]=$s;}
+    try {
+      foreach(Db::all("SELECT s.request_id,s.decision,s.note,s.created_at,
+          TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) actor_name
+          FROM request_approval_steps s LEFT JOIN users u ON u.id=s.actor_id
+          WHERE s.request_id IN ($marks) ORDER BY s.id",$ids) as $s){$steps[(int)$s['request_id']][]=$s;}
+    } catch(Throwable $e) {
+      // Approval history is optional enrichment; preserve the user's list.
+      error_log('my requests approval steps unavailable: '.$e->getMessage());
+    }
   }
   // The next reviewer is not necessarily the last one. Expose the actual
   // configured manager chain, starting at pending_on, without guessing names.
   $requestOwner=(int)($rows[0]['user_id']??0);
-  $approvalMode=$requestOwner>0?(_req_policy_options($requestOwner,false)['approval_mode']??'hierarchical'):'hierarchical';
+  $approvalMode='hierarchical';
+  if($requestOwner>0){
+    try { $approvalMode=_req_policy_options($requestOwner,false)['approval_mode']??'hierarchical'; }
+    catch(Throwable $e){ error_log('my requests approval policy lookup failed: '.$e->getMessage()); }
+  }
   $chainCache=[];$actorNames=[];
   foreach($rows as &$r){
     $id=(int)$r['id'];$r['approval_steps']=$steps[$id]??[];
@@ -5068,7 +5077,8 @@ function _req_decorate_my_requests(array $rows): array {
         $ids=[];$seen=[];$cursor=$start;
         while($cursor>0 && !isset($seen[$cursor]) && count($ids)<20){
           $seen[$cursor]=true;$ids[]=$cursor;
-          $next=_req_hierarchy_managers($cursor);$cursor=(int)($next[0]??0);
+          try { $next=_req_hierarchy_managers($cursor); $cursor=(int)($next[0]??0); }
+          catch(Throwable $e){ error_log('my requests hierarchy lookup failed: '.$e->getMessage()); break; }
         }
         $chainCache[$start]=$ids;
       }
@@ -5253,7 +5263,9 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 // درخواست‌های من
 route('GET', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
-  _req_reconcile_pending_approvals((int)$u['id']);
+  // Listing a user's requests must remain read-only. Region reassignment is
+  // performed by the dedicated reconciliation workflow, not by this GET.
+  // A faulty or incomplete region configuration must not produce a 500 here.
   $visibleFilter=Db::one("SHOW COLUMNS FROM requests WHERE Field='user_deleted_at'")?' AND r.user_deleted_at IS NULL':'';
   // اطمینان از وجود ستون جایگزین
   $sel = "r.id,r.user_id,r.pending_on,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
