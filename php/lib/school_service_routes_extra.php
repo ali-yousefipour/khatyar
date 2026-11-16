@@ -132,8 +132,19 @@ route('GET','/api/school-service/inspector-photo/{id}',function($p,$b,$u){
  $raw=null;
  $path=trim((string)($profile['photo_path']??''));
  if(preg_match('#^/?uploads/users/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|gif)$#i',$path)){
-   $full=Media::fullPath(ltrim($path,'/'));
-   if($full&&is_file($full)&&filesize($full)<=6*1024*1024)$raw=@file_get_contents($full);
+   $relative=ltrim($path,'/');
+   // Older installs and the domain cutover may store uploads either in
+   // php/public/uploads or in the active host's document root/uploads.
+   $roots=[Media::fullPath($relative),dirname(__DIR__).'/app/'.$relative];
+   if(!empty($_SERVER['DOCUMENT_ROOT']))$roots[] = rtrim((string)$_SERVER['DOCUMENT_ROOT'],'/').'/'.$relative;
+   foreach(array_unique(array_filter($roots)) as $candidate){
+     $real=@realpath($candidate);
+     if(!$real||!is_file($real)||filesize($real)>6*1024*1024)continue;
+     $usersDir=@realpath(dirname($real));
+     if(!$usersDir||strpos(str_replace('\\','/',$real),'/uploads/users/')===false)continue;
+     $raw=@file_get_contents($real);
+     if(is_string($raw)&&$raw!=='')break;
+   }
  }
  if(!is_string($raw)||$raw===''){
    $legacy=(string)($profile['photo']??'');
