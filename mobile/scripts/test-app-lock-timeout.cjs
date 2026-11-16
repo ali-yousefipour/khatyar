@@ -15,10 +15,13 @@ for(const seconds of [10,20,30,60,120,360]){
  assert.match(settings,new RegExp('\\['+seconds+','));
 }
 assert.equal(ctx.get({timeoutSeconds:999}),30);
+assert.match(app,/onTouchStart=\{recordActivity\}/,'Native and gesture-handler taps must reset inactivity');
+assert.match(app,/onTouchMove=\{recordActivity\}/,'Touch gestures must reset inactivity');
 assert.match(app,/onStartShouldSetResponderCapture=/,'Nested screen taps must reset inactivity');
 assert.match(app,/onMoveShouldSetResponderCapture=/,'Drag gestures must reset inactivity');
 assert.match(app,/Date\.now\(\)-lastInteraction\.current>=lockTimeoutSeconds\(cfgRef\.current\)\*1000/);
 assert.match(app,/next\.timeoutSeconds=lockTimeoutSeconds\(next\)/,'Runtime updates must normalize duration');
 assert.match(app,/configWrite=configWrite\.catch\(\(\)=>\{\}\)\.then\(async\(\)=>/,'Changes to lock timeout are serialized');
 assert.match(settings,/await setLockConfig\(c\);setCfg\(c\)/,'UI confirms a lock change only after storage succeeds');
+assert.match(app,/const recordActivity=useCallback\(\(\)=>\{if\(!lockedRef\.current\)lastInteraction\.current=Date\.now\(\);\},\[\]\)/,'Activity must update unlocked timer');
 console.log('PASS all 6 lock timeout choices, nested gestures, and persisted configuration');
