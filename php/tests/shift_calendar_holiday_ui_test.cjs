@@ -1,0 +1,15 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const source = fs.readFileSync(path.join(__dirname, '../tools/panel_source.jsx'), 'utf8');
+const start = source.indexOf('function AdvancedCalendar({shift})');
+const end = source.indexOf('function DayEditor(', start);
+assert(start >= 0 && end > start, 'Shift calendar editor must exist');
+const editor = source.slice(start, end);
+assert(editor.includes('db.holidays().then(rows=>'), 'Load official holidays from existing API');
+assert(editor.includes('Object.prototype.hasOwnProperty.call(officialHolidays,key)'), 'Match holiday against current Jalali date');
+assert(editor.includes("fa(key.replace(/-/g,'/'))"), 'Render full Persian date');
+for (const label of ['تعطیل رسمی', 'تعطیل شیفت', 'جمعه']) assert(editor.includes(label), 'Missing status: ' + label);
+assert(editor.includes('const isHoliday=!!off||isFriday||isOfficialHoliday'), 'Derive holiday display from three sources');
+assert(editor.includes('const saveAll=async()=>'), 'Preserve existing shift saving');
+console.log('PASS shift calendar dates and holidays');
