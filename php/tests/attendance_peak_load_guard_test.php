@@ -19,4 +19,17 @@ $uuid = substr($http, strpos($http, 'private static function beginClientRequest'
 if (strpos($uuid, 'CREATE TABLE') !== false) throw new RuntimeException('Idempotency path performs DDL');
 if (strpos($db, 'slow_sql operation=') === false) throw new RuntimeException('Slow SQL metrics absent');
 if (strpos($index, 'slow_api method=') === false) throw new RuntimeException('Slow API metrics absent');
+// Regression: the standalone attendance-punch router must check the signed
+// browser device, not a random session for the same user/device type.
+$punch = file_get_contents(__DIR__.'/../app/api/admin-attendance-punch.php');
+if (strpos($punch, 'AND device_id=? LIMIT 1') === false ||
+    strpos($punch, "($payload['device_id']??'')") === false) {
+    throw new RuntimeException('Attendance punch endpoint does not bind the device session');
+}
+$panel = file_get_contents(__DIR__.'/../tools/panel_source.jsx');
+if (strpos($panel, 'if(e.status!==401)throw e;') === false ||
+    strpos($panel, 'let _browserRenewalInFlight=null;') === false ||
+    strpos($panel, "if(authError&&!me)") === false) {
+    throw new RuntimeException('Browser session may be cleared during transient API failures');
+}
 echo "PASS attendance hot-path DDL removal and metrics\n";
