@@ -6499,11 +6499,51 @@ function OfflineSyncConflicts(){
   </div>);
 }
 
+const shiftManagerV3Styles = `
+.shift-manager-v3{--sm-ink:#193f42;--sm-muted:#527471;--sm-line:#d9e9e2;--sm-accent:#0b7663;color:var(--sm-ink);min-width:0}
+.shift-manager-v3 .sm-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(110deg,#064c44,#098273);color:#fff;border-radius:17px;padding:22px;margin-bottom:14px}
+.shift-manager-v3 .sm-hero h3{color:#fff;font-size:21px;margin:0 0 6px}.shift-manager-v3 .sm-hero p{margin:0;font-size:12px;color:#dcf3ec;line-height:1.8}
+.shift-manager-v3 .sm-hero-count{border:1px solid #ffffff62;background:#ffffff16;border-radius:12px;padding:9px 13px;font-size:12px}
+.shift-manager-v3 .sm-nav{display:flex;flex-direction:column;gap:10px;margin-bottom:17px;background:#fff;border:1px solid var(--sm-line);border-radius:15px;padding:13px}
+.shift-manager-v3 .sm-nav-group{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.shift-manager-v3 .sm-nav-label{font-size:11px;font-weight:800;color:var(--sm-muted);min-width:96px}
+.shift-manager-v3 .sm-nav-btn{font:750 12px Vazirmatn,Tahoma;border:1px solid #d2e6de;background:#f7fbf9;color:#315f58;border-radius:10px;padding:9px 12px;cursor:pointer;min-height:39px}
+.shift-manager-v3 .sm-nav-btn[aria-selected="true"]{background:#076f5d;border-color:#076f5d;color:#fff;box-shadow:0 3px 9px #086d5b33}
+.shift-manager-v3 .sm-nav-btn:focus-visible,.shift-manager-v3 button:focus-visible{outline:3px solid #21ab8f;outline-offset:2px}
+.shift-manager-v3 .sm-content{border:1px solid var(--sm-line);border-radius:16px;padding:18px;background:#fff;min-width:0}
+.shift-manager-v3 .sm-content-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid #edf1ef}
+.shift-manager-v3 .sm-content-head h4{margin:0 0 5px;font-size:17px}.shift-manager-v3 .sm-content-head p{margin:0;font-size:12px;color:var(--sm-muted);line-height:1.8}
+.shift-manager-v3 .sm-content table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:640px}
+.shift-manager-v3 .sm-content table th{position:sticky;top:0;background:#e9f5ef;color:#174c42;z-index:1;text-align:right;padding:11px 10px}
+.shift-manager-v3 .sm-content table td{border-bottom:1px solid #e8efeb;text-align:right;padding:10px}
+.shift-manager-v3 .sm-content table tbody tr:nth-child(even){background:#f8fbfa}
+.shift-manager-v3 .sm-content input,.shift-manager-v3 .sm-content select{max-width:100%}
+.shift-manager-v3 .sm-content .card-p{border:1px solid #dfebe6;border-radius:13px}
+.shift-manager-v3 .sm-content .row{row-gap:9px}
+.shift-manager-v3 .sm-scroll-table{overflow:auto;max-height:560px;border:1px solid #e0eae5;border-radius:12px}
+.shift-manager-v3 .sm-status-error{background:#fff1ee;border:1px solid #f3c4bb;color:#ac322a;padding:11px;border-radius:10px;font-size:12px}
+.shift-manager-v3 .sm-empty{padding:20px;text-align:center;color:#68817b;font-size:12px}
+@media(max-width:760px){.shift-manager-v3 .sm-hero{padding:16px}.shift-manager-v3 .sm-content{padding:12px}.shift-manager-v3 .sm-nav-label{width:100%;min-width:0}.shift-manager-v3 .sm-nav-btn{flex:1}}
+`;
 function ShiftManager(){
-  const [tab,setTab]=useState("shifts");
-  const TABS=[["shifts","تعریف شیفت‌ها"],["assign","تخصیص به نیروها"],["autoRules","قوانین شیفت خودکار"],["userRules","قانون اختصاصی افراد"],["shiftOps","عملیات و عیب‌یابی شیفت"],["rejectLogs","لاگ رد حضور"],["offlineConflicts","تعارض آفلاین"],["holidays","تعطیلات رسمی"],["blocked","روزهای ممنوعهٔ مرخصی"],["leavebal","ماندهٔ مرخصی ابتدای دوره"]];
-  return(<div className="panel admin-workspace-page"><h3>🗓 شیفت کاری و کارکرد</h3>
-    <div className="tabbar" style={{flexWrap:"wrap"}}>{TABS.map(([k,t])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}>{t}</button>)}</div>
+ const [tab,setTab]=useState("shifts");
+ const groups=[
+  {title:"برنامه‌ریزی",tabs:[["shifts","تعریف شیفت‌ها","ساخت و ویرایش شیفت ساده، تقویمی، شناور و چرخشی"],["assign","تخصیص به نیروها","انتخاب شیفت ثابت یا خودکار برای هر نیرو"],["autoRules","قوانین شیفت خودکار","تنظیم قوانین محاسبه بر اساس سمت"],["userRules","قانون اختصاصی افراد","مدیریت استثناهای محاسبه برای کاربران مشخص"]]},
+  {title:"کنترل و پایش",tabs:[["shiftOps","عملیات و عیب‌یابی","بررسی تعارض‌ها، جلسات باز و محاسبه مجدد"],["rejectLogs","لاگ رد حضور","جست‌وجوی خطاهای ثبت حضور و دلایل رد"],["offlineConflicts","تعارض آفلاین","بررسی و تعیین تکلیف درخواست‌های آفلاین"]]},
+  {title:"تقویم و مرخصی",tabs:[["holidays","تعطیلات رسمی","مدیریت تعطیلات مورد استفاده در محاسبات"],["blocked","روزهای ممنوعه مرخصی","تعریف روزهای غیرمجاز برای درخواست مرخصی"],["leavebal","مانده مرخصی ابتدای دوره","ثبت موجودی اولیه مرخصی کارکنان"]]}
+ ];
+ const all=groups.flatMap(g=>g.tabs);
+ const current=all.find(t=>t[0]===tab)||all[0];
+ return <div className="panel admin-workspace-page shift-manager-v3">
+  <style>{shiftManagerV3Styles}</style>
+  <header className="sm-hero"><div><h3>مدیریت شیفت کاری و کارکرد</h3><p>تنظیم برنامه‌ها، تخصیص نیروها، قوانین، پایش و مرخصی در یک مرکز یکپارچه</p></div><span className="sm-hero-count">{fa(all.length)} بخش مدیریتی</span></header>
+  <nav className="sm-nav" aria-label="بخش‌های مدیریت شیفت">
+   {groups.map(group=><div className="sm-nav-group" key={group.title}><span className="sm-nav-label">{group.title}</span>
+    {group.tabs.map(([key,title])=><button key={key} type="button" className="sm-nav-btn" aria-selected={tab===key} aria-current={tab===key?"page":undefined} onClick={()=>setTab(key)}>{title}</button>)}
+   </div>)}
+  </nav>
+  <section className="sm-content" aria-label={current[1]}>
+    <div className="sm-content-head"><div><h4>{current[1]}</h4><p>{current[2]}</p></div></div>
     {tab==="shifts"&&<ShiftList/>}
     {tab==="assign"&&<ShiftAssign/>}
     {tab==="autoRules"&&<AutoShiftRules/>}
@@ -6514,7 +6554,8 @@ function ShiftManager(){
     {tab==="holidays"&&<Holidays/>}
     {tab==="blocked"&&<LeaveBlockedDates/>}
     {tab==="leavebal"&&<LeaveBalanceInit/>}
-  </div>);
+  </section>
+ </div>;
 }
 
 
