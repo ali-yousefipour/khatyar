@@ -38,14 +38,22 @@ function addOneDay($dt){
 function authAdmin(){
   global $CONFIG;
   $token=Http::bearer();$payload=$token?Jwt::verify($token,$CONFIG['jwt_secret']):null;
-  if(!$payload||empty($payload['sub']))ape('توکن منقضی یا نامعتبر است',401);
-  $u=Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.is_active,u.role_id,r.title AS role_title,r.level,r.is_admin
+  if(!is_array($payload)||empty($payload['sub'])||($payload['t']??'a')!=='a')ape('توکن منقضی یا نامعتبر است',401);
+  $u=Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.is_active,u.role_id,u.allow_web,u.allow_android,r.title AS role_title,r.level,r.is_admin
               FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[(int)$payload['sub']]);
   if(!$u||!(int)$u['is_active'])ape('کاربر نامعتبر',401);
   $dt=$payload['dt']??'web';
-  $sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? LIMIT 1",[(int)$u['id'],$dt]);
-  $unlimited=in_array($u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);
-  if(!$sess||$sess['revoked_at']||(!$unlimited&&$sess['device_id']!==($payload['device_id']??'')))ape('نشست منقضی یا باطل شده است',401);
+  if(!in_array($dt,['web','android'],true)||!(int)($u['allow_'.$dt]??0))ape('دسترسی این دستگاه غیرفعال شده است',403);
+  // Follow the canonical router: validate the exact signed device session.
+  // Looking up an arbitrary web session can intermittently reject valid users.
+  $deviceId=(string)($payload['device_id']??'');
+  if($deviceId!==''){
+    $sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1",[(int)$u['id'],$dt,$deviceId]);
+  }else{
+    $sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? LIMIT 1",[(int)$u['id'],$dt]);
+  }
+  $unlimited=$dt==='web'&&in_array($u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);
+  if(!$sess||$sess['revoked_at']||(!$unlimited&&$sess['device_id']!==$deviceId))ape('نشست منقضی یا باطل شده است',401);
   if(empty($u['is_admin']))ape('دسترسی مدیریتی لازم است',403);
   return $u;
 }
@@ -113,6 +121,12 @@ try{
   }
   ape('روش درخواست پشتیبانی نمی‌شود',405);
 }catch(Throwable $e){
-  error_log('admin-attendance-punch: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
-  ape('خطای ثبت تردد: '.$e->getMessage(),500);
+  $mysqlCode=$e instanceof PDOException?(int)($e->errorInfo[1]??0):0;
+  if($mysqlCode===1203||($e instanceof PDOException&&stripos($e->getMessage(),'max_user_connections')!==false)){
+    error_log('admin-attendance-punch: database connection capacity reached');
+    header('Retry-After: 3');
+    ape('تعداد ارتباط‌های هم‌زمان سرور زیاد است. کمی بعد با همان درخواست دوباره تلاش کنید.',503);
+  }
+  error_log('admin-attendance-punch: '.get_class($e).' @ '.basename($e->getFile()).':'.$e->getLine());
+  ape('خطای داخلی ثبت تردد؛ لطفاً وضعیت تردد را بررسی کنید و سپس دوباره تلاش کنید.',500);
 }
