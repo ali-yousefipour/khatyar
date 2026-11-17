@@ -308,5 +308,54 @@ route('GET','/api/school-service/export-filtered',function($p,$b,$u){
  if($from!==''&&$to!==''&&strcmp($from,$to)>0)Http::error('بازه زمانی نامعتبر است',422);
  if($from!==''){$w[]='i.violation_date>=?';$a[]=$from;}
  if($to!==''){$w[]='i.violation_date<=?';$a[]=$to;}
+
+ // Permission and filters above apply to every report, both preview and Excel.
+ $type=(string)($_GET['type']??'inspections');$format=(string)($_GET['format']??'xlsx');
+ $allowed=['inspections','inspectors','districts','companies','schools','vehicles','violations','certificates','daily'];
+ if(!in_array($type,$allowed,true)||!in_array($format,['json','xlsx'],true))Http::error('نوع گزارش نامعتبر است',422);
+ $base=" FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id";
+ $where=" WHERE ".implode(' AND ',$w);
+ if($type!=='inspections'){
+  $extra='';$group='';$fields='';$columns=[['key'=>'title','label'=>'عنوان'],['key'=>'inspections','label'=>'تعداد']];
+  switch($type){
+   case 'inspectors':
+    $extra=" LEFT JOIN users u ON u.id=i.inspector_user_id";
+    $fields="COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),'نامشخص') title,COUNT(*) inspections,COUNT(DISTINCT i.school_id) schools";
+    $group=" GROUP BY i.inspector_user_id,u.first_name,u.last_name";
+    $columns[]=['key'=>'schools','label'=>'مدارس'];break;
+   case 'districts':
+    $fields="COALESCE(NULLIF(TRIM(i.educational_district),''),'نامشخص') title,COUNT(*) inspections,COUNT(DISTINCT i.school_id) schools";
+    $group=" GROUP BY i.educational_district";$columns[]=['key'=>'schools','label'=>'مدارس'];break;
+   case 'companies':
+    $fields="COALESCE(NULLIF(TRIM(c.name),''),'نامشخص') title,COUNT(*) inspections,COUNT(DISTINCT i.school_id) schools";
+    $group=" GROUP BY i.company_id,c.name";$columns[]=['key'=>'schools','label'=>'مدارس'];break;
+   case 'schools':
+    $fields="COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') title,COUNT(*) inspections";
+    $group=" GROUP BY i.school_id,s.name";break;
+   case 'vehicles':
+    $fields="CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) title,COUNT(*) inspections";
+    $group=" GROUP BY i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code";break;
+   case 'violations':
+    $extra=" JOIN school_service_inspection_violations iv ON iv.inspection_id=i.id JOIN school_service_violation_types vt ON vt.id=iv.violation_type_id";
+    $fields="COALESCE(NULLIF(TRIM(vt.title),''),'نامشخص') title,COUNT(*) inspections,COUNT(DISTINCT i.id) visits";
+    $group=" GROUP BY iv.violation_type_id,vt.title";$columns[1]['label']='دفعات تخلف';$columns[]=['key'=>'visits','label'=>'بازدیدهای دارای تخلف'];break;
+   case 'certificates':
+    $fields="COALESCE(NULLIF(TRIM(i.certificate_status),''),'نامشخص') title,COUNT(*) inspections";
+    $group=" GROUP BY i.certificate_status";break;
+   case 'daily':
+    $fields="COALESCE(NULLIF(TRIM(i.violation_date),''),'نامشخص') title,COUNT(*) inspections";
+    $group=" GROUP BY i.violation_date";break;
+  }
+  $items=Db::all("SELECT $fields $base $extra $where $group ORDER BY inspections DESC LIMIT 20000",$a);
+  if($format==='json')return ['ok'=>true,'columns'=>$columns,'items'=>array_slice($items,0,100),'total'=>count($items),'limited'=>count($items)>=20000];
+  $writer=new XlsxWriter(array_column($columns,'label'));
+  foreach($items as $item){$row=[];foreach($columns as $col)$row[]=$item[$col['key']]??'';$writer->addRow($row);}
+  $writer->output('سرویس_مدارس_'.$type.'.xlsx','گزارش');return;
+ }
+ if($format==='json'){
+  $total=(int)(Db::one("SELECT COUNT(*) n $base $where",$a)['n']??0);
+  $items=Db::all("SELECT i.violation_date report_date,COALESCE(s.name,'نامشخص') school,COALESCE(c.name,'نامشخص') company,CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) plate,i.educational_district district $base $where ORDER BY i.id DESC LIMIT 100",$a);
+  return ['ok'=>true,'total'=>$total,'items'=>$items,'columns'=>[['key'=>'report_date','label'=>'تاریخ'],['key'=>'school','label'=>'مدرسه'],['key'=>'company','label'=>'شرکت'],['key'=>'plate','label'=>'پلاک'],['key'=>'district','label'=>'ناحیه']],'limited'=>$total>100];
+ }
  $rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE ".implode(' AND ',$w)." ORDER BY i.id DESC LIMIT 20000",$a);$head=['ردیف','ناحیه','شرکت','نوع مدرسه','مدرسه','پلاک','نوع خودرو','رنگ خودرو','تخلفات','سرنشین جلو','سرنشین عقب','مجموع سرنشین','نوع راننده','وضعیت گواهی صلاحیت','تاریخ','ساعت','محل ثبت تخلف','توضیحات','بازرس'];$out=[];foreach($rows as $i=>$r){$vs=Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$r['id']]);$out[]=[$i+1,$r['educational_district'],$r['company_name'],$r['school_gender'],$r['school_name'],trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران '.($r['plate_region_code']??'')),$r['vehicle_type'],$r['vehicle_color'],implode('، ',array_column($vs,'title')),($r['passenger_front_count']??0),($r['passenger_rear_count']??0),($r['passenger_count']??((int)($r['passenger_front_count']??0)+(int)($r['passenger_rear_count']??0))),$r['driver_gender'],$r['certificate_status'],$r['violation_date'],$r['violation_time'],$r['location_text'],$r['description'],$r['inspector_name']];}$xw=new XlsxWriter($head);foreach($out as $row)$xw->addRow($row);$xw->output('سرویس_مدارس_بازدیدهای_فیلترشده.xlsx','بازدیدها');
 },false,99);
