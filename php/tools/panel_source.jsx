@@ -6862,6 +6862,20 @@ function AdvancedCalendar({shift}){
   const [days,setDays]=useState({}); const [sel,setSel]=useState(null); const [clip,setClip]=useState(null); const [advDay,setAdvDay]=useState(null);
   const [patternMode,setPatternMode]=useState(false); const [patternKeys,setPatternKeys]=useState([]);
   const [deletedDays,setDeletedDays]=useState([]); const [saving,setSaving]=useState(false); const [saveError,setSaveError]=useState('');
+  const [officialHolidays,setOfficialHolidays]=useState({}); const [holidaysError,setHolidaysError]=useState('');
+  useEffect(()=>{
+    let active=true;
+    db.holidays().then(rows=>{
+      if(!active)return;
+      const mapped={};
+      (Array.isArray(rows)?rows:[]).forEach(row=>{
+        const key=String(row.jdate||'').replace(/\//g,'-');
+        if(/^\d{4}-\d{2}-\d{2}$/.test(key))mapped[key]=String(row.title||'تعطیل رسمی');
+      });
+      setOfficialHolidays(mapped);setHolidaysError('');
+    }).catch(()=>{if(active)setHolidaysError('فهرست تعطیلات رسمی دریافت نشد؛ وضعیت تعطیلات رسمی ممکن است ناقص باشد.');});
+    return()=>{active=false};
+  },[]);
   useEffect(()=>{ db.shift(shift.id).then(full=>{ const map={}; (full.days||[]).forEach(d=>{ map[d.jdate]={segments:typeof d.segments==="string"?JSON.parse(d.segments||"[]"):(d.segments||[]),is_off:!!d.is_off,day_config:typeof d.day_config==="string"?JSON.parse(d.day_config||"null"):(d.day_config||null)}; }); setDays(map);setDeletedDays([]);setPatternKeys([]);setClip(null); }).catch(e=>setSaveError(e.message||'تقویم شیفت دریافت نشد.')); },[shift.id]);
   const dim=(jm<=6)?31:(jm<=11?30:(((jy%33)%4===1)?30:29));
   const jd2=(d)=>`${jy}-${String(jm).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -6918,6 +6932,11 @@ function AdvancedCalendar({shift}){
       <button className="btn p" style={{marginInlineStart:"auto"}} disabled={saving} onClick={saveAll}>{saving?'در حال ذخیره…':'ذخیرهٔ تقویم'}</button>
     </div>
     {saveError&&<div role="alert" style={{padding:10,marginBottom:10,borderRadius:10,background:'#fff3f1',color:'#9e302a'}}>{saveError}</div>}
+    {holidaysError&&<div role="status" style={{padding:9,marginBottom:8,borderRadius:9,background:'#fff7e8',color:'#925e16',fontSize:12}}>{holidaysError}</div>}
+    <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',fontSize:11.5,marginBottom:10,color:'var(--muted)'}}>
+      <span>● سبز: دارای شیفت</span><span style={{color:'#b42318'}}>● قرمز: جمعه یا تعطیل رسمی</span><span style={{color:'#8d5516'}}>● نارنجی: تعطیل تعیین‌شده در شیفت</span>
+      <span>شماره هر روز و تاریخ کامل شمسی در کارت نمایش داده می‌شود.</span>
+    </div>
     <div style={{fontSize:12,marginBottom:8,color:"var(--muted)"}}>روی «ویرایش» هر روز برای تعیین ساعت‌ها بزنید؛ «حذف» فقط شیفت همان روز را پاک می‌کند. با «کپی» یک روز و سپس انتخاب مقصد، برنامهٔ آن روز را منتقل کنید. برای انتخاب چند روز، حالت انتخاب الگو را فعال کنید. تغییرات با «ذخیرهٔ تقویم» نهایی می‌شوند.</div>
     {patternMode&&<div role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid var(--line)",borderRadius:10,fontSize:12}}>
       <span>حالت انتخاب الگو فعال است؛ چند روز نمونه را انتخاب کنید. ترتیب الگو بر اساس تاریخ است و تکرار از روز بعد از آخرین نمونه تا پایان سال انجام می‌شود.</span>
@@ -6936,10 +6955,21 @@ function AdvancedCalendar({shift}){
         const showPaste=!!clip&&clip.source!==key;
         const inPattern=patternKeys.includes(key);
         const isFriday=gregToJalaliWeekday(jy,jm,d)===6;
-        const isHoliday=!!off||isFriday;
+        const officialHolidayTitle=officialHolidays[key]||'';
+        const isOfficialHoliday=Object.prototype.hasOwnProperty.call(officialHolidays,key);
+        const isHoliday=!!off||isFriday||isOfficialHoliday;
+        const holidayLabel=[isFriday?'جمعه':'',isOfficialHoliday?officialHolidayTitle:'',off?'تعطیل شیفت':''].filter(Boolean).join(' | ');
         const isNight=!!(v&&v.day_config&&(v.day_config.is_night||v.day_config.night_work||v.day_config.night))||(v&&Array.isArray(v.segments)&&v.segments.some(seg=>seg.s&&seg.e&&seg.e<seg.s));
-        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(isHoliday?" off":"")+(inPattern?" shift-pattern-selected":"")} style={{minHeight:114,padding:7,display:'flex',flexDirection:'column',gap:5}} title={patternMode?"برای افزودن/حذف از انتخاب کلیک کنید":"ویرایش، کپی یا حذف شیفت این روز"} onClick={e=>{if(patternMode||e.ctrlKey||e.metaKey){togglePatternDay(key);return;}setSel(key);}} onContextMenu={e=>{if(!clip||patternMode)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
-          <span className="cal-n">{fa(d)}</span>
+        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(isHoliday?" off":"")+(inPattern?" shift-pattern-selected":"")} style={{minHeight:140,padding:7,display:'flex',flexDirection:'column',gap:5,borderTop:isHoliday?'3px solid #c02b2b':undefined}} title={patternMode?"برای افزودن/حذف از انتخاب کلیک کنید":(key.replace(/-/g,'/')+(holidayLabel?' — '+holidayLabel:'')+'؛ ویرایش، کپی یا حذف شیفت این روز')} onClick={e=>{if(patternMode||e.ctrlKey||e.metaKey){togglePatternDay(key);return;}setSel(key);}} onContextMenu={e=>{if(!clip||patternMode)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:2,paddingInlineStart:3}}>
+            <span className="cal-n" style={{fontWeight:900,fontSize:17,color:isHoliday?'#b42318':undefined}}>{fa(d)}</span>
+            <span style={{fontSize:10,fontWeight:700,direction:'ltr',unicodeBidi:'isolate',color:isHoliday?'#9b2923':'var(--muted)'}}>{fa(key.replace(/-/g,'/'))}</span>
+          </div>
+          {isHoliday&&<div style={{display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}} aria-label={'وضعیت تعطیلی: '+holidayLabel}>
+            {isFriday&&<span style={{background:'#ffe8e6',color:'#a72320',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800}}>جمعه</span>}
+            {isOfficialHoliday&&<span title={officialHolidayTitle} style={{background:'#ffe8e6',color:'#a72320',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800,overflowWrap:'anywhere'}}>تعطیل رسمی{officialHolidayTitle&&officialHolidayTitle!=='تعطیل رسمی'?' — '+officialHolidayTitle:''}</span>}
+            {!!off&&<span style={{background:'#fff0d5',color:'#8a4b13',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800}}>تعطیل شیفت</span>}
+          </div>}
           <label style={{position:'absolute',top:5,insetInlineStart:5,display:'flex',gap:3,alignItems:'center',fontSize:10}} title="انتخاب روز برای عملیات گروهی" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={inPattern} onChange={()=>togglePatternDay(key)} aria-label={`انتخاب ${key}`} />{isNight?'🌙':''}</label>
           <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',fontSize:11,lineHeight:1.6,direction:'ltr',flexDirection:'column'}}>{shiftTimes.length?shiftTimes.map((t,i)=><span key={i}>{t}</span>):<span className="muted" style={{fontSize:10}}>{off?'تعطیل':'بدون شیفت'}</span>}</div>
           <div style={{display:'flex',gap:4,alignItems:'center',justifyContent:'center',flexWrap:'wrap',marginTop:'auto'}}>
