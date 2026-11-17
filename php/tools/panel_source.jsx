@@ -7291,7 +7291,7 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
         </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
-        <button className="btn p" onClick={run} disabled={busy}>{busy?"…":"🔍 مشاهده گزارش"}</button>
+        <button className="btn p" type="button" onClick={()=>run()} disabled={busy||!uid}>{busy?"…":"🔍 مشاهده گزارش"}</button>
         <button className="btn g" onClick={exportExcel} disabled={!data}>⤓ دانلود گزارش</button>
         {data&&<button className="btn g" type="button" onClick={()=>{setDraftColumnIndexes(visibleColumnIndexes.slice());setColumnSettingsOpen(true);}}>⚙ تنظیم ستون‌ها</button>}
       </div>
