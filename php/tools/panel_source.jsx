@@ -6951,11 +6951,11 @@ function ShiftCalendarDayCard({date,dayNumber,weekday,value,holidayTitle,isFrida
  const cls=['sc-day',hasShift?'sc-day--has-shift':'',off?'sc-day--off':'',isFriday?'sc-day--friday':'',isOfficial?'sc-day--holiday':'',selected?'sc-day--selected':''].filter(Boolean).join(' ');
  const badges=[isFriday?'جمعه':null,isOfficial?(holidayTitle||'تعطیل رسمی'):null,off?'تعطیل شیفت':null].filter(Boolean);
  return <article className={cls} aria-label={weekday+' '+date.replace(/-/g,'/')+(badges.length?'، '+badges.join('، '):'')} onClick={selectionMode?onSelect:undefined} onContextMenu={e=>{if(!clipboard||selectionMode||!showPaste)return;e.preventDefault();onPaste();}}>
-  <div className="sc-day-header"><div className="sc-date"><strong className="sc-number">{fa(dayNumber)}</strong><div className="sc-date-detail"><span className="sc-day-name">{weekday}</span><span className="sc-full-date">{fa(date.replace(/-/g,'/'))}</span></div></div>
+  <div className="sc-day-header"><div className="sc-date"><strong className="sc-number">{fa(dayNumber)}</strong><div className="sc-date-detail"><span className="sc-day-name">{weekday}</span><span className="sc-full-date">{faPlain(date.replace(/-/g,'/'))}</span></div></div>
    {selectionMode&&<input className="sc-select" type="checkbox" aria-label={'انتخاب '+date} checked={selected} onClick={e=>e.stopPropagation()} onChange={onSelect}/>}
   </div>
   {badges.length>0&&<div className="sc-badges">{isFriday&&<span className="sc-badge sc-badge--red">جمعه</span>}{isOfficial&&<span className="sc-badge sc-badge--red" title={holidayTitle||'تعطیل رسمی'}>{holidayTitle||'تعطیل رسمی'}</span>}{off&&<span className="sc-badge sc-badge--orange">تعطیل شیفت</span>}</div>}
-  <div className="sc-content">{times.length?times.map((time,i)=><span className="sc-time" key={i}>{fa(time)}</span>):<span className="sc-empty">{off?'تعطیل شیفت':hasShift?'شیفت با تنظیمات پیشرفته':'بدون شیفت'}</span>}</div>
+  <div className="sc-content">{times.length?times.map((time,i)=><span className="sc-time" key={i}>{faPlain(time)}</span>):<span className="sc-empty">{off?'تعطیل شیفت':hasShift?'شیفت با تنظیمات پیشرفته':'بدون شیفت'}</span>}</div>
   <div className="sc-footer">
    <button className="sc-edit" type="button" onClick={e=>{e.stopPropagation();onEdit();}}>✎ ویرایش</button>
    <details className="sc-more" onClick={e=>e.stopPropagation()}><summary aria-label={'عملیات بیشتر '+date}>⋯</summary><div className="sc-more-menu">
@@ -7073,7 +7073,7 @@ function AdvancedCalendar({shift}){
       روزهای موردنظر را با کلیک روی کارت‌ها انتخاب کنید. برای تکرار الگو، دست‌کم دو روز دارای نمونه را انتخاب کنید.
       <button type="button" className="btn g" style={{marginInlineStart:8}} onClick={()=>setPatternKeys(currentMonthKeys)}>انتخاب همه روزهای ماه</button>
     </div>}
-    {clip&&<p className="sc-help" role="status">الگوی کپی‌شده از {fa(clip.source.replace(/-/g,'/'))} آماده است؛ برای چسباندن، از منوی روز مقصد یا عملیات گروهی استفاده کنید.</p>}
+    {clip&&<p className="sc-help" role="status">الگوی کپی‌شده از {faPlain(clip.source.replace(/-/g,'/'))} آماده است؛ برای چسباندن، از منوی روز مقصد یا عملیات گروهی استفاده کنید.</p>}
     <div className="sc-grid" role="region" aria-label={'ویرایش تقویم شیفت '+J_MONTHS[jm-1]+' '+jy}>
       {WD.map(weekday=><div key={weekday} className="sc-weekday">{weekday}</div>)}
       {Array.from({length:firstWd},(_,i)=><div key={'blank-'+i} className="sc-blank" aria-hidden="true"/>)}
