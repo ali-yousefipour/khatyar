@@ -32,9 +32,16 @@ if (strpos($panel, 'if(e.status!==401)throw e;') === false ||
     strpos($panel, "if(authError&&!me)") === false) {
     throw new RuntimeException('Browser session may be cleared during transient API failures');
 }
-// The report button must not pass React's MouseEvent as the personnel ID.
-if (strpos($panel, 'onClick={()=>run()} disabled={busy||!uid}') === false ||
-    strpos($panel, 'onClick={run} disabled={busy}') !== false) {
+// Only the personnel attendance report requires a zero-argument click handler.
+// Other report components legitimately use a direct onClick={run} callback.
+$attendanceStart = strpos($panel, 'function AttendanceDailyReport(');
+$attendanceEnd = strpos($panel, 'function ', $attendanceStart + 10);
+if ($attendanceStart === false || $attendanceEnd === false || $attendanceEnd <= $attendanceStart) {
+    throw new RuntimeException('AttendanceDailyReport component missing');
+}
+$attendancePanel = substr($panel, $attendanceStart, $attendanceEnd - $attendanceStart);
+if (strpos($attendancePanel, 'onClick={()=>run()} disabled={busy||!uid}') === false ||
+    strpos($attendancePanel, 'onClick={run} disabled={busy}') !== false) {
     throw new RuntimeException('Attendance report button passes event instead of selected user ID');
 }
 echo "PASS attendance hot-path DDL removal and metrics\n";
