@@ -6638,52 +6638,80 @@ function ShiftEdit({shift,onClose}){
 }
 
 // ویرایشگر هفتگی شیفت ساده (۷ روز، هر روز یک یا دو قطعه با آستانه)
-function SimpleWeekly({s,set}){
-  const weekly=s.weekly&&typeof s.weekly==="object"&&!Array.isArray(s.weekly)?s.weekly:{};
-  // Older shift records may store one segment as an object instead of an array.
-  // Keep the stored values intact until that weekday is explicitly edited.
-  const daySegments=(d)=>{
-    const raw=weekly[d];
-    if(Array.isArray(raw))return raw.filter(seg=>seg&&typeof seg==="object"&&!Array.isArray(seg));
-    if(raw&&typeof raw==="object"){
-      if(Array.isArray(raw.segments))return raw.segments.filter(seg=>seg&&typeof seg==="object"&&!Array.isArray(seg));
-      if("s" in raw||"e" in raw)return [raw];
-    }
-    return [];
-  };
-  const setDay=(d,segs)=>set({weekly:{...weekly,[d]:segs}});
-  const addSeg=(d)=>{ const cur=daySegments(d); if(cur.length>=2)return alert("حداکثر دو قطعه در روز"); setDay(d,[...cur,emptySeg()]); };
-  const updSeg=(d,i,k,v)=>{ const cur=daySegments(d).map(seg=>({...seg})); if(!cur[i])return; cur[i]={...cur[i],[k]:v}; setDay(d,cur); };
-  const delSeg=(d,i)=>{ setDay(d,daySegments(d).filter((_,j)=>j!==i)); };
-  const copyDay=(d)=>{ window._shiftClip=JSON.stringify(daySegments(d)); alert("شیفت روز کپی شد. روی روز مقصد «پیست» بزنید."); };
-  const pasteDay=(d)=>{ if(!window._shiftClip)return alert("ابتدا یک روز را کپی کنید"); try{const parsed=JSON.parse(window._shiftClip);if(!Array.isArray(parsed)||parsed.length>2||parsed.some(seg=>!seg||typeof seg!=="object"||Array.isArray(seg)))throw Error("invalid");setDay(d,parsed);}catch(_){alert("محتوای کپی شیفت معتبر نیست.");} };
-  return(<div>
-    <p style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>برای هر روز هفته می‌توانید یک یا دو قطعه (شیفت دوتکه) تعریف کنید. «آستانهٔ ورود» = زودترین/دیرترین زمان مجاز ثبت ورود؛ «آستانهٔ خروج» = زودترین/دیرترین زمان مجاز ثبت خروج.</p>
-    {WD.map((wd,d)=><div key={d} className="card-p" style={{marginBottom:8}}>
-      <div className="row" style={{justifyContent:"space-between",marginBottom:6}}>
-        <b>{wd}</b>
-        <span className="row" style={{gap:6}}>
-          <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={()=>copyDay(d)}>کپی</button>
-          <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={()=>pasteDay(d)}>پیست</button>
-          <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={()=>addSeg(d)}>+ قطعه</button>
-        </span>
-      </div>
-      {daySegments(d).length===0?<span className="muted" style={{fontSize:12}}>تعطیل / بدون شیفت</span>:
-        daySegments(d).map((seg,i)=><div key={i} className="seg-row">
-          <span className="seg-lbl">قطعه {fa(i+1)}</span>
-          <TimeField label="شروع" v={seg.s} on={x=>updSeg(d,i,"s",x)}/>
-          <TimeField label="پایان" v={seg.e} on={x=>updSeg(d,i,"e",x)}/>
-          <TimeField label="ورود از" v={seg.es} on={x=>updSeg(d,i,"es",x)}/>
-          <TimeField label="ورود تا" v={seg.ls} on={x=>updSeg(d,i,"ls",x)}/>
-          <TimeField label="خروج از" v={seg.ee} on={x=>updSeg(d,i,"ee",x)}/>
-          <TimeField label="خروج تا" v={seg.le} on={x=>updSeg(d,i,"le",x)}/>
-          <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={()=>delSeg(d,i)}>×</button>
-        </div>)}
-    </div>)}
-    <p style={{fontSize:12,color:"var(--muted)"}}>برای شیفت شبانه، «پایان» را کوچک‌تر از «شروع» بگذارید (مثلاً شروع ۲۲:۰۰ و پایان ۰۶:۰۰)؛ سامانه آن را بین دو روز محاسبه می‌کند.</p>
-  </div>);
-}
 
+const simpleWeeklyV2Css = `
+.simple-weekly-v2{direction:rtl;margin-top:16px}.simple-weekly-v2 .sw-header{background:linear-gradient(105deg,#075548,#097e6b);color:#fff;border-radius:15px;padding:18px;display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.simple-weekly-v2 h3{margin:0 0 5px;font-size:19px;color:#fff}.simple-weekly-v2 .sw-header p{margin:0;color:#e1f5ef;font-size:12px}.simple-weekly-v2 .sw-count{border:1px solid #ffffff55;border-radius:12px;padding:9px 12px;font-size:12px}.simple-weekly-v2 .sw-toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:14px 0}.simple-weekly-v2 .sw-toolbar button,.simple-weekly-v2 .sw-actions button{background:#fff;border:1px solid #b7d6ca;border-radius:9px;color:#106756;padding:8px 11px;min-height:35px;font:750 12px Vazirmatn,Tahoma;cursor:pointer}.simple-weekly-v2 button:disabled{opacity:.48;cursor:not-allowed}.simple-weekly-v2 button:focus-visible{outline:3px solid #32ae91;outline-offset:2px}.simple-weekly-v2 .sw-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.simple-weekly-v2 .sw-card{border:1px solid #d5e6dc;border-radius:14px;background:#f2faf5;min-width:0;overflow:hidden}.simple-weekly-v2 .sw-card.off{background:#fff9f8;border-color:#ead4d0}.simple-weekly-v2 .sw-card.expanded{box-shadow:0 0 0 2px #0b856c}.simple-weekly-v2 .sw-card-head{padding:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}.simple-weekly-v2 .sw-card-head strong{color:#173f39;font-size:16px}.simple-weekly-v2 .sw-chip{font-size:11px;background:#d7f1e3;color:#12644c;border-radius:8px;padding:5px 8px}.simple-weekly-v2 .off .sw-chip{background:#fde9e6;color:#ac3833}.simple-weekly-v2 .sw-preview{display:grid;gap:7px;padding:0 14px 13px;min-height:47px}.simple-weekly-v2 .sw-time{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dbe8df;border-radius:9px;padding:8px 10px;gap:8px}.simple-weekly-v2 .sw-time span{font-size:11px;color:#55756e}.simple-weekly-v2 .sw-time strong{font-size:14px;color:#0e6354;white-space:nowrap;direction:ltr;unicode-bidi:isolate}.simple-weekly-v2 .sw-empty{color:#87625b;font-size:12px;padding:12px 0}.simple-weekly-v2 .sw-actions{border-top:1px solid #deebe3;padding:11px 14px;display:flex;flex-wrap:wrap;gap:6px}.simple-weekly-v2 .sw-actions .primary{flex:1;background:#0c7966;color:#fff;border-color:#0c7966}.simple-weekly-v2 .sw-editor{padding:14px;background:#fff;border-top:1px solid #dbe8e0}.simple-weekly-v2 .sw-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.simple-weekly-v2 .sw-fields .tf{min-width:0}.simple-weekly-v2 .sw-segment{border:1px solid #e1ebe6;border-radius:10px;padding:10px;margin-bottom:10px}.simple-weekly-v2 .sw-segment-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px}.simple-weekly-v2 .sw-note{font-size:11px;color:#5d7870;line-height:1.9}.simple-weekly-v2 .sw-toolbar .selected{background:#0c7966;color:#fff}.simple-weekly-v2 .sw-card-head input{accent-color:#0b856c;width:18px;height:18px}@media(max-width:1050px){.simple-weekly-v2 .sw-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.simple-weekly-v2 .sw-grid{grid-template-columns:1fr}.simple-weekly-v2 .sw-header{padding:15px}}@media(max-width:355px){.simple-weekly-v2 .sw-fields{grid-template-columns:1fr}}
+`;
+function SimpleWeekly({s,set}){
+ const weekly=s.weekly&&typeof s.weekly==="object"&&!Array.isArray(s.weekly)?s.weekly:{};
+ const [expanded,setExpanded]=useState(null);
+ const [bulk,setBulk]=useState(false);
+ const [selected,setSelected]=useState([]);
+ const [clip,setClip]=useState(null);
+ const daySegments=d=>{
+   const raw=weekly[d];
+   if(Array.isArray(raw))return raw.filter(x=>x&&typeof x==="object"&&!Array.isArray(x));
+   if(raw&&typeof raw==="object"){
+     if(Array.isArray(raw.segments))return raw.segments.filter(x=>x&&typeof x==="object"&&!Array.isArray(x));
+     if("s" in raw||"e" in raw)return [raw];
+   }
+   return [];
+ };
+ const setDay=(d,segs)=>set({weekly:{...weekly,[d]:segs}});
+ const addSeg=d=>{const segments=daySegments(d);if(segments.length>=2)return alert("حداکثر دو قطعه در روز");setDay(d,[...segments,emptySeg()]);setExpanded(d);};
+ const updSeg=(d,i,k,value)=>{const segments=daySegments(d).map(x=>({...x}));if(!segments[i])return;segments[i]={...segments[i],[k]:value};setDay(d,segments);};
+ const delSeg=(d,i)=>setDay(d,daySegments(d).filter((_,index)=>index!==i));
+ const copyDay=d=>{const payload=JSON.stringify(daySegments(d));setClip(payload);window._shiftClip=payload;};
+ const pasteDay=d=>{
+   const value=clip||window._shiftClip;
+   if(!value)return alert("ابتدا روز مبدأ را کپی کنید");
+   try{const seg=JSON.parse(value);if(!Array.isArray(seg)||seg.length>2||seg.some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw Error("invalid");setDay(d,seg.map(x=>({...x})));setExpanded(d);}catch(_){alert("محتوای شیفت کپی‌شده معتبر نیست.");}
+ };
+ const toggle=d=>setSelected(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d]);
+ const applyBulk=erase=>{
+   if(!selected.length)return;
+   const payload=clip||window._shiftClip;
+   let seg=[];
+   if(!erase){try{seg=JSON.parse(payload||'null');if(!Array.isArray(seg)||seg.length>2||seg.some(x=>!x||typeof x!=="object"||Array.isArray(x)))throw Error("invalid");}catch(_){return alert("ابتدا یک روز معتبر را کپی کنید");}}
+   if(erase&&!confirm("شیفت "+fa(selected.length)+" روز انتخاب‌شده حذف شود؟"))return;
+   const next={...weekly};selected.forEach(d=>{next[d]=seg.map(x=>({...x}));});
+   set({weekly:next});setSelected([]);setBulk(false);
+ };
+ const active=WD.filter((_,d)=>daySegments(d).length>0).length;
+ return <section className="simple-weekly-v2" aria-label="برنامه هفتگی شیفت ساده">
+  <style>{simpleWeeklyV2Css}</style>
+  <header className="sw-header"><div><h3>برنامه هفتگی شیفت ساده</h3><p>تعریف یک یا دو قطعه و تنظیم بازه‌های مجاز ورود و خروج هر روز</p></div><div className="sw-count">{fa(active)} روز دارای شیفت · {fa(7-active)} روز بدون شیفت</div></header>
+  <div className="sw-toolbar">
+   <button type="button" className={bulk?"selected":""} aria-pressed={bulk} onClick={()=>{setBulk(v=>!v);setSelected([]);}}>{bulk?"پایان انتخاب گروهی":"انتخاب گروهی روزها"}</button>
+   {clip&&<span className="sw-note">الگوی یک روز کپی شده است.</span>}
+   {bulk&&<><span className="sw-note">{fa(selected.length)} روز انتخاب‌شده</span>
+    <button type="button" disabled={!selected.length||!(clip||window._shiftClip)} onClick={()=>applyBulk(false)}>چسباندن الگو به انتخاب‌ها</button>
+    <button type="button" disabled={!selected.length} onClick={()=>applyBulk(true)}>حذف شیفت روزهای انتخابی</button>
+    <button type="button" onClick={()=>setSelected([])}>لغو انتخاب</button></>}
+  </div>
+  <div className="sw-grid">{WD.map((name,d)=>{
+   const segments=daySegments(d),has=segments.length>0,open=expanded===d;
+   return <article key={d} className={"sw-card "+(has?"":"off")+(open?" expanded":"")}>
+    <div className="sw-card-head"><strong>{name}</strong><span className="sw-chip">{has?"دارای شیفت":"تعطیل / بدون شیفت"}</span>
+      {bulk&&<input type="checkbox" checked={selected.includes(d)} onChange={()=>toggle(d)} aria-label={"انتخاب "+name}/>}
+    </div>
+    <div className="sw-preview">{has?segments.map((seg,i)=><div className="sw-time" key={i}><span>قطعه {fa(i+1)}</span><strong>{faPlain(seg.s||"--:--")} – {faPlain(seg.e||"--:--")}</strong></div>):<div className="sw-empty">ساعت کاری تعریف نشده است.</div>}</div>
+    <div className="sw-actions"><button type="button" className="primary" aria-expanded={open} onClick={()=>setExpanded(open?null:d)}>{open?"بستن تنظیمات":"✎ ویرایش ساعت‌ها"}</button>
+      <button type="button" disabled={!has} onClick={()=>copyDay(d)}>کپی</button><button type="button" disabled={!(clip||window._shiftClip)} onClick={()=>pasteDay(d)}>پیست</button></div>
+    {open&&<div className="sw-editor">
+     {segments.map((seg,i)=><div key={i} className="sw-segment"><div className="sw-segment-header"><strong>قطعه {fa(i+1)}</strong><button type="button" className="btn g" onClick={()=>delSeg(d,i)}>حذف قطعه</button></div>
+       <div className="sw-fields"><TimeField label="شروع شیفت" v={seg.s} on={v=>updSeg(d,i,"s",v)}/><TimeField label="پایان شیفت" v={seg.e} on={v=>updSeg(d,i,"e",v)}/>
+       <TimeField label="ورود از" v={seg.es} on={v=>updSeg(d,i,"es",v)}/><TimeField label="ورود تا" v={seg.ls} on={v=>updSeg(d,i,"ls",v)}/>
+       <TimeField label="خروج از" v={seg.ee} on={v=>updSeg(d,i,"ee",v)}/><TimeField label="خروج تا" v={seg.le} on={v=>updSeg(d,i,"le",v)}/></div>
+     </div>)}
+     {segments.length<2&&<button type="button" className="btn g" onClick={()=>addSeg(d)}>+ افزودن قطعه {fa(segments.length+1)}</button>}
+     <p className="sw-note">شیفت شبانه: برای مثال شروع ۲۲:۰۰ و پایان ۰۶:۰۰.</p>
+    </div>}
+   </article>;
+  })}</div>
+  <p className="sw-note">برای ثبت نهایی ساعت‌ها و تنظیمات، دکمه «ذخیره تنظیمات شیفت» را در بالای همین صفحه بزنید.</p>
+ </section>;
+}
 function RotatingShiftEditor({s,set}){
   const adv=s.advanced||{}; const rot=adv.rotation||adv||{};
   const cycle=rot.cycle||[
