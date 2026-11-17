@@ -6627,13 +6627,24 @@ function ShiftEdit({shift,onClose}){
 
 // ویرایشگر هفتگی شیفت ساده (۷ روز، هر روز یک یا دو قطعه با آستانه)
 function SimpleWeekly({s,set}){
-  const weekly=s.weekly||{};
+  const weekly=s.weekly&&typeof s.weekly==="object"&&!Array.isArray(s.weekly)?s.weekly:{};
+  // Older shift records may store one segment as an object instead of an array.
+  // Keep the stored values intact until that weekday is explicitly edited.
+  const daySegments=(d)=>{
+    const raw=weekly[d];
+    if(Array.isArray(raw))return raw.filter(seg=>seg&&typeof seg==="object"&&!Array.isArray(seg));
+    if(raw&&typeof raw==="object"){
+      if(Array.isArray(raw.segments))return raw.segments.filter(seg=>seg&&typeof seg==="object"&&!Array.isArray(seg));
+      if("s" in raw||"e" in raw)return [raw];
+    }
+    return [];
+  };
   const setDay=(d,segs)=>set({weekly:{...weekly,[d]:segs}});
-  const addSeg=(d)=>{ const cur=weekly[d]||[]; if(cur.length>=2)return alert("حداکثر دو قطعه در روز"); setDay(d,[...cur,emptySeg()]); };
-  const updSeg=(d,i,k,v)=>{ const cur=[...(weekly[d]||[])]; cur[i]={...cur[i],[k]:v}; setDay(d,cur); };
-  const delSeg=(d,i)=>{ const cur=(weekly[d]||[]).filter((_,j)=>j!==i); setDay(d,cur); };
-  const copyDay=(d)=>{ window._shiftClip=JSON.stringify(weekly[d]||[]); alert("شیفت روز کپی شد. روی روز مقصد «پیست» بزنید."); };
-  const pasteDay=(d)=>{ if(!window._shiftClip)return alert("ابتدا یک روز را کپی کنید"); setDay(d,JSON.parse(window._shiftClip)); };
+  const addSeg=(d)=>{ const cur=daySegments(d); if(cur.length>=2)return alert("حداکثر دو قطعه در روز"); setDay(d,[...cur,emptySeg()]); };
+  const updSeg=(d,i,k,v)=>{ const cur=daySegments(d).map(seg=>({...seg})); if(!cur[i])return; cur[i]={...cur[i],[k]:v}; setDay(d,cur); };
+  const delSeg=(d,i)=>{ setDay(d,daySegments(d).filter((_,j)=>j!==i)); };
+  const copyDay=(d)=>{ window._shiftClip=JSON.stringify(daySegments(d)); alert("شیفت روز کپی شد. روی روز مقصد «پیست» بزنید."); };
+  const pasteDay=(d)=>{ if(!window._shiftClip)return alert("ابتدا یک روز را کپی کنید"); try{const parsed=JSON.parse(window._shiftClip);if(!Array.isArray(parsed)||parsed.length>2||parsed.some(seg=>!seg||typeof seg!=="object"||Array.isArray(seg)))throw Error("invalid");setDay(d,parsed);}catch(_){alert("محتوای کپی شیفت معتبر نیست.");} };
   return(<div>
     <p style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>برای هر روز هفته می‌توانید یک یا دو قطعه (شیفت دوتکه) تعریف کنید. «آستانهٔ ورود» = زودترین/دیرترین زمان مجاز ثبت ورود؛ «آستانهٔ خروج» = زودترین/دیرترین زمان مجاز ثبت خروج.</p>
     {WD.map((wd,d)=><div key={d} className="card-p" style={{marginBottom:8}}>
@@ -6645,8 +6656,8 @@ function SimpleWeekly({s,set}){
           <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={()=>addSeg(d)}>+ قطعه</button>
         </span>
       </div>
-      {(weekly[d]||[]).length===0?<span className="muted" style={{fontSize:12}}>تعطیل / بدون شیفت</span>:
-        (weekly[d]||[]).map((seg,i)=><div key={i} className="seg-row">
+      {daySegments(d).length===0?<span className="muted" style={{fontSize:12}}>تعطیل / بدون شیفت</span>:
+        daySegments(d).map((seg,i)=><div key={i} className="seg-row">
           <span className="seg-lbl">قطعه {fa(i+1)}</span>
           <TimeField label="شروع" v={seg.s} on={x=>updSeg(d,i,"s",x)}/>
           <TimeField label="پایان" v={seg.e} on={x=>updSeg(d,i,"e",x)}/>
