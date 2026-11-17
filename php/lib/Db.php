@@ -7,11 +7,28 @@ class Db {
     $dsn = "mysql:host={$c['db_host']};dbname={$c['db_name']};charset=utf8mb4";
     // The DSN already negotiates utf8mb4. Keep session settings as separate,
     // portable statements instead of combining SET NAMES with a variable assignment.
-    $pdo = new PDO($dsn, $c['db_user'], $c['db_pass'], [
+    $options = [
       PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
       PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
       PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+      // Shared hosting: never keep idle database connections across PHP requests.
+      PDO::ATTR_PERSISTENT => false,
+    ];
+    // MySQL 1203 is a per-account connection limit. A short, randomized,
+    // bounded backoff can bridge transient spikes without retrying SQL writes.
+    // Never retry arbitrary SQL after execution (it could have committed).
+    for ($attempt = 0; ; ++$attempt) {
+      try {
+        $pdo = new PDO($dsn, $c['db_user'], $c['db_pass'], $options);
+        break;
+      } catch (PDOException $e) {
+        $driverCode = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;
+        $isLimit = $driverCode === 1203 || preg_match('/\\[1203\\]|max_user_connections/i', $e->getMessage());
+        if (!$isLimit || $attempt >= 2) throw $e;
+        error_log('db connection capacity reached; retry attempt=' . ($attempt + 1));
+        usleep(random_int(150000, 300000) * ($attempt + 1));
+      }
+    }
     // Some shared-host MySQL accounts reject SESSION variable changes even
     // though connecting and querying are permitted. Do not convert an optional
     // connection preference into a complete login / API outage.
