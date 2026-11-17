@@ -6622,28 +6622,29 @@ function AttendanceRejectLogs(){
 }
 
 function ShiftList(){
-  const [list,setList]=useState([]); const [edit,setEdit]=useState(null);
-  const load=()=>db.shifts().then(s=>setList(s||[])).catch(()=>{});
+  const [list,setList]=useState([]); const [edit,setEdit]=useState(null); const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
+  const load=async()=>{try{setError('');setList(await db.shifts()||[]);}catch(e){setError(e.message||'دریافت فهرست شیفت‌ها ناموفق بود.');}};
   useEffect(()=>{load();},[]);
-  const create=async(type)=>{ const r=await db.saveShift({title:"شیفت جدید",type,weekly:type==="simple"?{}:undefined,float_minutes:type==="floating"?480:null}); const full=await db.shift(r.id); setEdit(full); };
-  const del=async(id)=>{ if(!confirm("حذف این شیفت؟"))return; await db.delShift(id); load(); };
+  const create=async(type)=>{setBusy(true);setError('');try{const r=await db.saveShift({title:"شیفت جدید",type,weekly:type==="simple"?{}:undefined,float_minutes:type==="floating"?480:null});setEdit(await db.shift(r.id));}catch(e){setError(e.message||'ساخت شیفت ناموفق بود.');await load();}finally{setBusy(false);}};
+  const del=async(id)=>{if(!confirm("حذف این شیفت؟ این عملیات ممکن است تخصیص‌ها را تحت تأثیر قرار دهد."))return;setBusy(true);setError('');try{await db.delShift(id);await load();}catch(e){setError(e.message||'حذف شیفت ناموفق بود.');}finally{setBusy(false);}};
   if(edit) return <ShiftEdit shift={edit} onClose={()=>{setEdit(null);load();}}/>;
   return(<div>
+    {error&&<p className="sm-status-error" role="alert">{error}</p>}
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap"}}>
-      <button className="btn p" onClick={()=>create("simple")}>+ شیفت ساده</button>
-      <button className="btn p" onClick={()=>create("advanced")}>+ شیفت پیشرفته (تقویمی)</button>
-      <button className="btn p" onClick={()=>create("floating")}>+ شیفت شناور</button>
-      <button className="btn p" onClick={()=>create("rotating")}>+ شیفت چرخشی ۷/۷/۷</button>
+      <button className="btn p" disabled={busy} onClick={()=>create("simple")}>+ شیفت ساده</button>
+      <button className="btn p" disabled={busy} onClick={()=>create("advanced")}>+ شیفت پیشرفته (تقویمی)</button>
+      <button className="btn p" disabled={busy} onClick={()=>create("floating")}>+ شیفت شناور</button>
+      <button className="btn p" disabled={busy} onClick={()=>create("rotating")}>+ شیفت چرخشی ۷/۷/۷</button>
     </div>
-    {list.length===0?<p className="muted">شیفتی تعریف نشده است.</p>:
-    <table><thead><tr><th>عنوان</th><th>نوع</th><th>اضافه‌کار روزانه/ماهانه</th><th></th></tr></thead><tbody>
+    {list.length===0?<p className="sm-empty">شیفتی برای نمایش تعریف نشده است.</p>:
+    <div className="sm-scroll-table"><table><thead><tr><th>عنوان</th><th>نوع</th><th>اضافه‌کار روزانه/ماهانه</th><th></th></tr></thead><tbody>
       {list.map(s=><tr key={s.id}>
         <td>{s.title}</td>
         <td>{{simple:"ساده",advanced:"پیشرفته",floating:"شناور",rotating:"چرخشی"}[s.type]||s.type}</td>
         <td style={{fontSize:12}}>{s.daily_ot_cap?fa(s.daily_ot_cap)+"د":"—"} / {s.monthly_ot_cap?fa(s.monthly_ot_cap)+"د":"—"}</td>
-        <td><button className="btn g" onClick={async()=>setEdit(await db.shift(s.id))}>ویرایش</button> <button className="btn g" onClick={()=>del(s.id)}>حذف</button></td>
+        <td><button className="btn g" disabled={busy} onClick={async()=>{setBusy(true);try{setEdit(await db.shift(s.id));}catch(e){setError(e.message||'خواندن شیفت ناموفق بود.');}finally{setBusy(false);}}}>ویرایش</button> <button className="btn g" disabled={busy} onClick={()=>del(s.id)}>حذف</button></td>
       </tr>)}
-    </tbody></table>}
+    </tbody></table></div>}
   </div>);
 }
 
@@ -7195,15 +7196,15 @@ function gregToJalaliWeekday(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd);
 // تخصیص شیفت به نیروها
 function ShiftAssign(){
   const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState(""); const [error,setError]=useState(""); const [busyUser,setBusyUser]=useState(null);
-  const load=()=>db.userShifts().then(a=>setAssigns(a||[])).catch(()=>{});
-  useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); db.shifts().then(s=>setShifts(s||[])).catch(()=>{}); load(); },[]);
+  const load=async()=>{try{setAssigns(await db.userShifts()||[]);}catch(e){setError(e.message||'دریافت تخصیص‌های شیفت ناموفق بود.');}};
+  useEffect(()=>{db.usersLite().then(u=>setUsers(u||[])).catch(e=>setError(e.message||'دریافت فهرست نیروها ناموفق بود.'));db.shifts().then(s=>setShifts(s||[])).catch(e=>setError(e.message||'دریافت شیفت‌ها ناموفق بود.'));load();},[]);
   const cur=(uid)=>assigns.find(a=>Number(a.user_id)===Number(uid));
   const setShift=async(uid,sid)=>{ setError("");setBusyUser(uid);try{if(sid===""){await db.delUserShift(uid);}else{await db.setUserShift({user_id:uid,shift_id:+sid});}await load();}catch(e){setError(e.message||"ذخیرهٔ تخصیص شیفت انجام نشد.");await load();}finally{setBusyUser(null);} };
-  const filtered=q.trim()?users.filter(u=>((u.first_name||"")+" "+(u.last_name||"")).includes(q.trim())):users;
+  const filtered=q.trim()?users.filter(u=>((u.first_name||"")+" "+(u.last_name||"")+" "+(u.username||"")+" "+u.id).toLocaleLowerCase('fa').includes(q.trim().toLocaleLowerCase('fa'))):users;
   return(<div>
     {error&&<div className="attendance-shift-assignment-error" role="alert" style={{padding:"9px 12px",marginBottom:10,borderRadius:9,background:"#fdeef0",color:"#a61b29",fontSize:12}}>{error}</div>}
-    <input className="input" style={{maxWidth:240,marginBottom:10}} placeholder="جستجوی نیرو…" value={q} onChange={e=>setQ(e.target.value)}/>
-    <table><thead><tr><th>نیرو</th><th>شیفت تخصیص‌یافته</th></tr></thead><tbody>
+    <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}><input className="input" style={{maxWidth:320}} aria-label="جستجوی نیرو" placeholder="جستجوی نام، نام کاربری یا شناسه…" value={q} onChange={e=>setQ(e.target.value)}/><span className="muted">{fa(filtered.length)} نیرو</span></div>
+    <div className="sm-scroll-table"><table><thead><tr><th>نیرو</th><th>شیفت تخصیص‌یافته</th></tr></thead><tbody>
       {filtered.map(u=>{ const c=cur(u.id); return(<tr key={u.id}>
         <td>{u.first_name} {u.last_name}</td>
         <td><select className="input" style={{maxWidth:240}} value={c?String(c.shift_id):""} disabled={Number(busyUser)===Number(u.id)} onChange={e=>setShift(u.id,e.target.value)}>
@@ -7212,7 +7213,7 @@ function ShiftAssign(){
           {shifts.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
         </select></td>
       </tr>); })}
-    </tbody></table>
+    </tbody></table>{!filtered.length&&<p className="sm-empty">نیرویی با عبارت جستجو پیدا نشد.</p>}</div>
   </div>);
 }
 
