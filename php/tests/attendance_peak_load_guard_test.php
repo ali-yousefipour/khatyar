@@ -23,7 +23,7 @@ if (strpos($index, 'slow_api method=') === false) throw new RuntimeException('Sl
 // browser device, not a random session for the same user/device type.
 $punch = file_get_contents(__DIR__.'/../app/api/admin-attendance-punch.php');
 if (strpos($punch, 'AND device_id=? LIMIT 1') === false ||
-    strpos($punch, "($payload['device_id']??'')") === false) {
+    strpos($punch, '$deviceId=(string)') === false) {
     throw new RuntimeException('Attendance punch endpoint does not bind the device session');
 }
 $panel = file_get_contents(__DIR__.'/../tools/panel_source.jsx');
