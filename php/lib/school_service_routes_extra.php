@@ -165,7 +165,7 @@ route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
  $r['violations']=_ssv_filter_violation_rows(Db::all("SELECT v.id,v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=? ORDER BY v.sort_order,v.id",[$id]));
  $r['photos']=Db::all("SELECT id,file_path,mime_type,width,height,file_size,created_at FROM school_service_inspection_photos WHERE inspection_id=? ORDER BY id",[$id]);
  foreach($r['photos'] as &$photo){$rawPath=(string)($photo['file_path']??'');$photo['file_path']=$rawPath!==''?('/api/media?path='.rawurlencode(ltrim($rawPath,'/'))):null;}unset($photo);
- $r['plate']=trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران '.($r['plate_region_code']??''));
+ $r['plate']=trim(($r['plate_two']??'').' '.($r['plate_letter']??'').' '.($r['plate_three']??'').' ایران '.($r['plate_region_code']??''));
  return $r;
 });
 route('GET','/api/school-service/district-boundaries',function($p,$b,$u){
@@ -352,7 +352,7 @@ route('GET','/api/school-service/export-filtered',function($p,$b,$u){
     $fields="COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') title,COUNT(*) inspections";
     $group=" GROUP BY i.school_id,s.name";break;
    case 'vehicles':
-    $fields="CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) title,COUNT(*) inspections";
+    $fields="CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) title,COUNT(*) inspections,MAX(i.plate_two) plate_two,MAX(i.plate_letter) plate_letter,MAX(i.plate_three) plate_three,MAX(i.plate_region_code) plate_region_code";
     $group=" GROUP BY i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code";break;
    case 'violations':
     $extra=" JOIN school_service_inspection_violations iv ON iv.inspection_id=i.id JOIN school_service_violation_types vt ON vt.id=iv.violation_type_id";
