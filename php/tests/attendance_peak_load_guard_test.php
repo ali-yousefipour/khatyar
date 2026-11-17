@@ -32,4 +32,9 @@ if (strpos($panel, 'if(e.status!==401)throw e;') === false ||
     strpos($panel, "if(authError&&!me)") === false) {
     throw new RuntimeException('Browser session may be cleared during transient API failures');
 }
+// The report button must not pass React's MouseEvent as the personnel ID.
+if (strpos($panel, 'onClick={()=>run()} disabled={busy||!uid}') === false ||
+    strpos($panel, 'onClick={run} disabled={busy}') !== false) {
+    throw new RuntimeException('Attendance report button passes event instead of selected user ID');
+}
 echo "PASS attendance hot-path DDL removal and metrics\n";
