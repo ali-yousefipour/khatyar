@@ -88,6 +88,7 @@ jobs:
           node tests/request_edit_ui_test.cjs
           php tests/shift_rotation_test.php
           node tests/shift_rotation_ui_test.cjs
+          node tests/shift_manager_tabs_ui_test.cjs
           node tests/shift_rotation_xlsx_test.cjs
           php tests/work_month_daily_reconciliation_test.php
           php tests/attendance_mohammadian_shortage_test.php
