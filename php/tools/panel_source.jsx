@@ -6456,13 +6456,21 @@ function LeaveBalanceInit(){
 function OfflineSyncConflicts(){
   const [rows,setRows]=useState([]);
   const [status,setStatus]=useState("");
-  const [busy,setBusy]=useState(false);
+  const [busy,setBusy]=useState(false); const [acting,setActing]=useState(null);
   const [msg,setMsg]=useState("");
   const load=async()=>{ setBusy(true); setMsg(""); try{ const d=await GET('/admin/offline-sync-conflicts'+(status?'?status='+encodeURIComponent(status):'')); setRows(d.items||[]); }catch(e){ setMsg(e.message||'خطا در دریافت'); } finally{ setBusy(false); } };
   useEffect(()=>{load();},[status]);
-  const retry=async(id)=>{ const note=prompt('توضیح پردازش مجدد:', 'پردازش مجدد توسط مدیر')||''; setMsg(''); try{ await SEND('POST','/admin/offline-sync-conflicts/'+id+'/retry',{note}); setMsg('✓ رکورد دوباره پردازش شد'); load(); }catch(e){ setMsg(e.message||'خطا در پردازش مجدد'); } };
-  const ignore=async(id)=>{ const note=prompt('علت نادیده گرفتن:', 'رکورد نامعتبر یا تکراری')||''; if(!note)return; try{ await SEND('POST','/admin/offline-sync-conflicts/'+id+'/ignore',{note}); setMsg('✓ رکورد نادیده گرفته شد'); load(); }catch(e){ setMsg(e.message||'خطا در ثبت'); } };
-  const mark=async(id)=>{ const reason=prompt('علت ارجاع به بررسی:', 'نیازمند بررسی مدیریتی')||''; if(!reason)return; try{ await SEND('POST','/admin/offline-sync-conflicts/'+id+'/mark-conflict',{reason}); setMsg('✓ وضعیت تعارض ثبت شد'); load(); }catch(e){ setMsg(e.message||'خطا در ثبت تعارض'); } };
+  const resolve=async(id,kind)=>{
+    if(acting!==null)return;
+    const label=kind==='retry'?'پردازش مجدد':kind==='ignore'?'نادیده گرفتن':'ارجاع به بررسی';
+    const note=prompt('توضیح '+label+':',kind==='retry'?'پردازش مجدد توسط مدیر':kind==='ignore'?'رکورد نامعتبر یا تکراری':'نیازمند بررسی مدیریتی');
+    if(note===null||!note.trim())return;
+    if(kind==='retry'&&!confirm('این رکورد دوباره پردازش شود؟ ممکن است عملیات حضور را تغییر دهد.'))return;
+    setActing(id);setMsg('');
+    try{await SEND('POST','/admin/offline-sync-conflicts/'+id+'/'+(kind==='mark'?'mark-conflict':kind),kind==='mark'?{reason:note.trim()}:{note:note.trim()});
+      await load();setMsg('✓ عملیات '+label+' انجام شد.');
+    }catch(e){setMsg(e.message||'ثبت عملیات تعارض ناموفق بود.');}finally{setActing(null);}
+  };
   const payloadText=(r)=>{ try{ return typeof r.payload==='string'?r.payload:JSON.stringify(r.payload||{},null,2); }catch(e){ return ''; } };
   return(<div>
     <p style={{fontSize:13,color:'var(--muted)',marginBottom:10}}>رکوردهای آفلاینی که پردازش نشده، خطا خورده یا نیازمند تصمیم مدیریتی هستند از این بخش مدیریت می‌شوند.</p>
@@ -6478,7 +6486,7 @@ function OfflineSyncConflicts(){
       <button className="btn p" onClick={load} disabled={busy}>{busy?'در حال بارگذاری…':'بروزرسانی'}</button>
     </div>
     {msg&&<p style={{color:msg.startsWith('✓')?'var(--ok)':'var(--danger)',fontWeight:700,marginBottom:8}}>{msg}</p>}
-    <div style={{overflowX:'auto'}}>
+    <div className="sm-scroll-table">
       <table style={{minWidth:980,fontSize:12}}><thead><tr><th>#</th><th>کاربر</th><th>نوع</th><th>وضعیت</th><th>علت/خطا</th><th>زمان</th><th>عملیات</th></tr></thead><tbody>
         {rows.map(r=><tr key={r.id}>
           <td>{fa(r.id)}</td>
@@ -6488,9 +6496,9 @@ function OfflineSyncConflicts(){
           <td style={{maxWidth:260,whiteSpace:'pre-wrap'}}>{r.conflict_reason||r.error||'—'}{r.resolution_note&&<div className="muted" style={{marginTop:4}}>نتیجه: {r.resolution_note}</div>}</td>
           <td>{fj(r.created_at)}{r.processed_at&&<div className="muted" style={{fontSize:10.5}}>پردازش: {fj(r.processed_at)}</div>}</td>
           <td><div className="row" style={{gap:4,flexWrap:'wrap'}}>
-            <button className="btn g" onClick={()=>retry(r.id)}>پردازش مجدد</button>
-            <button className="btn g" onClick={()=>mark(r.id)}>تعارض</button>
-            <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>ignore(r.id)}>نادیده گرفتن</button>
+            <button className="btn g" type="button" disabled={acting!==null||busy} onClick={()=>resolve(r.id,'retry')}>پردازش مجدد</button>
+            <button className="btn g" type="button" disabled={acting!==null||busy} onClick={()=>resolve(r.id,'mark')}>تعارض</button>
+            <button className="btn g" type="button" disabled={acting!==null||busy} style={{color:'var(--danger)'}} onClick={()=>resolve(r.id,'ignore')}>نادیده گرفتن</button>
           </div></td>
         </tr>)}
       </tbody></table>
@@ -6567,15 +6575,22 @@ function AutoShiftRules(){
   useEffect(()=>{load();},[]);
   const patch=(i,k,v)=>setRows(rs=>rs.map((r,idx)=>idx===i?{...r,[k]:v}:r));
   const patchHM=(i,key,k,v)=>setRows(rs=>rs.map((r,idx)=>idx===i?{...r,[key]:{...r[key],[k]:v}}:r));
-  const save=async(i)=>{ const r=rows[i]; setSaving(r.role_key); setMsg('');
+  const save=async(i)=>{
+    const r=rows[i];if(saving!==null)return;
+    const clocks=[r._d,r._o,r._s];
+    if(clocks.some(v=>!Number.isFinite(Number(v.h))||!Number.isFinite(Number(v.m))||Number(v.h)<0||Number(v.m)<0||Number(v.m)>59)){
+      setMsg('ساعت و دقیقه نامعتبر است؛ دقیقه باید بین ۰ تا ۵۹ باشد.');return;
+    }
+    setSaving(r.role_key);setMsg('');
     const body={...r,duty_minutes:hmInputToMin(r._d.h,r._d.m),overtime_limit_minutes:hmInputToMin(r._o.h,r._o.m),surplus_after_minutes:hmInputToMin(r._s.h,r._s.m)};
-    try{ await db.saveRuleEngineRole(r.role_key,body); setMsg('ذخیره شد'); await load(); }catch(e){ setMsg(e.message||'خطا در ذخیره'); } finally{ setSaving(null); }
+    try{await db.saveRuleEngineRole(r.role_key,body);await load();setMsg('✓ قانون سمت ذخیره شد.');}
+    catch(e){setMsg(e.message||'ذخیره قانون سمت ناموفق بود.');}finally{setSaving(null);}
   };
   if(rows===null)return <p className="muted">در حال بارگذاری…</p>;
   return(<div>
     <p style={{fontSize:12.5,color:'var(--muted)',margin:'6px 0 12px'}}>قوانین شیفت خودکار از اینجا کنترل می‌شود. این قوانین در تایمر اپ، ثبت ورود، محاسبه موظفی، اضافه‌کار، مازاد، شب‌کاری، جمعه‌کاری و تعطیل‌کاری استفاده می‌شوند.</p>
-    {msg&&<p style={{fontWeight:700,color:msg==='ذخیره شد'?'var(--ok)':'var(--danger)'}}>{msg}</p>}
-    <div style={{overflowX:'auto'}}><table style={{minWidth:1480,fontSize:12}}><thead><tr><th>سمت</th><th>موظفی</th><th>اضافه‌کار مجاز</th><th>شروع مازاد</th><th>شب‌کاری</th><th>بازه ورود</th><th>هشدار</th><th>محاسبه‌ها</th><th>جمعه/تعطیل</th><th>جلسه باز</th><th>فعال</th><th>ذخیره</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.role_key}>
+    {msg&&<p style={{fontWeight:700,color:msg.startsWith('✓')?'var(--ok)':'var(--danger)'}}>{msg}</p>}
+    <div className="sm-scroll-table"><table style={{minWidth:1480,fontSize:12}}><thead><tr><th>سمت</th><th>موظفی</th><th>اضافه‌کار مجاز</th><th>شروع مازاد</th><th>شب‌کاری</th><th>بازه ورود</th><th>هشدار</th><th>محاسبه‌ها</th><th>جمعه/تعطیل</th><th>جلسه باز</th><th>فعال</th><th>ذخیره</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.role_key}>
       <td><input className="input" value={r.title||r.role_key} onChange={e=>patch(i,'title',e.target.value)} style={{minWidth:130}}/><div className="muted" style={{fontSize:10,direction:'ltr'}}>{r.role_key}</div></td>
       <td><div className="row" style={{gap:4}}><input className="input" type="number" min="0" value={r._d.h} onChange={e=>patchHM(i,'_d','h',e.target.value)} style={{width:58}}/><span>:</span><input className="input" type="number" min="0" max="59" value={r._d.m} onChange={e=>patchHM(i,'_d','m',e.target.value)} style={{width:58}}/></div></td>
       <td><div className="row" style={{gap:4}}><input className="input" type="number" min="0" value={r._o.h} onChange={e=>patchHM(i,'_o','h',e.target.value)} style={{width:58}}/><span>:</span><input className="input" type="number" min="0" max="59" value={r._o.m} onChange={e=>patchHM(i,'_o','m',e.target.value)} style={{width:58}}/></div></td>
