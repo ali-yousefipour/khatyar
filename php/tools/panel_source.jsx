@@ -6857,6 +6857,115 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
 }
 
 // تقویم شمسی شیفت پیشرفته با کپی/پیست روز
+
+const shiftCalendarStyles = `
+.shift-calendar-v2{direction:rtl;--shift-green:#0b7661;--shift-line:#dbe7e4;--shift-ink:#193a43}
+.shift-calendar-v2 .sc-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:17px;background:linear-gradient(110deg,#07564b,#0a776a);border-radius:16px;color:#fff}
+.shift-calendar-v2 .sc-toolbar h3{margin:0;font-size:19px;font-weight:900;color:#fff}
+.shift-calendar-v2 .sc-toolbar small{display:block;font-size:12px;opacity:.85;margin-top:5px}
+.shift-calendar-v2 .sc-navigation,.shift-calendar-v2 .sc-toolbar-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.shift-calendar-v2 .sc-toolbar button{border:1px solid #ffffff55;background:#ffffff1a;color:#fff;padding:8px 11px;border-radius:10px;font:700 12px Vazirmatn,Tahoma;cursor:pointer}
+.shift-calendar-v2 .sc-toolbar button.sc-save{background:#fff;color:#07584c;border-color:#fff}
+.shift-calendar-v2 button:focus-visible,.shift-calendar-v2 summary:focus-visible{outline:3px solid #47bfa3;outline-offset:2px}
+.shift-calendar-v2 .sc-toolbar button:disabled,.shift-calendar-v2 .sc-bulk button:disabled{opacity:.45;cursor:not-allowed}
+.shift-calendar-v2 .sc-legend{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;font-size:12px}
+.shift-calendar-v2 .sc-legend span{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;background:#fff;border:1px solid var(--shift-line);border-radius:999px}
+.shift-calendar-v2 .sc-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.shift-calendar-v2 .sc-bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f4faf7;border:1px solid #cfe5db;border-radius:13px;padding:11px;margin-bottom:12px}
+.shift-calendar-v2 .sc-bulk strong{font-size:12px;margin-inline-end:auto;color:#145448}
+.shift-calendar-v2 .sc-bulk button{border:1px solid #b5d5ca;background:#fff;border-radius:9px;color:#165c50;font:700 11px Vazirmatn,Tahoma;padding:8px 10px;cursor:pointer}
+.shift-calendar-v2 .sc-bulk button.sc-danger{color:#b42318;border-color:#f2c3c0}
+.shift-calendar-v2 .sc-bulk button.sc-bulk-active{background:#116f5e;color:#fff}
+.shift-calendar-v2 .sc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.shift-calendar-v2 .sc-weekday{font-size:12px;font-weight:800;text-align:center;color:#50726e;padding:9px 3px}
+.shift-calendar-v2 .sc-day{position:relative;min-width:0;min-height:174px;display:flex;flex-direction:column;gap:8px;padding:11px;border-radius:13px;border:1px solid var(--shift-line);background:#f8faf9;color:var(--shift-ink);box-shadow:0 2px 9px rgba(20,74,62,.045);transition:border-color .15s,box-shadow .15s}
+.shift-calendar-v2 .sc-day--has-shift{background:#f0faf5;border-color:#bedecd}
+.shift-calendar-v2 .sc-day--holiday,.shift-calendar-v2 .sc-day--friday{border-top:3px solid #c3423c}
+.shift-calendar-v2 .sc-day--off{background:#fff8ed;border-color:#efd4af}
+.shift-calendar-v2 .sc-day--selected{outline:2px solid var(--shift-green);outline-offset:-2px;box-shadow:0 0 0 3px #c9e8dd}
+.shift-calendar-v2 .sc-day-header{display:flex;align-items:flex-start;justify-content:space-between;gap:7px}
+.shift-calendar-v2 .sc-date{display:flex;align-items:center;gap:7px;min-width:0}
+.shift-calendar-v2 .sc-number{font:900 22px Vazirmatn,Tahoma;color:#183f40;min-width:26px}
+.shift-calendar-v2 .sc-date-detail{display:flex;flex-direction:column;gap:1px;min-width:0}
+.shift-calendar-v2 .sc-day-name{font-size:11px;font-weight:800}
+.shift-calendar-v2 .sc-full-date{font-size:10px;color:#5b7274;white-space:nowrap;direction:ltr;unicode-bidi:isolate}
+.shift-calendar-v2 .sc-select{width:19px;height:19px;accent-color:#0b7661;cursor:pointer}
+.shift-calendar-v2 .sc-badges{display:flex;flex-wrap:wrap;gap:4px}
+.shift-calendar-v2 .sc-badge{border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;line-height:1.5;background:#e5f2ed;color:#086d58}
+.shift-calendar-v2 .sc-badge--red{background:#fee9e7;color:#af2d28}
+.shift-calendar-v2 .sc-badge--orange{background:#ffebcb;color:#915315}
+.shift-calendar-v2 .sc-content{display:flex;flex:1;justify-content:center;flex-direction:column;align-items:stretch;gap:4px}
+.shift-calendar-v2 .sc-time{display:block;border:1px solid #d2e9dd;background:#fff;border-radius:8px;text-align:center;padding:6px 2px;font:800 13px Vazirmatn,Tahoma;direction:ltr;unicode-bidi:isolate}
+.shift-calendar-v2 .sc-empty{text-align:center;font-size:12px;color:#687f80;padding:8px 0}
+.shift-calendar-v2 .sc-footer{display:flex;align-items:center;gap:5px;margin-top:auto}
+.shift-calendar-v2 .sc-edit{flex:1;min-height:34px;border:1px solid #9bcbb8;background:#fff;color:#096d5c;border-radius:9px;font:800 11px Vazirmatn,Tahoma;cursor:pointer}
+.shift-calendar-v2 .sc-more{position:relative}
+.shift-calendar-v2 .sc-more summary{display:grid;place-items:center;list-style:none;cursor:pointer;width:34px;height:34px;border:1px solid #c9dbd6;border-radius:9px;background:#fff;color:#285b53;font-weight:900}
+.shift-calendar-v2 .sc-more summary::-webkit-details-marker{display:none}
+.shift-calendar-v2 .sc-more-menu{position:absolute;inset-inline-end:0;bottom:39px;min-width:132px;z-index:30;background:#fff;border:1px solid #dce6e1;border-radius:10px;box-shadow:0 10px 23px #183a432c;padding:5px;display:grid;gap:3px}
+.shift-calendar-v2 .sc-more-menu button{border:0;background:transparent;text-align:right;padding:8px;border-radius:7px;font:700 11px Vazirmatn,Tahoma;cursor:pointer;color:#244f48}
+.shift-calendar-v2 .sc-more-menu button:hover{background:#edf8f3}
+.shift-calendar-v2 .sc-more-menu button.sc-danger{color:#a92020}
+.shift-calendar-v2 .sc-help{font-size:11px;color:#5e7778;margin:9px 0}
+@media(max-width:1100px){.shift-calendar-v2 .sc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.shift-calendar-v2 .sc-weekday,.shift-calendar-v2 .sc-blank{display:none}}
+@media(max-width:620px){.shift-calendar-v2 .sc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.shift-calendar-v2 .sc-day{min-height:165px;padding:8px}.shift-calendar-v2 .sc-toolbar h3{font-size:16px}.shift-calendar-v2 .sc-time{font-size:12px}.shift-calendar-v2 .sc-number{font-size:20px}}
+@media(max-width:360px){.shift-calendar-v2 .sc-grid{grid-template-columns:1fr}}
+`;
+function ShiftCalendarHeader({month,year,onPrev,onNext,onToday,onSave,saving,children}){
+ return <header className="sc-toolbar">
+  <div><h3>تنظیم شیفت تقویمی</h3><small>{month} {fa(year)} · برنامه‌ریزی روزانه نیروها</small></div>
+  <div className="sc-navigation"><button type="button" onClick={onPrev}>ماه قبل ‹</button><button type="button" onClick={onToday}>امروز</button><button type="button" onClick={onNext}>› ماه بعد</button></div>
+  <div className="sc-toolbar-actions">{children}<button type="button" className="sc-save" disabled={saving} onClick={onSave}>{saving?'در حال ذخیره…':'ذخیره تقویم'}</button></div>
+ </header>;
+}
+function ShiftCalendarLegend(){
+ return <div className="sc-legend" aria-label="راهنمای رنگ‌های تقویم">
+  <span><i style={{background:'#1d9a73'}}/>دارای شیفت</span>
+  <span><i style={{background:'#9ba9a6'}}/>بدون شیفت</span>
+  <span><i style={{background:'#c3423c'}}/>جمعه / تعطیل رسمی</span>
+  <span><i style={{background:'#db9a3b'}}/>تعطیل شیفت</span>
+ </div>;
+}
+function ShiftBulkActions({enabled,onToggle,count,onClearSelection,onRepeat,onPaste,onDelete,onClearShift,onMarkOff,onUnmarkOff,onCopyYear,canPaste,hasExisting}){
+ return <section className="sc-bulk" aria-label="عملیات گروهی روی روزهای تقویم">
+  <button type="button" className={enabled?'sc-bulk-active':''} aria-pressed={enabled} onClick={onToggle}>{enabled?'پایان انتخاب گروهی':'انتخاب گروهی'}</button>
+  <strong>{enabled?fa(count)+' روز انتخاب‌شده':'برای انجام عملیات روی چند روز، انتخاب گروهی را فعال کنید.'}</strong>
+  {enabled&&<><button type="button" disabled={!count} onClick={onClearSelection}>لغو انتخاب‌ها</button>
+    <button type="button" disabled={count<2} onClick={onRepeat}>تکرار الگو تا پایان سال</button>
+    <button type="button" disabled={!count||!canPaste} onClick={onPaste}>چسباندن الگو</button>
+    <button type="button" disabled={!count} onClick={onMarkOff}>تعطیل کردن روزها</button>
+    <button type="button" disabled={!count} onClick={onUnmarkOff}>رفع تعطیلی شیفت</button>
+    <button type="button" disabled={!count||!hasExisting} onClick={onClearShift}>پاک‌کردن ساعت شیفت</button>
+    <button type="button" className="sc-danger" disabled={!count||!hasExisting} onClick={onDelete}>حذف تنظیمات روزها</button>
+  </>}
+  <button type="button" onClick={onCopyYear}>کپی تقویم به سال بعد</button>
+ </section>;
+}
+function ShiftCalendarDayCard({date,dayNumber,weekday,value,holidayTitle,isFriday,selected,selectionMode,clipboard,onSelect,onEdit,onCopy,onPaste,onDelete}){
+ const off=!!value?.is_off;
+ const segments=Array.isArray(value?.segments)?value.segments:[];
+ const hasShift=!off&&(segments.length>0||!!value?.day_config);
+ const times=hasShift?segments.filter(seg=>seg&&seg.s&&seg.e).map(seg=>seg.s+' – '+seg.e):[];
+ const isOfficial=holidayTitle!==null;
+ const showPaste=clipboard&&clipboard.source!==date;
+ const cls=['sc-day',hasShift?'sc-day--has-shift':'',off?'sc-day--off':'',isFriday?'sc-day--friday':'',isOfficial?'sc-day--holiday':'',selected?'sc-day--selected':''].filter(Boolean).join(' ');
+ const badges=[isFriday?'جمعه':null,isOfficial?(holidayTitle||'تعطیل رسمی'):null,off?'تعطیل شیفت':null].filter(Boolean);
+ return <article className={cls} aria-label={weekday+' '+date.replace(/-/g,'/')+(badges.length?'، '+badges.join('، '):'')} onClick={selectionMode?onSelect:undefined} onContextMenu={e=>{if(!clipboard||selectionMode||!showPaste)return;e.preventDefault();onPaste();}}>
+  <div className="sc-day-header"><div className="sc-date"><strong className="sc-number">{fa(dayNumber)}</strong><div className="sc-date-detail"><span className="sc-day-name">{weekday}</span><span className="sc-full-date">{fa(date.replace(/-/g,'/'))}</span></div></div>
+   {selectionMode&&<input className="sc-select" type="checkbox" aria-label={'انتخاب '+date} checked={selected} onClick={e=>e.stopPropagation()} onChange={onSelect}/>}
+  </div>
+  {badges.length>0&&<div className="sc-badges">{isFriday&&<span className="sc-badge sc-badge--red">جمعه</span>}{isOfficial&&<span className="sc-badge sc-badge--red" title={holidayTitle||'تعطیل رسمی'}>{holidayTitle||'تعطیل رسمی'}</span>}{off&&<span className="sc-badge sc-badge--orange">تعطیل شیفت</span>}</div>}
+  <div className="sc-content">{times.length?times.map((time,i)=><span className="sc-time" key={i}>{fa(time)}</span>):<span className="sc-empty">{off?'تعطیل شیفت':hasShift?'شیفت با تنظیمات پیشرفته':'بدون شیفت'}</span>}</div>
+  <div className="sc-footer">
+   <button className="sc-edit" type="button" onClick={e=>{e.stopPropagation();onEdit();}}>✎ ویرایش</button>
+   <details className="sc-more" onClick={e=>e.stopPropagation()}><summary aria-label={'عملیات بیشتر '+date}>⋯</summary><div className="sc-more-menu">
+    {hasShift&&<button type="button" onClick={onCopy}>کپی شیفت</button>}
+    {showPaste&&<button type="button" onClick={onPaste}>چسباندن شیفت</button>}
+    {value&&<button type="button" className="sc-danger" onClick={onDelete}>حذف شیفت</button>}
+   </div></details>
+  </div>
+ </article>;
+}
 function AdvancedCalendar({shift}){
   const [tj]=useState(todayJ()); const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]);
   const [days,setDays]=useState({}); const [sel,setSel]=useState(null); const [clip,setClip]=useState(null); const [advDay,setAdvDay]=useState(null);
@@ -6919,71 +7028,68 @@ function AdvancedCalendar({shift}){
     if(!clip||clip.source===key)return;
     setDay(key,JSON.parse(JSON.stringify(clip.value)));
   };
-  return(<div>
-    <div className="row" style={{gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-      <button className="btn g" onClick={()=>{ if(jm===1){setJy(jy-1);setJm(12);}else setJm(jm-1); }}>‹ ماه قبل</button>
-      <b>{J_MONTHS[jm-1]} {fa(jy)}</b>
-      <button className="btn g" onClick={()=>{ if(jm===12){setJy(jy+1);setJm(1);}else setJm(jm+1); }}>ماه بعد ›</button>
-      <button className={patternMode?"btn p":"btn g"} onClick={()=>{setPatternMode(v=>!v);if(patternMode)setPatternKeys([]);}}>☷ انتخاب روزهای الگو{patternKeys.length?" ("+fa(patternKeys.length)+")":""}</button>
-      <button className="btn g" onClick={repeatPattern} disabled={!patternKeys.length}>⟳ تکرار الگو روی کل سال</button>
-      <button type="button" className="btn g" disabled={!patternKeys.length} onClick={()=>{if(!clip)return alert('ابتدا از یک روز دارای شیفت، الگو را کپی کنید.');patternKeys.forEach(k=>{if(k!==clip.source)pasteShiftDay(k);});setPatternKeys([]);setPatternMode(false);}}>چسباندن در روزهای انتخابی</button>
-      <button type="button" className="btn g" style={{color:'#b42318',borderColor:'#e3aaa5'}} disabled={!patternKeys.some(k=>days[k])} onClick={()=>removeDays(patternKeys)}>حذف روزهای انتخابی</button>
-      <button className="btn g" onClick={copyNextYear}>⊕ کپی به سال بعد</button>
-      <button className="btn p" style={{marginInlineStart:"auto"}} disabled={saving} onClick={saveAll}>{saving?'در حال ذخیره…':'ذخیرهٔ تقویم'}</button>
-    </div>
-    {saveError&&<div role="alert" style={{padding:10,marginBottom:10,borderRadius:10,background:'#fff3f1',color:'#9e302a'}}>{saveError}</div>}
-    {holidaysError&&<div role="status" style={{padding:9,marginBottom:8,borderRadius:9,background:'#fff7e8',color:'#925e16',fontSize:12}}>{holidaysError}</div>}
-    <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',fontSize:11.5,marginBottom:10,color:'var(--muted)'}}>
-      <span>● سبز: دارای شیفت</span><span style={{color:'#b42318'}}>● قرمز: جمعه یا تعطیل رسمی</span><span style={{color:'#8d5516'}}>● نارنجی: تعطیل تعیین‌شده در شیفت</span>
-      <span>شماره هر روز و تاریخ کامل شمسی در کارت نمایش داده می‌شود.</span>
-    </div>
-    <div style={{fontSize:12,marginBottom:8,color:"var(--muted)"}}>روی «ویرایش» هر روز برای تعیین ساعت‌ها بزنید؛ «حذف» فقط شیفت همان روز را پاک می‌کند. با «کپی» یک روز و سپس انتخاب مقصد، برنامهٔ آن روز را منتقل کنید. برای انتخاب چند روز، حالت انتخاب الگو را فعال کنید. تغییرات با «ذخیرهٔ تقویم» نهایی می‌شوند.</div>
-    {patternMode&&<div role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid var(--line)",borderRadius:10,fontSize:12}}>
-      <span>حالت انتخاب الگو فعال است؛ چند روز نمونه را انتخاب کنید. ترتیب الگو بر اساس تاریخ است و تکرار از روز بعد از آخرین نمونه تا پایان سال انجام می‌شود.</span>
-      <button type="button" className="btn g" onClick={()=>{setPatternMode(false);setPatternKeys([]);}}>پایان انتخاب</button>
-    </div>}
-    {patternKeys.length>0&&<div style={{fontSize:12,marginBottom:8,color:"var(--brand)"}}>روزهای نمونه: {patternKeys.slice().sort().map(k=>k.replace(/-/g,"/")).join("، ")}</div>}
-    {clip&&<div className="shift-paste-mode" role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid #b7dfc8",borderRadius:10,background:"#effaf3",color:"#17663b",fontSize:12}}>
-      <span>حالت پیست فعال است؛ برای پیست روی هر روز مقصد راست‌کلیک کنید. پس از پایان، دکمهٔ «اتمام پیست» را بزنید.</span>
-      <button type="button" className="btn g" onClick={()=>setClip(null)} style={{fontSize:11,padding:"4px 10px",whiteSpace:"nowrap"}}>اتمام پیست</button>
-    </div>}
-    <div style={{overflowX:'auto',paddingBottom:6}} role="region" aria-label="تقویم ماهانهٔ ویرایش شیفت؛ در صفحهٔ کوچک می‌توان افقی پیمایش کرد"><div className="cal-grid shift-calendar-editor" style={{minWidth:850}}>
-      {WD.map(w=><div key={w} className="cal-h">{w}</div>)}
-      {Array.from({length:firstWd}).map((_,i)=><div key={"e"+i}/>)}
-      {Array.from({length:dim}).map((_,i)=>{ const d=i+1; const key=jd2(d); const v=days[key]; const has=!!(v&&!v.is_off&&((v.segments||[]).length||v.day_config)); const off=v&&v.is_off;
-        const shiftTimes=has?(v.segments||[]).map(seg=>seg.s&&seg.e?`${seg.s}–${seg.e}`:null).filter(Boolean):[];
-        const showPaste=!!clip&&clip.source!==key;
-        const inPattern=patternKeys.includes(key);
-        const isFriday=gregToJalaliWeekday(jy,jm,d)===6;
-        const officialHolidayTitle=officialHolidays[key]||'';
-        const isOfficialHoliday=Object.prototype.hasOwnProperty.call(officialHolidays,key);
-        const isHoliday=!!off||isFriday||isOfficialHoliday;
-        const holidayLabel=[isFriday?'جمعه':'',isOfficialHoliday?officialHolidayTitle:'',off?'تعطیل شیفت':''].filter(Boolean).join(' | ');
-        const isNight=!!(v&&v.day_config&&(v.day_config.is_night||v.day_config.night_work||v.day_config.night))||(v&&Array.isArray(v.segments)&&v.segments.some(seg=>seg.s&&seg.e&&seg.e<seg.s));
-        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(isHoliday?" off":"")+(inPattern?" shift-pattern-selected":"")} style={{minHeight:140,padding:7,display:'flex',flexDirection:'column',gap:5,borderTop:isHoliday?'3px solid #c02b2b':undefined}} title={patternMode?"برای افزودن/حذف از انتخاب کلیک کنید":(key.replace(/-/g,'/')+(holidayLabel?' — '+holidayLabel:'')+'؛ ویرایش، کپی یا حذف شیفت این روز')} onClick={e=>{if(patternMode||e.ctrlKey||e.metaKey){togglePatternDay(key);return;}setSel(key);}} onContextMenu={e=>{if(!clip||patternMode)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:2,paddingInlineStart:3}}>
-            <span className="cal-n" style={{fontWeight:900,fontSize:17,color:isHoliday?'#b42318':undefined}}>{fa(d)}</span>
-            <span style={{fontSize:10,fontWeight:700,direction:'ltr',unicodeBidi:'isolate',color:isHoliday?'#9b2923':'var(--muted)'}}>{fa(key.replace(/-/g,'/'))}</span>
-          </div>
-          {isHoliday&&<div style={{display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}} aria-label={'وضعیت تعطیلی: '+holidayLabel}>
-            {isFriday&&<span style={{background:'#ffe8e6',color:'#a72320',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800}}>جمعه</span>}
-            {isOfficialHoliday&&<span title={officialHolidayTitle} style={{background:'#ffe8e6',color:'#a72320',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800,overflowWrap:'anywhere'}}>تعطیل رسمی{officialHolidayTitle&&officialHolidayTitle!=='تعطیل رسمی'?' — '+officialHolidayTitle:''}</span>}
-            {!!off&&<span style={{background:'#fff0d5',color:'#8a4b13',borderRadius:5,padding:'2px 5px',fontSize:10,fontWeight:800}}>تعطیل شیفت</span>}
-          </div>}
-          <label style={{position:'absolute',top:5,insetInlineStart:5,display:'flex',gap:3,alignItems:'center',fontSize:10}} title="انتخاب روز برای عملیات گروهی" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={inPattern} onChange={()=>togglePatternDay(key)} aria-label={`انتخاب ${key}`} />{isNight?'🌙':''}</label>
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',fontSize:11,lineHeight:1.6,direction:'ltr',flexDirection:'column'}}>{shiftTimes.length?shiftTimes.map((t,i)=><span key={i}>{t}</span>):<span className="muted" style={{fontSize:10}}>{off?'تعطیل':'بدون شیفت'}</span>}</div>
-          <div style={{display:'flex',gap:4,alignItems:'center',justifyContent:'center',flexWrap:'wrap',marginTop:'auto'}}>
-            <button type="button" className="shift-day-action shift-day-edit" aria-label={`ویرایش شیفت ${key}`} title="ویرایش ساعت و تنظیمات روز" onClick={e=>{e.stopPropagation();setSel(key);setAdvDay(key);}}>✎ ویرایش</button>
-            {has&&<button type="button" className="shift-day-action shift-day-copy" aria-label={`کپی شیفت ${key}`} title="کپی تنظیمات شیفت این روز" onClick={e=>{e.stopPropagation();copyShiftDay(key);}}>⧉ کپی</button>}
-            {showPaste&&<button type="button" className="shift-day-action shift-day-paste" aria-label={`چسباندن شیفت در ${key}`} onClick={e=>{e.stopPropagation();pasteShiftDay(key);}}>چسباندن</button>}
-            {v&&<button type="button" className="shift-day-action shift-day-delete" aria-label={`حذف شیفت ${key}`} title="حذف شیفت همین روز" onClick={e=>{e.stopPropagation();removeDays([key]);}}>حذف</button>}
-          </div>
-        </div>); })}
-    </div></div>
 
+  const jumpToday=()=>{const current=todayJ();setJy(current[0]);setJm(current[1]);};
+  const changeMonth=offset=>{const next=(jy*12+(jm-1))+offset;setJy(Math.floor(next/12));setJm((next%12+12)%12+1);};
+  const updateSelectedOff=flag=>{
+    if(!patternKeys.length)return;
+    const label=flag?'تعطیل کردن':'رفع تعطیلی';
+    if(!confirm(label+' '+fa(patternKeys.length)+' روز انتخاب‌شده؟ این تغییر پس از ذخیره نهایی می‌شود.'))return;
+    setDays(prev=>{const next={...prev};patternKeys.forEach(key=>{
+      const current=next[key]||{segments:[],day_config:null,is_off:false};
+      next[key]={...current,is_off:flag};
+    });return next;});
+    setDeletedDays(prev=>prev.filter(key=>!patternKeys.includes(key)));
+  };
+  const clearSelectedShift=()=>{
+    if(!patternKeys.length||!confirm('ساعت‌ها و تنظیمات شیفت '+fa(patternKeys.length)+' روز انتخاب‌شده پاک شود؟'))return;
+    setDays(prev=>{const next={...prev};patternKeys.forEach(key=>{
+      if(next[key])next[key]={...next[key],segments:[],day_config:null};
+    });return next;});
+  };
+  const pasteToSelected=()=>{
+    if(!clip||!patternKeys.length)return;
+    setDays(prev=>{const next={...prev};patternKeys.forEach(key=>{if(key!==clip.source)next[key]=JSON.parse(JSON.stringify(clip.value));});return next;});
+    setDeletedDays(prev=>prev.filter(key=>!patternKeys.includes(key)));
+    setPatternKeys([]);setPatternMode(false);
+  };
+  const currentMonthKeys=Array.from({length:dim},(_,i)=>jd2(i+1));
+
+  return <div className="shift-calendar-v2">
+    <style>{shiftCalendarStyles}</style>
+    <ShiftCalendarHeader month={J_MONTHS[jm-1]} year={jy} onPrev={()=>changeMonth(-1)} onNext={()=>changeMonth(1)} onToday={jumpToday} onSave={saveAll} saving={saving}>
+      {clip&&<button type="button" onClick={()=>setClip(null)}>پایان کپی</button>}
+    </ShiftCalendarHeader>
+    <ShiftCalendarLegend/>
+    {saveError&&<div role="alert" style={{padding:10,marginBottom:10,borderRadius:10,background:'#fff1ef',color:'#a21f18'}}>{saveError}</div>}
+    {holidaysError&&<div role="status" style={{padding:10,marginBottom:10,borderRadius:10,background:'#fff8e8',color:'#8b5a13'}}>{holidaysError}</div>}
+    <ShiftBulkActions enabled={patternMode} count={patternKeys.length}
+      onToggle={()=>{setPatternMode(v=>!v);setPatternKeys([]);}}
+      onClearSelection={()=>setPatternKeys([])}
+      onRepeat={repeatPattern} onPaste={pasteToSelected} onDelete={()=>removeDays(patternKeys)}
+      onClearShift={clearSelectedShift} onMarkOff={()=>updateSelectedOff(true)} onUnmarkOff={()=>updateSelectedOff(false)}
+      onCopyYear={copyNextYear} canPaste={!!clip} hasExisting={patternKeys.some(key=>!!days[key])}/>
+    {patternMode&&<div className="sc-help" role="status">
+      روزهای موردنظر را با کلیک روی کارت‌ها انتخاب کنید. برای تکرار الگو، دست‌کم دو روز دارای نمونه را انتخاب کنید.
+      <button type="button" className="btn g" style={{marginInlineStart:8}} onClick={()=>setPatternKeys(currentMonthKeys)}>انتخاب همه روزهای ماه</button>
+    </div>}
+    {clip&&<p className="sc-help" role="status">الگوی کپی‌شده از {fa(clip.source.replace(/-/g,'/'))} آماده است؛ برای چسباندن، از منوی روز مقصد یا عملیات گروهی استفاده کنید.</p>}
+    <div className="sc-grid" role="region" aria-label={'ویرایش تقویم شیفت '+J_MONTHS[jm-1]+' '+jy}>
+      {WD.map(weekday=><div key={weekday} className="sc-weekday">{weekday}</div>)}
+      {Array.from({length:firstWd},(_,i)=><div key={'blank-'+i} className="sc-blank" aria-hidden="true"/>)}
+      {currentMonthKeys.map((key,i)=>{
+        const day=i+1;
+        const weekdayIndex=gregToJalaliWeekday(jy,jm,day);
+        return <ShiftCalendarDayCard key={key} date={key} dayNumber={day} weekday={WD[weekdayIndex]||''}
+          value={days[key]} holidayTitle={Object.prototype.hasOwnProperty.call(officialHolidays,key)?officialHolidays[key]:null}
+          isFriday={weekdayIndex===6} selected={patternKeys.includes(key)} selectionMode={patternMode} clipboard={clip}
+          onSelect={()=>togglePatternDay(key)} onEdit={()=>{setSel(key);setAdvDay(key);}}
+          onCopy={()=>copyShiftDay(key)} onPaste={()=>pasteShiftDay(key)} onDelete={()=>removeDays([key])}/>;
+      })}
+    </div>
     {advDay&&<ShiftDayModal jdate={advDay} day={days[advDay]} onClose={()=>setAdvDay(null)}
-      onSave={(v)=>{ setDay(advDay,{segments:v.segments||[],is_off:!!v.is_off,day_config:v.day_config}); setAdvDay(null); }}/>}
-  </div>);
+      onSave={value=>{setDay(advDay,{segments:value.segments||[],is_off:!!value.is_off,day_config:value.day_config});setAdvDay(null);}}/>}
+  </div>;
 }
 function DayEditor({jdate,val,onChange,onAdvanced}){
   const segs=val.segments||[];
