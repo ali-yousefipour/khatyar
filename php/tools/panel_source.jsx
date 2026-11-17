@@ -6381,14 +6381,14 @@ function LeaveBlockedDates(){
   const [jdate,setJdate]=useState("");
   const [reason,setReason]=useState("");
   const [msg,setMsg]=useState("");
-  const load=()=>GET("/admin/leave-blocked-dates").then(d=>setList(d||[])).catch(()=>{});
+  const load=async()=>{try{setList(await GET("/admin/leave-blocked-dates")||[]);}catch(e){setMsg(e.message||'دریافت روزهای ممنوعه ناموفق بود.');}};
   useEffect(()=>{load();},[]);
   const add=async()=>{
     if(!jdate){setMsg("تاریخ را انتخاب کنید");return;}
     try{ await SEND("POST","/admin/leave-blocked-dates",{jdate,reason}); setJdate("");setReason("");setMsg("✓ روز ممنوعه ثبت شد"); load(); }
     catch(e){ setMsg(e.message||"خطا در ثبت"); }
   };
-  const del=async(id)=>{ if(!confirm("حذف این روز ممنوعه؟"))return; await SEND("DELETE","/admin/leave-blocked-dates/"+id); load(); };
+  const del=async(id)=>{if(!confirm("حذف این روز ممنوعه؟"))return;try{await SEND("DELETE","/admin/leave-blocked-dates/"+id);await load();setMsg("✓ روز ممنوعه حذف شد.");}catch(e){setMsg(e.message||"حذف روز ممنوعه ناموفق بود.");}};
   return(<div>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:12}}>روزهایی که گرفتن مرخصی در آن‌ها ممنوع است را اینجا تعریف کنید (مثلاً ایام پیک سفر، مناسبت‌های خاص). هنگام ثبت درخواست مرخصی، اگر بازهٔ انتخابی شامل این روزها باشد، درخواست رد می‌شود.</p>
     <div className="card-p" style={{marginBottom:14}}>
@@ -6415,7 +6415,7 @@ function LeaveBalanceInit(){
   const [q,setQ]=useState("");
   const [msg,setMsg]=useState("");
   const [busy,setBusy]=useState(false);
-  const load=()=>db.leaveBalanceInitList().then(r=>setRows((r||[]).map(x=>{ const m=+x.minutes||0; return {...x, h:Math.floor(m/60), m:m%60}; }))).catch(()=>setRows([]));
+  const load=()=>db.leaveBalanceInitList().then(r=>setRows((r||[]).map(x=>{ const m=+x.minutes||0; return {...x, h:Math.floor(m/60), m:m%60}; }))).catch(e=>{setMsg(e.message||'دریافت مانده مرخصی ناموفق بود.');setRows([]);});
   useEffect(()=>{load();},[]);
   const setCell=(id,k,v)=>setRows(rs=>rs.map(r=>r.id===id?{...r,[k]:Math.max(0,Math.min(k==="m"?59:9999,+v||0))}:r));
   const save=async()=>{ setBusy(true); setMsg("");
@@ -7255,27 +7255,28 @@ function Holidays(){
   const tj=todayJ();
   const [list,setList]=useState([]); const [d,setD]=useState(""); const [title,setTitle]=useState("");
   const [fy,setFy]=useState(tj[0]); const [fm,setFm]=useState(tj[1]); const [busy,setBusy]=useState(false);
-  const load=()=>db.holidays().then(h=>setList(h||[])).catch(()=>{});
+  const [error,setError]=useState('');
+  const load=async()=>{try{setError('');setList(await db.holidays()||[]);}catch(e){setError(e.message||'فهرست تعطیلات دریافت نشد.');}};
   useEffect(()=>{load();},[]);
   const add=async()=>{ if(!d)return alert("تاریخ را انتخاب کنید"); const [y,m,dd]=d.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,dd); await db.addHolidays([{jdate:`${jy}-${String(jm).padStart(2,"0")}-${String(jd).padStart(2,"0")}`,title}]); setD("");setTitle(""); load(); };
-  const del=async(j)=>{ if(!confirm("حذف؟"))return; await db.delHoliday(j); load(); };
+  const del=async(j)=>{if(!confirm("تعطیلی انتخاب‌شده حذف شود؟"))return;setBusy(true);setError('');try{await db.delHoliday(j);await load();}catch(e){setError(e.message||'حذف تعطیلی ناموفق بود.');}finally{setBusy(false);}};
   const fetchMonth=async()=>{ setBusy(true); try{ const r=await db.fetchHolidays(fy,fm); alert(`فراخوان انجام شد: ${fa(r.added||0)} تعطیلی برای ${J_MONTHS[fm-1]} ${fa(fy)} ثبت شد.`); load(); }catch(e){ alert(e.message||"خطا در فراخوان"); } setBusy(false); };
   const fetchYear=async()=>{ if(!confirm("فراخوان تعطیلات کل سال "+fa(fy)+"؟ (ممکن است کمی طول بکشد)"))return; setBusy(true); let total=0; try{ for(let m=1;m<=12;m++){ const r=await db.fetchHolidays(fy,m); total+=(r.added||0); } alert(`فراخوان سال انجام شد: ${fa(total)} تعطیلی ثبت شد.`); load(); }catch(e){ alert("توقف در فراخوان: "+(e.message||"خطا")); load(); } setBusy(false); };
   return(<div>
-    <p style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>روزهای تعطیل رسمی برای محاسبهٔ «تعطیل‌کاری» استفاده می‌شوند (جمعه‌ها خودکار جمعه‌کاری حساب می‌شوند).</p>
+    <p style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>روزهای تعطیل رسمی برای محاسبهٔ «تعطیل‌کاری» استفاده می‌شوند (جمعه‌ها خودکار جمعه‌کاری حساب می‌شوند).</p>{error&&<p role="alert" className="sm-status-error">{error}</p>}
     <div className="card-p" style={{marginBottom:12}}>
-      <b>درج تعطیلات رسمی سال ۱۴۰۴</b>
-      <p style={{fontSize:12,color:"var(--muted)",margin:"6px 0"}}>فهرست کامل و واقعی تعطیلات رسمی سال ۱۴۰۴ (نوروز، اعیاد، مناسبت‌های مذهبی و ملی) به‌صورت یکجا درج می‌شود. سرویس holidayapi.ir دیگر در دسترس نیست؛ این فهرست از تقویم رسمی کشور تهیه شده است.</p>
+      <b>همگام‌سازی تعطیلات رسمی</b>
+      <p style={{fontSize:12,color:"var(--muted)",margin:"6px 0"}}>داده‌های رسمی سال‌های پشتیبانی‌شده را از تقویم داخلی سامانه ثبت یا به‌روزرسانی کنید.</p>
       <button className="btn p" disabled={busy} onClick={async()=>{ setBusy(true); try{ const r=await db.seedHolidays1404(); alert(`درج شد: ${fa(r.count||0)} روز تعطیل رسمی ۱۴۰۴ ثبت/به‌روزرسانی شد.`); load(); }catch(e){ alert(e.message||"خطا"); } setBusy(false); }}>{busy?"…":"درج تعطیلات رسمی ۱۴۰۴"}</button>
-      <button className="btn g" disabled={busy} onClick={async()=>{ setBusy(true); try{ const r=await db.seedHolidays1405(); alert(`درج شد: ${fa(r.count||0)} روز تعطیل رسمی ۱۴۰۵ ثبت/به‌روزرسانی شد.`); load(); }catch(e){ alert(e.message||"خطا"); } setBusy(false); }}>{busy?"…":"درج تعطیلات رسمی ۱۴۰۵ (سال جاری)"}</button>
+      <button className="btn g" disabled={busy} onClick={async()=>{ setBusy(true); try{ const r=await db.seedHolidays1405(); alert(`درج شد: ${fa(r.count||0)} روز تعطیل رسمی ۱۴۰۵ ثبت/به‌روزرسانی شد.`); load(); }catch(e){ alert(e.message||"خطا"); } setBusy(false); }}>{busy?"…":"درج تعطیلات رسمی ۱۴۰۵"}</button>
     </div>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label className="label">افزودن دستی تعطیلی</label><JDate value={d} onChange={setD}/></div>
       <input className="input" style={{maxWidth:200}} placeholder="عنوان (اختیاری)" value={title} onChange={e=>setTitle(e.target.value)}/>
-      <button className="btn p" onClick={add}>افزودن</button>
+      <button className="btn p" disabled={busy} onClick={add}>افزودن</button>
     </div>
     {list.length===0?<p className="muted">تعطیلی ثبت نشده.</p>:
-    <div className="chiprow">{list.map(h=><span key={h.jdate} className="chip">{h.jdate}{h.title?` — ${h.title}`:""} <b style={{cursor:"pointer"}} onClick={()=>del(h.jdate)}>×</b></span>)}</div>}
+    <div className="chiprow">{list.map(h=><span key={h.jdate} className="chip">{h.jdate}{h.title?` — ${h.title}`:""} <button className="btn g" type="button" disabled={busy} aria-label={'حذف تعطیلی '+h.jdate} style={{padding:'2px 7px',fontSize:11}} onClick={()=>del(h.jdate)}>×</button></span>)}</div>}
   </div>);
 }
 
