@@ -430,6 +430,19 @@ foreach ($routes as $r) {
     });
   }
   $result = $r['fn']($params, $body, $user); Http::json($result);
-  } catch (Throwable $e) { error_log('API error [' . $method . ' ' . $path . '] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine()); $debug = getenv('API_DEBUG') === '1' || (defined('API_DEBUG') && API_DEBUG); if ($debug) Http::json(['error' => 'خطای داخلی سرور', 'detail' => $e->getMessage(), 'line' => $e->getLine(), 'file' => basename($e->getFile())], 500); else Http::error('خطای داخلی سرور', 500); }
+  } catch (Throwable $e) {
+     // A rejected MySQL connection is transient capacity pressure, not a
+     // user/session failure. Preserve the request idempotency key for safe retry.
+     $mysqlCode = $e instanceof PDOException ? (int)($e->errorInfo[1] ?? 0) : 0;
+     if ($mysqlCode === 1203 || ($e instanceof PDOException && stripos($e->getMessage(), 'max_user_connections') !== false)) {
+       error_log('API database connection capacity reached method=' . $method . ' route=' . $path);
+       if (!headers_sent()) header('Retry-After: 3');
+       Http::error('سرور به‌دلیل تعداد زیاد درخواست‌های هم‌زمان موقتاً در دسترس نیست. درخواست خود را با همان شناسه دوباره ارسال کنید.', 503);
+     }
+     error_log('API error [' . $method . ' ' . $path . '] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine());
+     $debug = getenv('API_DEBUG') === '1' || (defined('API_DEBUG') && API_DEBUG);
+     if ($debug) Http::json(['error' => 'خطای داخلی سرور', 'detail' => $e->getMessage(), 'line' => $e->getLine(), 'file' => basename($e->getFile())], 500);
+     else Http::error('خطای داخلی سرور', 500);
+   }
 }
 Http::error('مسیر یافت نشد', 404);
