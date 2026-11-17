@@ -79,7 +79,10 @@ async function _readJsonResponse(r){
     throw new Error('پاسخ JSON معتبر از سرور دریافت نشد'+(clean?' — '+clean:''));
   }
 }
+let _browserRenewalInFlight=null;
 async function _renewBrowserSession(){
+  if(_browserRenewalInFlight)return _browserRenewalInFlight;
+  _browserRenewalInFlight=(async()=>{
   const legacyRefresh=localStorage.getItem('refresh_token')||'';
   const rawFetch=window.__KHATYAR_NATIVE_FETCH__||fetch;
   const rr=await rawFetch(API_BASE+'/session/renew',{
@@ -88,10 +91,12 @@ async function _renewBrowserSession(){
     body:JSON.stringify(legacyRefresh?{refresh:legacyRefresh}:{}),
   });
   const d=await _readJsonResponse(rr);
-  if(!rr.ok||!d.access) throw new Error(d.error||'تمدید نشست ناموفق بود');
+  if(!rr.ok||!d.access) throw Object.assign(new Error(d.error||'تمدید نشست ناموفق بود'),{status:rr.status});
   localStorage.token=d.access;
   localStorage.removeItem('refresh_token');
   return d;
+  })();
+  try{return await _browserRenewalInFlight;}finally{_browserRenewalInFlight=null;}
 }
 async function _clearWebSession(){
   const result=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/web-signout',{
@@ -103,12 +108,13 @@ async function _clearWebSession(){
 }
 async function _fetchWithAuth(url, options){
   const rawFetch=window.__KHATYAR_NATIVE_FETCH__||fetch;
-  const init={...options,headers:{...(options&&options.headers||{}),...tok()}};
+  const initialToken=localStorage.token||'';
+  const init={...options,credentials:'same-origin',headers:{...(options&&options.headers||{}),...tok()}};
   let r=await rawFetch(url,init);
   if(r.status!==401||String(url).includes('/session/')) return r;
   try{
-    await _renewBrowserSession();
-    return await rawFetch(url,{...options,headers:{...(options&&options.headers||{}),...tok()}});
+    if((localStorage.token||'')===initialToken)await _renewBrowserSession();
+    return await rawFetch(url,{...options,credentials:'same-origin',headers:{...(options&&options.headers||{}),...tok()}});
   }catch(_){return r}
 }
 async function GET(p, opts){
@@ -204,13 +210,19 @@ const db = {
   restoreSession: async()=>{
     const access=localStorage.token||'';
     const me=async()=>{
-      const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/auth/me',{headers:tok(),cache:'no-store'});
-      const d=await _readJsonResponse(r); if(!r.ok) throw Object.assign(new Error(d.error||d.message||'نشست نامعتبر است'),{status:r.status}); return d.user||null;
+      const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/auth/me',{headers:tok(),cache:'no-store',credentials:'same-origin'});
+      const d=await _readJsonResponse(r);
+      if(!r.ok)throw Object.assign(new Error(d.error||d.message||'نشست نامعتبر است'),{status:r.status});
+      return d.user||null;
     };
-    try { if(access) return await me(); }
-    catch(e) { if(e.status!==401){localStorage.removeItem('token');return null;} }
+    if(access){
+      try{return await me();}catch(e){if(e.status!==401)throw e;}
+    }
     try{await _renewBrowserSession();return await me();}
-    catch(_){localStorage.removeItem('token');localStorage.removeItem('refresh_token');return null;}
+    catch(e){
+      if(e.status===401){localStorage.removeItem('token');localStorage.removeItem('refresh_token');return null;}
+      throw e; // Preserve credentials on 403, 5xx and network errors.
+    }
   },
   stats: ()=> GET('/admin/stats'),
   systemHealthDashboard: ()=> GET('/admin/system-health-dashboard'),
@@ -10876,7 +10888,7 @@ function AccountPasswordDialog({onClose}){
 }
 
 function App(){
-  const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState([]); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [authError,setAuthError]=useState(''); const [authRetry,setAuthRetry]=useState(0); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState([]); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
   const [navigationRestored,setNavigationRestored]=useState(false);
   useEffect(()=>{
     if(!me?.is_admin){setNavigationRestored(false);setV('dashboard');return;}
@@ -10915,9 +10927,10 @@ function App(){
     return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
   },[accountOpen]);
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
-  useEffect(()=>{ let active=true; db.restoreSession().then(u=>{if(active)setMe(u);}).catch(()=>{}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[]);
-  useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){setAllowed([]);db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed([])); } },[me]);
+  useEffect(()=>{ let active=true; setAuthError('');setAuthReady(false); db.restoreSession().then(u=>{if(active)setMe(u);}).catch(e=>{if(active)setAuthError(e.message||'ارتباط با سرور موقتاً برقرار نیست.');}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[authRetry]);
+  useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(e=>{console.warn('Panel settings temporarily unavailable:',e.message);}); } },[me]);
   if(!authReady)return <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",color:"var(--muted)"}}>در حال بررسی نشست…</div>;
+  if(authError&&!me)return <div role="alert" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",padding:22,textAlign:"center"}}><div className="card-p" style={{maxWidth:470}}><h3>ارتباط موقت با سرور برقرار نیست</h3><p>{authError}</p><p className="muted">نشست شما حفظ شده است. پس از برقراری ارتباط دوباره تلاش کنید.</p><button type="button" className="btn p" onClick={()=>setAuthRetry(n=>n+1)}>تلاش مجدد</button></div></div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
   if(me.must_change_pw)return <FirstLoginPassword name={me.name} onDone={async()=>{const u=await db.restoreSession();if(!u)throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.');setMe(u);}} onLogout={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}/>;
   if(!me.is_admin) return (<div style={{minHeight:"100vh",display:"grid",placeItems:"center",textAlign:"center",padding:24}}>
