@@ -4,6 +4,10 @@ function sc_config(): array {
  $r=Db::one('SELECT config FROM school_complaint_settings WHERE id=1');
  return $r ? (json_decode($r['config'],true)?:[]) : [];
 }
+// Persist the notification in the same transaction as the case transition.
+function sc_notify($uid,$id,$title): void {
+ Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES(?,?,?,?)",[(int)$uid,$title,'برای مشاهده پرونده به صندوق شکایات سرویس مدارس مراجعه کنید.',json_encode(['type'=>'school_complaint','complaint_id'=>(int)$id],JSON_UNESCAPED_UNICODE)]);
+}
 function sc_access($u): array {
  $c=sc_config();$id=(int)$u['id'];$admin=!empty($u['is_admin']);
  $role=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms'");
@@ -47,7 +51,7 @@ function sc_case($id,$u): array {
 }
 function sc_list($u,$inbox=false,$summary=false): array {
  $a=sc_need($u);$w=['1=1'];$p=[];
- if($inbox){$w[]='c.assigned_to=?';$p[]=$u['id'];}
+ if($inbox){$w[]="c.status<>'closed'";$w[]='c.assigned_to=?';$p[]=$u['id'];}
  elseif(!$a['admin']){$w[]='(c.created_by=? OR c.assigned_to=? OR c.supervisor_id=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id'],$u['id']);}
  foreach(['school_id','company_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  foreach(['first_name','last_name','phone'] as $k)if(!empty($_GET[$k])){$w[]="c.$k LIKE ?";$p[]='%'.sc_text($_GET[$k],100).'%';}
@@ -56,7 +60,10 @@ function sc_list($u,$inbox=false,$summary=false): array {
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
- if($summary)return Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM(c.status='closed' AND c.closed_at<=c.due_at)/NULLIF(SUM(c.status='closed'),0) on_time_percent FROM school_complaints c WHERE $where",$p)??[];
+ if($summary){$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM(c.status='closed' AND c.closed_at<=c.due_at)/NULLIF(SUM(c.status='closed'),0) on_time_percent FROM school_complaints c WHERE $where",$p)??[];
+ $metrics['charts']=[];
+ foreach(['status'=>'c.status','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)','month'=>"DATE_FORMAT(c.received_at,'%Y-%m')",'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
+ return $metrics;}
  $page=max(1,min(100000,(int)($_GET['page']??1)));$size=max(1,min(100,(int)($_GET['page_size']??50)));
  $offset=($page-1)*$size;
  $sort=['id'=>'c.id','received_at'=>'c.received_at','status'=>'c.status','due_at'=>'c.due_at','tracking_code'=>'c.tracking_code','last_name'=>'c.last_name'][(string)($_GET['sort']??'id')]??'c.id';
@@ -122,7 +129,7 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  $db=Db::pdo();$db->beginTransaction();
  try{
  $id=Db::insert('INSERT INTO school_complaints(tracking_code,complainant_type,first_name,last_name,phone,address,school_id,company_id,school_snapshot,company_snapshot,subject,body,received_at,created_by,assigned_to,supervisor_id,review_hours,supervisor_hours,due_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[$code,$type,$first,$last,$phone,$address,$school['id'],$company['id'],json_encode($school,JSON_UNESCAPED_UNICODE),json_encode($company,JSON_UNESCAPED_UNICODE),$subject,$body,$received,$u['id'],$review,$super,$rh,$sh,sc_deadline($rh)]);
- Db::run("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);$db->commit();
+ Db::run("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);sc_notify($review,$id,'شکایت جدید سرویس مدارس');$db->commit();
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();if($key!==null&&$e instanceof PDOException&&(int)($e->errorInfo[1]??0)===1062&&($existing=Db::one('SELECT id,tracking_code FROM school_complaints WHERE tracking_code=? AND created_by=?',[$code,$u['id']])))return $existing;throw $e;}
  return ['id'=>$id,'tracking_code'=>$code];
 });
@@ -154,7 +161,11 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  }
  if($act==='close'&&$r['status']!=='escalated'&&(sc_config()['require_supervisor']??true)){$db->rollBack();Http::error('تأیید مسئول واحد الزامی است',409);}
  if($act==='close')Db::run("UPDATE school_complaints SET status='closed',closed_at=NOW() WHERE id=?",[$id]);
- Db::run('INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,?,?)',[$id,$u['id'],$act,$note]);$db->commit();
+ Db::run('INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,?,?)',[$id,$u['id'],$act,$note]);
+ if($act==='escalate')sc_notify($r['supervisor_id'],$id,'ارجاع شکایت سرویس مدارس');
+ if($act==='return')sc_notify($reviewer,$id,'بازگشت شکایت برای بررسی تکمیلی');
+ if($act==='close')sc_notify($r['created_by'],$id,'مختومه شدن شکایت سرویس مدارس');
+ $db->commit();
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
  return ['ok'=>true];
 });
