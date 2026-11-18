@@ -24,6 +24,7 @@ assert.ok(context.includes("attendance_revoked")===false,'React Native should no
 assert.match(php,/ORDER BY check_in DESC,id DESC LIMIT 1/,'Latest attendance wins');
 assert.match(php,/empty\(\$row\['check_out'\]\)/,'Checked-out session must not qualify');
 assert.ok(v2.includes('kh_radio_shift_require($u);'),'V2 must enforce radio shift');
-assert.ok(v2.includes('radio_audio_signed_user();} kh_radio_shift_require($u);'),'Signed audio must re-check shift');
+assert.ok(v2.includes('?radio_audio_signed_user():au();'),'Signed audio must resolve scoped user before dispatch');
+assert.ok(v2.includes("if($op==='audio'&&$method==='GET'){kh_radio_shift_require($u);"),'Signed audio must re-check shift');
 assert.ok(legacy.includes('kh_radio_shift_require($u)'),'Legacy must enforce shift');
 console.log('PASS radio shift gate: foreground/background/locked-screen native paths, audio focus, checkout invalidation and re-check-in recovery');

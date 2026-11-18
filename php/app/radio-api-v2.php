@@ -16,7 +16,24 @@ function radio_schema(){try{
  Db::run("CREATE TABLE IF NOT EXISTS radio_logs(id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,channel_id INT UNSIGNED NULL,user_id INT NULL,event_type VARCHAR(40) NOT NULL,meta_json TEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(id),KEY(channel_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
  $cnt=Db::one('SELECT COUNT(*) c FROM radio_channels');if((int)($cnt['c']??0)===0){foreach([['عمومی','general','کانال عمومی ارتباط خطیار'],['مدیریت','management','ارتباط مدیریت و مسئولین'],['بازرسی','inspection','ارتباط واحد بازرسی'],['عملیات خطوط','field','ارتباط عملیات میدانی خطوط']] as $c)Db::run("INSERT INTO radio_channels(name,code,description) VALUES(?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),is_active=1",$c);}
 }catch(Throwable $e){error_log('radio_schema bootstrap failed: '.$e->getMessage());}}
-function au(){global$CONFIG;$tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))re('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])re('کاربر نامعتبر است',401);if(te('user_sessions')){$dt=$p['dt']??'web';$s=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? ORDER BY id DESC LIMIT 1",[$u['id'],$dt]);$admin=!empty($u['is_admin'])||in_array((string)$u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);if(!$s||$s['revoked_at']||(!$admin&&(string)$s['device_id']!==(string)($p['device_id']??'')))re('نشست منقضی یا باطل شده است',401);}return$u;}
+function au(){
+ global $CONFIG;
+ $tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;
+ if(!Jwt::isAccessPayload($p)||empty($p['sub']))re('توکن منقضی یا نامعتبر است',401);
+ $u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);
+ if(!$u||!(int)$u['is_active'])re('کاربر نامعتبر است',401);
+ $dt=$p['dt']??'web';$deviceId=(string)($p['device_id']??'');
+ if(!in_array($dt,['web','android'],true)||empty($u['allow_'.$dt]))re('دسترسی این دستگاه غیرفعال شده است',403);
+ // Match the signed device, as in index.php; another browser may have a newer session.
+ if($deviceId!==''){
+   $s=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1",[$u['id'],$dt,$deviceId]);
+ }else{
+   $s=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? LIMIT 1",[$u['id'],$dt]);
+ }
+ $unlimitedRole=$dt==='web'&&in_array($u['role_title']??'',['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);
+ if(!$s||$s['revoked_at']||(!$unlimitedRole&&(string)$s['device_id']!==$deviceId))re('نشست منقضی یا باطل شده است',401);
+ return $u;
+}
 function ch($id){$c=Db::one('SELECT * FROM radio_channels WHERE id=? AND is_active=1',[(int)$id]);if(!$c)re('کانال بی‌سیم یافت نشد',404);return$c;}
 function rules($id){$a=['regions'=>[],'users'=>[],'roles'=>[]];foreach($a as$k=>$_){$t=['regions'=>'radio_channel_regions','users'=>'radio_channel_users','roles'=>'radio_channel_roles'][$k];$col=$k==='regions'?'region_id':($k==='users'?'user_id':'role_id');try{$a[$k]=array_map('intval',array_column(Db::all("SELECT $col v FROM $t WHERE channel_id=?",[$id]),'v'));}catch(Throwable $e){error_log('radio channel rules unavailable: '.$e->getMessage());re('تنظیمات دسترسی کانال بی‌سیم در دسترس نیست',503);}}return$a;}
 function uregion($u){foreach(['region_id','area_id','zone_id','district_id']as$c)if(ce('users',$c)&&!empty($u[$c]))return(int)$u[$c];foreach(['user_regions','user_region']as$t)if(te($t)&&ce($t,'user_id'))foreach(['region_id','area_id','zone_id']as$c)if(ce($t,$c)){$r=Db::one("SELECT $c v FROM $t WHERE user_id=? LIMIT 1",[$u['id']]);if($r&&$r['v']!==null)return(int)$r['v'];}return 0;}
@@ -44,6 +61,7 @@ function radio_wait_for_change($readMessages,$isBusy){
   try {
     $messages=$readMessages();
     while(!$messages && !$isBusy() && (microtime(true)-$started)*1000<$requested){
+      Db::releaseIdle();
       usleep(700000);
       $messages=$readMessages();
     }
@@ -56,7 +74,9 @@ function radio_wait_for_change($readMessages,$isBusy){
 function radio_audio_sig($id,$exp,$uid){global $CONFIG;return hash_hmac('sha256',((int)$id).'|'.((int)$exp).'|'.((int)$uid),(string)$CONFIG['jwt_secret']);}
 function radio_audio_url($id,$uid){$exp=time()+900;return '/api/radio-api-v2.php?op=audio&id='.(int)$id.'&exp='.$exp.'&uid='.(int)$uid.'&sig='.radio_audio_sig($id,$exp,$uid);}
 function radio_audio_signed_user(){global $CONFIG;$id=(int)($_GET['id']??0);$exp=(int)($_GET['exp']??0);$uid=(int)($_GET['uid']??0);$sig=(string)($_GET['sig']??'');if(!$id||!$uid||$exp<time()||!$sig||!hash_equals(radio_audio_sig($id,$exp,$uid),$sig))re('لینک صوتی نامعتبر یا منقضی است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$uid]);if(!$u||!(int)$u['is_active'])re('کاربر نامعتبر است',401);return $u;}
-$u=au();$op=$_GET['op']??$_POST['op']??'state';$method=$_SERVER['REQUEST_METHOD']??'GET';
+$op=$_GET['op']??$_POST['op']??'state';$method=$_SERVER['REQUEST_METHOD']??'GET';
+// MediaPlayer uses the scoped signed URL, without a bearer header.
+$u=($op==='audio'&&$method==='GET'&&isset($_GET['sig']))?radio_audio_signed_user():au();
 // A phone polls every ~2 seconds. Never run CREATE/ALTER TABLE or repeated
 // INFORMATION_SCHEMA probes on that hot path: they can exhaust shared-host DB
 // connections under concurrent clients. Channel loading/settings are the only
@@ -84,5 +104,5 @@ if($op==='poll'&&$method==='GET'){$cid=(int)($_GET['channel_id']??0);$after=max(
 );$c=ch($cid);foreach($rows as&$r)$r['audio_url']=radio_audio_url((int)$r['id'],(int)$u['id']);unset($r);$speakerName=null;$speakerRole=null;if(!empty($c['current_speaker_id'])){if((int)$c['current_speaker_id']===(int)$u['id']){$speakerName='شما';$speakerRole=$u['role_title']??'';}else{$su=Db::one('SELECT u.first_name,u.last_name,u.username,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1',[$c['current_speaker_id']]);$speakerName=$su?(trim(($su['first_name']??'').' '.($su['last_name']??''))?:($su['username']??'کاربر')):'کاربر';$speakerRole=$su['role_title']??'';}}rj(['ok'=>true,'messages'=>$rows,'busy'=>!empty($c['current_speaker_id'])&&strtotime((string)$c['lock_until'])>time(),'speaker_id'=>$c['current_speaker_id']?(int)$c['current_speaker_id']:null,'speaker_name'=>$speakerName,'speaker_role'=>$speakerRole,'long_poll'=>$held]);}
 if($op==='responsible-recent'&&$method==='GET'){$cid=(int)($_GET['channel_id']??0);ec($cid,$u);$sql='SELECT m.id,m.channel_id,m.sender_id,m.sender_name,m.duration_ms,m.bytes_size,m.created_at,r.title role_title,r.level role_level FROM radio_messages m INNER JOIN users su ON su.id=m.sender_id INNER JOIN roles r ON r.id=su.role_id WHERE m.channel_id=? AND m.created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR) AND r.level BETWEEN 1 AND 5 ORDER BY m.created_at DESC,m.id DESC LIMIT 3';$rows=Db::all($sql,[$cid]);foreach($rows as&$r){$r['role_level']=(int)$r['role_level'];$r['audio_url']=radio_audio_url((int)$r['id'],(int)$u['id']);}unset($r);rj(['ok'=>true,'messages'=>$rows]);}
 if($op==='latest-three'&&$method==='GET'){$cid=(int)($_GET['channel_id']??0);ec($cid,$u);$sql='SELECT m.id,m.channel_id,m.sender_id,m.sender_name,m.duration_ms,m.bytes_size,m.created_at,r.title role_title FROM radio_messages m LEFT JOIN users su ON su.id=m.sender_id LEFT JOIN roles r ON r.id=su.role_id WHERE m.channel_id=? AND m.created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR) ORDER BY m.created_at DESC,m.id DESC LIMIT 3';$rows=Db::all($sql,[$cid]);foreach($rows as&$r)$r['audio_url']=radio_audio_url((int)$r['id'],(int)$u['id']);unset($r);rj(['ok'=>true,'messages'=>$rows]);}
-if($op==='audio'&&$method==='GET'){if(isset($_GET['sig'])){$u=radio_audio_signed_user();} kh_radio_shift_require($u); $id=(int)($_GET['id']??0);$m=Db::one('SELECT m.*,c.is_active FROM radio_messages m JOIN radio_channels c ON c.id=m.channel_id WHERE m.id=? AND m.created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR)',[$id]);if(!$m||!(int)$m['is_active'])re('پیام صوتی یافت نشد',404);if(canListenAll($u))ch($m['channel_id']);else ec($m['channel_id'],$u);$p=__DIR__.'/'.$m['audio_path'];if(!is_file($p))re('فایل صوتی یافت نشد',404);header('Content-Type: '.($m['mime_type']?:'audio/mp4'));header('Content-Length:'.filesize($p));header('Content-Disposition:inline; filename="radio-'.$id.'.m4a"');readfile($p);exit;}
+if($op==='audio'&&$method==='GET'){kh_radio_shift_require($u); $id=(int)($_GET['id']??0);$m=Db::one('SELECT m.*,c.is_active FROM radio_messages m JOIN radio_channels c ON c.id=m.channel_id WHERE m.id=? AND m.created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR)',[$id]);if(!$m||!(int)$m['is_active'])re('پیام صوتی یافت نشد',404);if(canListenAll($u))ch($m['channel_id']);else ec($m['channel_id'],$u);$p=__DIR__.'/'.$m['audio_path'];if(!is_file($p))re('فایل صوتی یافت نشد',404);header('Content-Type: '.($m['mime_type']?:'audio/mp4'));header('Content-Length:'.filesize($p));header('Content-Disposition:inline; filename="radio-'.$id.'.m4a"');Db::releaseIdle();readfile($p);exit;}
 re('عملیات بی‌سیم نامعتبر است',404);

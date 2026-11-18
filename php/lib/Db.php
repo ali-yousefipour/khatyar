@@ -1,6 +1,13 @@
 <?php
 class Db {
   private static $pdo = null;
+  // Release idle read connections before polling waits or slow media clients.
+  // Never disconnect an active transaction (that would roll it back).
+  public static function releaseIdle() {
+    if (self::$pdo && self::$pdo->inTransaction()) return false;
+    self::$pdo = null;
+    return true;
+  }
   public static function pdo() {
     if (self::$pdo) return self::$pdo;
     $c = require __DIR__ . '/../config.php';

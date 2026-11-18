@@ -56,6 +56,9 @@ jobs:
           php php/tests/work_contract_management_test.php
           php php/tests/api_startup_performance_test.php
           node --check php/app/assets/work-contracts-admin.js
+          php php/tests/radio_transport_test.php
+          php php/tests/db_release_idle_test.php
+          php php/tests/radio_live_test.php
           php php/tests/radio_shift_gate_test.php
           node mobile/scripts/test-radio-shift-native.cjs
           node mobile/scripts/test-radio-connection-recovery.cjs

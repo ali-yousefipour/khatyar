@@ -1,8 +1,11 @@
 <?php
 class RadioTestResponse extends RuntimeException {public $data;function __construct($data,$code){parent::__construct('response',$code);$this->data=$data;}}
 function rj($data,$code=200){throw new RadioTestResponse($data,$code);}function j($data,$code=200){rj($data,$code);}function re($message,$code=400){rj(['error'=>$message],$code);}function e($message,$code=400){re($message,$code);}
+function ch($id){return ['current_speaker_id'=>null,'lock_until'=>null];}
 function ec($channel,$user){if(!in_array($channel,$user['channels'],true))re('forbidden',403);return ['current_speaker_id'=>null,'lock_until'=>null];}
 function requireListenAll($user){if(empty($user['all']))re('forbidden',403);}
+function radio_wait_for_change($read,$busy){return [$read(),false];}
+function radio_active_speakers(){return [];}
 function radio_audio_url($id,$user){return '/audio/'.$id;}function audio_url($id){return '/audio/'.$id;}
 class Db {
   static $queries=[];
@@ -14,8 +17,15 @@ $source=file_get_contents(__DIR__.'/../app/radio-api-v2.php');$admin=file_get_co
 function check($condition,$message){global $count;$count++;if(!$condition)throw new RuntimeException($message);}
 function executeOp($source,$operation,$query,$user){
   $_GET=$query;$op=$operation;$method='GET';$u=$user;$me=$user;
-  $line=null;foreach(explode("\n",$source) as $candidate)if(str_starts_with($candidate,"if(\$op==='".$operation."'&&\$method==='GET')")){$line=$candidate;break;}
-  if($line===null)throw new RuntimeException('route missing');
+  $start=strpos($source,"if(\$op==='".$operation."'&&\$method==='GET')");
+  if($start===false)throw new RuntimeException('route missing');
+  $line='';$depth=0;$opened=false;
+  foreach(token_get_all('<?php '.substr($source,$start)) as $token){
+    if(is_array($token)){if($token[0]!==T_OPEN_TAG)$line.=$token[1];continue;}
+    $line.=$token;
+    if($token==='{'){$depth++;$opened=true;}
+    if($token==='}'){$depth--;if($depth===0&&$opened)break;}
+  }
   try{eval($line);}catch(RadioTestResponse $response){return $response;}
   throw new RuntimeException('no response');
 }

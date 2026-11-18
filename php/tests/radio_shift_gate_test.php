@@ -53,7 +53,8 @@ foreach(['presence','take','send','poll','poll-all','archive','responsible-recen
   verify(strpos($v2,"'".$op."'")!==false,'V2 voice route missing: '.$op);
 verify(strpos($v2,'kh_radio_shift_require($u);')!==false,'V2 voice guard missing');
 verify(strpos($v2,"'poll-all','archive','responsible-recent'")!==false,'Poll and archive routes must be guarded');
-verify(strpos($v2,'if(isset($_GET[\'sig\'])){$u=radio_audio_signed_user();} kh_radio_shift_require($u);')!==false,'Signed audio needs shift check after user resolution');
+verify(strpos($v2,"?radio_audio_signed_user():au();")!==false,'Signed audio must resolve scoped user before dispatch');
+verify(strpos($v2,"if(\$op==='audio'&&\$method==='GET'){kh_radio_shift_require(\$u);")!==false,'Signed audio needs shift check after user resolution');
 verify(strpos($legacy,'kh_radio_shift_require($u)')!==false,'Legacy voice guard missing');
 $panel=file_get_contents(__DIR__.'/../tools/panel_source.jsx');
 verify(strpos($panel,'محدودیت حضور برای بی‌سیم فعال و الزامی است')!==false,'Admin must display mandatory radio gate');
