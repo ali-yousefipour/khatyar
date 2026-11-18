@@ -128,16 +128,8 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
       if ($in && $out) {
         [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
         if ($out > $in) {
-          // The daily report must use the same effective penalty windows
-          // that it displays, after GPS/internet waivers. Do not subtract
-          // overlapping minutes twice.
-          $blocked=[];
-          foreach(array_merge($gpsDetails,$internetDetails) as $detail){
-            $badFrom=max($in,strtotime((string)$detail['start_at']));
-            $badTo=min($out,strtotime((string)$detail['end_at']));
-            if($badFrom && $badTo>$badFrom)$blocked[]=[$badFrom,$badTo];
-          }
-          $sessions[] = ['in'=>$in,'out'=>$out,'clip_start'=>$in,'clip_end'=>$out,'gps_invalid'=>$blocked];
+          // Device-off intervals remain visible as separate evidence, not deducted from attendance.
+          $sessions[] = ['in'=>$in,'out'=>$out,'clip_start'=>$in,'clip_end'=>$out];
         }
       }
     }
@@ -180,7 +172,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $missionLeave = $missionLeave ?: $toMinutes($missionText);
     $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave);
     $expectedMin = max(0, (int)($w['expected'] ?? 0));
-    $inShiftMin = max(0, (int)($w['in_shift'] ?? 0));
+    $inShiftMin = max(0, (int)($w['worked'] ?? 0));
     // Always recompute the attendance shortfall from the *effective shift*.
     // Previously a stale day['shortage'] of 00:00 could override a 07:33
     // duty with only 07:03 in-shift presence (30 minutes unaccounted).
@@ -222,13 +214,16 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     // در روز غیبت، کل موظفی قبلاً به‌عنوان کسری محاسبه شده است؛
     // بنابراین نباید موظفیِ غیبت دوباره به کسری اضافه شود.
     $day['absence_shortage'] = $hm((int)($w['shortage'] ?? 0));
+    if(isset($day['data'])&&is_array($day['data']))foreach($metricKeys as $key)if(isset($w[$key]))$day['data'][$key]=(int)$w[$key];
   }
   unset($day);
-  $gpsMinutesTotal=0;
-  foreach(($report['days']??[]) as $entry)$gpsMinutesTotal+=max(0,(int)($entry['gps_inactive_minutes']??0));
-  foreach(['totals','work_totals','summary'] as $section){
-    if(isset($report[$section]) && is_array($report[$section]) && array_key_exists('gps_inactive_minutes',$report[$section]))
-      $report[$section]['gps_inactive_minutes']=$gpsMinutesTotal;
+  // Replace stale totals with the corrected daily values, preserving each field's format.
+  $sumKeys=array_merge($metricKeys,['absence_shortage','gps_inactive_minutes','internet_inactive_minutes','friday_overtime','holiday_overtime','total_overtime','holiday_friday_overtime']);
+  foreach($sumKeys as $key){
+    $sum=0;foreach($report['days'] as $entry){$v=$entry[$key]??0;if(is_string($v)&&preg_match('/^(\d+):(\d{2})$/',$v,$m))$sum+=(int)$m[1]*60+(int)$m[2];else $sum+=(int)$v;}
+    foreach(['totals','work_totals','summary'] as $section)if(isset($report[$section])&&is_array($report[$section])&&array_key_exists($key,$report[$section])){
+      $old=$report[$section][$key];$report[$section][$key]=is_string($old)&&strpos($old,':')!==false?sprintf('%02d:%02d',intdiv($sum,60),$sum%60):$sum;
+    }
   }
   return $report;
 }
