@@ -10620,6 +10620,19 @@ function SchoolServiceLauncher(){
 }
 
 
+
+function SchoolComplaintsLauncher(){
+ const [Component,setComponent]=useState(null),[error,setError]=useState("");
+ useEffect(()=>{
+  let alive=true;
+  const ready=()=>{if(alive&&typeof window.KhatyarSchoolComplaints==="function")setComponent(()=>window.KhatyarSchoolComplaints);else if(alive)setError("رابط شکایات بارگذاری نشد");};
+  if(window.KhatyarSchoolComplaints){ready();return()=>{alive=false;};}
+  const script=document.createElement("script");script.src="/assets/school-complaints-admin.js?v=20261118.1";script.onload=ready;script.onerror=()=>{if(alive)setError("خطا در دریافت ماژول شکایات");};document.head.appendChild(script);
+  return()=>{alive=false;script.onload=null;script.onerror=null;};
+ },[]);
+ return Component?<Component get={GET} send={SEND}/>:<div className="card-p" role="status">{error||"در حال بارگذاری شکایات سرویس مدارس..."}</div>;
+}
+
 function ComplaintsLauncher(){
   const hostRef=useRef(null);
   const [error,setError]=useState("");
@@ -10989,12 +11002,13 @@ const VIEWS={
   vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklistV2},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
   schoolservice:{t:"سرویس مدارس",ic:"route",c:SchoolServiceLauncher},
+  schoolcomplaints:{t:"شکایات سرویس مدارس",ic:"chat-message",c:SchoolComplaintsLauncher},
   complaints:{t:"شکایات تاکسیرانان",ic:"chat-message",c:ComplaintsLauncher},
 };
 
 const PANEL_MENU_SECTIONS=[
   ["داشبورد و نقشه",["dashboard","missiondashboard","citydashboard","map","present","presentchart"]],
-  ["بازرسی و خدمات",["officials","presence","covertselfies","outages","schoolservice","complaints","companyrequests"]],
+  ["بازرسی و خدمات",["officials","presence","covertselfies","outages","schoolservice","schoolcomplaints","complaints","companyrequests"]],
   ["تاکسی و خطوط",["drivers","tempdrivers","lines","bills"]],
   ["امور مالی و اشتراک",["subscriptioninvoices"]],
   ["گزارش‌ها و آمار",["reportscenter","monthlyworkreport","attreport","leavereport","perfreport","driverservicereport","reports","report","useract"]],
@@ -11010,7 +11024,7 @@ const PANEL_MENU_KEYWORDS={
   attreport:"تردد ورود خروج حضور",monthlyworkreport:"کارکرد ماهیانه موظفی شیفت سازمان",
   requests:"درخواست مرخصی ماموریت",inventory:"انبار تجهیزات واگذاری تحویل",
   logs:"رویداد رخداد امنیت خطا فعالیت",activesessions:"نشست دستگاه ورود امنیت",
-  schoolservice:"مدرسه مدارس سرویس دانش آموز",complaints:"شکایت شکایات اعتراض",
+  schoolservice:"مدرسه مدارس سرویس دانش آموز",schoolcomplaints:"شکایت والدین رانندگان مدارس",complaints:"شکایت شکایات اعتراض",
   zones:"منطقه زیرمنطقه منطقه بندی",appitems:"منو آیتم دسترسی سمت",
   covertselfies:"نظارت تصویر عکس سلفی نامحسوس",workpolicy:"قوانین قانون کار سیاست",
   config:"تذکر چک لیست چکلیست",vehiclechecklist:"چک لیست چکلیست خودرو موتور",
@@ -11206,7 +11220,7 @@ function App(){
     seniority:'attendance-calendar', shifts:'shift-cycle', monthlyworkreport:'attendance-calendar', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen', workcontracts:'form-document',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
-    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', complaints:'chat-message'
+    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', schoolcomplaints:'chat-message', complaints:'chat-message'
   };
   const currentSection=SECTIONS.find(([,keys])=>keys.includes(vk));
   const closeOnPick=(k)=>{if(!VIEWS[k]||!can(k))return;setV(k);setDrawer(false);setMenuSearch("");const section=SECTIONS.find(([,keys])=>keys.includes(k));if(section)setOpenSections({[section[0]]:true});};
