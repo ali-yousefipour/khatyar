@@ -31,6 +31,25 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
   } catch (Throwable $error) { error_log('Employment-period lookup failed: '.$error->getMessage()); }
   $employmentStart = ShiftCalc::normJdate($employment['employment_start_date']??'');
   $employmentEnd = ShiftCalc::normJdate($employment['employment_end_date']??'');
+  // Load owned attendance once for the complete report instead of one SQL query per day.
+  $ownedByDate=[];
+  $gregorianDays=[];
+  foreach($report['days'] as $entry){
+    $j=str_replace('/','-',trim((string)($entry['jdate']??'')));
+    if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$j))continue;
+    [$jy,$jm,$jd]=array_map('intval',explode('-',$j));
+    [$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
+    $gregorianDays[]=sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
+  }
+  if($gregorianDays){
+    $start=min($gregorianDays).' 00:00:00';
+    $end=date('Y-m-d',strtotime(max($gregorianDays).' +1 day')).' 00:00:00';
+    foreach(Db::all("SELECT id,check_in,check_out,method FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in ASC,id ASC",[$userId,$start,$end]) as $record){
+      $ownedByDate[substr((string)$record['check_in'],0,10)][]=$record;
+    }
+  }
+  require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
+  require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
   foreach ($report['days'] as &$day) {
     if (!is_array($day)) continue;
     $j = str_replace('/','-',trim((string)($day['jdate'] ?? '')));
@@ -50,10 +69,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $g = sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
     $next = date('Y-m-d', strtotime($g.' +1 day'));
 
-    $owned = Db::all(
-      "SELECT id,check_in,check_out,method FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in ASC,id ASC",
-      [$userId,$g.' 00:00:00',$next.' 00:00:00']
-    );
+    $owned = $ownedByDate[$g] ?? [];
     $ownedIds = [];
     foreach ($owned as $r) $ownedIds[(int)$r['id']] = $r;
 
