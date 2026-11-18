@@ -236,7 +236,7 @@ if (strpos($path,'/api/admin/work-contracts')===0) {
   } else {
     error_log('work contracts module not deployed yet; skipping contract routes');
   }
-} if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
+} if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; if (is_file("$ROOT/lib/school_complaints_routes.php")) require "$ROOT/lib/school_complaints_routes.php"; // Read a user's employment period directly from the authoritative table.
 // This endpoint is independent of the variable-shaped admin/users list response.
 $routes[] = [
   'm' => 'GET',
