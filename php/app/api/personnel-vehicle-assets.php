@@ -188,6 +188,35 @@ function pva_list(bool $photos=false): array {
 }
 function pva_admin_allowed(array $u): bool { return (bool)((int)($u['is_admin']??0) || pva_is_check_authorized($u)); }
 function pva_plate(array $r): string { $stored=trim((string)($r['plate']??'')); if($stored!=='')return $stored; if(($r['asset_type']??'')==='motorcycle')return trim(($r['motorcycle_plate_top']??'').' / '.($r['motorcycle_plate_bottom']??'')); return trim(($r['plate_part_right']??'').' '.($r['plate_letter']??'').' '.($r['plate_part_left']??'').' ایران '.($r['plate_iran']??'')); }
+
+/** Format persisted Gregorian or already-Jalali dates for Iranian management reports. */
+function pva_excel_jdate($value): string {
+  $value=trim(pva_norm($value));
+  if($value==='')return '';
+  if(!preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(.*)$/u',$value,$m))return pva_excel_fa($value);
+  $y=(int)$m[1];$month=(int)$m[2];$day=(int)$m[3];$tail=trim($m[4]);
+  if($y>=1300&&$y<=1499)return pva_excel_fa(sprintf('%04d/%02d/%02d',$y,$month,$day).($tail?' '.$tail:''));
+  if($y<1600||$month<1||$month>12||!checkdate($month,$day,$y))return pva_excel_fa($value);
+  $gy=$y-1600;$gm=$month-1;$gd=$day-1;
+  $days=365*$gy+intdiv($gy+3,4)-intdiv($gy+99,100)+intdiv($gy+399,400);
+  $monthDays=[31,28,31,30,31,30,31,31,30,31,30,31];
+  for($i=0;$i<$gm;$i++)$days+=$monthDays[$i];
+  if($gm>1&&(($gy%4===0&&$gy%100!==0)||$gy%400===0))$days++;
+  $days+=$gd-79;
+  $cycle=intdiv($days,12053);$days%=12053;
+  $jy=979+33*$cycle+4*intdiv($days,1461);$days%=1461;
+  if($days>=366){$jy+=intdiv($days-1,365);$days=($days-1)%365;}
+  if($days<186){$jm=1+intdiv($days,31);$jd=1+$days%31;}
+  else{$jm=7+intdiv($days-186,30);$jd=1+($days-186)%30;}
+  return pva_excel_fa(sprintf('%04d/%02d/%02d',$jy,$jm,$jd).($tail?' '.$tail:''));
+}
+function pva_excel_fa($value): string {
+  return strtr((string)($value??''),['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+}
+function pva_excel_status($value): string {
+  $statuses=['pending'=>'در انتظار بررسی','verified'=>'تأییدشده','needs_correction'=>'نیازمند اصلاح'];
+  return $statuses[(string)$value]??(string)$value;
+}
 function pva_image_bytes($data): string { $data=(string)$data; if(strpos($data,'base64,')!==false)$data=substr($data,strpos($data,'base64,')+7);$data=preg_replace('/\s+/','',$data)??$data;$b=base64_decode($data,true);return $b===false?'':$b; }
 function pva_check_keys(string $type): array { return $type==='motorcycle'?['identity','plate','license','insurance','photos','numbers']:['identity','plate','license','insurance','technical','photos','equipment','numbers']; }
 /* خطیار: منبع اصلی تشخیص «این کاربر خودرو/موتورسیکلت تخصیص‌داده‌شده دارد یا نه» اکنون جدول واقعی تخصیص است
@@ -265,10 +294,64 @@ try {
   if($op==='export'){
     if(!pva_admin_allowed($u))pva_fail('دسترسی مدیریتی لازم است',403);
     $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title FROM personnel_vehicle_assets a JOIN users u ON u.id=a.user_id LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.last_name,u.first_name,a.asset_type");
-    $photoKeys=[];foreach($rows as $r){foreach(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=?',[$r['id']]) as $p){$k=(string)$p['photo_key'];if($k!==''&&!in_array($k,$photoKeys,true))$photoKeys[]=$k;}}
-    $head=['شناسه','نام','نام خانوادگی','نام کاربری','سمت','موبایل','کد ملی','نوع وسیله','پلاک','نوع خودرو','سوخت','رنگ','سال ساخت','شماره شاسی/تنه','شماره موتور','VIN','سیستم موتور','تیپ موتور','کاربری موتور','سیلندر','شماره گواهینامه','صدور گواهینامه','انقضای گواهینامه','شماره بیمه','شرکت بیمه','صدور بیمه','انقضای بیمه','شماره معاینه فنی','صدور معاینه','انقضای معاینه','چراغگردان ثابت','چراغگردان متحرک','گرمایش','سرمایش','آمپلی‌فایر','وضعیت بررسی','اولین تاریخ چک‌لیست','آخرین تاریخ چک‌لیست','تاریخچه کامل چک‌لیست'];foreach($photoKeys as $k)$head[]='تصویر '.$k;$x=new XlsxWriter($head);
-    foreach($rows as $r){$hist=pva_history((int)$r['id']);$dates=array_column($hist,'checked_at');$plate=pva_plate($r);$cells=[$r['id'],$r['first_name'],$r['last_name'],$r['username'],$r['role_title'],$r['phone'],$r['national_code'],$r['asset_type']==='car'?'خودرو':'موتورسیکلت',$plate,$r['vehicle_type'],$r['fuel_type'],$r['color'],$r['model_year'],$r['chassis_number'],$r['engine_number'],$r['vin'],$r['motorcycle_system'],$r['motorcycle_type'],$r['motorcycle_usage'],$r['cylinders'],$r['license_number'],$r['license_issue_date'],$r['license_expiry_date'],$r['insurance_number'],$r['insurance_company'],$r['insurance_issue_date'],$r['insurance_expiry_date'],$r['technical_inspection_number'],$r['technical_inspection_issue_date'],$r['technical_inspection_expiry_date'],((int)$r['fixed_beacon']?'بله':'خیر'),((int)$r['mobile_beacon']?'بله':'خیر'),((int)$r['heating_ok']?'بله':'خیر'),((int)$r['cooling_ok']?'بله':'خیر'),((int)$r['amplifier']?'بله':'خیر'),$r['status'],$dates?end($dates):null,$dates?$dates[0]:null,$dates?implode(' | ',$dates):null];$photos=Db::all('SELECT photo_key,data_uri FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']]);$by=[];foreach($photos as $p){$by[(string)$p['photo_key']]=$p;}$start=count($cells);foreach($photoKeys as $k)$cells[]='';$row=$x->addRow($cells);foreach($photoKeys as $i=>$k){$displayValue=pva_photo_display_value($by[$k]['data_uri']??'');$bytes=pva_image_bytes($displayValue);if($bytes!==''){$x->setImage($row,$start+$i,$bytes,110);$x->setColWidth($start+$i,18);}}}
-    $x->output('personnel_vehicle_assets.xlsx','خودرو و موتورسیکلت');exit;
+    $sheets=[];
+    foreach(['car'=>'خودروها','motorcycle'=>'موتورسیکلت‌ها'] as $kind=>$sheetName){
+      $assets=array_values(array_filter($rows,static fn($r)=>(string)$r['asset_type']===$kind));
+      $photoKeys=pva_photo_keys($kind);
+      $head=['ردیف','شناسه پرونده','نام','نام خانوادگی','نام کاربری','سمت','شماره همراه','کد ملی','پلاک','نوع وسیله','نوع خودرو','سوخت','رنگ','سال ساخت','شماره شاسی/تنه','شماره موتور','VIN','سیستم موتور','تیپ موتور','کاربری موتور','سیلندر','شماره گواهینامه','صدور گواهینامه','انقضای گواهینامه','شماره بیمه','شرکت بیمه','صدور بیمه','انقضای بیمه','شماره معاینه فنی','صدور معاینه','انقضای معاینه','چراغگردان ثابت','چراغگردان متحرک','گرمایش','سرمایش','آمپلی‌فایر','وضعیت بررسی','تعداد بررسی‌ها','اولین تاریخ چک‌لیست','آخرین تاریخ چک‌لیست','تاریخچه چک‌لیست','یادداشت بررسی'];
+      foreach($photoKeys as $key)$head[]='تصویر '.$key;
+      $x=new XlsxWriter($head);
+      $x->setProfessionalStyle(true);
+      $x->setFontName('Vazirmatn');
+      $x->setReportHeading('سامانه خطیار | گزارش چک‌لیست '.$sheetName,
+        'اطلاعات پرسنل، مشخصات وسیله، مدارک، تجهیزات و سوابق بررسی | تاریخ تهیه: '.pva_excel_jdate(date('Y-m-d H:i:s')),
+        'تعداد پرونده‌های '.$sheetName.': '.pva_excel_fa(count($assets)).' | گزارش مدیریتی سازمانی');
+      foreach($head as $idx=>$label){
+        $width=preg_match('/تاریخچه|یادداشت|نام خانوادگی|شماره شاسی|بازرس/u',$label)?28:
+               (preg_match('/تاریخ|پلاک|سمت|بیمه|گواهینامه|تصویر/u',$label)?21:16);
+        $x->setColWidth($idx,$width);
+        $x->setTextCol($idx);
+      }
+      $x->setColWidth(0,9);
+      $x->setColWidth(8,24);
+      foreach($assets as $index=>$r){
+        $history=pva_history((int)$r['id']);
+        $dates=array_column($history,'checked_at'); // DESC by checked_at
+        $first=$dates?end($dates):'';
+        $last=$dates?$dates[0]:'';
+        $historyText=[];
+        foreach($history as $entry){
+          $historyText[]=pva_excel_jdate($entry['checked_at']??'').' - '.pva_excel_status($entry['result']??'').' - '.($entry['checker_name']??'');
+        }
+        $cells=[
+          $index+1,$r['id'],$r['first_name'],$r['last_name'],$r['username'],$r['role_title'],$r['phone'],$r['national_code'],
+          pva_plate($r),$kind==='car'?'خودرو':'موتورسیکلت',$r['vehicle_type'],$r['fuel_type'],$r['color'],$r['model_year'],
+          $r['chassis_number'],$r['engine_number'],$r['vin'],$r['motorcycle_system'],$r['motorcycle_type'],
+          $r['motorcycle_usage'],$r['cylinders'],$r['license_number'],pva_excel_jdate($r['license_issue_date']),
+          pva_excel_jdate($r['license_expiry_date']),$r['insurance_number'],$r['insurance_company'],
+          pva_excel_jdate($r['insurance_issue_date']),pva_excel_jdate($r['insurance_expiry_date']),
+          $r['technical_inspection_number'],pva_excel_jdate($r['technical_inspection_issue_date']),
+          pva_excel_jdate($r['technical_inspection_expiry_date']),
+          ((int)$r['fixed_beacon']?'بله':'خیر'),((int)$r['mobile_beacon']?'بله':'خیر'),
+          ((int)$r['heating_ok']?'بله':'خیر'),((int)$r['cooling_ok']?'بله':'خیر'),
+          ((int)$r['amplifier']?'بله':'خیر'),pva_excel_status($r['status']),
+          count($history),pva_excel_jdate($first),pva_excel_jdate($last),
+          implode(' | ',$historyText),$r['checklist_note']??''
+        ];
+        $photos=Db::all('SELECT photo_key,data_uri FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']]);
+        $by=[];foreach($photos as $photo)$by[(string)$photo['photo_key']]=$photo;
+        $start=count($cells);foreach($photoKeys as $_)$cells[]='';
+        $cells=array_map(static fn($v)=>pva_excel_fa($v),$cells);
+        $row=$x->addRow($cells);
+        foreach($photoKeys as $i=>$key){
+          $bytes=pva_image_bytes(pva_photo_display_value($by[$key]['data_uri']??''));
+          if($bytes!=='')$x->setImage($row,$start+$i,$bytes,100);
+        }
+      }
+      $sheets[$kind]=$x;
+    }
+    XlsxWriter::outputTwoSheets($sheets['car'],$sheets['motorcycle'],'چک_لیست_خودرو_و_موتورسیکلت.xlsx','خودروها','موتورسیکلت‌ها');
   }
+
   pva_fail('عملیات نامعتبر',404);
 }catch(Throwable $e){error_log('personnel-vehicle-assets: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());pva_fail('خطای داخلی: '.get_class($e).': '.$e->getMessage().' (فایل: '.basename($e->getFile()).' خط '.$e->getLine().')',500);}
