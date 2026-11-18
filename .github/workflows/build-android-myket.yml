@@ -1,5 +1,5 @@
 name: build-android-myket
-# Release 2.0.4 includes the dashboard grid and RTL time picker fixes.
+# Release 2.0.5 includes presence, system camera, attendance persistence and fixed policy routing fixes.
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       version:
         description: "Version matching mobile/package.json"
         required: true
-        default: "2.0.4"
+        default: "2.0.5"
   push:
     branches:
       - "main"
