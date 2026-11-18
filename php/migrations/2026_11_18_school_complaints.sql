@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS school_complaints (
  subject VARCHAR(255) NOT NULL,body TEXT NOT NULL,
  received_at DATETIME NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  created_by INT NOT NULL,assigned_to INT NOT NULL,
- status ENUM('pending','escalated','closed') NOT NULL DEFAULT 'pending',
+ status ENUM('pending','escalated','closed','in_progress','answered','returned') NOT NULL DEFAULT 'pending',
  supervisor_id INT NOT NULL,review_hours INT NOT NULL,supervisor_hours INT NOT NULL,
  due_at DATETIME NOT NULL,closed_at DATETIME NULL,
  KEY idx_sc_queue(assigned_to,status,due_at),KEY idx_sc_school(school_id,received_at),
@@ -20,8 +20,11 @@ CREATE TABLE IF NOT EXISTS school_complaints (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS school_complaint_events (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,complaint_id BIGINT UNSIGNED NOT NULL,
- actor_id INT NOT NULL,action ENUM('created','note','reply','escalate','close') NOT NULL,
+ actor_id INT NOT NULL,action ENUM('created','note','reply','escalate','close','start','return') NOT NULL,
  body TEXT NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  KEY idx_sce_case(complaint_id,id),
  CONSTRAINT fk_sce_case FOREIGN KEY(complaint_id) REFERENCES school_complaints(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE school_complaints MODIFY COLUMN status ENUM('pending','escalated','closed','in_progress','answered','returned') NOT NULL DEFAULT 'pending';
+ALTER TABLE school_complaint_events MODIFY COLUMN action ENUM('created','note','reply','escalate','close','start','return') NOT NULL;
