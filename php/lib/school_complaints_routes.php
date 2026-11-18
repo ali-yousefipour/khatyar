@@ -93,7 +93,11 @@ function sc_list($u,$inbox=false,$summary=false): array {
  $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
  if(!isset($_GET['page']))return $rows;
  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_complaints c WHERE $where",$p)['n']??0);
- return ['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
+ $result=['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
+ if($inbox){
+  $result['metrics']=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status IN ('in_progress','returned')),0) in_progress,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue FROM school_complaints c WHERE (c.assigned_to=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))",[$u['id'],$u['id']])??[];
+ }
+ return $result;
 }
 route('GET','/api/school-complaints/access',function($p,$b,$u){return sc_access($u);});
 route('GET','/api/school-complaints/settings',function($p,$b,$u){sc_need($u,'admin');return sc_config();});
