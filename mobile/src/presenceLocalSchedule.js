@@ -14,12 +14,12 @@ async function scheduleFixedAlerts(policy){
   if(!policy?.enabled||!policy?.assigned||policy?.random_enabled||!policy?.slots?.length)return;
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(FIXED_KEY)||'null')}catch{}
-  if(existing?.user_id===policy.user_id&&existing?.day===policy.day)return;
+  if(existing?.version===2&&existing?.user_id===policy.user_id&&existing?.day===policy.day&&existing?.window_minutes===policy.window_minutes&&JSON.stringify(existing?.slots)===JSON.stringify(policy.slots))return;
   for(const item of existing?.items||[])if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
   await ensurePresenceChannel();
   const items=[];
   for(const slot of policy.slots){
-    if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(slot)))continue;
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(slot)))continue;
     const ts=Date.parse(policy.day+'T'+slot+':00+03:30');
     if(!Number.isFinite(ts)||ts<=Date.now())continue;
     try{
@@ -32,7 +32,7 @@ async function scheduleFixedAlerts(policy){
       await AsyncStorage.setItem('presence_notified:'+policy.day+':'+slot,'1');
     }catch{}
   }
-  await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({user_id:policy.user_id,day:policy.day,items}));
+  await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({version:2,user_id:policy.user_id,day:policy.day,window_minutes:policy.window_minutes,slots:policy.slots,items}));
 }
 export async function cachedPresencePolicy(userId) {
   try { const p=JSON.parse(await AsyncStorage.getItem(MODE_KEY)||'null'); return Number(p?.user_id)===Number(userId)?p:null; } catch { return null; }
@@ -45,7 +45,7 @@ export async function storePresencePolicy(userId,config) {
 }
 export async function currentPresencePolicy(userId,request) {
   const cached=await cachedPresencePolicy(userId);
-  if(cached?.day===policyDay()&&!cached.stale)return cached;
+  if(cached?.day===policyDay()&&!cached.stale){await scheduleFixedAlerts(cached).catch(()=>{});return cached;}
   try { return await storePresencePolicy(userId,await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000})); }
   catch {
     if(cached?.day!==policyDay()&&cached){
@@ -121,7 +121,7 @@ export async function clearLocalRandomSchedule() {
 export async function localPresenceCompletions() {
   try{return JSON.parse(await AsyncStorage.getItem('presence_local_completions_v1')||'{}')}catch{return {}}
 }
-export async function markLocalPresenceCompleted(requestId,state='done') {
-  const all=await localPresenceCompletions();all[String(requestId)]={status:state,time:Date.now()};
+export async function markLocalPresenceCompleted(requestId,state='done',metadata={}) {
+  const all=await localPresenceCompletions();all[String(requestId)]={...metadata,status:state,time:Date.now()};
   await AsyncStorage.setItem('presence_local_completions_v1',JSON.stringify(all));
 }

@@ -1,3 +1,4 @@
+import {presenceDeadline} from './presencePresentation';
 import React,{useState,useEffect,useRef}from'react';
 import{AppState}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
@@ -130,18 +131,23 @@ export default function PresenceGate({navigationRef}){
    const legacyImmediateMs=immediate&&data.immediate_at
      ? Date.parse(String(data.immediate_at).replace(' ','T')+'+03:30') : NaN;
    const requestedAtMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:Date.now();
-   const deadlineMs=requestedAtMs+notificationWindow*60000;
-   if(!alive||Date.now()>=deadlineMs)return;
+   const deliveredAtMs=Number(data.delivered_at_ms)||requestedAtMs;
+   const deadlineMs=deliveredAtMs+notificationWindow*60000;
+   if(!alive||(!data.delivered_at_ms&&Date.now()>=deadlineMs))return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
   };
   openNotificationRef.current=openFromNotification;
-  const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
-  const handleReceived=n=>openFromNotification(n?.request?.content?.data||{}).catch(()=>{});
+  const handleResponse=r=>openFromNotification({...r?.notification?.request?.content?.data,delivered_at_ms:r?.notification?.date}).catch(()=>{});
+  const handleReceived=n=>openFromNotification({...n?.request?.content?.data,delivered_at_ms:n?.date||Date.now()}).catch(()=>{});
   const r1=Notifications.addNotificationReceivedListener(handleReceived);
   const r2=Notifications.addNotificationResponseReceivedListener(handleResponse);
+  const recoverNotifications=async()=>{
+   try{for(const n of await Notifications.getPresentedNotificationsAsync())await handleReceived(n);}catch(_){}
+   try{const response=await Notifications.getLastNotificationResponseAsync();if(response)await handleResponse(response);}catch(_){}
+  };
   let appSub=null;
-  try{appSub=AppState.addEventListener('change',state=>{if(state==='active')Notifications.getLastNotificationResponseAsync().then(r=>{if(r)handleResponse(r)}).catch(()=>{})})}catch(e){}
-  Notifications.getLastNotificationResponseAsync().then(r=>{if(r)handleResponse(r)}).catch(()=>{});
+  try{appSub=AppState.addEventListener('change',state=>{if(state==='active')recoverNotifications()})}catch(e){}
+  recoverNotifications();
   return()=>{alive=false;openNotificationRef.current=null;try{r1.remove()}catch(e){}try{r2.remove()}catch(e){}try{appSub?.remove()}catch(e){}};
  },[userId]);
 
@@ -169,14 +175,20 @@ export default function PresenceGate({navigationRef}){
 
  useEffect(()=>{
   if(!due||!navigationRef?.isReady?.()||openedRef.current||!appActive)return;
-  if(Date.now()>=due.deadlineMs){setDueStable(null);stopPresenceAlarm().catch(()=>{});return;}
+
   openedRef.current=true;
   wizardWasActiveRef.current=false;
-  try{
+  let alive=true;
+  (async()=>{try{
+   const startKey='presence_wizard_started:'+userId+':'+due.requestId;
+   const saved=Number(await AsyncStorage.getItem(startKey));
+   const startedAt=saved||Date.now();
+   if(!saved)await AsyncStorage.setItem(startKey,String(startedAt));
+   if(!alive){openedRef.current=false;return;}
    navigationRef.navigate('PresenceCheckWizard',{
     slot:due.slot,
     windowMinutes:due.windowMinutes,
-    deadlineMs:due.deadlineMs,
+    deadlineMs:presenceDeadline(startedAt,due.windowMinutes),
     day:due.day,
     key:due.key,
     expiredKey:due.expiredKey,
@@ -186,13 +198,14 @@ export default function PresenceGate({navigationRef}){
    });
   }catch(e){
    openedRef.current=false;
-   startPresenceAlarm(due.deadlineMs).catch(()=>{});
-  }
+   startPresenceAlarm().catch(()=>{});
+  }})();
+  return()=>{alive=false;};
  },[due,navigationRef,appActive]);
 
  useEffect(()=>{
   const alarmOn=cfgRef.current?cfgRef.current.alarm!==false:true;
-  if(due&&alarmOn)startPresenceAlarm(due.deadlineMs).catch(()=>{});else stopPresenceAlarm().catch(()=>{});
+  if(due&&alarmOn&&!openedRef.current)startPresenceAlarm().catch(()=>{});else stopPresenceAlarm().catch(()=>{});
   return()=>{stopPresenceAlarm().catch(()=>{})};
  },[due]);
 

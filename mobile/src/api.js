@@ -250,7 +250,7 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
     try{
       const key='presence_local_completions_v1';
       const map=JSON.parse(await AsyncStorage.getItem(key)||'{}');
-      map[String(body.request_id)]={status:'done',time:Date.now()};
+      map[String(body.request_id)]={...map[String(body.request_id)],status:'done',time:Date.now()};
       await AsyncStorage.setItem(key,JSON.stringify(map));
     }catch{}
   }

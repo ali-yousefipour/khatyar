@@ -109,6 +109,7 @@ jobs:
           php php/tests/presence_random_dispatch_test.php
           node mobile/scripts/test-selfie-delivery.cjs
           node mobile/scripts/test-presence-camera.js
+          node mobile/scripts/test-presence-response-flow.cjs
           node mobile/scripts/test-presence-local-scheduling.cjs
           node mobile/scripts/test-manual-attendance-offline.cjs
           node php/tests/selfie_ui_test.cjs

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import {mergePresenceRows} from '../presencePresentation';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { faNum } from '../num';
 import { tehranTimeToEpochMs } from '../jdate';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking } from 'react-native';
@@ -1781,10 +1782,12 @@ const presenceStatus = {
 };
 
 function CheckInPresenceTab(){
+  const {user:owner}=useAuth();
   const [items,setItems]=useState([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(false);
   const [refresh,setRefresh]=useState(0);
+  useFocusEffect(useCallback(()=>{setRefresh(value=>value+1);},[]));
   useEffect(()=>{
     let active=true;
     setLoading(true);
@@ -1801,8 +1804,8 @@ function CheckInPresenceTab(){
       let server=[];
       try{const data=await request('/my/presence-checks/today',{noStore:true,timeoutMs:7000});server=Array.isArray(data?.items)?data.items:[];}
       catch{if(!localItems.length&&active)setError(true);}
-      const seen=new Set(localItems.map(item=>String(item.request_id)));
-      if(active)setItems([...localItems,...server.filter(item=>!seen.has(String(item.request_id||item.id)))]);
+      const day=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'});
+      if(active)setItems(mergePresenceRows(server,localItems,local,owner?.id,day));
     })().catch(()=>{if(active)setError(true)}).finally(()=>{if(active)setLoading(false)});
     return()=>{active=false;};
   },[refresh]);

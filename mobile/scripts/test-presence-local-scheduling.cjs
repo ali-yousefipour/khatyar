@@ -9,7 +9,8 @@ const server=fs.readFileSync(path.join(__dirname,'../../php/lib/routes.php'),'ut
 assert.match(gate,/currentPresencePolicy\(userId,request\)/);
 assert.doesNotMatch(gate,/request\('\/my\/presence-random-schedule'/);
 assert.match(wizard,/queueIfOffline:true/);
-assert.match(wizard,/manualSystemCamera/);
+assert.doesNotMatch(wizard,/manualSystemCamera/);
+assert.match(wizard,/<PersonalPhotoCapture systemCameraFirst/);
 assert.match(api,/markLocalPresenceCompleted|presence_local_completions_v1/);
 const cron=server.split("route('GET', '/api/cron/presence-alert'")[1]?.split('\n}, true);')[0];
 assert.ok(cron);
@@ -35,7 +36,7 @@ const tehranGregorianParts=()=>{
 };
 const script=source.replace(/^import[^\n]*\n/gm,'').replace(/\bexport\s+/g,'');
 const localModule=new Function('AsyncStorage','Notifications','ensurePresenceChannel','tehranGregorianParts',script+
- '\nreturn {currentPresencePolicy,storePresencePolicy,ensureLocalRandomSchedule,localAttendanceSession,markLocalPresenceCompleted,localPresenceCompletions,clearLocalRandomSchedule};')(
+ '\nreturn {scheduleFixedAlerts,currentPresencePolicy,storePresencePolicy,ensureLocalRandomSchedule,localAttendanceSession,markLocalPresenceCompleted,localPresenceCompletions,clearLocalRandomSchedule};')(
  AsyncStorage,Notifications,async()=>{},tehranGregorianParts
 );
 (async()=>{
@@ -63,6 +64,11 @@ const localModule=new Function('AsyncStorage','Notifications','ensurePresenceCha
   assert.equal(notifications.length,originalCount,'Local reminders must not duplicate after a refresh');
   await localModule.markLocalPresenceCompleted(schedule.items[0].request_id,'queued');
   assert.equal((await localModule.localPresenceCompletions())[schedule.items[0].request_id].status,'queued');
+  await localModule.markLocalPresenceCompleted('urgent-test','queued',{user_id:42,day:'2099-01-01',slot:'09:30',immediate:true});
+  assert.equal((await localModule.localPresenceCompletions())['urgent-test'].user_id,42);
+  const fixedBefore=notifications.length;
+  await localModule.scheduleFixedAlerts({user_id:42,day:'2099-01-01',enabled:true,assigned:true,random_enabled:false,slots:['09:30','25:99'],window_minutes:3});
+  assert.equal(notifications.length,fixedBefore+1,'Valid fixed time schedules a notification; invalid times are rejected');
   await localModule.clearLocalRandomSchedule();
   assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null);
   console.log('PASS local random presence: daily config, offline clock-in, 3+3 checks, dedupe, completion and cleanup');

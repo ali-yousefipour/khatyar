@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import { Vibration } from 'react-native';
 import { playSound, stopSound } from './soundFx';
 
@@ -32,7 +33,7 @@ export async function startPresenceAlarm(deadlineMs) {
   beginLoopingAlarm(currentGeneration).catch(() => {});
 }
 
-export async function stopPresenceAlarm() {
+export async function stopPresenceAlarm({dismissNotifications=false}={}) {
   alarmActive = false;
   ++generation;
   if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
@@ -42,4 +43,9 @@ export async function stopPresenceAlarm() {
     soundObj = null;
     await stopSound(s);
   }
+  try {
+    const shown=dismissNotifications?await Notifications.getPresentedNotificationsAsync():[];
+    await Promise.all(shown.filter(n=>n.request?.content?.data?.type==='presence_check').map(n=>Notifications.dismissNotificationAsync(n.request.identifier)));
+  } catch (_) {}
+
 }

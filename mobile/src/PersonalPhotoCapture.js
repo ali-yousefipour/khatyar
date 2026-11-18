@@ -19,7 +19,7 @@ export default function PersonalPhotoCapture({
   title = 'تأیید تصویر سلفی',
   instruction = 'مستقیم به دوربین نگاه کنید و تصویر واضح بگیرید.',
   uniformNotice = true,
-  systemCameraFirst = false,
+  systemCameraFirst = true,
   autoConfirm = false,
   manualSystemCamera = false,
   compressOnConfirm = false,
@@ -32,7 +32,7 @@ export default function PersonalPhotoCapture({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(instruction);
   const [preview, setPreview] = useState(null);
-  const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
+  const [useInlineCamera, setUseInlineCamera] = useState(false);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
@@ -103,14 +103,14 @@ export default function PersonalPhotoCapture({
       console.warn('[PersonalPhotoCapture] system camera failed:', error?.message || error);
       if (generation === captureGeneration.current) setMessage(error?.message === 'camera_permission_denied'
         ? 'دسترسی دوربین گوشی صادر نشده است. مجوز دوربین را در تنظیمات گوشی فعال کنید.'
-        : 'ثبت عکس با دوربین گوشی انجام نشد. دوباره تلاش کنید یا از دوربین داخلی استفاده کنید.');
+        : 'ثبت عکس با دوربین گوشی انجام نشد. دوباره دوربین گوشی را باز کنید.');
     } finally {
       if (generation === captureGeneration.current) { setBusy(false); setSystemCameraOpen(false); }
     }
   }
 
   useEffect(() => {
-    if (!systemCameraFirst || manualSystemCamera || !permission?.granted || autoCameraStarted.current) return;
+    if (manualSystemCamera || !permission?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, permission?.granted]);
@@ -175,15 +175,13 @@ export default function PersonalPhotoCapture({
 
   return (
     <View style={styles.page}>
-      {systemCameraFirst && !useInlineCamera ? <View style={styles.center}>
+      {!useInlineCamera ? <View style={styles.center}>
         {busy || systemCameraOpen ? <ActivityIndicator color={C.brand} /> : null}
         <Text style={styles.permissionText}>{message}</Text>
         <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} disabled={busy || systemCameraOpen} onPress={openSystemCamera}>
           <Text style={styles.primaryButtonText}>باز کردن دوربین گوشی</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={() => { setUseInlineCamera(true); setReady(false); }}>
-          <Text style={styles.cancelText}>استفاده از دوربین داخلی برنامه</Text>
-        </TouchableOpacity>
+
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
       </View> : <>
       {cameraActive && useInlineCamera && <CameraView
@@ -210,7 +208,7 @@ export default function PersonalPhotoCapture({
         <TouchableOpacity accessibilityRole="button" style={[styles.nativeButton, (busy || systemCameraOpen) && styles.disabled]} onPress={openSystemCamera} disabled={busy || systemCameraOpen}>
           <Text style={styles.primaryButtonText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : 'عکس‌برداری با دوربین گوشی'}</Text>
         </TouchableOpacity>
-        {systemCameraFirst && !useInlineCamera ? <Text style={styles.cameraOnly}>برای عکس سلفی، دوربین جلو را انتخاب کنید. انتخاب تصویر از گالری مجاز نیست.</Text> : null}
+        {!useInlineCamera ? <Text style={styles.cameraOnly}>برای عکس سلفی، دوربین جلو را انتخاب کنید. انتخاب تصویر از گالری مجاز نیست.</Text> : null}
         {useInlineCamera && !ready && <TouchableOpacity onPress={() => { setReady(false); restartCamera(); }}><Text style={styles.cancelText}>راه‌اندازی دوباره دوربین داخلی</Text></TouchableOpacity>}
         {useInlineCamera && <TouchableOpacity
           style={[styles.shutter, (!ready || busy) && styles.disabled]}
@@ -221,9 +219,7 @@ export default function PersonalPhotoCapture({
         >
           {busy ? <ActivityIndicator color="#fff" /> : <View style={styles.shutterInner} />}
         </TouchableOpacity>}
-        {systemCameraFirst && <TouchableOpacity accessibilityRole="button" onPress={() => { setUseInlineCamera(value => !value); setReady(false); }} disabled={busy || systemCameraOpen}>
-          <Text style={styles.cancelText}>{useInlineCamera ? 'بازگشت به دوربین گوشی' : 'استفاده از دوربین داخلی برنامه'}</Text>
-        </TouchableOpacity>}
+
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
         <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین گوشی انجام می‌شود و انتخاب از گالری در این مرحله غیرفعال است.</Text>
       </ScrollView>

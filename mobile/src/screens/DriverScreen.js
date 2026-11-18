@@ -1,8 +1,9 @@
+import {launchCamera,requestCameraAccess} from '../cameraLock';
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, useWindowDimensions } from 'react-native';
 import { postOrQueue, request } from '../api';
 import { imageSource } from '../api';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+
 import * as ImageManipulator from 'expo-image-manipulator';
 import { compressToDataUri } from '../img';
 import { getAppConfig } from '../appconfig';
@@ -40,11 +41,6 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitLoading, setPortraitLoading] = useState(true);
   const [portraitError, setPortraitError] = useState('');
   const [portraitFullScreen, setPortraitFullScreen] = useState(false);
-  const [portraitCameraVisible, setPortraitCameraVisible] = useState(false);
-  const [portraitCameraReady, setPortraitCameraReady] = useState(false);
-  const [portraitCameraFacing, setPortraitCameraFacing] = useState('back');
-  const portraitCamera = useRef(null);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cropWidth = cropSource ? Math.max(3,Math.floor(Math.min(cropSource.width,cropSource.height*3/4)/cropZoom/3)*3) : 0;
   const cropHeight = cropWidth*4/3;
   const cropScale = cropWidth ? 240/cropWidth : 1;
@@ -66,29 +62,19 @@ export default function DriverScreen({ route, navigation }) {
     return () => { active = false; };
   }, [driver.id]);
   const capturePortrait = async () => {
-    if (portraitBusy || portraitCameraVisible) return;
-    try {
-      const permission = cameraPermission?.granted ? cameraPermission : await requestCameraPermission();
-      if (!permission?.granted) return Alert.alert('دسترسی دوربین', 'دسترسی به دوربین را در تنظیمات گوشی فعال کنید و دوباره تلاش کنید.');
-      setPortraitCameraReady(false);
-      setPortraitCameraFacing('back');
-      setPortraitCameraVisible(true);
-    } catch (error) { Alert.alert('دوربین', error?.message || 'آماده‌سازی دوربین انجام نشد.'); }
-  };
-  const takePortrait = async () => {
-    if (!portraitCamera.current || !portraitCameraReady || portraitBusy) return;
+    if(portraitBusy)return;
     setPortraitBusy(true);
     try {
-      const result = await portraitCamera.current.takePictureAsync({ quality: 0.75, base64: false, exif: false, skipProcessing: false });
-      if (!result?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
-      const originalWidth = Number(result.width);
-      const originalHeight = Number(result.height);
-      if (!originalWidth || !originalHeight) throw new Error('ابعاد تصویر دوربین مشخص نیست؛ دوباره عکس بگیرید.');
-      setCropSource({uri:result.uri,width:originalWidth,height:originalHeight});
+      const permission=await requestCameraAccess();
+      if(!permission.granted)return Alert.alert('دوربین','مجوز دوربین لازم است.');
+      const capture=await launchCamera({mediaTypes:['images'],quality:0.75,exif:false});
+      const result=capture.assets?.[0];
+      if(capture.canceled||!result?.uri)return;
+      if(!result.width||!result.height)throw new Error('ابعاد تصویر مشخص نیست؛ دوباره عکس بگیرید.');
+      setCropSource({uri:result.uri,width:result.width,height:result.height});
       setCropX(0);setCropY(0);setCropZoom(1);
-      setPortraitCameraVisible(false);
-    } catch (error) { Alert.alert('تصویر پرسنلی', error?.message || 'ثبت تصویر ممکن نشد.'); }
-    finally { setPortraitBusy(false); }
+    }catch(error){Alert.alert('دوربین',error?.message||'ثبت تصویر انجام نشد.');}
+    finally{setPortraitBusy(false);}
   };
   const applyPortraitCrop = async () => {
     if (!cropSource || portraitBusy) return;
@@ -229,27 +215,7 @@ export default function DriverScreen({ route, navigation }) {
           <View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} disabled={portraitBusy} onPress={()=>setCropSource(null)}><Text style={s.portraitSecondaryText}>انصراف</Text></TouchableOpacity><TouchableOpacity style={s.portraitButton} disabled={portraitBusy} onPress={applyPortraitCrop}><Text style={s.portraitButtonText}>{portraitBusy?'در حال آماده‌سازی…':'تأیید برش ۳×۴'}</Text></TouchableOpacity></View>
         </View></View>
       </Modal>
-      <Modal visible={portraitCameraVisible} animationType="slide" onRequestClose={() => {if(!portraitBusy)setPortraitCameraVisible(false)}}>
-        <View style={{flex:1,backgroundColor:'#081e1b'}}>
-          <View style={{flex:1,alignItems:'center',justifyContent:'center',paddingTop:72,paddingBottom:158}}>
-            <View style={{width:portraitFrameWidth,aspectRatio:3/4,borderRadius:12,borderWidth:2,borderColor:'#fff',overflow:'hidden',backgroundColor:'#102f2b'}}>
-              {cameraPermission?.granted && <CameraView ref={portraitCamera} style={StyleSheet.absoluteFill} facing={portraitCameraFacing} mode="picture" active={portraitCameraVisible} onCameraReady={()=>setPortraitCameraReady(true)} onMountError={error=>{setPortraitCameraReady(false);Alert.alert('دوربین',error?.message||'راه‌اندازی دوربین ناموفق بود.')}}/>}
-            </View>
-          </View>
-          <View style={{position:'absolute',top:48,left:16,right:16,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'}}>
-            <TouchableOpacity accessibilityLabel="بستن دوربین" onPress={()=>{if(!portraitBusy)setPortraitCameraVisible(false)}} style={{padding:12,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="close" size={26} color="#fff"/></TouchableOpacity>
-            <Text style={{fontFamily:FONT.bold,color:'#fff',fontSize:16}}>تصویر پرسنلی تاکسیران</Text>
-          </View>
-          <View style={{position:'absolute',bottom:44,left:16,right:16,alignItems:'center',gap:16}}>
-            <Text style={{color:'#fff',fontFamily:FONT.regular,textAlign:'center'}}>عکس پرسنلی ۳×۴؛ صورت در مرکز کادر و نور مناسب باشد.</Text>
-            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-evenly',width:'100%'}}>
-              <TouchableOpacity accessibilityLabel="تغییر دوربین جلو و عقب" disabled={portraitBusy} onPress={()=>{setPortraitCameraReady(false);setPortraitCameraFacing(v=>v==='front'?'back':'front')}} style={{padding:14,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="camera-flip-outline" size={26} color="#fff"/></TouchableOpacity>
-              <TouchableOpacity accessibilityLabel="گرفتن تصویر پرسنلی" disabled={!portraitCameraReady||portraitBusy} onPress={takePortrait} style={{height:76,width:76,borderRadius:38,borderWidth:6,borderColor:'#fff',backgroundColor:portraitCameraReady&&!portraitBusy?'#0d7a5f':'#829b96',alignItems:'center',justifyContent:'center'}}>{portraitBusy?<ActivityIndicator/>:<MaterialCommunityIcons name="camera" size={32} color="#fff"/>}</TouchableOpacity>
-              <View style={{width:54}}/>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
       <Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: '#edf8f5' }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
       <DetailPageHeader title="اطلاعات تاکسیران" navigation={navigation}/>
       <View style={s.card}>

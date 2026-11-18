@@ -16,7 +16,7 @@ import { request, cachedValue } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useAuth} from './auth';
 
-export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false, autoConfirm = false, manualSystemCamera = false }) {
+export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = true, autoConfirm = false, manualSystemCamera = false }) {
   const {user}=useAuth();
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
@@ -32,7 +32,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
-  const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
+  const [useInlineCamera, setUseInlineCamera] = useState(false);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
   const autoSubmissionStarted = useRef(false);
@@ -194,7 +194,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   useEffect(() => {
-    if (!systemCameraFirst || manualSystemCamera || !perm?.granted || autoCameraStarted.current) return;
+    if (manualSystemCamera || !perm?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, perm?.granted]);
@@ -399,9 +399,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={openSystemCamera} style={[s.retryButton, s.nativeButton]}>
           <Text style={s.retryText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : 'عکس‌برداری با دوربین اصلی گوشی'}</Text>
         </TouchableOpacity>
-        {systemCameraFirst && <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={() => { setUseInlineCamera(value => !value); setCameraReady(false); setError(''); }}>
-          <Text style={s.cancel}>{useInlineCamera ? 'بازگشت به دوربین گوشی' : 'استفاده از دوربین داخلی برنامه'}</Text>
-        </TouchableOpacity>}
+
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
       </ScrollView>

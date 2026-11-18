@@ -32,11 +32,12 @@ export default function PresenceCheckWizard(){
  const[sending,setSending]=useState(false);
  const[error,setError]=useState('');
  const[expired,setExpired]=useState(false);
+ const[queued,setQueued]=useState(false);
  const coordsRef=useRef(null);
  const finishedRef=useRef(false);
  const allowExitRef=useRef(false);
 
- useEffect(()=>{getAppConfig().catch(()=>{});},[]);
+ useEffect(()=>{stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});getAppConfig().catch(()=>{});},[]);
  useEffect(()=>{
    if(step==='selfie')playSound('presenceSelfie').catch(()=>{});
    if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});
@@ -107,9 +108,10 @@ export default function PresenceCheckWizard(){
        queueIfOffline:true
      });
      if(!r?.ok||(!r?.queued&&(!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)))throw new Error('ثبت یا ذخیره در صف تأیید نشد.');
+     setQueued(!!r.queued);
      finishedRef.current=true;
      if(doneKey)await AsyncStorage.setItem(doneKey,'1');
-     await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done');
+     await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done',{slot,day,immediate,user_id:Number(user?.id||0)});
      await stopPresenceAlarm();
      setSending(false);
      setStep('done');
@@ -132,8 +134,8 @@ export default function PresenceCheckWizard(){
  const mm=String(Math.floor(secs/60)).padStart(2,'0');
  const ss=String(secs%60).padStart(2,'0');
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst manualSystemCamera onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst manualSystemCamera onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
 
  return <View style={s.page}>
    <View style={s.header}>
@@ -162,8 +164,8 @@ export default function PresenceCheckWizard(){
        <Text style={s.body}>لطفاً تا دریافت پاسخ سرور صبر کنید.</Text>
      </>}
      {step==='done'&&<>
-       <MaterialCommunityIcons name="check-decagram-outline" size={54} color="#087c58" style={s.icon} /><Text style={s.title}>صحت‌سنجی با موفقیت ثبت شد</Text>
-       <Text style={s.body}>حضور شما با موفقیت ثبت شد.</Text>
+       <MaterialCommunityIcons name="check-decagram-outline" size={54} color="#087c58" style={s.icon} /><Text style={s.title}>{queued?'صحت‌سنجی انجام شد — در صف ارسال':'صحت‌سنجی با موفقیت ثبت شد'}</Text>
+       <Text style={s.body}>{queued?'تصاویر در گوشی ذخیره شده‌اند و پس از برقراری ارتباط ارسال می‌شوند.':'حضور شما با موفقیت ثبت شد.'}</Text>
        <TouchableOpacity style={s.btn} activeOpacity={0.85} onPress={closeWizard}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
      </>}
      {step==='expired'&&<>

