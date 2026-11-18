@@ -55,21 +55,8 @@ class ShiftCalc
             ? min($rawOut, (int)$session['clip_end']) : $rawOut;
         if ($out <= $in) return [];
 
-        $blocked = is_array($session['gps_invalid'] ?? null) ? $session['gps_invalid'] : [];
-        if (!$blocked) return [[$in, $out]];
-        usort($blocked, function($a, $b) { return (int)($a[0] ?? 0) <=> (int)($b[0] ?? 0); });
-        $parts = [];
-        $cursor = $in;
-        foreach ($blocked as $range) {
-            $from = max($in, (int)($range[0] ?? 0));
-            $to = min($out, (int)($range[1] ?? 0));
-            if ($to <= $from) continue;
-            if ($from > $cursor) $parts[] = [$cursor, $from];
-            $cursor = max($cursor, $to);
-            if ($cursor >= $out) break;
-        }
-        if ($cursor < $out) $parts[] = [$cursor, $out];
-        return $parts;
+        // Device telemetry is diagnostic evidence, not an automatic deduction from recorded presence.
+        return [[$in, $out]];
     }
 
     static function sessionTotals($shift, $jdate, $sessions) {
@@ -114,7 +101,7 @@ class ShiftCalc
             $late=0;
             $early=0;
         }
-        if($type==='auto'){$expected=$offLike?0:(int)($shift['auto_expected_min']??453);$cap=max(0,(int)($shift['auto_ot_cap_min']??27));$rawExtra=$offLike?0:max(0,$worked-$expected);$overtime=$offLike?0:min($rawExtra,$cap);$surplus=$offLike?0:max(0,$rawExtra-$cap);$shortage=$offLike?0:max(0,$expected-min($inShift,$expected));if(empty($shift['night_calc']))$night=0;return ['jdate'=>$jdate,'worked'=>$worked,'in_shift'=>$inShift,'expected'=>$expected,'overtime'=>$overtime,'surplus'=>$surplus,'shortage'=>$shortage,'night'=>$night,'friday'=>$fridayMin,'holiday'=>$holidayMin,'friday_work'=>$fridayMin,'holiday_work'=>$holidayMin,'friday_overtime'=>$fridayMin,'holiday_overtime'=>$holidayMin,'total_overtime'=>$overtime+$fridayMin+$holidayMin,'holiday_friday_overtime'=>$fridayMin+$holidayMin,'friday_workday'=>$fridayMin>0?1:0,'late_in'=>0,'early_out'=>0,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>$offLike,'is_friday'=>$isFriday,'is_holiday'=>$isHoliday,'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??''];}
+        if($type==='auto'){$expected=$offLike?0:(int)($shift['auto_expected_min']??453);$cap=max(0,(int)($shift['auto_ot_cap_min']??27));$rawExtra=$offLike?0:max(0,$worked-$expected);$overtime=$offLike?0:min($rawExtra,$cap);$surplus=$offLike?0:max(0,$rawExtra-$cap);$shortage=$offLike?0:max(0,$expected-min($worked,$expected));if(empty($shift['night_calc']))$night=0;return ['jdate'=>$jdate,'worked'=>$worked,'in_shift'=>$inShift,'expected'=>$expected,'overtime'=>$overtime,'surplus'=>$surplus,'shortage'=>$shortage,'night'=>$night,'friday'=>$fridayMin,'holiday'=>$holidayMin,'friday_work'=>$fridayMin,'holiday_work'=>$holidayMin,'friday_overtime'=>$fridayMin,'holiday_overtime'=>$holidayMin,'total_overtime'=>$overtime+$fridayMin+$holidayMin,'holiday_friday_overtime'=>$fridayMin+$holidayMin,'friday_workday'=>$fridayMin>0?1:0,'late_in'=>0,'early_out'=>0,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>$offLike,'is_friday'=>$isFriday,'is_holiday'=>$isHoliday,'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??''];}
         $dailyCap=max(0,(int)(isset($cfg['daily_ot'])&&$cfg['daily_ot']!==null?$cfg['daily_ot']:($shift['daily_ot_cap']??27)));
         $rawExtra=$offLike?0:max(0,$worked-$expected);
         // Calendar overtime windows are additional eligible time, subject to the daily cap.
@@ -144,7 +131,7 @@ class ShiftCalc
           $windowExtra=(int)floor($windowSeconds/60);
         }
         $rawExtra=max($rawExtra,$windowExtra);
-        $overtime=$offLike?0:min($rawExtra,$dailyCap);$shortage=$offLike?0:max(0,$expected-min($inShift,$expected));if(empty($shift['night_calc']))$night=0;$surplus=$offLike?0:max(0,$rawExtra-$overtime);
+        $overtime=$offLike?0:min($rawExtra,$dailyCap);$shortage=$offLike?0:max(0,$expected-min($worked,$expected));if(empty($shift['night_calc']))$night=0;$surplus=$offLike?0:max(0,$rawExtra-$overtime);
         return ['jdate'=>$jdate,'worked'=>$worked,'in_shift'=>$inShift,'expected'=>$expected,'overtime'=>$overtime,'shortage'=>$shortage,'night'=>$night,'friday'=>$fridayMin,'holiday'=>$holidayMin,'friday_work'=>$fridayMin,'holiday_work'=>$holidayMin,'friday_overtime'=>$fridayMin,'holiday_overtime'=>$holidayMin,'total_overtime'=>$overtime+$fridayMin+$holidayMin,'holiday_friday_overtime'=>$fridayMin+$holidayMin,'friday_workday'=>$fridayMin>0?1:0,'late_in'=>$late,'early_out'=>$early,'surplus'=>$surplus,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>empty($segs)&&$type!=='floating'||$offLike,'is_friday'=>$isFriday,'is_holiday'=>$isHoliday,'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??''];}
     static function autoDayWork($shift,$jdate,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,null,$sessions,$isHoliday);}
     static function dayWork($shift,$jdate,$dayRow,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,$dayRow,$sessions,$isHoliday);}
