@@ -587,6 +587,12 @@ jobs:
               foreach (explode(';', $sql) as $statement) {
                   $statement = trim($statement);
                   if ($statement === '') continue;
+                  // Avoid rebuilding the complaints tables if their ENUMs are already current.
+                  if (preg_match("/^ALTER TABLE (school_complaints|school_complaint_events) MODIFY COLUMN (status|action) (ENUM\\([^)]*\\))/i", $statement, $match)) {
+                      $column = $pdo->prepare("SELECT COLUMN_TYPE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?");
+                      $column->execute([$match[1], $match[2]]);
+                      if (strtolower((string)$column->fetchColumn()) === strtolower($match[3])) continue;
+                  }
                   $pdo->exec($statement);
               }
               $schemaCount = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('school_complaints','school_complaint_settings','school_complaint_events')")->fetchColumn();
@@ -682,7 +688,7 @@ jobs:
                   (user_id, check_out, check_in)");
               }
               @unlink(__FILE__);
-              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true]);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
               error_log('Employment schema deployment: '.$error->getMessage());
@@ -706,7 +712,8 @@ jobs:
             "https://khat-yar.ir/assets/${installer}")"
           echo "${response}"
           echo "${response}" | grep -q '"employment_columns":2'
-          echo "Employment schema verified on production database."
+          echo "${response}" | grep -q '"school_complaints_schema":true'
+          echo "Employment and school complaints schema verified on production database."
 
       - name: Verify public homepage, login and deployed assets against committed payload
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
