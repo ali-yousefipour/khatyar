@@ -55,7 +55,7 @@ function sc_list($u,$inbox=false,$summary=false): array {
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
- if($summary)return Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes FROM school_complaints c WHERE $where",$p)??[];
+ if($summary)return Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes FROM school_complaints c WHERE $where",$p)??[];
  $page=max(1,min(100000,(int)($_GET['page']??1)));$size=max(1,min(100,(int)($_GET['page_size']??50)));
  $offset=($page-1)*$size;
  $sort=['id'=>'c.id','received_at'=>'c.received_at','status'=>'c.status','due_at'=>'c.due_at','tracking_code'=>'c.tracking_code','last_name'=>'c.last_name'][(string)($_GET['sort']??'id')]??'c.id';
@@ -82,7 +82,7 @@ route('PUT','/api/school-complaints/settings',function($p,$b,$u){
 route('GET','/api/school-complaints/topics',function($p,$b,$u){sc_need($u);return array_values(array_unique(array_merge(sc_config()['topics']??[],['سایر'])));});
 route('GET','/api/school-complaints/schools',function($p,$b,$u){
  sc_need($u);$q=sc_text((string)($_GET['q']??''),100,false);
- return Db::all('SELECT id,name,educational_district,address,education_level,school_type,gender,phone,latitude,longitude FROM school_service_schools WHERE is_active=1 AND name LIKE ? ORDER BY name LIMIT 100',['%'.$q.'%']);
+ return Db::all('SELECT id,code,name,educational_district,address,education_level,school_type,gender,shift,student_count,phone,latitude,longitude FROM school_service_schools WHERE is_active=1 AND (name LIKE ? OR code LIKE ? OR educational_district LIKE ? OR address LIKE ?) ORDER BY name LIMIT 100',array_fill(0,4,'%'.$q.'%'));
 });
 route('GET','/api/school-complaints/companies',function($p,$b,$u){
  sc_need($u);$q=sc_text((string)($_GET['q']??''),100,false);
@@ -97,7 +97,7 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  $type=$b['complainant_type']??'';if(!in_array($type,['parent','driver'],true))Http::error('نوع شاکی نامعتبر است',422);
  $first=sc_text($b['first_name']??'',100);$last=sc_text($b['last_name']??'',100);
  $phone=sc_phone($b['phone']??'',$type);$address=sc_text($b['address']??'',700,$type==='parent');
- $school=Db::one('SELECT id,name,educational_district,address,education_level,school_type,gender,phone,latitude,longitude FROM school_service_schools WHERE id=? AND is_active=1',[(int)($b['school_id']??0)]);
+ $school=Db::one('SELECT id,code,name,educational_district,address,education_level,school_type,gender,shift,student_count,phone,latitude,longitude FROM school_service_schools WHERE id=? AND is_active=1',[(int)($b['school_id']??0)]);
  $company=Db::one('SELECT id,name,address,manager_name,manager_mobile,landline_phone FROM school_service_companies WHERE id=? AND is_active=1',[(int)($b['company_id']??0)]);
  if(!$school||!$company)Http::error('مدرسه و شرکت معتبر انتخاب کنید',422);
  foreach(['address','educational_district','education_level','school_type','phone'] as $k)if(isset($b['school_snapshot'][$k]))$school[$k]=sc_text($b['school_snapshot'][$k],700,false);
@@ -119,13 +119,21 @@ route('GET','/api/school-complaints/{id}',function($p,$b,$u){
 });
 route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  $id=(int)$p['id'];sc_case($id,$u);$act=$b['action']??'';
- if(!in_array($act,['note','reply','escalate','close'],true))Http::error('عملیات نامعتبر است',422);
- $note=sc_text($b['body']??'',12000);$db=Db::pdo();$db->beginTransaction();
+ if(!in_array($act,['start','note','reply','escalate','return','close'],true))Http::error('عملیات نامعتبر است',422);
+ $note=sc_text($b['body']??'',12000,$act!=='start');$db=Db::pdo();$db->beginTransaction();
  try{
  $r=Db::one('SELECT * FROM school_complaints WHERE id=? FOR UPDATE',[$id]);
  if(!$r||$r['status']==='closed'||(int)$r['assigned_to']!==(int)$u['id']){$db->rollBack();Http::error('پرونده در اختیار شما نیست یا مختومه شده است',409);}
+ if($act==='start'&&$r['status']==='pending')Db::run("UPDATE school_complaints SET status='in_progress' WHERE id=?",[$id]);
+ if($act==='reply'&&in_array($r['status'],['pending','in_progress','returned'],true))Db::run("UPDATE school_complaints SET status='answered' WHERE id=?",[$id]);
+ if($act==='return'){
+ if($r['status']!=='escalated'||(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('بازگشت فقط توسط مسئول واحد مجاز است',409);}
+ $previous=Db::one("SELECT actor_id FROM school_complaint_events WHERE complaint_id=? AND action='escalate' ORDER BY id DESC LIMIT 1",[$id]);
+ $reviewer=(int)($previous['actor_id']??0);if(!$reviewer||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$reviewer])){$db->rollBack();Http::error('رسیدگی‌کننده قبلی فعال نیست',409);}
+ Db::run("UPDATE school_complaints SET status='returned',assigned_to=?,due_at=? WHERE id=?",[$reviewer,sc_deadline($r['review_hours']),$id]);
+ }
  if($act==='escalate'){
- if($r['status']!=='pending'){$db->rollBack();Http::error('پرونده قبلاً ارجاع شده است',409);}
+ if(!in_array($r['status'],['pending','in_progress','answered','returned'],true)){$db->rollBack();Http::error('پرونده قبلاً ارجاع شده است',409);}
  if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$r['supervisor_id']])){$db->rollBack();Http::error('مسئول واحد فعال نیست',422);}
  Db::run("UPDATE school_complaints SET status='escalated',assigned_to=supervisor_id,due_at=? WHERE id=?",[sc_deadline($r['supervisor_hours']),$id]);
  }
