@@ -2854,14 +2854,20 @@ route('POST', '/api/admin/work-policies', function($p,$b,$u){
   $applyLimit = !empty($b['apply_time_limit_on_approve']) ? 1 : 0;
   $config = isset($b['config']) ? json_encode($b['config'], JSON_UNESCAPED_UNICODE) : null;
   $active = isset($b['is_active']) ? (int)!!$b['is_active'] : 1;
-  if (!empty($b['id'])) {
-    Db::run("UPDATE work_policies SET title=?, description=?, apply_time_limit_on_approve=?, config=?, is_active=? WHERE id=?",
-      [$title,$desc,$applyLimit,$config,$active,(int)$b['id']]);
-    return ['id'=>(int)$b['id']];
-  }
-  $id = Db::insert("INSERT INTO work_policies(title,description,apply_time_limit_on_approve,config,is_active) VALUES(?,?,?,?,?)",
-    [$title,$desc,$applyLimit,$config,$active]);
-  return ['id'=>$id];
+  $options=is_array($b['config']['request_options']??null)?$b['config']['request_options']:[];
+  $target=$active?_req_specific_approver($options):null;
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    if(!empty($b['id'])){
+      $id=(int)$b['id'];
+      Db::run("UPDATE work_policies SET title=?, description=?, apply_time_limit_on_approve=?, config=?, is_active=? WHERE id=?",[$title,$desc,$applyLimit,$config,$active,$id]);
+    }else{
+      $id=Db::insert("INSERT INTO work_policies(title,description,apply_time_limit_on_approve,config,is_active) VALUES(?,?,?,?,?)",[$title,$desc,$applyLimit,$config,$active]);
+    }
+    $moved=$active&&$target!==null?_req_transfer_pending_policy($id,$target):0;
+    $pdo->commit();
+  }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
+  return ['id'=>$id,'reassigned_pending'=>$moved];
 }, false, ADMIN);
 
 // حذف سیاست کاری
@@ -2878,8 +2884,18 @@ route('POST', '/api/admin/work-policies/{id}/assign', function($p,$b,$u){
   $ids = $b['user_ids'] ?? [];
   if (!is_array($ids) || !count($ids)) Http::error('کاربری انتخاب نشده است', 422);
   $pid = (int)$p['id'];
-  foreach ($ids as $uid) Db::run("UPDATE users SET work_policy_id=? WHERE id=?", [$pid, (int)$uid]);
-  return ['ok'=>true, 'count'=>count($ids)];
+  $policy=Db::one('SELECT * FROM work_policies WHERE id=?',[$pid]);
+  if(!$policy)Http::error('سیاست کاری یافت نشد',404);
+  $cfg=is_array($policy['config'])?$policy['config']:json_decode((string)$policy['config'],true);
+  $options=is_array($cfg['request_options']??null)?$cfg['request_options']:[];
+  $target=!empty($policy['is_active'])?_req_specific_approver($options):null;
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    foreach($ids as $uid)Db::run("UPDATE users SET work_policy_id=? WHERE id=?",[$pid,(int)$uid]);
+    $moved=$target!==null?_req_transfer_pending_policy($pid,$target):0;
+    $pdo->commit();
+  }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();throw $error;}
+  return ['ok'=>true,'count'=>count($ids),'reassigned_pending'=>$moved];
 }, false, ADMIN);
 
 // مانده مرخصی ابتدای دوره (آرایه‌ای از {user_id, minutes})
@@ -4668,6 +4684,7 @@ function _req_explicit_active_manager(int $userId,array $allowedRoles): array {
 // Explicit workflow belongs to the REQUEST OWNER, never to the reviewer.
 // A reviewer can cover several regions with different approval policies.
 function _req_zone_chain(int $ownerId): ?array {
+  if((_req_policy_options($ownerId,false)['approval_mode']??'hierarchical')==='specific')return null;
   require_once __DIR__.'/ZoneWorkflow.php';
   $row=Db::one("SELECT zone_id FROM users WHERE id=? AND is_active=1",[$ownerId]);
   if(!$row)return null;
@@ -4731,32 +4748,61 @@ function _req_hierarchy_managers(int $uid): array {
   foreach($users as $manager)if(OrgChart::roleKey($manager['role_title'])===$nextRole)return [(int)$manager['id']];
   return [];
 }
+// Specific work-policy routing overrides regional hierarchy, including unfinished stages.
+function _req_specific_approver(array $options): ?int {
+  if(($options['approval_mode']??'hierarchical')!=='specific')return null;
+  $id=(int)($options['approver_id']??0);
+  if($id<=0||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
+  return $id;
+}
+function _req_transfer_pending_policy(int $policyId,int $target,?int $ownerId=null): int {
+  if(!Db::one("SHOW TABLES LIKE 'requests'"))return 0;
+  $where=$ownerId===null?'':' AND r.user_id=?';
+  $args=[$target,$policyId,$target];if($ownerId!==null)$args[]=$ownerId;
+  return (int)Db::run("UPDATE requests r JOIN users u ON u.id=r.user_id SET r.pending_on=? WHERE u.work_policy_id=? AND r.status='pending' AND NOT (r.pending_on <=> ?)".$where,$args)->rowCount();
+}
+// Also repair policies switched before this fix, when either participant opens their list.
+function _req_sync_specific_policy_requests(?int $reviewerId=null,?int $ownerId=null): int {
+  if(!Db::one("SHOW TABLES LIKE 'requests'"))return 0;
+  $policies=$ownerId===null?Db::all('SELECT id,config FROM work_policies WHERE is_active=1'):
+    Db::all('SELECT wp.id,wp.config FROM work_policies wp JOIN users u ON u.work_policy_id=wp.id WHERE u.id=? AND wp.is_active=1',[$ownerId]);
+  $count=0;
+  foreach($policies as $policy){
+    $cfg=is_array($policy['config'])?$policy['config']:json_decode((string)$policy['config'],true);
+    $options=is_array($cfg['request_options']??null)?$cfg['request_options']:[];$target=(int)($options['approver_id']??0);
+    if(($options['approval_mode']??'hierarchical')!=='specific'||$target<=0||($reviewerId!==null&&$target!==$reviewerId))continue;
+    if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$target]))continue;
+    $count+=_req_transfer_pending_policy((int)$policy['id'],$target,$ownerId);
+  }
+  return $count;
+}
+function _req_refresh_specific_request(array $request): array {
+  if(($request['status']??'')!=='pending')return $request;
+  $target=_req_specific_approver(_req_policy_options((int)$request['user_id'],false));
+  if($target===null||$target===(int)($request['pending_on']??0))return $request;
+  Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']??null]);
+  return Db::one('SELECT * FROM requests WHERE id=?',[(int)$request['id']])??$request;
+}
 function _req_approver($uid){
-  // A configured region owns its approval chain, including staff whose work
-  // policy previously named an unrelated specific approver.
+  $options=_req_policy_options($uid);
+  $specific=_req_specific_approver($options);
+  if($specific!==null)return $specific;
   $zoneChain=_req_zone_chain((int)$uid);
   if($zoneChain!==null)return $zoneChain[0];
-  $options=_req_policy_options($uid);
-  $mode=$options['approval_mode']??'hierarchical';
-  if ($mode === 'specific') {
-    $sp=(int)($options['approver_id']??0);
-    if(!$sp||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$sp]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
-    return $sp ?: null;
-  }
   $mgrs=_req_hierarchy_managers((int)$uid);
-  return $mgrs[0]??null; // Staff without a region retain their legacy organizational chain.
+  return $mgrs[0]??null;
 }
 
-// Recalculate the unfinished stage from the requester's CURRENT regional chain.
+// Resolve the unfinished stage from the requester's CURRENT policy/region.
 // A previous approver may no longer be a manager, but their role still marks
 // the completed stage; do not restart approval or erase recorded decisions.
 function _req_current_pending_target(array $request): ?int {
   require_once __DIR__.'/OrgChart.php';
   $owner=(int)($request['user_id']??0);
   if($owner<=0)return null;
+  $specific=_req_specific_approver(_req_policy_options($owner,false));
+  if($specific!==null)return $specific;
   $configured=_req_zone_chain($owner);
-  if($configured===null && (_req_policy_options($owner,false)['approval_mode']??'hierarchical')!=='hierarchical')
-    return (int)($request['pending_on']??0) ?: null;
   if($configured!==null){
     // An existing pending request must be reassigned to the same stage if
     // possible, or to the first remaining stage after the last accepted actor.
@@ -4843,24 +4889,25 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
   if($unassignedOnly)$where.=' AND r.pending_on IS NULL';
   $limit=$unassignedOnly?25:1000;
   $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT $limit",$params);
-  $changed=0;
+  $changed=0;$ownerOptions=[];$specificTargets=[];
   foreach($rows as $request){
-    // Http::error() exits rather than throwing. Never enter chain() for an
-    // unconfigured region while listing/reconciling unrelated requests.
-    require_once __DIR__.'/ZoneWorkflow.php';
-    $ownerZone=Db::one('SELECT zone_id FROM users WHERE id=?',[(int)$request['user_id']]);
-    $ownerZoneId=(int)($ownerZone['zone_id']??0);
-    if($ownerZoneId>0 && ZoneWorkflow::config($ownerZoneId)===null)continue;
-    try {
-      if(_req_zone_chain((int)$request['user_id'])===null &&
-         (_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
-    } catch(Throwable $error) {
-      // One region awaiting configuration must not break other inboxes.
-      error_log('pending request skipped (region workflow incomplete): request '.(int)$request['id']);
-      continue;
+    $owner=(int)$request['user_id'];
+    $options=$ownerOptions[$owner]??= _req_policy_options($owner,false);
+    if(($options['approval_mode']??'hierarchical')==='specific'){
+      if(!array_key_exists($owner,$specificTargets)){
+        $person=(int)($options['approver_id']??0);
+        $specificTargets[$owner]=$person>0&&Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$person])?$person:0;
+      }
+      $target=$specificTargets[$owner];
+    }else{
+      // An incomplete regional workflow must not block unrelated inbox entries.
+      require_once __DIR__.'/ZoneWorkflow.php';
+      $ownerZone=Db::one('SELECT zone_id FROM users WHERE id=?',[$owner]);
+      $ownerZoneId=(int)($ownerZone['zone_id']??0);
+      if($ownerZoneId>0&&ZoneWorkflow::config($ownerZoneId)===null)continue;
+      try{$target=_req_current_pending_target($request);}
+      catch(Throwable $error){error_log('pending request reviewer reconstruction failed: '.(int)$request['id']);continue;}
     }
-    try{$target=_req_current_pending_target($request);}
-    catch(Throwable $error){error_log('pending request reviewer reconstruction failed: '.(int)$request['id']);continue;}
     $current=(int)($request['pending_on']??0);
     if(!$target||$target===$current)continue;
     $update=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
@@ -5265,9 +5312,10 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 
 // درخواست‌های من
 route('GET', '/api/my/requests', function($p,$b,$u){
+  try{_req_sync_specific_policy_requests(null,(int)$u['id']);}catch(Throwable $error){error_log('specific request routing refresh failed');}
   _ensure_requests_table();
-  // Listing a user's requests must remain read-only. Region reassignment is
-  // performed by the dedicated reconciliation workflow, not by this GET.
+  // Regional stages are not recalculated here. The fixed-policy repair above
+  // changes only the pending recipient, preserving decisions and attendance.
   // A faulty or incomplete region configuration must not produce a 500 here.
   $visibleFilter=Db::one("SHOW COLUMNS FROM requests WHERE Field='user_deleted_at'")?' AND r.user_deleted_at IS NULL':'';
   // اطمینان از وجود ستون جایگزین
@@ -5319,7 +5367,7 @@ route('POST', '/api/my/requests/{id}/cancel', function($p,$b,$u){
 route('GET', '/api/my/request-inbox', function($p,$b,$u){
   // Reassignment is best-effort. A chart/schema error must not hide already
   // assigned requests or prevent the reviewer from opening their inbox.
-  try { _req_reconcile_pending_approvals(null,(int)$u['id']); }
+  try { _req_sync_specific_policy_requests((int)$u['id']);_req_reconcile_pending_approvals(null,(int)$u['id']); }
   catch (Throwable $e) { error_log('request inbox reconciliation failed: '.$e->getMessage()); }
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.created_at,r.attachment_name,r.selfie_data,
      CONCAT(us.first_name,' ',us.last_name) requester
@@ -5339,6 +5387,7 @@ route('GET', '/api/requests/{id}', function($p,$b,$u){
 route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $r = Db::one("SELECT * FROM requests WHERE id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد',404);
+  if(!_req_is_root_admin($u))$r=_req_refresh_specific_request($r);
   if ((int)($r['pending_on']??0)!==(int)$u['id'] && !_req_is_root_admin($u)) Http::error('این درخواست در کارتابل شما نیست',403);
   if($r['status']!=='pending')Http::error('این درخواست دیگر در انتظار بررسی نیست',409);
   $decision = $b['decision'] ?? ''; // approve / reject
@@ -6036,6 +6085,7 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
   $req=Db::one("SELECT * FROM requests WHERE id=?",[$id]);
   if(!$req) Http::error('درخواست یافت نشد',404);
+  if(!_req_is_root_admin($u))$req=_req_refresh_specific_request($req);
   if(!_req_is_root_admin($u)&&($req['status']!=='pending'||(int)($req['pending_on']??0)!==(int)$u['id']))Http::error('این درخواست در کارتابل شما نیست',403);
   if($req['status']!=='pending'&&!($status==='approved'&&$req['status']==='rejected')) Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
