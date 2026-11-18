@@ -366,14 +366,52 @@ route('GET','/api/school-service/export-filtered',function($p,$b,$u){
     $group=" GROUP BY i.violation_date";break;
   }
   $items=Db::all("SELECT $fields $base $extra $where $group ORDER BY inspections DESC LIMIT 20000",$a);
-  if($format==='json')return ['ok'=>true,'columns'=>$columns,'items'=>array_slice($items,0,100),'total'=>count($items),'limited'=>count($items)>=20000];
+  if($format==='json'){
+    $groupTotal=count($items);
+    $visitTotal=array_sum(array_map(static fn($item)=>(int)($item['inspections']??0),$items));
+    return ['ok'=>true,'columns'=>$columns,'items'=>array_slice($items,0,100),'total'=>$groupTotal,'limited'=>$groupTotal>100||$groupTotal>=20000,
+      'summary'=>['total'=>$groupTotal,'visits'=>$visitTotal,'groups'=>$groupTotal,'scope'=>'all_filtered','truncated'=>$groupTotal>=20000]];
+  }
   $exportRows=[];foreach($items as $item){$row=[];foreach($columns as $col)$row[]=$item[$col['key']]??'';$exportRows[]=$row;}
   _ssv_report_excel(array_column($columns,'label'),$exportRows,'سرویس_مدارس_'.$type.'.xlsx','گزارش','گزارش تجمیعی سرویس مدارس','نوع گزارش: '.$type.' | از '.$from.' تا '.$to.' | ناحیه: '.$district);return;
  }
  if($format==='json'){
-  $total=(int)(Db::one("SELECT COUNT(*) n $base $where",$a)['n']??0);
-  $items=Db::all("SELECT i.violation_date report_date,COALESCE(s.name,'نامشخص') school,COALESCE(c.name,'نامشخص') company,CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) plate,i.educational_district district,i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code $base $where ORDER BY i.id DESC LIMIT 100",$a);
-  return ['ok'=>true,'total'=>$total,'items'=>$items,'columns'=>[['key'=>'report_date','label'=>'تاریخ'],['key'=>'school','label'=>'مدرسه'],['key'=>'company','label'=>'شرکت'],['key'=>'plate','label'=>'پلاک'],['key'=>'district','label'=>'ناحیه']],'limited'=>$total>100];
+  // The summary is calculated for the complete filtered dataset, independently of preview LIMIT 100.
+  $metrics=Db::one("SELECT COUNT(*) total,
+    COUNT(DISTINCT i.inspector_user_id) inspectors,
+    COUNT(DISTINCT i.school_id) schools,
+    COUNT(DISTINCT i.company_id) companies,
+    COUNT(DISTINCT CASE WHEN COALESCE(i.plate_two,'')<>'' THEN CONCAT_WS('-',i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code) END) vehicles,
+    COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM school_service_inspection_violations iv WHERE iv.inspection_id=i.id) THEN i.id END) violation_visits
+    $base $where",$a)?:[];
+  $total=(int)($metrics['total']??0);
+  $items=Db::all("SELECT i.violation_date report_date,COALESCE(s.name,'نامشخص') school,
+    COALESCE(c.name,'نامشخص') company,
+    CONCAT(COALESCE(i.plate_two,''),' ',COALESCE(i.plate_letter,''),' ',COALESCE(i.plate_three,''),' ایران ',COALESCE(i.plate_region_code,'')) plate,
+    i.educational_district district,i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code,
+    i.vehicle_type vehicle_type,i.vehicle_color vehicle_color,i.certificate_status certificate_status,
+    i.violation_time report_time,i.location_text location_text,i.passenger_count passengers,
+    i.description description,
+    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),'نامشخص') inspector,
+    (SELECT GROUP_CONCAT(vt.title ORDER BY vt.title SEPARATOR '، ')
+       FROM school_service_inspection_violations iv
+       JOIN school_service_violation_types vt ON vt.id=iv.violation_type_id
+       WHERE iv.inspection_id=i.id) violations
+    $base LEFT JOIN users u ON u.id=i.inspector_user_id $where ORDER BY i.id DESC LIMIT 100",$a);
+  return ['ok'=>true,'total'=>$total,'items'=>$items,
+   'columns'=>[
+    ['key'=>'report_date','label'=>'تاریخ'],['key'=>'report_time','label'=>'ساعت'],
+    ['key'=>'inspector','label'=>'بازرس'],['key'=>'school','label'=>'مدرسه'],
+    ['key'=>'company','label'=>'شرکت'],['key'=>'plate','label'=>'پلاک'],
+    ['key'=>'vehicle_type','label'=>'نوع خودرو'],['key'=>'certificate_status','label'=>'وضعیت صلاحیت'],
+    ['key'=>'violations','label'=>'تخلفات'],['key'=>'district','label'=>'ناحیه'],
+    ['key'=>'location_text','label'=>'محل بازدید']],
+   'summary'=>[
+     'total'=>$total,'visits'=>$total,'inspectors'=>(int)($metrics['inspectors']??0),
+     'schools'=>(int)($metrics['schools']??0),'companies'=>(int)($metrics['companies']??0),
+     'vehicles'=>(int)($metrics['vehicles']??0),'violation_visits'=>(int)($metrics['violation_visits']??0),
+     'scope'=>'all_filtered'],
+   'limited'=>$total>100];
  }
  $rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE ".implode(' AND ',$w)." ORDER BY i.id DESC LIMIT 20000",$a);$head=['ردیف','ناحیه','شرکت','نوع مدرسه','مدرسه','پلاک','نوع خودرو','رنگ خودرو','تخلفات','سرنشین جلو','سرنشین عقب','مجموع سرنشین','نوع راننده','وضعیت گواهی صلاحیت','تاریخ','ساعت','محل ثبت تخلف','توضیحات','بازرس'];$out=[];foreach($rows as $i=>$r){$vs=Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$r['id']]);$out[]=[$i+1,$r['educational_district'],$r['company_name'],$r['school_gender'],$r['school_name'],trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران '.($r['plate_region_code']??'')),$r['vehicle_type'],$r['vehicle_color'],implode('، ',array_column($vs,'title')),($r['passenger_front_count']??0),($r['passenger_rear_count']??0),($r['passenger_count']??((int)($r['passenger_front_count']??0)+(int)($r['passenger_rear_count']??0))),$r['driver_gender'],$r['certificate_status'],$r['violation_date'],$r['violation_time'],$r['location_text'],$r['description'],$r['inspector_name']];}_ssv_report_excel($head,$out,'سرویس_مدارس_بازدیدهای_فیلترشده.xlsx','بازدیدها','ریز بازدیدهای سرویس مدارس','بازه: '.$from.' تا '.$to.' | ناحیه: '.$district.' | جست‌وجو: '.$q);
 },false,99);
