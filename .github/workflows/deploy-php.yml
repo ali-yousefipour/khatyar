@@ -69,6 +69,7 @@ jobs:
           php tests/attendance_peak_load_guard_test.php
           php -l lib/routes.php
           php -l lib/school_service_sepand.php
+          php -l lib/school_complaints_routes.php
           php -l lib/CompanyWork.php
           php -l lib/company_work_routes.php
           php tests/company_work_test.php
@@ -217,7 +218,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -296,7 +297,7 @@ jobs:
                 continue
               fi
 
-              if [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Push.php" ] || [ "${rel}" = "lib/ZoneWorkflow.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+              if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Push.php" ] || [ "${rel}" = "lib/ZoneWorkflow.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
                 continue
               fi
 
@@ -364,6 +365,7 @@ jobs:
               'subscription_invoice_routes.php' => 'subscription_invoice_routes.php',
               'RadioShiftGate.php' => 'RadioShiftGate.php',
               'school_service_routes_extra.php' => 'school_service_routes_extra.php',
+              'school_complaints_routes.php' => 'school_complaints_routes.php',
               'school_service_sepand.php' => 'school_service_sepand.php',
               'complaints_routes_extra.php' => 'complaints_routes_extra.php',
           ];
@@ -404,7 +406,7 @@ jobs:
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
               echo 'set ssl:verify-certificate no'
-              for name in school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php ZoneWorkflow.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
+              for name in school_complaints_routes.php school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php ZoneWorkflow.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/khat-yar.ir/assets/.attendance-deploy-$name"
                 fi
@@ -425,7 +427,7 @@ jobs:
             echo "${response}" | grep -q '"ok":true'
             # Assert that the host-side installer actually copied each module
             # to the canonical /lib directory. Staging alone is insufficient.
-            for name in Db.php Jwt.php Http.php KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php routes.php Push.php ZoneWorkflow.php complaints_routes_extra.php school_service_sepand.php ShiftCalc.php; do
+            for name in Db.php Jwt.php Http.php KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php routes.php Push.php ZoneWorkflow.php complaints_routes_extra.php school_complaints_routes.php school_service_sepand.php ShiftCalc.php; do
               local_path="deploy-payload/lib/${name}"
               # Diff-only payloads may omit modules; never read a nonexistent
               # checksum or turn a successful host copy into a false failure.
@@ -475,7 +477,7 @@ jobs:
               echo "FTP verify skipped for ${rel} (host-side installer verified canonical checksum)."
               continue
             fi
-            if [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+            if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
               echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi
@@ -577,6 +579,18 @@ jobs:
                   $config['db_user'], $config['db_pass'],
                   [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]
               );
+              // Apply school complaint schema only during deployment.
+              $migration = dirname(__DIR__, 2) . '/migrations/2026_11_18_school_complaints.sql';
+              if (!is_file($migration)) throw new RuntimeException('School complaint migration missing');
+              $sql = file_get_contents($migration);
+              if ($sql === false) throw new RuntimeException('School complaint migration unreadable');
+              foreach (explode(';', $sql) as $statement) {
+                  $statement = trim($statement);
+                  if ($statement === '') continue;
+                  $pdo->exec($statement);
+              }
+              $schemaCount = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('school_complaints','school_complaint_settings','school_complaint_events')")->fetchColumn();
+              if ((int)$schemaCount !== 3) throw new RuntimeException('School complaint schema verification failed');
               foreach (['employment_start_date','employment_end_date'] as $column) {
                   $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name=?");
                   $check->execute([$column]);
