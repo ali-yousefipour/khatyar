@@ -28,3 +28,18 @@ CREATE TABLE IF NOT EXISTS school_complaint_events (
 
 ALTER TABLE school_complaints MODIFY COLUMN status ENUM('pending','escalated','closed','in_progress','answered','returned') NOT NULL DEFAULT 'pending';
 ALTER TABLE school_complaint_events MODIFY COLUMN action ENUM('created','note','reply','escalate','close','start','return') NOT NULL;
+
+CREATE TABLE IF NOT EXISTS school_complaint_overdue_notices (
+ complaint_id BIGINT UNSIGNED NOT NULL, stage_event_id BIGINT UNSIGNED NOT NULL,
+ recipient_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(complaint_id,stage_event_id,recipient_id),
+ CONSTRAINT fk_scon_case FOREIGN KEY(complaint_id) REFERENCES school_complaints(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS school_complaint_attachments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, complaint_id BIGINT UNSIGNED NOT NULL,
+ uploader_id INT NOT NULL, filename VARCHAR(255) NOT NULL, mime VARCHAR(80) NOT NULL,
+ byte_size INT UNSIGNED NOT NULL, digest CHAR(64) NOT NULL, content MEDIUMBLOB NOT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_sca_digest(complaint_id,digest), KEY idx_sca_case(complaint_id,id),
+ CONSTRAINT fk_sca_case FOREIGN KEY(complaint_id) REFERENCES school_complaints(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
