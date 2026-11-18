@@ -87,6 +87,20 @@ function cron_auto_exit(&$log) {
     }
   }
   $log['auto_exit'] = ['closed' => $n];
+  // Reuse the existing 15-minute cron schedule, without creating schema at runtime.
+  cron_school_complaints($log);
+
+}
+
+function cron_school_complaints(&$log) {
+  $file=dirname(__DIR__).'/lib/school_complaints_routes.php';
+  if(!is_file($file)){$log['school_complaints']=['skipped'=>'module_missing'];return;}
+  try{
+    $tables=Db::one("SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('school_complaints','school_complaint_overdue_notices')");
+    if((int)$tables['n']!==2){$log['school_complaints']=['skipped'=>'migration_required'];return;}
+    require_once $file;
+    $log['school_complaints']=['notices'=>sc_overdue_scan()];
+  }catch(Throwable $e){error_log('school complaint deadline scan failed: '.$e->getMessage());$log['school_complaints']=['error'=>'deadline scan failed'];}
 }
 
 // ---------- ۲) پیامک هشدار انقضا (در صورت فعال‌بودن) ----------
@@ -288,6 +302,7 @@ function jdate_fa_label(){
 $cronOk = true; $cronErr = null;
 try {
   switch ($task) {
+    case 'school-complaints': cron_school_complaints($log); break;
     case 'auto-exit': cron_auto_exit($log); break;
     case 'sms-expiry': cron_sms_expiry($log); break;
     case 'push-expiry': cron_push_expiry($log); break;
