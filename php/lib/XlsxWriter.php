@@ -25,6 +25,7 @@ class XlsxWriter {
   private $headerGroups = [];
   private $decimalCols = [];
   private $rowHeights = [];
+  private $fontName = 'Tahoma';
 
   function __construct(array $headers) { $this->headers = array_values($headers); }
 
@@ -35,6 +36,7 @@ class XlsxWriter {
 
   /** قالب خواناتر ویژهٔ خروجی‌های مدیریتی: سرستون رنگی، ردیف‌های راه‌راه، فیلتر و تثبیت سرستون. */
   function setProfessionalStyle($enabled = true) { $this->professionalStyle = (bool)$enabled; }
+  function setFontName($name) { $this->fontName = trim((string)$name) ?: 'Tahoma'; }
   function setReportHeading($title, $subtitle, $summary) { $this->reportHeading = [(string)$title,(string)$subtitle,(string)$summary]; }
   function setHeaderGroup($startCol,$endCol,$title) { $this->headerGroups[]=[(int)$startCol,(int)$endCol,(string)$title]; }
   function setDecimalCol($idx) { $this->decimalCols[(int)$idx]=true; }
@@ -84,7 +86,7 @@ class XlsxWriter {
     return htmlspecialchars((string)$v, ENT_QUOTES | ENT_XML1, 'UTF-8');
   }
 
-  function output($filename, $sheetName = 'Sheet1') {
+  function output($filename, $sheetName = 'Sheet1', $returnFile = false) {
     $headerRow=($this->reportHeading?4:1)+($this->headerGroups?1:0);
     $tmp = tempnam(sys_get_temp_dir(), 'xlsx_');
     $zip = new ZipArchive();
@@ -126,7 +128,7 @@ class XlsxWriter {
     $zip->addFromString('xl/styles.xml',
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.
-      '<fonts count="4"><font><sz val="11"/><name val="Tahoma"/></font><font><b/><sz val="11"/><name val="Tahoma"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Tahoma"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="Tahoma"/></font></fonts>'.
+      '<fonts count="4"><font><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="'.self::xmlEsc($this->fontName).'"/></font></fonts>'.
       '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF087F5B"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F8F4"/><bgColor indexed="64"/></patternFill></fill></fills>'.
       '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD7E5DE"/></left><right style="thin"><color rgb="FFD7E5DE"/></right><top style="thin"><color rgb="FFD7E5DE"/></top><bottom style="thin"><color rgb="FFD7E5DE"/></bottom><diagonal/></border></borders>'.
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'.
@@ -272,6 +274,7 @@ class XlsxWriter {
     }
 
     $zip->close();
+    if ($returnFile) return $tmp;
 
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="'.$filename.'"');
@@ -280,4 +283,55 @@ class XlsxWriter {
     @unlink($tmp);
     exit;
   }
+  /** Combine two professionally formatted XLSX exports, preserving photos in both sheets. */
+  public static function outputTwoSheets(XlsxWriter $first, XlsxWriter $second, $filename, $firstName='خودروها', $secondName='موتورسیکلت‌ها') {
+    $file1=$first->output($filename,$firstName,true);
+    $file2=$second->output($filename,$secondName,true);
+    $target=tempnam(sys_get_temp_dir(),'xlsx_two_');
+    $a=new ZipArchive();$b=new ZipArchive();$z=new ZipArchive();
+    try {
+      if($a->open($file1)!==true||$b->open($file2)!==true||$z->open($target,ZipArchive::OVERWRITE)!==true)throw new RuntimeException('ساخت فایل اکسل انجام نشد');
+      for($i=0;$i<$a->numFiles;$i++){
+        $name=$a->getNameIndex($i);
+        if(substr($name,-1)!=='/')$z->addFromString($name,$a->getFromIndex($i));
+      }
+      $xml2=$b->getFromName('xl/worksheets/sheet1.xml');
+      if($xml2===false)throw new RuntimeException('شیت موتورسیکلت‌ها یافت نشد');
+      $z->addFromString('xl/worksheets/sheet2.xml',$xml2);
+      $images=$b->locateName('xl/drawings/drawing1.xml')!==false;
+      if($images){
+        $z->addFromString('xl/drawings/drawing2.xml',$b->getFromName('xl/drawings/drawing1.xml'));
+        $sheetRels=$b->getFromName('xl/worksheets/_rels/sheet1.xml.rels');
+        $drawingRels=$b->getFromName('xl/drawings/_rels/drawing1.xml.rels');
+        if($sheetRels===false||$drawingRels===false)throw new RuntimeException('پیوند تصاویر شیت دوم یافت نشد');
+        $z->addFromString('xl/worksheets/_rels/sheet2.xml.rels',str_replace('drawing1.xml','drawing2.xml',$sheetRels));
+        $z->addFromString('xl/drawings/_rels/drawing2.xml.rels',preg_replace('/image(\d+)\.jpeg/','s2_image$1.jpeg',$drawingRels));
+        for($i=0;$i<$b->numFiles;$i++){
+          $name=$b->getNameIndex($i);
+          if(strpos($name,'xl/media/')===0 && substr($name,-1)!=='/')$z->addFromString('xl/media/s2_'.basename($name),$b->getFromIndex($i));
+        }
+      }
+      $types=$z->getFromName('[Content_Types].xml');
+      $extra='<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+      if($images)$extra.='<Override PartName="/xl/drawings/drawing2.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>';
+      $z->addFromString('[Content_Types].xml',str_replace('</Types>',$extra.'</Types>',$types));
+      $book=$z->getFromName('xl/workbook.xml');
+      $book=str_replace('</sheets>','<sheet name="'.self::xmlEsc(mb_substr($secondName,0,31)).'" sheetId="2" r:id="rId2"/></sheets>',$book);
+      $z->addFromString('xl/workbook.xml',$book);
+      $rels=$z->getFromName('xl/_rels/workbook.xml.rels');
+      $rels=str_replace('Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"','Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"',$rels);
+      $rels=str_replace('</Relationships>','<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>',$rels);
+      $z->addFromString('xl/_rels/workbook.xml.rels',$rels);
+      $z->close();$a->close();$b->close();
+      header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      header('Content-Disposition: attachment; filename="personnel_vehicle_checklists.xlsx"');
+      header('Content-Length: '.filesize($target));
+      readfile($target);
+    } finally {
+      @$a->close();@$b->close();@$z->close();
+      @unlink($file1);@unlink($file2);@unlink($target);
+    }
+    exit;
+  }
+
 }
