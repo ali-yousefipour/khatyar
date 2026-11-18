@@ -33,8 +33,9 @@ $dispatchEnd=strpos($source,'// A phone polls',$dispatchStart);
 $dispatch=substr($source,$dispatchStart,$dispatchEnd-$dispatchStart);
 function dispatch($query,$token=null){global $dispatch,$CONFIG;$_GET=$query;$_POST=[];$_SERVER['REQUEST_METHOD']='GET';Http::$token=$token;eval($dispatch);return $u;}
 $access=Jwt::sign(['sub'=>7,'dt'=>'web','device_id'=>'device-original','t'=>'a'],$CONFIG['jwt_secret'],60);
+$androidAccess=Jwt::sign(['sub'=>7,'dt'=>'android','device_id'=>'device-original','t'=>'a'],$CONFIG['jwt_secret'],60);
 // Mixed workload represents 200 app and 20 browser authentication calls, not a DB load benchmark.
-for($i=0;$i<220;$i++)check(dispatch(['op'=>'poll'],$access)['id']===7,'Valid exact-device session rejected');
+for($i=0;$i<220;$i++)check(dispatch(['op'=>'poll'],$i<200?$androidAccess:$access)['id']===7,'Valid exact-device session rejected');
 function rejects($query,$token,$status){try{dispatch($query,$token);throw new RuntimeException('Unauthorized request accepted');}catch(RadioResponse $e){check($e->getCode()===$status,'Unexpected rejection status');}}
 Db::$revoked='2026-01-01';rejects(['op'=>'poll'],$access,401);Db::$revoked=null;
 Db::$deviceEnabled=false;rejects(['op'=>'poll'],$access,403);Db::$deviceEnabled=true;
