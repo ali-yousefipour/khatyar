@@ -144,7 +144,7 @@ same('complete night shift has no shortage',0,$result['data']['shortage']);
 $dailyGpsRange=[strtotime($nextBase.'02:00'),strtotime($nextBase.'02:15')];
 $result=$dailyPerformanceHandler([],[],['id'=>1]);
 same('after-midnight GPS evidence stays on the entry date',15,$result['data']['gps_invalid_min']);
-same('real GPS gap remains in shortage',15,$result['data']['shortage']);
+same('GPS evidence must not increase attendance shortage',0,$result['data']['shortage']);
 $dailyGpsRange=null;
 Db::$attendance[0]['check_out']=$nextBase.'06:30:00';
 $result=$dailyPerformanceHandler([],[],['id'=>1]);
