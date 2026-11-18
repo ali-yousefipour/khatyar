@@ -67,30 +67,44 @@ function sc_case($id,$u): array {
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
  $r['can_act']=$r['status']!=='closed'&&(int)$r['assigned_to']===(int)$u['id'];
  $r['can_attach']=$r['status']!=='closed'&&((int)$r['assigned_to']===(int)$u['id']||(int)$r['created_by']===(int)$u['id']);
+ $r['assigned_name']=Db::one("SELECT CONCAT_WS(' ',first_name,last_name) name FROM users WHERE id=?",[$r['assigned_to']])['name']??'';
+ $r['remaining_minutes']=(int)floor(((new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran')))->getTimestamp()-time())/60);
  $r['overdue']=$r['status']!=='closed'&&new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran'))<new DateTimeImmutable('now');
  return $r;
 }
 function sc_list($u,$inbox=false,$summary=false): array {
  $a=sc_need($u);$w=['1=1'];$p=[];
- if($inbox){$w[]="c.status<>'closed'";$w[]='c.assigned_to=?';$p[]=$u['id'];}
+ if($inbox){$w[]='(c.assigned_to=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id']);}
  elseif(!$a['admin']){$w[]='(c.created_by=? OR c.assigned_to=? OR c.supervisor_id=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id'],$u['id']);}
  foreach(['school_id','company_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  foreach(['first_name','last_name','phone'] as $k)if(!empty($_GET[$k])){$w[]="c.$k LIKE ?";$p[]='%'.sc_text($_GET[$k],100).'%';}
  foreach(['from'=>'>=','to'=>'<='] as $k=>$op)if(!empty($_GET[$k])){$w[]="c.received_at $op ?";$p[]=sc_date($_GET[$k]);}
  foreach(['status','complainant_type','tracking_code','subject'] as $k)if(isset($_GET[$k])&&$_GET[$k]!==''){$w[]="c.$k=?";$p[]=sc_text($_GET[$k],255);}
+ if(!empty($_GET['district'])){$w[]="JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))=?";$p[]=sc_text($_GET['district'],100);}
+ foreach(['closed_from'=>'>=','closed_to'=>'<='] as $k=>$op)if(!empty($_GET[$k])){$w[]="c.closed_at $op ?";$p[]=sc_date($_GET[$k]);}
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
  if($summary){$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM(c.status='closed' AND c.closed_at<=c.due_at)/NULLIF(SUM(c.status='closed'),0) on_time_percent FROM school_complaints c WHERE $where",$p)??[];
  $metrics['charts']=[];
- foreach(['status'=>'c.status','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)','month'=>"DATE_FORMAT(c.received_at,'%Y-%m')",'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
+ foreach(['status'=>'c.status','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)', 'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
+ // Group by Persian calendar month using counts per Gregorian day, not top-N days.
+ $days=Db::all("SELECT DATE(c.received_at) label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY DATE(c.received_at) ORDER BY label",$p);
+ $metrics['charts']['month']=[];$metrics['month']=null;
+ if(class_exists('IntlDateFormatter')){
+  $fmt=new IntlDateFormatter('fa_IR@calendar=persian',IntlDateFormatter::NONE,IntlDateFormatter::NONE,'Asia/Tehran',IntlDateFormatter::TRADITIONAL,'yyyy-MM');
+  $months=[];$current=$fmt->format(time());
+  foreach($days as $day){$d=new DateTimeImmutable($day['label'].' 12:00:00',new DateTimeZone('Asia/Tehran'));$key=$fmt->format($d);if($key===false)continue;$months[$key]=($months[$key]??0)+(int)$day['total'];}
+  $metrics['month']=$months[$current]??0;
+  foreach(array_slice($months,-12,null,true) as $key=>$total)$metrics['charts']['month'][]=['label'=>$key,'total'=>$total];
+ }
  return $metrics;}
  $page=max(1,min(100000,(int)($_GET['page']??1)));$size=max(1,min(100,(int)($_GET['page_size']??50)));
  $offset=($page-1)*$size;
  $sort=['id'=>'c.id','received_at'=>'c.received_at','status'=>'c.status','due_at'=>'c.due_at','tracking_code'=>'c.tracking_code','last_name'=>'c.last_name'][(string)($_GET['sort']??'id')]??'c.id';
  $direction=strtolower((string)($_GET['direction']??''))==='asc'?'ASC':'DESC';
  $limit=isset($_GET['page'])?"LIMIT $size OFFSET $offset":"LIMIT 500";
- $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
+ $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,(SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
  if(!isset($_GET['page']))return $rows;
  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_complaints c WHERE $where",$p)['n']??0);
  $result=['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
@@ -206,7 +220,9 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  try{
  $r=Db::one('SELECT * FROM school_complaints WHERE id=? FOR UPDATE',[$id]);
  if(!$r||$r['status']==='closed'||(int)$r['assigned_to']!==(int)$u['id']){$db->rollBack();Http::error('پرونده در اختیار شما نیست یا مختومه شده است',409);}
- if($act==='start'&&$r['status']==='pending')Db::run("UPDATE school_complaints SET status='in_progress' WHERE id=?",[$id]);
+ if($act==='start'&&!in_array($r['status'],['pending','returned'],true)){$db->rollBack();Http::error('شروع بررسی در این وضعیت مجاز نیست',409);}
+ if($act==='reply'&&!in_array($r['status'],['pending','in_progress','returned','escalated'],true)){$db->rollBack();Http::error('ثبت پاسخ در این وضعیت مجاز نیست',409);}
+ if($act==='start'&&in_array($r['status'],['pending','returned'],true))Db::run("UPDATE school_complaints SET status='in_progress' WHERE id=?",[$id]);
  if($act==='reply'&&in_array($r['status'],['pending','in_progress','returned'],true))Db::run("UPDATE school_complaints SET status='answered' WHERE id=?",[$id]);
  if($act==='return'){
  if($r['status']!=='escalated'||(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('بازگشت فقط توسط مسئول واحد مجاز است',409);}
@@ -219,6 +235,7 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$r['supervisor_id']])){$db->rollBack();Http::error('مسئول واحد فعال نیست',422);}
  Db::run("UPDATE school_complaints SET status='escalated',assigned_to=supervisor_id,due_at=? WHERE id=?",[sc_deadline($r['supervisor_hours']),$id]);
  }
+ if($act==='close'&&$r['status']==='escalated'&&(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('مختومه کردن فقط توسط مسئول واحد مجاز است',409);}
  if($act==='close'&&$r['status']!=='escalated'&&(sc_config()['require_supervisor']??true)){$db->rollBack();Http::error('تأیید مسئول واحد الزامی است',409);}
  if($act==='close')Db::run("UPDATE school_complaints SET status='closed',closed_at=NOW() WHERE id=?",[$id]);
  Db::run('INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,?,?)',[$id,$u['id'],$act,$note]);
