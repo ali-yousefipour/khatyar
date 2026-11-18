@@ -8,6 +8,26 @@ function sc_config(): array {
 function sc_notify($uid,$id,$title): void {
  Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES(?,?,?,?)",[(int)$uid,$title,'برای مشاهده پرونده به صندوق شکایات سرویس مدارس مراجعه کنید.',json_encode(['type'=>'school_complaint','complaint_id'=>(int)$id],JSON_UNESCAPED_UNICODE)]);
 }
+function sc_overdue_scan(): int {
+ $rows=Db::all("SELECT c.id FROM school_complaints c WHERE c.status<>'closed' AND c.due_at<NOW() ORDER BY c.due_at LIMIT 250");
+ $count=0;$db=Db::pdo();
+ foreach($rows as $candidate){
+  $db->beginTransaction();
+  try{
+   $r=Db::one("SELECT id,assigned_to,supervisor_id,status,due_at FROM school_complaints WHERE id=? AND status<>'closed' AND due_at<NOW() FOR UPDATE",[$candidate['id']]);
+   if($r){
+    $stage=Db::one("SELECT id FROM school_complaint_events WHERE complaint_id=? AND action IN ('created','escalate','return') ORDER BY id DESC LIMIT 1",[$r['id']]);
+    if($stage)foreach(array_unique([(int)$r['assigned_to'],(int)$r['supervisor_id']]) as $uid){
+     if(!$uid)continue;
+     $added=Db::exec("INSERT IGNORE INTO school_complaint_overdue_notices(complaint_id,stage_event_id,recipient_id) VALUES(?,?,?)",[$r['id'],$stage['id'],$uid]);
+     if($added){sc_notify($uid,$r['id'],'پایان مهلت رسیدگی به شکایت سرویس مدارس');$count++;}
+    }
+   }
+   $db->commit();
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+ }
+ return $count;
+}
 function sc_access($u): array {
  $c=sc_config();$id=(int)$u['id'];$admin=!empty($u['is_admin']);
  $role=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms'");
@@ -45,7 +65,8 @@ function sc_case($id,$u): array {
  if(!$r)Http::error('پرونده یافت نشد',404);
  if(!$a['admin']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
- $r['can_act']=(int)$r['assigned_to']===(int)$u['id'];
+ $r['can_act']=$r['status']!=='closed'&&(int)$r['assigned_to']===(int)$u['id'];
+ $r['can_attach']=$r['status']!=='closed'&&((int)$r['assigned_to']===(int)$u['id']||(int)$r['created_by']===(int)$u['id']);
  $r['overdue']=$r['status']!=='closed'&&new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran'))<new DateTimeImmutable('now');
  return $r;
 }
@@ -138,6 +159,41 @@ route('GET','/api/school-complaints/search',function($p,$b,$u){return sc_list($u
 route('GET','/api/school-complaints/dashboard',function($p,$b,$u){return sc_list($u,false,true);});
 route('GET','/api/school-complaints/{id}',function($p,$b,$u){
  $r=sc_case((int)$p['id'],$u);$r['events']=Db::all("SELECT e.*,CONCAT_WS(' ',u.first_name,u.last_name) actor_name FROM school_complaint_events e LEFT JOIN users u ON u.id=e.actor_id WHERE e.complaint_id=? ORDER BY e.id",[$r['id']]);return $r;
+});
+route('GET','/api/school-complaints/{id}/attachments',function($p,$b,$u){
+ $r=sc_case((int)$p['id'],$u);
+ return Db::all("SELECT id,filename,mime,byte_size,created_at,uploader_id FROM school_complaint_attachments WHERE complaint_id=? ORDER BY id",[$r['id']]);
+});
+route('POST','/api/school-complaints/{id}/attachments',function($p,$b,$u){
+ $id=(int)$p['id'];$r=sc_case($id,$u);
+ if(!$r['can_attach'])Http::error('مجوز افزودن مستندات ندارید',403);
+ $filename=sc_text($b['filename']??'',255);
+ $filename=preg_replace('~[\\\\/\\x00-\\x1f\\x7f]+~u','_',$filename);
+ $encoded=$b['content']??null;
+ if(!is_string($encoded)||strlen($encoded)>4*1024*1024)Http::error('حجم فایل بیش از حد مجاز است',413);
+ $raw=base64_decode($encoded,true);if($raw===false||$raw===''||strlen($raw)>3*1024*1024)Http::error('فایل نامعتبر یا بزرگ است',422);
+ $mime=(new finfo(FILEINFO_MIME_TYPE))->buffer($raw);
+ $allowed=['image/jpeg','image/png','application/pdf'];
+ if(!in_array($mime,$allowed,true))Http::error('فقط تصاویر JPEG و PNG و مستند PDF پذیرفته می‌شوند',422);
+ if($mime!=='application/pdf'&&!@getimagesizefromstring($raw))Http::error('تصویر نامعتبر است',422);
+ $digest=hash('sha256',$raw);
+ $db=Db::pdo();$db->beginTransaction();
+ try{
+  $locked=Db::one('SELECT status,assigned_to,created_by FROM school_complaints WHERE id=? FOR UPDATE',[$id]);
+  if(!$locked||$locked['status']==='closed'||!in_array((int)$u['id'],[(int)$locked['assigned_to'],(int)$locked['created_by']],true)){$db->rollBack();Http::error('مجوز افزودن مستندات ندارید',403);}
+  $existing=Db::one('SELECT id FROM school_complaint_attachments WHERE complaint_id=? AND digest=?',[$id,$digest]);
+  if($existing){$db->commit();return ['id'=>(int)$existing['id'],'duplicate'=>true];}
+  $quota=Db::one('SELECT COUNT(*) n,COALESCE(SUM(byte_size),0) bytes FROM school_complaint_attachments WHERE complaint_id=?',[$id]);
+  if((int)$quota['n']>=20||(int)$quota['bytes']+strlen($raw)>30*1024*1024){$db->rollBack();Http::error('ظرفیت مستندات پرونده تکمیل شده است',422);}
+  $aid=Db::insert('INSERT INTO school_complaint_attachments(complaint_id,uploader_id,filename,mime,byte_size,digest,content) VALUES(?,?,?,?,?,?,?)',[$id,$u['id'],$filename,$mime,strlen($raw),$digest,$raw]);
+  $db->commit();return ['id'=>$aid];
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+});
+route('GET','/api/school-complaints/{id}/attachments/{attachment_id}',function($p,$b,$u){
+ $r=sc_case((int)$p['id'],$u);
+ $file=Db::one('SELECT filename,mime,content FROM school_complaint_attachments WHERE complaint_id=? AND id=?',[$r['id'],(int)$p['attachment_id']]);
+ if(!$file)Http::error('مستند یافت نشد',404);
+ return ['filename'=>$file['filename'],'mime'=>$file['mime'],'content'=>base64_encode($file['content'])];
 });
 route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  $id=(int)$p['id'];sc_case($id,$u);$act=$b['action']??'';
