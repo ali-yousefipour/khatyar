@@ -80,6 +80,16 @@ route('PUT','/api/school-complaints/settings',function($p,$b,$u){
  Db::run('INSERT INTO school_complaint_settings(id,config) VALUES(1,?) ON DUPLICATE KEY UPDATE config=VALUES(config)',[json_encode($c,JSON_UNESCAPED_UNICODE)]);return ['ok'=>true];
 });
 route('GET','/api/school-complaints/topics',function($p,$b,$u){sc_need($u);return array_values(array_unique(array_merge(sc_config()['topics']??[],['سایر'])));});
+route('GET','/api/school-complaints/users',function($p,$b,$u){
+ sc_need($u,'admin');$q=sc_text((string)($_GET['q']??''),100,false);$like='%'.$q.'%';
+ return Db::all("SELECT id,first_name,last_name,username FROM users WHERE is_active=1 AND (first_name LIKE ? OR last_name LIKE ? OR username LIKE ? OR CONCAT_WS(' ',first_name,last_name) LIKE ?) ORDER BY last_name,first_name LIMIT 50",[$like,$like,$like,$like]);
+});
+route('GET','/api/school-complaints/drivers',function($p,$b,$u){
+ sc_need($u,'receive');$q=sc_text((string)($_GET['q']??''),100,false);
+ if(mb_strlen($q)<2)return [];
+ $like='%'.$q.'%';
+ return Db::all("SELECT first_name,last_name,mobile,national_code FROM school_service_sepand_drivers WHERE first_name LIKE ? OR last_name LIKE ? OR mobile LIKE ? OR national_code LIKE ? OR CONCAT_WS(' ',first_name,last_name) LIKE ? ORDER BY last_name,first_name LIMIT 30",array_fill(0,5,$like));
+});
 route('GET','/api/school-complaints/schools',function($p,$b,$u){
  sc_need($u);$q=sc_text((string)($_GET['q']??''),100,false);
  return Db::all('SELECT id,code,name,educational_district,address,education_level,school_type,gender,shift,student_count,phone,latitude,longitude FROM school_service_schools WHERE is_active=1 AND (name LIKE ? OR code LIKE ? OR educational_district LIKE ? OR address LIKE ?) ORDER BY name LIMIT 100',array_fill(0,4,'%'.$q.'%'));
@@ -102,7 +112,7 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  if(!$school||!$company)Http::error('مدرسه و شرکت معتبر انتخاب کنید',422);
  foreach(['address','educational_district','education_level','school_type','phone'] as $k)if(isset($b['school_snapshot'][$k]))$school[$k]=sc_text($b['school_snapshot'][$k],700,false);
  foreach(['address','manager_name','manager_mobile','landline_phone'] as $k)if(isset($b['company_snapshot'][$k]))$company[$k]=sc_text($b['company_snapshot'][$k],500,false);
- $subject=sc_text($b['subject']??'',255);if(!in_array($subject,(array)($c['topics']??[]),true)){if($subject!=='سایر')Http::error('موضوع معتبر انتخاب کنید',422);$subject=sc_text($b['custom_subject']??'',255);}$body=sc_text($b['body']??'',12000);
+ $subject=sc_text($b['subject']??'',255);if($subject==='سایر')$subject=sc_text($b['custom_subject']??'',255);elseif(!in_array($subject,(array)($c['topics']??[]),true))Http::error('موضوع معتبر انتخاب کنید',422);$body=sc_text($b['body']??'',12000);
  $received=sc_date($b['received_at']??'');$rh=(int)$c['review_hours'];$sh=(int)$c['supervisor_hours'];
  $code='SSC-'.strtoupper(bin2hex(random_bytes(8)));$db=Db::pdo();$db->beginTransaction();
  try{
