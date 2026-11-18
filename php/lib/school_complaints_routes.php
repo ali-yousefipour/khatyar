@@ -41,6 +41,7 @@ function sc_case($id,$u): array {
  if(!$r)Http::error('پرونده یافت نشد',404);
  if(!$a['admin']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
+ $r['can_act']=(int)$r['assigned_to']===(int)$u['id'];
  $r['overdue']=$r['status']!=='closed'&&new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran'))<new DateTimeImmutable('now');
  return $r;
 }
@@ -55,7 +56,7 @@ function sc_list($u,$inbox=false,$summary=false): array {
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
- if($summary)return Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes FROM school_complaints c WHERE $where",$p)??[];
+ if($summary)return Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM(c.status='closed' AND c.closed_at<=c.due_at)/NULLIF(SUM(c.status='closed'),0) on_time_percent FROM school_complaints c WHERE $where",$p)??[];
  $page=max(1,min(100000,(int)($_GET['page']??1)));$size=max(1,min(100,(int)($_GET['page_size']??50)));
  $offset=($page-1)*$size;
  $sort=['id'=>'c.id','received_at'=>'c.received_at','status'=>'c.status','due_at'=>'c.due_at','tracking_code'=>'c.tracking_code','last_name'=>'c.last_name'][(string)($_GET['sort']??'id')]??'c.id';
@@ -101,7 +102,11 @@ route('GET','/api/school-complaints/companies',function($p,$b,$u){
  return Db::all("SELECT $cols FROM school_service_companies c WHERE c.is_active=1 AND c.name LIKE ? ORDER BY c.name LIMIT 100",['%'.$q.'%']);
 });
 route('POST','/api/school-complaints',function($p,$b,$u){
- sc_need($u,'receive');$c=sc_config();$review=(int)($c['reviewer']??0);$super=(int)($c['supervisor']??0);
+ sc_need($u,'receive');$key=$b['submission_key']??null;
+ if($key!==null&&(!is_string($key)||!preg_match('/^[a-f0-9-]{32,36}$/D',$key)))Http::error('شناسه ثبت نامعتبر است',422);
+ $code=$key===null?'SSC-'.strtoupper(bin2hex(random_bytes(8))):'SSC-'.strtoupper(substr(hash('sha256',(int)$u['id'].':'.$key),0,32));
+ if($key!==null&&($existing=Db::one('SELECT id,tracking_code FROM school_complaints WHERE tracking_code=? AND created_by=?',[$code,$u['id']])))return $existing;
+ $c=sc_config();$review=(int)($c['reviewer']??0);$super=(int)($c['supervisor']??0);
  if(!$review||!$super)Http::error('ابتدا گردش رسیدگی را تنظیم کنید',422);
  foreach([$review,$super] as $id)if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('مسئول فعال تعیین نشده است',422);
  $type=$b['complainant_type']??'';if(!in_array($type,['parent','driver'],true))Http::error('نوع شاکی نامعتبر است',422);
@@ -114,11 +119,11 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  foreach(['address','manager_name','manager_mobile','landline_phone'] as $k)if(isset($b['company_snapshot'][$k]))$company[$k]=sc_text($b['company_snapshot'][$k],500,false);
  $subject=sc_text($b['subject']??'',255);if($subject==='سایر')$subject=sc_text($b['custom_subject']??'',255);elseif(!in_array($subject,(array)($c['topics']??[]),true))Http::error('موضوع معتبر انتخاب کنید',422);$body=sc_text($b['body']??'',12000);
  $received=sc_date($b['received_at']??'');$rh=(int)$c['review_hours'];$sh=(int)$c['supervisor_hours'];
- $code='SSC-'.strtoupper(bin2hex(random_bytes(8)));$db=Db::pdo();$db->beginTransaction();
+ $db=Db::pdo();$db->beginTransaction();
  try{
  $id=Db::insert('INSERT INTO school_complaints(tracking_code,complainant_type,first_name,last_name,phone,address,school_id,company_id,school_snapshot,company_snapshot,subject,body,received_at,created_by,assigned_to,supervisor_id,review_hours,supervisor_hours,due_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[$code,$type,$first,$last,$phone,$address,$school['id'],$company['id'],json_encode($school,JSON_UNESCAPED_UNICODE),json_encode($company,JSON_UNESCAPED_UNICODE),$subject,$body,$received,$u['id'],$review,$super,$rh,$sh,sc_deadline($rh)]);
  Db::run("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);$db->commit();
- }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();if($key!==null&&$e instanceof PDOException&&(int)($e->errorInfo[1]??0)===1062&&($existing=Db::one('SELECT id,tracking_code FROM school_complaints WHERE tracking_code=? AND created_by=?',[$code,$u['id']])))return $existing;throw $e;}
  return ['id'=>$id,'tracking_code'=>$code];
 });
 route('GET','/api/school-complaints/inbox',function($p,$b,$u){return sc_list($u,true);});
