@@ -57,6 +57,17 @@ async function run() {
   await stopPresenceAlarm({dismissNotifications:true});
   assert.equal(nativeStops,1,'Wizard entry explicitly stops native playback');
   assert.deepEqual(dismissed,['presence-1'],'Only presence notifications are dismissed');
+  let finishNative;context.NativeModules.KhatyarRadio.startPresenceAlarm=()=>new Promise(resolve=>{finishNative=resolve;});
+  await startPresenceAlarm();
+  await stopPresenceAlarm({dismissNotifications:true});
+  finishNative(false);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(players.length,count,'Rejected native start cannot revive JS audio after wizard entry');
+  await startPresenceAlarm();
+  await stopPresenceAlarm({dismissNotifications:true});
+  const stoppedBefore=nativeStops;finishNative(true);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(nativeStops,stoppedBefore+1,'Late successful native startup is stopped after wizard entry');
   console.log('PASS presence alarm: immediate loop, deadline, cancellation, late playback');
 }
 

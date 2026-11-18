@@ -14,7 +14,13 @@ let generation = 0;
 const VIBRATE_PATTERN = [0, 700, 300, 700, 300, 1000];
 async function beginLoopingAlarm(currentGeneration) {
   if (!alarmActive || soundObj) return;
-  try { if(await NativeModules?.KhatyarRadio?.startPresenceAlarm?.())return; }catch(_){}
+  try {
+    if(await NativeModules?.KhatyarRadio?.startPresenceAlarm?.()){
+      if(!alarmActive)NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();
+      return;
+    }
+  }catch(_){}
+  if(!alarmActive||generation!==currentGeneration)return;
   try { Vibration.vibrate(VIBRATE_PATTERN, true); } catch (e) {}
   const player = await playSound('presenceAlert', { loop: true, volume: 1.0 });
   if (!alarmActive || generation !== currentGeneration) {
