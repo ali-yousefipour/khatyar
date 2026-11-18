@@ -1,3 +1,4 @@
+import {attendanceMutationEpoch,retainQueuedOpen,subscribeAttendanceChanges,publishAttendanceChange} from '../attendanceState';
 import {mergePresenceRows} from '../presencePresentation';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,7 +11,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { isSecurityExempt } from '../device';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout, invalidateCachedValue } from '../api';
+import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout, hasPendingAttendanceCheckin, invalidateCachedValue } from '../api';
 import { getAppConfig } from '../appconfig';
 import { useAuth } from '../auth';
 import { refreshAccessCache } from '../accessCache';
@@ -107,7 +108,7 @@ function CheckInCore({ viewportHeight }) {
   const [busy, setBusy] = useState(false);
   // جلوگیری از race بین loadهای پس‌زمینه و ورود/خروج جدید؛ پاسخ یک load قدیمی
   // نباید وضعیت جلسهٔ جدید را دوباره null یا به جلسهٔ قبلی برگرداند.
-  const attendanceStateEpochRef = useRef(0);
+  const attendanceStateEpochRef = attendanceMutationEpoch;
   const lastNetworkRefreshRef = useRef(0);
   const [scanOpen, setScanOpen] = useState(false);
   const [proofVal, setProofVal] = useState('');
@@ -376,8 +377,8 @@ function CheckInCore({ viewportHeight }) {
     let manualOnline=true;
     if(pendingManual){try{const network=await NetInfo.fetch();manualOnline=network?.isConnected!==false&&network?.isInternetReachable!==false;}catch{}}
     const [cfgResult, timerResult, manualResult] = await Promise.allSettled([
-      request('/my/checkin-config', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
-      request('/my/work-timer', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
+      request('/my/checkin-config', { noStore: true, forceNetwork: refreshCache, timeoutMs: 8000 }),
+      request('/my/work-timer', { noStore: true, forceNetwork: refreshCache, timeoutMs: 8000 }),
       pendingManual&&manualOnline?request('/my/requests', {noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:6500}):Promise.resolve(null),
     ]);
     const currentManual=manualResult.status==='fulfilled'&&Array.isArray(manualResult.value)
@@ -419,6 +420,8 @@ function CheckInCore({ viewportHeight }) {
       const serverStart=serverOpen?.check_in?tehranTimeToEpochMs(serverOpen.check_in):null;
       const manualEnded=pendingManualState&&!!currentManual.end_ms&&(!serverStart||serverStart<=Number(currentManual.end_ms));
       const fallback=provisionalOpen(currentManual);
+      const queuedOpen=retainQueuedOpen(await readLocalOpen(),await hasPendingAttendanceCheckin(user?.id),user?.id);
+      if(loadEpoch!==attendanceStateEpochRef.current)return;
       if(manualEnded){
         // Pending manual exit closes the displayed attendance immediately, including offline.
         setOpen(null);
@@ -431,8 +434,8 @@ function CheckInCore({ viewportHeight }) {
           : serverOpen;
         await persistLocalOpen(serverOpen);
         setOpen(displayOpen);
-      } else if(fallback){
-        setOpen(fallback);
+      } else if(fallback||queuedOpen){
+        setOpen(fallback||queuedOpen);
       } else {
         await persistLocalOpen(null);
         setOpen(null);
@@ -489,6 +492,7 @@ function CheckInCore({ viewportHeight }) {
   };
   useEffect(() => {
     load();
+    const unsubscribeAttendance=subscribeAttendanceChanges(()=>{load({refreshLocation:false}).catch(()=>{});});
     let alive = true;
     let netSub = null;
     try { netSub = NetInfo.addEventListener(state => {
@@ -504,7 +508,7 @@ function CheckInCore({ viewportHeight }) {
     AsyncStorage.getItem('attendance_exit_reminder_8h').then(v => setExitReminder(v === '1')).catch(() => {});
     getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {});
     return () => {
-      alive = false; try { netSub?.(); } catch {};
+      alive = false;unsubscribeAttendance();try { netSub?.(); } catch {};
       if (exitReminderIdRef.current) Notifications.cancelScheduledNotificationAsync(exitReminderIdRef.current).catch(() => {});
     };
   }, []);
@@ -669,7 +673,9 @@ function CheckInCore({ viewportHeight }) {
     if (!open) { surplusAlertShownRef.current = false; return; }
     const syncTimer = async () => {
       try {
-        const r = await request('/my/work-timer');
+        const syncEpoch=attendanceStateEpochRef.current;
+        const r = await request('/my/work-timer',{noStore:true});
+        if(syncEpoch!==attendanceStateEpochRef.current)return;
         if (r) {
           setTimerInfo(r);
           if (r.auto_closed) {
@@ -794,6 +800,8 @@ function CheckInCore({ viewportHeight }) {
       let attendanceOnline=false;
       try {const state=await NetInfo.fetch();attendanceOnline=state?.isConnected!==false&&state?.isInternetReachable===true;}catch{}
       if(attendanceOnline)try { await flushQueuedRequests({force:true}); } catch {}
+      const previousQueuedOpen=retainQueuedOpen(await readLocalOpen(),await hasPendingAttendanceCheckin(user?.id),user?.id);
+      if(previousQueuedOpen){setOpen(previousQueuedOpen);throw new Error('ورود قبلی در صف ارسال است؛ نیازی به ثبت ورود مجدد نیست.');}
       try {
         if (attendanceOnline && await hasPendingAttendanceCheckout()) {
           throw new Error('خروج قبلی هنوز با سرور همگام نشده است؛ لطفاً اتصال اینترنت را بررسی کنید و چند ثانیه بعد دوباره تلاش کنید.');
@@ -849,18 +857,20 @@ function CheckInCore({ viewportHeight }) {
           } else throw firstError;
         } else throw firstError;
       }
+      if(!r?.queued&&(!r?.ok||!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0))throw new Error('تأیید ثبت ورود از سرور دریافت نشد؛ وضعیت حضور را به‌روزرسانی کنید.');
       if (r.queued) {
         const localWorked = await readLocalWorked();
         const todayKey = String(body.client_time || '').slice(0,10);
         const completedSec = localWorked?.gdate === todayKey
           ? Math.max(0, Number(localWorked?.worked_sec || 0))
           : 0;
-        const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
+        const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method,client_uuid:body.client_uuid };
         // A load started while the check-in request was in flight must not replace
         // this newly-created local session with its older server snapshot.
         attendanceStateEpochRef.current += 1;
         setOpen(localOpen);
         await persistLocalOpen(localOpen);
+        publishAttendanceChange();
         setTimerInfo({ completed_sec: completedSec, elapsed_sec: completedSec });
         setElapsed(completedSec);
         await scheduleExitReminder(localOpen.check_in, completedSec);
@@ -870,8 +880,10 @@ function CheckInCore({ viewportHeight }) {
         // This also invalidates any load whose response was captured before the write.
         attendanceStateEpochRef.current += 1;
         await invalidateCachedValue('/my/checkin-config');
+        await invalidateCachedValue('/my/work-timer');
         setOpen(confirmedOpen);
         await persistLocalOpen(confirmedOpen);
+        publishAttendanceChange();
 
       }
       // A local schedule is created at check-in, even when the attendance write is queued.

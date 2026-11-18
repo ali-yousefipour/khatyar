@@ -1,13 +1,15 @@
+import {attendanceMutationEpoch,publishAttendanceChange} from './attendanceState';
 import * as SecureStore from 'expo-secure-store';
 import * as Network from 'expo-network';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiBase } from './config';
-import { enqueue, flush as flushOfflineQueue, hasPendingPath, retryOne as retryOfflineItem } from './offline';
+import { enqueue, pending as pendingOfflineItems, flush as flushOfflineQueue, hasPendingPath, retryOne as retryOfflineItem } from './offline';
 import {markManualRequestSynced} from './manualAttendance';
 import { setLastApi } from './crashReporter';
 let accessToken=null;const memCache={};const CACHE_MAX_AGE_MS=10*60*1000;
 let userCacheEpoch=0;
+const isAttendanceRead=path=>path==='/my/checkin-config'||path==='/my/work-timer';
 export async function clearUserScopedApiCache(){
   userCacheEpoch++;
   for(const key of Object.keys(memCache))delete memCache[key];
@@ -171,7 +173,7 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
 function isQueueableWrite(path,method){if(!['POST','PUT','PATCH','DELETE'].includes(String(method).toUpperCase()))return false;const p=String(path||'');if(/^\/session\//.test(p)||/^\/auth\//.test(p)||p.includes('radio-api-v2.php'))return false;return true}
 function eventBody(body){const now=Date.now();if(body&&typeof body==='object'&&!Array.isArray(body))return{...body,client_uuid:body.client_uuid||`q_${now.toString(36)}_${Math.random().toString(36).slice(2,10)}`,client_time:body.client_time||now,client_timestamp_ms:body.client_timestamp_ms||now};return body}
 async function queueWrite(path,body,method){const b=eventBody(body);await enqueue({path,body:b,method,type:path,client_uuid:b?.client_uuid,client_time:b?.client_time});return{queued:true,ok:true,id:b?.client_uuid||`queued_${Date.now()}`,client_uuid:b?.client_uuid,client_time:b?.client_time}}
-async function requestImpl(path,{method='GET',body,auth=true,retry=true,noStore=false,timeoutMs,queueIfOffline=true,forceNetwork=false}={}){const readEpoch=userCacheEpoch,upper=String(method||'GET').toUpperCase(),headers={'content-type':'application/json',...(noStore?{'cache-control':'no-store, no-cache'}:{})};setLastApi({path,method:upper,started_at:new Date().toISOString()});if(auth&&accessToken){headers.Authorization=`Bearer ${accessToken}`;headers['X-Access-Token']=accessToken;}const cachePath=String(path)==='/my/shift-schedule'?'/my/shift-schedule?scope=current-month':'cache:'+path;const cacheKey=cachePath.startsWith('cache:')?cachePath:'cache:'+cachePath,hasImagePayload=typeof body==='object'&&body&&!Array.isArray(body)&&Object.values(body).some(v=>typeof v==='string'&&v.length>100000),effectiveTimeout=timeoutMs||(hasImagePayload?45000:undefined),queueable=queueIfOffline&&isQueueableWrite(path,upper),sendBody=queueable?eventBody(body):body;let responseReceived=false,responseStatus=0;try{if(queueable&&!forceNetwork){let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isConnected:true}}if(net.isConnected===false||net.isInternetReachable===false)return queueWrite(path,sendBody,upper)}const res=await fetchTimeout(`${apiBase()}${path}`,{method:upper,headers,body:sendBody!==undefined?JSON.stringify(sendBody):undefined},effectiveTimeout);responseReceived=true;responseStatus=res.status;if(res.status===401&&auth&&retry&&await refreshAccess())return request(path,{method:upper,body,auth,retry:false,noStore,timeoutMs,queueIfOffline});const text=await res.text();let data={};try{data=text?JSON.parse(text):{}}catch(_){throw new Error(res.ok?'نوع پاسخ سرور نامعتبر است.':'خطای داخلی سرور؛ پاسخ JSON دریافت نشد.')}if(!res.ok)throw Object.assign(new Error(data.error||data.message||'خطای سرور'),{status:res.status});if(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch){memCache[cacheKey]=data;AsyncStorage.setItem(cacheKey,JSON.stringify({t:Date.now(),data})).catch(()=>{})}return data}catch(e){if(queueable&&queueIfOffline&&!responseReceived){try{return await queueWrite(path,sendBody,upper)}catch(_){} }if(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch){if(memCache[cacheKey]!==undefined)return memCache[cacheKey];try{const c=await AsyncStorage.getItem(cacheKey);if(c){const j=JSON.parse(c);return j&&j.data!==undefined?j.data:j}}catch(_){} }throw e}}
+async function requestImpl(path,{method='GET',body,auth=true,retry=true,noStore=false,timeoutMs,queueIfOffline=true,forceNetwork=false}={}){const readEpoch=userCacheEpoch,readAttendanceEpoch=attendanceMutationEpoch.current,upper=String(method||'GET').toUpperCase(),headers={'content-type':'application/json',...(noStore?{'cache-control':'no-store, no-cache'}:{})};setLastApi({path,method:upper,started_at:new Date().toISOString()});if(auth&&accessToken){headers.Authorization=`Bearer ${accessToken}`;headers['X-Access-Token']=accessToken;}const cachePath=String(path)==='/my/shift-schedule'?'/my/shift-schedule?scope=current-month':'cache:'+path;const cacheKey=cachePath.startsWith('cache:')?cachePath:'cache:'+cachePath,hasImagePayload=typeof body==='object'&&body&&!Array.isArray(body)&&Object.values(body).some(v=>typeof v==='string'&&v.length>100000),effectiveTimeout=timeoutMs||(hasImagePayload?45000:undefined),queueable=queueIfOffline&&isQueueableWrite(path,upper),sendBody=queueable?eventBody(body):body;let responseReceived=false,responseStatus=0;try{if(queueable&&!forceNetwork){let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isConnected:true}}if(net.isConnected===false||net.isInternetReachable===false)return queueWrite(path,sendBody,upper)}const res=await fetchTimeout(`${apiBase()}${path}`,{method:upper,headers,body:sendBody!==undefined?JSON.stringify(sendBody):undefined},effectiveTimeout);responseReceived=true;responseStatus=res.status;if(res.status===401&&auth&&retry&&await refreshAccess())return request(path,{method:upper,body,auth,retry:false,noStore,timeoutMs,queueIfOffline});const text=await res.text();let data={};try{data=text?JSON.parse(text):{}}catch(_){throw new Error(res.ok?'نوع پاسخ سرور نامعتبر است.':'خطای داخلی سرور؛ پاسخ JSON دریافت نشد.')}if(!res.ok)throw Object.assign(new Error(data.error||data.message||'خطای سرور'),{status:res.status});if(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch&&(!isAttendanceRead(path)||readAttendanceEpoch===attendanceMutationEpoch.current)){memCache[cacheKey]=data;AsyncStorage.setItem(cacheKey,JSON.stringify({t:Date.now(),data})).catch(()=>{})}return data}catch(e){if(queueable&&queueIfOffline&&!responseReceived){try{return await queueWrite(path,sendBody,upper)}catch(_){} }if(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch&&(!isAttendanceRead(path)||readAttendanceEpoch===attendanceMutationEpoch.current)){if(memCache[cacheKey]!==undefined)return memCache[cacheKey];try{const c=await AsyncStorage.getItem(cacheKey);if(c){const j=JSON.parse(c);return j&&j.data!==undefined?j.data:j}}catch(_){} }throw e}}
 // Avoid sending duplicate concurrent presence GETs from dashboard, check-in
 // and foreground refresh. Never merge writes or requests across auth sessions.
 const attendanceGetInflight = new Map();
@@ -181,7 +183,7 @@ export function request(path, options = {}) {
   // Merge only requests with identical freshness/auth semantics. A forced or
   // no-store read must never accidentally reuse a cached/offline fallback.
   const key = verb === 'GET' && sharedReadPaths.has(path)
-    ? JSON.stringify([String(accessToken || ''),path,options.auth!==false,!!options.noStore,!!options.forceNetwork,options.timeoutMs||0,options.retry!==false])
+    ? JSON.stringify([String(accessToken || ''),path,options.auth!==false,!!options.noStore,!!options.forceNetwork,options.timeoutMs||0,options.retry!==false,isAttendanceRead(path)?attendanceMutationEpoch.current:0])
     : null;
   if (!key) return requestImpl(path, options);
   const existing = attendanceGetInflight.get(key);
@@ -202,6 +204,7 @@ export async function invalidateCachedValue(path){
 export async function cachedValue(path){const key='cache:'+((String(path)==='/my/shift-schedule')?'/my/shift-schedule?scope=current-month':String(path));if(memCache[key]!==undefined)return memCache[key];try{const c=await AsyncStorage.getItem(key);if(c){const j=JSON.parse(c);return j&&j.data!==undefined?j.data:j}}catch(_){}return null}
 export async function swr(path,onData){try{const c=await cachedValue(path);if(c!==null&&c!==undefined)onData(c,true)}catch(_){}try{const fresh=await request(path);onData(fresh,false);return fresh}catch(_){return null}}
 export async function postOrQueue(path,body,type=null,opts={}){const eventMs=Date.now(),sendBody=body&&typeof body==='object'&&!Array.isArray(body)?{...body,client_uuid:body.client_uuid||`q_${eventMs.toString(36)}_${Math.random().toString(36).slice(2,10)}`,client_time:body.client_time||eventMs,client_timestamp_ms:body.client_timestamp_ms||eventMs}:body;let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isInternetReachable:true}}if(net.isConnected===false||net.isInternetReachable===false){await enqueue({path,body:sendBody,type:type||path,client_uuid:sendBody?.client_uuid,client_time:eventMs});return{queued:true,ok:true,id:sendBody?.client_uuid,client_time:eventMs,client_uuid:sendBody?.client_uuid}}return request(path,{method:'POST',body:sendBody,timeoutMs:opts.timeoutMs,queueIfOffline:true,forceNetwork:path==='/my/checkin'||path==='/my/checkout'})}
+export async function hasPendingAttendanceCheckin(userId){return (await pendingOfflineItems()).some(item=>item.path==='/my/checkin'&&Number(item.owner_user_id)===Number(userId));}
 export async function hasPendingAttendanceCheckout(){return hasPendingPath('/my/checkout')}
 async function restoreEmbeddedQueueAssets(value) {
   if(value && typeof value==='object' && typeof value.__khatyar_offline_asset==='string') {
@@ -242,6 +245,19 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
     delete body.photo_mime;
   }
   const result=await request(item.path,{method:item.method||'POST',body,queueIfOffline:false,noStore:true,forceNetwork});
+  if((item.path==='/my/checkin'||item.path==='/my/checkout')&&result?.ok&&!result?.queued){
+    const acknowledgementEpoch=++attendanceMutationEpoch.current;
+    await invalidateCachedValue('/my/checkin-config');
+    await invalidateCachedValue('/my/work-timer');
+    if(item.path==='/my/checkin')try{
+      const key='attendance_local_open_v1';
+      const local=JSON.parse(await AsyncStorage.getItem(key)||'null');
+      if(Number(local?.owner_user_id)===Number(item.owner_user_id)&&local?.client_uuid===item.client_uuid&&acknowledgementEpoch===attendanceMutationEpoch.current){
+        await AsyncStorage.setItem(key,JSON.stringify({...local,id:result.id,check_in:result.check_in||local.check_in}));
+      }
+    }catch(_){}
+    publishAttendanceChange();
+  }
   if(item.path==='/my/requests'&&body?.type==='manual'&&Number(result?.id)>0){
     try{await markManualRequestSynced(item.owner_user_id,item.client_uuid,result.id);}
     catch(error){console.warn('manual attendance acknowledgement storage failed:',error?.message||error);}
