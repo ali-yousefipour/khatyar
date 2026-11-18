@@ -332,7 +332,7 @@ class XlsxWriter {
       header('Content-Length: '.filesize($target));
       readfile($target);
     } finally {
-      @$a->close();@$b->close();@$z->close();
+      // ZIP handles were explicitly closed before streaming; do not close them twice.
       @unlink($file1);@unlink($file2);@unlink($target);
     }
     exit;
