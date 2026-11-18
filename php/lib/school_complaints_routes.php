@@ -60,12 +60,43 @@ function sc_date($v): string {
  $v=sc_text($v,19);$d=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$v,new DateTimeZone('Asia/Tehran'));
  if(!$d||$d->format('Y-m-d H:i:s')!==$v)Http::error('تاریخ نامعتبر است',422);return $v;
 }
+// Overall SLA is fixed at creation from the two snapshotted stage budgets.
+// Each completed stage is measured against the preceding assignment event.
+function sc_overall_due_expr(): string {
+ return "TIMESTAMPADD(HOUR,c.review_hours+c.supervisor_hours,c.created_at)";
+}
+function sc_completed_on_time_expr(): string {
+ $overall=sc_overall_due_expr();
+ return "(c.status='closed' AND c.closed_at<=$overall AND c.closed_at<=c.due_at AND NOT EXISTS (
+ SELECT 1 FROM school_complaint_events finish
+ JOIN school_complaint_events stage ON stage.id=(
+ SELECT MAX(prev.id) FROM school_complaint_events prev
+ WHERE prev.complaint_id=finish.complaint_id AND prev.id<finish.id AND prev.action IN ('created','escalate','return'))
+ WHERE finish.complaint_id=c.id AND finish.action IN ('escalate','return','close')
+ AND finish.created_at>TIMESTAMPADD(HOUR,CASE WHEN stage.action='escalate' THEN c.supervisor_hours ELSE c.review_hours END,stage.created_at)
+ ))";
+}
+function sc_allowed_actions($r,$u): array {
+ if($r['status']==='closed'||(int)$r['assigned_to']!==(int)$u['id'])return [];
+ $status=$r['status'];$actions=['note'];
+ if(in_array($status,['pending','returned'],true))$actions[]='start';
+ if(in_array($status,['pending','in_progress','returned','escalated'],true))$actions[]='reply';
+ if(in_array($status,['pending','in_progress','answered','returned'],true))$actions[]='escalate';
+ if($status==='escalated'&&(int)$r['supervisor_id']===(int)$u['id']){$actions[]='return';$actions[]='close';}
+ elseif($status!=='escalated'&&!(sc_config()['require_supervisor']??true))$actions[]='close';
+ return $actions;
+}
 function sc_case($id,$u): array {
  $a=sc_need($u);$r=Db::one('SELECT * FROM school_complaints WHERE id=?',[$id]);
  if(!$r)Http::error('پرونده یافت نشد',404);
  if(!$a['admin']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
- $r['can_act']=$r['status']!=='closed'&&(int)$r['assigned_to']===(int)$u['id'];
+ $r['allowed_actions']=sc_allowed_actions($r,$u);
+ $r['can_act']=!empty($r['allowed_actions']);
+ $overall=(new DateTimeImmutable($r['created_at'],new DateTimeZone('Asia/Tehran')))->modify('+'.((int)$r['review_hours']+(int)$r['supervisor_hours']).' hours');
+ $r['overall_due_at']=$overall->format('Y-m-d H:i:s');
+ $r['overall_remaining_minutes']=(int)floor(($overall->getTimestamp()-time())/60);
+ $r['overall_overdue']=$r['status']==='closed' ? $r['closed_at']>$r['overall_due_at'] : $r['overall_remaining_minutes']<0;
  $r['can_attach']=$r['status']!=='closed'&&((int)$r['assigned_to']===(int)$u['id']||(int)$r['created_by']===(int)$u['id']);
  $r['assigned_name']=Db::one("SELECT CONCAT_WS(' ',first_name,last_name) name FROM users WHERE id=?",[$r['assigned_to']])['name']??'';
  $r['remaining_minutes']=(int)floor(((new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran')))->getTimestamp()-time())/60);
@@ -85,7 +116,7 @@ function sc_list($u,$inbox=false,$summary=false): array {
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
- if($summary){$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM(c.status='closed' AND c.closed_at<=c.due_at)/NULLIF(SUM(c.status='closed'),0) on_time_percent FROM school_complaints c WHERE $where",$p)??[];
+ if($summary){$onTime=sc_completed_on_time_expr();$overallDue=sc_overall_due_expr();$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM($onTime)/NULLIF(SUM(c.status='closed'),0) on_time_percent,COALESCE(SUM(c.status<>'closed' AND $overallDue<NOW()),0) overall_overdue FROM school_complaints c WHERE $where",$p)??[];
  $metrics['charts']=[];
  foreach(['status'=>'c.status','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)', 'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
  // Group by Persian calendar month using counts per Gregorian day, not top-N days.
@@ -104,7 +135,8 @@ function sc_list($u,$inbox=false,$summary=false): array {
  $sort=['id'=>'c.id','received_at'=>'c.received_at','status'=>'c.status','due_at'=>'c.due_at','tracking_code'=>'c.tracking_code','last_name'=>'c.last_name'][(string)($_GET['sort']??'id')]??'c.id';
  $direction=strtolower((string)($_GET['direction']??''))==='asc'?'ASC':'DESC';
  $limit=isset($_GET['page'])?"LIMIT $size OFFSET $offset":"LIMIT 500";
- $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,(SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
+ $overallDue=sc_overall_due_expr();
+ $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,$overallDue overall_due_at,TIMESTAMPDIFF(MINUTE,NOW(),$overallDue) overall_remaining_minutes,(SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
  if(!isset($_GET['page']))return $rows;
  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_complaints c WHERE $where",$p)['n']??0);
  $result=['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
@@ -220,6 +252,7 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  try{
  $r=Db::one('SELECT * FROM school_complaints WHERE id=? FOR UPDATE',[$id]);
  if(!$r||$r['status']==='closed'||(int)$r['assigned_to']!==(int)$u['id']){$db->rollBack();Http::error('پرونده در اختیار شما نیست یا مختومه شده است',409);}
+ if(!in_array($act,sc_allowed_actions($r,$u),true)){$db->rollBack();Http::error('عملیات در وضعیت فعلی مجاز نیست',409);}
  if($act==='start'&&!in_array($r['status'],['pending','returned'],true)){$db->rollBack();Http::error('شروع بررسی در این وضعیت مجاز نیست',409);}
  if($act==='reply'&&!in_array($r['status'],['pending','in_progress','returned','escalated'],true)){$db->rollBack();Http::error('ثبت پاسخ در این وضعیت مجاز نیست',409);}
  if($act==='start'&&in_array($r['status'],['pending','returned'],true))Db::run("UPDATE school_complaints SET status='in_progress' WHERE id=?",[$id]);
