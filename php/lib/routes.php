@@ -3301,7 +3301,7 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
  */
 function _work_month_net_shortage(array $tot, array $requestMinutes=[]): int {
   $expected=max(0,(int)($tot['expected']??0));
-  $inShift=max(0,(int)($tot['in_shift']??0));
+  $inShift=max(0,(int)($tot['presence_for_shortage']??$tot['worked']??$tot['in_shift']??0));
   $absence=max(0,(int)($tot['absent_min']??0));
   $credits=max(0,(int)($tot['credited_exemption']??0));
   $uncovered=max(0,$expected-$inShift-$absence-$credits);
@@ -3316,7 +3316,7 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     if (preg_match('/^([0-9]+):([0-5][0-9])$/',$value,$m)) return (int)$m[1]*60+(int)$m[2];
     return ctype_digit($value) ? (int)$value : 0;
   };
-  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0,
+  $tot=['expected'=>0,'in_shift'=>0,'presence_for_shortage'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0,
     'gps_inactive_minutes'=>0,'internet_inactive_minutes'=>0];
   $seen=[];
   foreach ($report['days'] as $day) {
@@ -3329,14 +3329,17 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     $tot['internet_inactive_minutes'] += $parse($day['internet_inactive_minutes']??0);
     $expected=$parse($day['expected']??0);
     $inShift=$parse($day['in_shift']??0);
+    // Raw presence is the shortage basis; preserve actual within-shift minutes for display.
+    $presence=$parse($day['worked']??$day['in_shift']??0);
     $shortage=$parse($day['shortage']??0);
     $tot['expected'] += $expected;
     $tot['in_shift'] += $inShift;
+    $tot['presence_for_shortage'] += $presence;
     // Only approved leave may cover a duty gap here. Mission is reported
     // independently; the organization Excel export applies its own policy.
     $request=$parse($day['annual_leave']??0)+$parse($day['sick_leave']??0)
       +$parse($day['unpaid_leave']??0);
-    $uncoveredDay=max(0,$expected-min($expected,$inShift));
+    $uncoveredDay=max(0,$expected-min($expected,$presence));
     $credited=min($uncoveredDay,$request);
     $tot['credited_exemption'] += $credited;
     $punches=$day['punches']??[];
@@ -3476,7 +3479,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
       // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
       // آزاد را به اشتباه غیبت ۷:۳۳ ثبت کند.
-      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):($throughJdate!==null?$reportNow:null),'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_work_invalid']??$r['_gps_invalid']??[]], $rows);
+      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):($throughJdate!==null?$reportNow:null),'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
       $hasOpenSession=(bool)array_filter($rows,static fn($r)=>empty($r['check_out']));
       $isInCurrentReport=$throughJdate!==null&&strcmp($jdate,$throughJdate)<=0;
@@ -3529,7 +3532,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
     // Net monthly settlement: extra eligible presence on other dates covers
     // short daily windows; recorded absences stay in their own column.
     $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
-    unset($tot['credited_exemption']);
+    unset($tot['credited_exemption'],$tot['presence_for_shortage']);
     // Keep regular overtime and Friday/holiday work as disjoint minute buckets.
     // The monthly visible overtime is their sum, matching daily total_overtime.
     // Apply the monthly cap to regular overtime only, not to Friday/holiday work.
@@ -3946,7 +3949,7 @@ function _attendance_report($userId,$fromJ,$toJ){
         'device'=>$u['device_model']?:null,
         'in_lat'=>$r['in_lat'],'in_lng'=>$r['in_lng'],'out_lat'=>$r['out_lat'],'out_lng'=>$r['out_lng'],
       ];
-      $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]];
+      $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')];
     }
     $isHol=ShiftCalc::effectiveHoliday($jdateDash);
     $shift = _active_user_shift_assignment($userId, $jdateDash);
