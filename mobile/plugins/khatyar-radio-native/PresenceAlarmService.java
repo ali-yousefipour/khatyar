@@ -23,7 +23,8 @@ public final class PresenceAlarmService extends Service {
         nc.setSound(null,null);manager.createNotificationChannel(nc);
       }
       Intent launch=getPackageManager().getLaunchIntentForPackage(getPackageName());
-      PendingIntent open=launch==null?null:PendingIntent.getActivity(this,7191,launch,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+      PendingIntent open=intent==null?null:(PendingIntent)intent.getParcelableExtra("presence_open");
+      if(open==null&&launch!=null)open=PendingIntent.getActivity(this,7191,launch,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
       Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,channel):new Notification.Builder(this);
       builder.setSmallIcon(getApplicationInfo().icon).setContentTitle("صحت‌سنجی حضور")
         .setContentText("برای انجام صحت‌سنجی برنامه را باز کنید").setOngoing(true).setContentIntent(open);

@@ -46,6 +46,17 @@ async function run() {
   resolve();
   await new Promise(done => setTimeout(done, 0));
   assert.equal(players[2].stopped, true, 'late audio initialization cannot restart a cancelled alarm');
+  let nativeStops=0;const dismissed=[];
+  context.NativeModules={KhatyarRadio:{async startPresenceAlarm(){return true;},stopPresenceAlarm(){nativeStops++;}}};
+  context.Notifications={async getPresentedNotificationsAsync(){return [{request:{identifier:'presence-1',content:{data:{type:'presence_check'}}}},{request:{identifier:'message-1',content:{data:{type:'message'}}}}];},async dismissNotificationAsync(id){dismissed.push(id);}};
+  const count=players.length;
+  await startPresenceAlarm();
+  assert.equal(players.length,count,'Native service prevents a duplicate JS sound loop');
+  await stopPresenceAlarm();
+  assert.equal(nativeStops,0,'Background JS cleanup must not cancel native playback');
+  await stopPresenceAlarm({dismissNotifications:true});
+  assert.equal(nativeStops,1,'Wizard entry explicitly stops native playback');
+  assert.deepEqual(dismissed,['presence-1'],'Only presence notifications are dismissed');
   console.log('PASS presence alarm: immediate loop, deadline, cancellation, late playback');
 }
 

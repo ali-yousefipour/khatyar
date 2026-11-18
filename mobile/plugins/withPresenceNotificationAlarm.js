@@ -11,6 +11,7 @@ function patchPresenceAlarm(source) {
       builtNotification.flags = builtNotification.flags or Notification.FLAG_AUTO_CANCEL
       try {
         val alarmIntent = android.content.Intent().setClassName(context.packageName, "ir.mashhad.taxicontrol.radio.PresenceAlarmService")
+        alarmIntent.putExtra("presence_open", builtNotification.contentIntent)
         if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(alarmIntent) else context.startService(alarmIntent)
       } catch (error: Exception) {
         // OS may reject background service start; retain the channel-level fallback.

@@ -29,6 +29,7 @@ assert.match(patched,/content.body\?\.optString\("type"\) == "presence_check"/);
 assert.match(patched,/Notification.FLAG_INSISTENT/);
 assert.match(patched,/Notification.FLAG_AUTO_CANCEL/);
 assert.match(patched,/startForegroundService/);
+assert.match(patched,/putExtra\("presence_open", builtNotification.contentIntent\)/);
 const service=fs.readFileSync(path.join(root,'plugins/khatyar-radio-native/PresenceAlarmService.java'),'utf8');
 assert.match(service,/player.setLooping\(true\)/);
 assert.match(service,/PowerManager.PARTIAL_WAKE_LOCK/);
