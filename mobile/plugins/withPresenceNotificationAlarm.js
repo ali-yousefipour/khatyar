@@ -8,9 +8,15 @@ function patchPresenceAlarm(source) {
   return source.replace(anchor, `// khatyar-presence-insistent
     val builtNotification = builder.build()
     if (content.body?.optString("type") == "presence_check") {
-      // Android repeats the channel sound even when JS is suspended/phone locked.
-      // Auto-cancel on tap and explicit dismissal on wizard entry stop the alarm.
-      builtNotification.flags = builtNotification.flags or Notification.FLAG_INSISTENT or Notification.FLAG_AUTO_CANCEL
+      builtNotification.flags = builtNotification.flags or Notification.FLAG_AUTO_CANCEL
+      try {
+        val alarmIntent = android.content.Intent().setClassName(context.packageName, "ir.mashhad.taxicontrol.radio.PresenceAlarmService")
+        if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(alarmIntent) else context.startService(alarmIntent)
+      } catch (error: Exception) {
+        // OS may reject background service start; retain the channel-level fallback.
+        builtNotification.flags = builtNotification.flags or Notification.FLAG_INSISTENT
+        Log.w("PresenceAlarm", "Native playback start rejected", error)
+      }
     }
     return builtNotification`);
 }

@@ -110,6 +110,7 @@ export default function PresenceGate({navigationRef}){
   const openFromNotification=async(raw={})=>{
    const data=notificationData(raw);
    if(data?.type!=='presence_check'||!alive)return;
+   if(navigationRef?.getCurrentRoute?.()?.name==='PresenceCheckWizard'){stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});return;}
    const immediate=data.immediate===true||data.immediate==='true'||data.immediate===1||data.immediate==='1';
    if(dueRef.current)return;
    let cfg=cfgRef.current||{};

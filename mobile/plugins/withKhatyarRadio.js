@@ -11,7 +11,7 @@ function ensureSourceFiles(config) {
     const dir = path.join(root, 'app', 'src', 'main', 'java', ...PKG.split('.'));
     fs.mkdirSync(dir, { recursive: true });
     const srcRoot = path.join(cfg.modRequest.projectRoot, 'plugins', 'khatyar-radio-native');
-    for (const name of ['KhatyarRadioPackage.java', 'KhatyarRadioModule.java', 'KhatyarRadioService.java', 'OutgoingRadioRecorder.java', 'RadioSfxPlayer.java']) {
+    for (const name of ['KhatyarRadioPackage.java', 'KhatyarRadioModule.java', 'KhatyarRadioService.java', 'OutgoingRadioRecorder.java', 'RadioSfxPlayer.java', 'PresenceAlarmService.java']) {
       const source = path.join(srcRoot, name);
       const target = path.join(dir, name);
       if (!fs.existsSync(source)) throw new Error(`Missing KhatYar radio native source: ${source}`);
@@ -48,6 +48,8 @@ function withManifest(config) {
       const existing=app.service.find(x=>x.$&&x.$['android:name']===SERVICE);
       const item={$:{'android:name':SERVICE,'android:exported':'false','android:foregroundServiceType':'mediaPlayback','android:stopWithTask':'false'}};
       if(existing)existing.$=Object.assign({},existing.$,item.$);else app.service.push(item);
+      const alarm='ir.mashhad.taxicontrol.radio.PresenceAlarmService';
+      if(!app.service.some(x=>x.$?.['android:name']===alarm))app.service.push({$:{'android:name':alarm,'android:exported':'false','android:foregroundServiceType':'mediaPlayback','android:stopWithTask':'false'}});
     }
     return cfg;
   });

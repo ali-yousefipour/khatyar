@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { Vibration } from 'react-native';
+import { Vibration, NativeModules } from 'react-native';
 import { playSound, stopSound } from './soundFx';
 
 // آلارم صحت‌سنجی حضور:
@@ -14,6 +14,7 @@ let generation = 0;
 const VIBRATE_PATTERN = [0, 700, 300, 700, 300, 1000];
 async function beginLoopingAlarm(currentGeneration) {
   if (!alarmActive || soundObj) return;
+  try { if(await NativeModules?.KhatyarRadio?.startPresenceAlarm?.())return; }catch(_){}
   try { Vibration.vibrate(VIBRATE_PATTERN, true); } catch (e) {}
   const player = await playSound('presenceAlert', { loop: true, volume: 1.0 });
   if (!alarmActive || generation !== currentGeneration) {
@@ -34,6 +35,7 @@ export async function startPresenceAlarm(deadlineMs) {
 }
 
 export async function stopPresenceAlarm({dismissNotifications=false}={}) {
+  if(dismissNotifications)try{NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();}catch(_){}
   alarmActive = false;
   ++generation;
   if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
