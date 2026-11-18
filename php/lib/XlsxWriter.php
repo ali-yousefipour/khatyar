@@ -246,7 +246,7 @@ class XlsxWriter {
           $zip->addFromString('xl/media/'.$mediaFile, $img['data']);
           $rid = 'rIdImg'.$n;
           $mediaRels .= '<Relationship Id="'.$rid.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/'.$mediaFile.'"/>';
-          $excelRow0 = $rowIdx + 1; // 0-based (ردیف داده پس از سرستون؛ سرستون=index0)
+          $excelRow0 = $rowIdx + $headerRow; // 0-based Excel anchor: respect report heading and header groups
           $cx = max(1, $img['w']) * 9525; $cy = max(1, $img['h']) * 9525;
           $anchors .=
             '<xdr:oneCellAnchor>'.
@@ -317,6 +317,10 @@ class XlsxWriter {
       $z->addFromString('[Content_Types].xml',str_replace('</Types>',$extra.'</Types>',$types));
       $book=$z->getFromName('xl/workbook.xml');
       $book=str_replace('</sheets>','<sheet name="'.self::xmlEsc(mb_substr($secondName,0,31)).'" sheetId="2" r:id="rId2"/></sheets>',$book);
+      if(strpos($book,'</definedNames>')!==false){
+        $secondPrint='<definedName name="_xlnm.Print_Titles" localSheetId="1">&apos;'.self::xmlEsc(str_replace("'","''",mb_substr($secondName,0,31))).'&apos;!$1:$4</definedName>';
+        $book=str_replace('</definedNames>',$secondPrint.'</definedNames>',$book);
+      }
       $z->addFromString('xl/workbook.xml',$book);
       $rels=$z->getFromName('xl/_rels/workbook.xml.rels');
       $rels=str_replace('Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"','Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"',$rels);
@@ -324,7 +328,7 @@ class XlsxWriter {
       $z->addFromString('xl/_rels/workbook.xml.rels',$rels);
       $z->close();$a->close();$b->close();
       header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      header('Content-Disposition: attachment; filename="personnel_vehicle_checklists.xlsx"');
+      header('Content-Disposition: attachment; filename="personnel_vehicle_checklists.xlsx"; filename*=UTF-8'."''".rawurlencode((string)$filename));
       header('Content-Length: '.filesize($target));
       readfile($target);
     } finally {
