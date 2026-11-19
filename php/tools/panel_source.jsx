@@ -4347,6 +4347,7 @@ function MaintenanceModeSettings(){
 }
 
 const SETTINGS_SECTION_INDEX=[
+  {"id":"settings-staff-attendance-timing","tab":"general","title":"زمان‌بندی ورود و خروج پرسنل؛ خروج خودکار و حداقل فاصله ورود مجدد"},
   {
     "id": "settings-section-1",
     "tab": "general",
@@ -4619,6 +4620,16 @@ function Settings(){
     {visitedTabs.includes("general")&&<div id="settings-section-1" className="panel t-general"><h3>تنظیمات عمومی</h3>{Field("org_name","نام سازمان")}{Field("deputy_name","معاونت نظارت و بازرسی")}
       {Field("inspection_head","رییس اداره بازرسی")}{Field("payment_base_url","آدرس پایهٔ درگاه پرداخت")}
       {Field("attendance_cooldown_min","فاصلهٔ مجاز ثبت حضور (دقیقه)")}
+      <section id="settings-staff-attendance-timing" style={{border:"1px solid var(--line)",borderRadius:12,padding:14,marginTop:14}}>
+        <h4 style={{margin:"0 0 8px"}}>زمان‌بندی ورود و خروج پرسنل</h4>
+        <p className="muted" style={{fontSize:12,lineHeight:1.8}}>این دو تنظیم برای تردد پرسنل خطیار در سرور اعمال می‌شوند و با ثبت حضور رانندگان در خطوط متفاوت هستند.</p>
+        {[["staff_auto_close_minutes","حداکثر مدت حضور تا خروج خودکار",840,1],["staff_reentry_gap_minutes","حداقل فاصله خروج تا ورود مجدد",180,0]].map(([key,label,fallback,min])=><label className="settings-field" key={key}>
+          <span>{label} (دقیقه)</span>
+          <input className="input" type="text" inputMode="numeric" dir="ltr" value={faPlain(String(v[key]??fallback))} onChange={e=>{const raw=e.target.value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));if(/^\d*$/.test(raw))set(key,raw);}}/>
+          <small className="muted">{Number(v[key]??fallback)>=min&&Number(v[key]??fallback)<=10080?faPlain(String(Math.floor(Number(v[key]??fallback)/60)))+" ساعت و "+faPlain(String(Number(v[key]??fallback)%60))+" دقیقه":"مقدار خارج از محدوده مجاز"}</small>
+        </label>)}
+        <p className="muted" style={{fontSize:12,lineHeight:1.8}}>خروج خودکار: پیش‌فرض ۱۴ ساعت پس از ورود. ورود مجدد: پیش‌فرض ۳ ساعت پس از خروج؛ مقدار صفر محدودیت ورود مجدد را غیرفعال می‌کند.</p>
+      </section>
       <div style={{marginTop:12}}>
         <label className="label">حالت فعال‌سازی ردیابی، سلفی نامحسوس، اسکرین‌شات و صحت‌سنجی:</label>
         <div className="row" style={{gap:16,marginTop:6,flexWrap:"wrap"}}>
