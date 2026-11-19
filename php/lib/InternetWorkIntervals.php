@@ -47,13 +47,32 @@ function internet_work_daily_details(int $userId,array $attendanceRows): array {
   usort($ranges,static fn($a,$b)=>$a[0]<=>$b[0]);
   $merged=[];
   foreach($ranges as $r){$last=count($merged)-1;if($last<0||$r[0]>$merged[$last][1])$merged[]=$r;else $merged[$last][1]=max($merged[$last][1],$r[1]);}
-  $details=array_map(static fn($r)=>['start_at'=>date('Y-m-d H:i:s',$r[0]),'end_at'=>date('Y-m-d H:i:s',$r[1]),'minutes'=>(int)ceil(($r[1]-$r[0])/60),'reason_code'=>'internet_off','reason'=>'خاموشی اینترنت در حضور فعال','evidence'=>'رویداد صریح internet_off'], $merged);
   try {
-    // Report reads must not acquire DDL metadata locks; creation belongs in waiver writes.
-    static $waiverCache=[];
-    if(!array_key_exists($userId,$waiverCache))$waiverCache[$userId]=Db::all('SELECT start_at,end_at FROM internet_work_waivers WHERE user_id=?',[$userId]);
-    $waivers=$waiverCache[$userId];
-    $details=array_values(array_filter($details,static function($d)use($waivers){foreach($waivers as $w)if((string)$w['start_at']===$d['start_at']&&(string)$w['end_at']===$d['end_at'])return false;return true;}));
-  }catch(Throwable $e){error_log('internet work waivers unavailable: '.$e->getMessage());}
-  return $details;
+    // Read current waivers on every calculation; partial waivers subtract only covered time.
+    $waivers=Db::all('SELECT start_at,end_at FROM internet_work_waivers WHERE user_id=? AND end_at>? AND start_at<?',[$userId,date('Y-m-d H:i:s',$merged[0][0]),date('Y-m-d H:i:s',$merged[count($merged)-1][1])]);
+  } catch(Throwable $e) {
+    if(!in_array((string)$e->getCode(),['42S02','1146'],true)){
+      error_log('internet work waivers unavailable: '.$e->getMessage());
+      return [];
+    }
+    $waivers=[];
+  }
+  $effective=[];
+  foreach($merged as $range){
+    $parts=[$range];
+    foreach($waivers as $w){
+      $a=strtotime((string)($w['start_at']??''));
+      $b=strtotime((string)($w['end_at']??''));
+      if(!$a||!$b||$b<=$a)continue;
+      $next=[];
+      foreach($parts as [$left,$right]){
+        if($b<=$left||$a>=$right){$next[]=[$left,$right];continue;}
+        if($a>$left)$next[]=[$left,min($a,$right)];
+        if($b<$right)$next[]=[max($b,$left),$right];
+      }
+      $parts=$next;
+    }
+    foreach($parts as $part)if($part[1]>$part[0])$effective[]=$part;
+  }
+  return array_map(static fn($r)=>['start_at'=>date('Y-m-d H:i:s',$r[0]),'end_at'=>date('Y-m-d H:i:s',$r[1]),'minutes'=>(int)ceil(($r[1]-$r[0])/60),'reason_code'=>'internet_off','reason'=>'خاموشی اینترنت در حضور فعال','evidence'=>'رویداد صریح internet_off'],$effective);
 }
