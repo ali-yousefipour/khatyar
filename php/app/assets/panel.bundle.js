@@ -118,20 +118,31 @@ async function _readJsonResponse(r) {
         throw new Error('پاسخ JSON معتبر از سرور دریافت نشد' + (clean ? ' — ' + clean : ''));
     }
 }
+let _browserRenewalInFlight = null;
 async function _renewBrowserSession() {
-    const legacyRefresh = localStorage.getItem('refresh_token') || '';
-    const rawFetch = window.__KHATYAR_NATIVE_FETCH__ || fetch;
-    const rr = await rawFetch(API_BASE + '/session/renew', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store', 'X-Khatyar-Cookie-Session': '1' },
-        body: JSON.stringify(legacyRefresh ? { refresh: legacyRefresh } : {}),
-    });
-    const d = await _readJsonResponse(rr);
-    if (!rr.ok || !d.access)
-        throw new Error(d.error || 'تمدید نشست ناموفق بود');
-    localStorage.token = d.access;
-    localStorage.removeItem('refresh_token');
-    return d;
+    if (_browserRenewalInFlight)
+        return _browserRenewalInFlight;
+    _browserRenewalInFlight = (async () => {
+        const legacyRefresh = localStorage.getItem('refresh_token') || '';
+        const rawFetch = window.__KHATYAR_NATIVE_FETCH__ || fetch;
+        const rr = await rawFetch(API_BASE + '/session/renew', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store', 'X-Khatyar-Cookie-Session': '1' },
+            body: JSON.stringify(legacyRefresh ? { refresh: legacyRefresh } : {}),
+        });
+        const d = await _readJsonResponse(rr);
+        if (!rr.ok || !d.access)
+            throw Object.assign(new Error(d.error || 'تمدید نشست ناموفق بود'), { status: rr.status });
+        localStorage.token = d.access;
+        localStorage.removeItem('refresh_token');
+        return d;
+    })();
+    try {
+        return await _browserRenewalInFlight;
+    }
+    finally {
+        _browserRenewalInFlight = null;
+    }
 }
 async function _clearWebSession() {
     const result = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-signout', {
@@ -145,13 +156,15 @@ async function _clearWebSession() {
 }
 async function _fetchWithAuth(url, options) {
     const rawFetch = window.__KHATYAR_NATIVE_FETCH__ || fetch;
-    const init = { ...options, headers: { ...(options && options.headers || {}), ...tok() } };
+    const initialToken = localStorage.token || '';
+    const init = { ...options, credentials: 'same-origin', headers: { ...(options && options.headers || {}), ...tok() } };
     let r = await rawFetch(url, init);
     if (r.status !== 401 || String(url).includes('/session/'))
         return r;
     try {
-        await _renewBrowserSession();
-        return await rawFetch(url, { ...options, headers: { ...(options && options.headers || {}), ...tok() } });
+        if ((localStorage.token || '') === initialToken)
+            await _renewBrowserSession();
+        return await rawFetch(url, { ...options, credentials: 'same-origin', headers: { ...(options && options.headers || {}), ...tok() } });
     }
     catch (_) {
         return r;
@@ -322,30 +335,32 @@ const db = {
     restoreSession: async () => {
         const access = localStorage.token || '';
         const me = async () => {
-            const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/auth/me', { headers: tok(), cache: 'no-store' });
+            const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/auth/me', { headers: tok(), cache: 'no-store', credentials: 'same-origin' });
             const d = await _readJsonResponse(r);
             if (!r.ok)
                 throw Object.assign(new Error(d.error || d.message || 'نشست نامعتبر است'), { status: r.status });
             return d.user || null;
         };
-        try {
-            if (access)
+        if (access) {
+            try {
                 return await me();
-        }
-        catch (e) {
-            if (e.status !== 401) {
-                localStorage.removeItem('token');
-                return null;
+            }
+            catch (e) {
+                if (e.status !== 401)
+                    throw e;
             }
         }
         try {
             await _renewBrowserSession();
             return await me();
         }
-        catch (_) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('refresh_token');
-            return null;
+        catch (e) {
+            if (e.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refresh_token');
+                return null;
+            }
+            throw e; // Preserve credentials on 403, 5xx and network errors.
         }
     },
     stats: () => GET('/admin/stats'),
@@ -1247,7 +1262,8 @@ function Dashboard() {
                 React.createElement("span", { className: "dashboard-kpi-index", "aria-hidden": "true" }, fa(i + 1).padStart(2, "۰")),
                 React.createElement("div", { className: "n" }, n == null ? "—" : fa(n)),
                 React.createElement("div", { className: "l" }, l),
-                React.createElement("div", { className: "dashboard-kpi-desc" }, desc))))),
+                React.createElement("div", { className: "dashboard-kpi-desc" }, desc)))),
+            React.createElement(DashboardDiscipline, null)),
         activeTab === 'personnel' && React.createElement("div", { id: "dashboard-content-personnel", role: "tabpanel", "aria-labelledby": "dashboard-tab-personnel" },
             React.createElement(PersonnelDistributionDashboard, null)),
         activeTab === 'attendance' && React.createElement("div", { id: "dashboard-content-attendance", role: "tabpanel", "aria-labelledby": "dashboard-tab-attendance" },
@@ -1263,6 +1279,93 @@ function Dashboard() {
                 tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "panel muted", id: "dashboard-content-performance", role: "tabpanel" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0646\u06CC\u0633\u062A.")),
         activeTab === 'insights' && React.createElement("div", { id: "dashboard-content-insights", role: "tabpanel", "aria-labelledby": "dashboard-tab-insights" },
             React.createElement(DashboardManagementInsights, { stats: s, workers: tw }))));
+}
+function DashboardDiscipline() {
+    const [days, setDays] = useState(30), [data, setData] = useState(null), [err, setErr] = useState(''), [retry, setRetry] = useState(0);
+    const [from, setFrom] = useState(''), [to, setTo] = useState(''), [custom, setCustom] = useState(''), [selected, setSelected] = useState(null);
+    useEffect(() => { let alive = true; setSelected(null); setData(null); setErr(''); if (days === 0 && !custom)
+        return; GET('/admin/dashboard-discipline?' + (days === 0 ? custom : 'days=' + days)).then(v => { if (alive)
+        setData(v); }).catch(e => { if (alive)
+        setErr((e === null || e === void 0 ? void 0 : e.message) || 'خطا در دریافت رتبه‌بندی'); }); return () => { alive = false; }; }, [days, retry, custom]);
+    const hm = n => fa(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    const tables = [{ title: '۱۰ نیروی دارای بیشترین اصلاحات تردد', rows: data === null || data === void 0 ? void 0 : data.corrections, cols: [['تردد دستی', 'manual'], ['اصلاح ساعت', 'edits'], ['مجموع', 'total']] }, { title: '۱۰ نیروی دارای بیشترین بی‌نظمی کاری', rows: data === null || data === void 0 ? void 0 : data.irregular, cols: [['کسر کار', 'shortage'], ['دیرکرد', 'late'], ['تعجیل', 'early'], ['خروج خودکار', 'auto_close']] }];
+    return React.createElement("section", { className: "panel", dir: "rtl", style: { marginTop: 16 } },
+        React.createElement("div", { className: "dashboard-section-head", style: { flexWrap: 'wrap' } },
+            React.createElement("div", null,
+                React.createElement("h2", null, "\u0646\u0638\u0645 \u06A9\u0627\u0631\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("span", { className: "muted" }, "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0641\u0639\u0627\u0644 \u0645\u0648\u0638\u0641 \u0628\u0647 \u062D\u0636\u0648\u0631\u061B \u0628\u062F\u0648\u0646 \u062F\u0631\u062C\u0627\u062A \u06F1 \u062A\u0627 \u06F4 \u0648 \u0628\u062F\u0648\u0646 \u0631\u0648\u0632 \u062C\u0627\u0631\u06CC")),
+            React.createElement("label", null,
+                "\u0628\u0627\u0632\u0647 ",
+                React.createElement("select", { value: days, onChange: e => setDays(Number(e.target.value)) },
+                    [7, 14, 30].map(n => React.createElement("option", { key: n, value: n },
+                        fa(n),
+                        " \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631")),
+                    React.createElement("option", { value: 0 }, "\u0628\u0627\u0632\u0647 \u062F\u0644\u062E\u0648\u0627\u0647")))),
+        days === 0 && React.createElement("div", { className: "row", style: { flexWrap: 'wrap', gap: 10, margin: '12px 0' } },
+            React.createElement("div", null,
+                React.createElement("label", null, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
+                React.createElement(JDate, { value: from, onChange: setFrom, portal: true })),
+            React.createElement("div", null,
+                React.createElement("label", null, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
+                React.createElement(JDate, { value: to, onChange: setTo, portal: true })),
+            React.createElement("button", { className: "btn p", disabled: !from || !to || from > to, onClick: () => { setCustom('from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)); setRetry(n => n + 1); } }, "\u0627\u0639\u0645\u0627\u0644 \u0628\u0627\u0632\u0647"),
+            React.createElement("small", { className: "muted" }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3\u06F1 \u0631\u0648\u0632 \u06A9\u0627\u0645\u0644")),
+        err ? React.createElement("div", { role: "alert" },
+            err,
+            " ",
+            React.createElement("button", { className: "btn", onClick: () => setRetry(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : !data ? React.createElement("p", { className: "muted", role: "status" }, days === 0 && !custom ? 'بازه تاریخ را انتخاب کنید.' : 'در حال محاسبه رتبه‌بندی…') : React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "muted" },
+                String(data.from).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]),
+                " \u062A\u0627 ",
+                String(data.to).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])),
+            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))', gap: 12 } }, tables.map(t => { var _a; return React.createElement("article", { className: "panel", key: t.title, style: { minWidth: 0, margin: 0 } },
+                React.createElement("h3", null, t.title),
+                !((_a = t.rows) === null || _a === void 0 ? void 0 : _a.length) ? React.createElement("p", { className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement("div", { style: { overflowX: 'auto' } },
+                    React.createElement("table", { style: { width: '100%', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } },
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0631\u062A\u0628\u0647"),
+                                React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0633\u0645\u062A"),
+                                t.cols.map(([label, key]) => React.createElement("th", { key: key }, label)))),
+                        React.createElement("tbody", null, t.rows.map((p, i) => React.createElement("tr", { key: p.id },
+                            React.createElement("td", null, fa(i + 1)),
+                            React.createElement("td", null,
+                                React.createElement("button", { type: "button", onClick: () => setSelected({ person: p, title: t.title, correction: t.cols[0][1] === 'manual' }), className: "btn g", style: { display: 'flex', alignItems: 'center', gap: 8, textAlign: 'right' } },
+                                    React.createElement("span", { className: "avatar", style: { width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', display: 'grid', placeItems: 'center' } },
+                                        React.createElement(AuthenticatedAvatar, { url: p.photo, name: p.name })),
+                                    React.createElement("span", null,
+                                        React.createElement("b", null, p.name),
+                                        React.createElement("small", { className: "muted", style: { display: 'block' } }, p.role)))),
+                            t.cols.map(([, key]) => React.createElement("td", { key: key }, key === 'shortage' ? hm(p[key]) : fa(p[key]))))))))); })),
+            React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0631\u062A\u0628\u0647 \u0627\u0635\u0644\u0627\u062D\u0627\u062A \u0628\u0631 \u0627\u0633\u0627\u0633 \u0645\u062C\u0645\u0648\u0639 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0648 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647 \u06CC\u06A9\u062A\u0627\u061B \u0631\u062A\u0628\u0647 \u0628\u06CC\u200C\u0646\u0638\u0645\u06CC \u0627\u0628\u062A\u062F\u0627 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062F\u0642\u0627\u06CC\u0642 \u06A9\u0633\u0631\u06CC \u0648 \u0633\u067E\u0633 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632\u0647\u0627\u06CC \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0646\u0627\u0645\u0646\u0638\u0645 \u0627\u0633\u062A.")),
+        selected && React.createElement(Modal, { title: 'جزئیات ' + selected.person.name, onClose: () => setSelected(null), style: { width: 'min(800px,95vw)' } },
+            React.createElement("p", { className: "muted" }, selected.title),
+            React.createElement("div", { style: { maxHeight: '60vh', overflow: 'auto' } },
+                (selected.person.details || []).map((d, i) => React.createElement("article", { className: "panel", key: i },
+                    React.createElement("b", null, String(d.date).replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)])),
+                    selected.correction ? React.createElement("div", null, d.manual.map((m, k) => React.createElement("p", { key: k },
+                        "\u0648\u0631\u0648\u062F: ",
+                        String(m.in || '—').replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)]),
+                        " | \u062E\u0631\u0648\u062C: ",
+                        String(m.out || '—').replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)])))) : React.createElement("p", null,
+                        "\u06A9\u0633\u0631 \u06A9\u0627\u0631: ",
+                        hm(d.shortage),
+                        " | \u062F\u06CC\u0631\u06A9\u0631\u062F: ",
+                        hm(d.late),
+                        " | \u062A\u0639\u062C\u06CC\u0644: ",
+                        hm(d.early),
+                        " | \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631: ",
+                        fa(d.auto_close)))),
+                selected.correction && (selected.person.edits_detail || []).map((e, i) => React.createElement("article", { className: "panel", key: 'e' + i },
+                    React.createElement("b", null,
+                        String(e.date).replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)]),
+                        " \u2014 \u0627\u0635\u0644\u0627\u062D ",
+                        e.side === 'check_in' ? 'ورود' : 'خروج'),
+                    React.createElement("p", null,
+                        "\u0642\u0628\u0644: ",
+                        String(e.before || '—').slice(11, 16).replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)]) || '—',
+                        " | \u0628\u0639\u062F: ",
+                        String(e.after || '—').slice(11, 16).replace(/[0-9]/g, x => '۰۱۲۳۴۵۶۷۸۹'[Number(x)]) || '—'))))));
 }
 function DashboardManagementInsights({ stats, workers }) {
     const people = ((workers === null || workers === void 0 ? void 0 : workers.groups) || []).flatMap(g => g.top || []);
@@ -7756,6 +7859,7 @@ function MaintenanceModeSettings() {
         React.createElement("button", { className: "btn p", style: { marginTop: 10 }, disabled: saving, onClick: save }, saving ? 'در حال ذخیره…' : 'ذخیره حالت نگهداری'));
 }
 const SETTINGS_SECTION_INDEX = [
+    { "id": "settings-staff-attendance-timing", "tab": "general", "title": "زمان‌بندی ورود و خروج پرسنل؛ خروج خودکار و حداقل فاصله ورود مجدد" },
     {
         "id": "settings-section-1",
         "tab": "general",
@@ -8073,6 +8177,20 @@ function Settings() {
                 Field("inspection_head", "رییس اداره بازرسی"),
                 Field("payment_base_url", "آدرس پایهٔ درگاه پرداخت"),
                 Field("attendance_cooldown_min", "فاصلهٔ مجاز ثبت حضور (دقیقه)"),
+                React.createElement("section", { id: "settings-staff-attendance-timing", style: { border: "1px solid var(--line)", borderRadius: 12, padding: 14, marginTop: 14 } },
+                    React.createElement("h4", { style: { margin: "0 0 8px" } }, "\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u067E\u0631\u0633\u0646\u0644"),
+                    React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 1.8 } }, "\u0627\u06CC\u0646 \u062F\u0648 \u062A\u0646\u0638\u06CC\u0645 \u0628\u0631\u0627\u06CC \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644 \u062E\u0637\u06CC\u0627\u0631 \u062F\u0631 \u0633\u0631\u0648\u0631 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u0628\u0627 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u062F\u0631 \u062E\u0637\u0648\u0637 \u0645\u062A\u0641\u0627\u0648\u062A \u0647\u0633\u062A\u0646\u062F."),
+                    [["staff_auto_close_minutes", "حداکثر مدت حضور تا خروج خودکار", 840, 1], ["staff_reentry_gap_minutes", "حداقل فاصله خروج تا ورود مجدد", 180, 0]].map(([key, label, fallback, min]) => {
+                        var _a, _b, _c, _e, _f;
+                        return React.createElement("label", { className: "settings-field", key: key },
+                            React.createElement("span", null,
+                                label,
+                                " (\u062F\u0642\u06CC\u0642\u0647)"),
+                            React.createElement("input", { className: "input", type: "text", inputMode: "numeric", dir: "ltr", value: faPlain(String((_a = v[key]) !== null && _a !== void 0 ? _a : fallback)), onChange: e => { const raw = e.target.value.replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))); if (/^\d*$/.test(raw))
+                                    set(key, raw); } }),
+                            React.createElement("small", { className: "muted" }, Number((_b = v[key]) !== null && _b !== void 0 ? _b : fallback) >= min && Number((_c = v[key]) !== null && _c !== void 0 ? _c : fallback) <= 10080 ? faPlain(String(Math.floor(Number((_e = v[key]) !== null && _e !== void 0 ? _e : fallback) / 60))) + " ساعت و " + faPlain(String(Number((_f = v[key]) !== null && _f !== void 0 ? _f : fallback) % 60)) + " دقیقه" : "مقدار خارج از محدوده مجاز"));
+                    }),
+                    React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 1.8 } }, "\u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631: \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u06F1\u06F4 \u0633\u0627\u0639\u062A \u067E\u0633 \u0627\u0632 \u0648\u0631\u0648\u062F. \u0648\u0631\u0648\u062F \u0645\u062C\u062F\u062F: \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u06F3 \u0633\u0627\u0639\u062A \u067E\u0633 \u0627\u0632 \u062E\u0631\u0648\u062C\u061B \u0645\u0642\u062F\u0627\u0631 \u0635\u0641\u0631 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0648\u0631\u0648\u062F \u0645\u062C\u062F\u062F \u0631\u0627 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0645\u06CC\u200C\u06A9\u0646\u062F.")),
                 React.createElement("div", { style: { marginTop: 12 } },
                     React.createElement("label", { className: "label" }, "\u062D\u0627\u0644\u062A \u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0631\u062F\u06CC\u0627\u0628\u06CC\u060C \u0633\u0644\u0641\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633\u060C \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0648 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC:"),
                     React.createElement("div", { className: "row", style: { gap: 16, marginTop: 6, flexWrap: "wrap" } }, [["always", "همیشه فعال (۲۴ ساعته)"], ["shift_only", "فقط در ساعات شیفت کاری کاربر"]].map(([val, lbl]) => (React.createElement("label", { key: val, style: { display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 13 } },
@@ -10837,7 +10955,12 @@ function LeaveBlockedDates() {
     const [jdate, setJdate] = useState("");
     const [reason, setReason] = useState("");
     const [msg, setMsg] = useState("");
-    const load = () => GET("/admin/leave-blocked-dates").then(d => setList(d || [])).catch(() => { });
+    const load = async () => { try {
+        setList(await GET("/admin/leave-blocked-dates") || []);
+    }
+    catch (e) {
+        setMsg(e.message || 'دریافت روزهای ممنوعه ناموفق بود.');
+    } };
     useEffect(() => { load(); }, []);
     const add = async () => {
         if (!jdate) {
@@ -10856,7 +10979,14 @@ function LeaveBlockedDates() {
         }
     };
     const del = async (id) => { if (!confirm("حذف این روز ممنوعه؟"))
-        return; await SEND("DELETE", "/admin/leave-blocked-dates/" + id); load(); };
+        return; try {
+        await SEND("DELETE", "/admin/leave-blocked-dates/" + id);
+        await load();
+        setMsg("✓ روز ممنوعه حذف شد.");
+    }
+    catch (e) {
+        setMsg(e.message || "حذف روز ممنوعه ناموفق بود.");
+    } };
     return (React.createElement("div", null,
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 12 } }, "\u0631\u0648\u0632\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u06AF\u0631\u0641\u062A\u0646 \u0645\u0631\u062E\u0635\u06CC \u062F\u0631 \u0622\u0646\u200C\u0647\u0627 \u0645\u0645\u0646\u0648\u0639 \u0627\u0633\u062A \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F (\u0645\u062B\u0644\u0627\u064B \u0627\u06CC\u0627\u0645 \u067E\u06CC\u06A9 \u0633\u0641\u0631\u060C \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627\u06CC \u062E\u0627\u0635). \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0631\u062E\u0635\u06CC\u060C \u0627\u06AF\u0631 \u0628\u0627\u0632\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0634\u0627\u0645\u0644 \u0627\u06CC\u0646 \u0631\u0648\u0632\u0647\u0627 \u0628\u0627\u0634\u062F\u060C \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0631\u062F \u0645\u06CC\u200C\u0634\u0648\u062F."),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
@@ -10888,7 +11018,7 @@ function LeaveBalanceInit() {
     const [q, setQ] = useState("");
     const [msg, setMsg] = useState("");
     const [busy, setBusy] = useState(false);
-    const load = () => db.leaveBalanceInitList().then(r => setRows((r || []).map(x => { const m = +x.minutes || 0; return { ...x, h: Math.floor(m / 60), m: m % 60 }; }))).catch(() => setRows([]));
+    const load = () => db.leaveBalanceInitList().then(r => setRows((r || []).map(x => { const m = +x.minutes || 0; return { ...x, h: Math.floor(m / 60), m: m % 60 }; }))).catch(e => { setMsg(e.message || 'دریافت مانده مرخصی ناموفق بود.'); setRows([]); });
     useEffect(() => { load(); }, []);
     const setCell = (id, k, v) => setRows(rs => rs.map(r => r.id === id ? { ...r, [k]: Math.max(0, Math.min(k === "m" ? 59 : 9999, +v || 0)) } : r));
     const save = async () => {
@@ -10942,6 +11072,7 @@ function OfflineSyncConflicts() {
     const [rows, setRows] = useState([]);
     const [status, setStatus] = useState("");
     const [busy, setBusy] = useState(false);
+    const [acting, setActing] = useState(null);
     const [msg, setMsg] = useState("");
     const load = async () => { setBusy(true); setMsg(""); try {
         const d = await GET('/admin/offline-sync-conflicts' + (status ? '?status=' + encodeURIComponent(status) : ''));
@@ -10954,32 +11085,29 @@ function OfflineSyncConflicts() {
         setBusy(false);
     } };
     useEffect(() => { load(); }, [status]);
-    const retry = async (id) => { const note = prompt('توضیح پردازش مجدد:', 'پردازش مجدد توسط مدیر') || ''; setMsg(''); try {
-        await SEND('POST', '/admin/offline-sync-conflicts/' + id + '/retry', { note });
-        setMsg('✓ رکورد دوباره پردازش شد');
-        load();
-    }
-    catch (e) {
-        setMsg(e.message || 'خطا در پردازش مجدد');
-    } };
-    const ignore = async (id) => { const note = prompt('علت نادیده گرفتن:', 'رکورد نامعتبر یا تکراری') || ''; if (!note)
-        return; try {
-        await SEND('POST', '/admin/offline-sync-conflicts/' + id + '/ignore', { note });
-        setMsg('✓ رکورد نادیده گرفته شد');
-        load();
-    }
-    catch (e) {
-        setMsg(e.message || 'خطا در ثبت');
-    } };
-    const mark = async (id) => { const reason = prompt('علت ارجاع به بررسی:', 'نیازمند بررسی مدیریتی') || ''; if (!reason)
-        return; try {
-        await SEND('POST', '/admin/offline-sync-conflicts/' + id + '/mark-conflict', { reason });
-        setMsg('✓ وضعیت تعارض ثبت شد');
-        load();
-    }
-    catch (e) {
-        setMsg(e.message || 'خطا در ثبت تعارض');
-    } };
+    const resolve = async (id, kind) => {
+        if (acting !== null)
+            return;
+        const label = kind === 'retry' ? 'پردازش مجدد' : kind === 'ignore' ? 'نادیده گرفتن' : 'ارجاع به بررسی';
+        const note = prompt('توضیح ' + label + ':', kind === 'retry' ? 'پردازش مجدد توسط مدیر' : kind === 'ignore' ? 'رکورد نامعتبر یا تکراری' : 'نیازمند بررسی مدیریتی');
+        if (note === null || !note.trim())
+            return;
+        if (kind === 'retry' && !confirm('این رکورد دوباره پردازش شود؟ ممکن است عملیات حضور را تغییر دهد.'))
+            return;
+        setActing(id);
+        setMsg('');
+        try {
+            await SEND('POST', '/admin/offline-sync-conflicts/' + id + '/' + (kind === 'mark' ? 'mark-conflict' : kind), kind === 'mark' ? { reason: note.trim() } : { note: note.trim() });
+            await load();
+            setMsg('✓ عملیات ' + label + ' انجام شد.');
+        }
+        catch (e) {
+            setMsg(e.message || 'ثبت عملیات تعارض ناموفق بود.');
+        }
+        finally {
+            setActing(null);
+        }
+    };
     const payloadText = (r) => { try {
         return typeof r.payload === 'string' ? r.payload : JSON.stringify(r.payload || {}, null, 2);
     }
@@ -10998,7 +11126,7 @@ function OfflineSyncConflicts() {
                 React.createElement("option", { value: "processed" }, "\u067E\u0631\u062F\u0627\u0632\u0634\u200C\u0634\u062F\u0647")),
             React.createElement("button", { className: "btn p", onClick: load, disabled: busy }, busy ? 'در حال بارگذاری…' : 'بروزرسانی')),
         msg && React.createElement("p", { style: { color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)', fontWeight: 700, marginBottom: 8 } }, msg),
-        React.createElement("div", { style: { overflowX: 'auto' } },
+        React.createElement("div", { className: "sm-scroll-table" },
             React.createElement("table", { style: { minWidth: 980, fontSize: 12 } },
                 React.createElement("thead", null,
                     React.createElement("tr", null,
@@ -11033,27 +11161,73 @@ function OfflineSyncConflicts() {
                             fj(r.processed_at))),
                     React.createElement("td", null,
                         React.createElement("div", { className: "row", style: { gap: 4, flexWrap: 'wrap' } },
-                            React.createElement("button", { className: "btn g", onClick: () => retry(r.id) }, "\u067E\u0631\u062F\u0627\u0632\u0634 \u0645\u062C\u062F\u062F"),
-                            React.createElement("button", { className: "btn g", onClick: () => mark(r.id) }, "\u062A\u0639\u0627\u0631\u0636"),
-                            React.createElement("button", { className: "btn g", style: { color: 'var(--danger)' }, onClick: () => ignore(r.id) }, "\u0646\u0627\u062F\u06CC\u062F\u0647 \u06AF\u0631\u0641\u062A\u0646"))))))),
+                            React.createElement("button", { className: "btn g", type: "button", disabled: acting !== null || busy, onClick: () => resolve(r.id, 'retry') }, "\u067E\u0631\u062F\u0627\u0632\u0634 \u0645\u062C\u062F\u062F"),
+                            React.createElement("button", { className: "btn g", type: "button", disabled: acting !== null || busy, onClick: () => resolve(r.id, 'mark') }, "\u062A\u0639\u0627\u0631\u0636"),
+                            React.createElement("button", { className: "btn g", type: "button", disabled: acting !== null || busy, style: { color: 'var(--danger)' }, onClick: () => resolve(r.id, 'ignore') }, "\u0646\u0627\u062F\u06CC\u062F\u0647 \u06AF\u0631\u0641\u062A\u0646"))))))),
             !rows.length && React.createElement("p", { className: "muted", style: { padding: 16, textAlign: 'center' } }, "\u0631\u06A9\u0648\u0631\u062F\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F."))));
 }
+const shiftManagerV3Styles = `
+.shift-manager-v3{--sm-ink:#193f42;--sm-muted:#527471;--sm-line:#d9e9e2;--sm-accent:#0b7663;color:var(--sm-ink);min-width:0}
+.shift-manager-v3 .sm-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(110deg,#064c44,#098273);color:#fff;border-radius:17px;padding:22px;margin-bottom:14px}
+.shift-manager-v3 .sm-hero h3{color:#fff;font-size:21px;margin:0 0 6px}.shift-manager-v3 .sm-hero p{margin:0;font-size:12px;color:#dcf3ec;line-height:1.8}
+.shift-manager-v3 .sm-hero-count{border:1px solid #ffffff62;background:#ffffff16;border-radius:12px;padding:9px 13px;font-size:12px}
+.shift-manager-v3 .sm-nav{display:flex;flex-direction:column;gap:10px;margin-bottom:17px;background:#fff;border:1px solid var(--sm-line);border-radius:15px;padding:13px}
+.shift-manager-v3 .sm-nav-group{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.shift-manager-v3 .sm-nav-label{font-size:11px;font-weight:800;color:var(--sm-muted);min-width:96px}
+.shift-manager-v3 .sm-nav-btn{font:750 12px Vazirmatn,Tahoma;border:1px solid #d2e6de;background:#f7fbf9;color:#315f58;border-radius:10px;padding:9px 12px;cursor:pointer;min-height:39px}
+.shift-manager-v3 .sm-nav-btn[aria-selected="true"]{background:#076f5d;border-color:#076f5d;color:#fff;box-shadow:0 3px 9px #086d5b33}
+.shift-manager-v3 .sm-nav-btn:focus-visible,.shift-manager-v3 button:focus-visible{outline:3px solid #21ab8f;outline-offset:2px}
+.shift-manager-v3 .sm-content{border:1px solid var(--sm-line);border-radius:16px;padding:18px;background:#fff;min-width:0}
+.shift-manager-v3 .sm-content-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid #edf1ef}
+.shift-manager-v3 .sm-content-head h4{margin:0 0 5px;font-size:17px}.shift-manager-v3 .sm-content-head p{margin:0;font-size:12px;color:var(--sm-muted);line-height:1.8}
+.shift-manager-v3 .sm-content table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:640px}
+.shift-manager-v3 .sm-content table th{position:sticky;top:0;background:#e9f5ef;color:#174c42;z-index:1;text-align:right;padding:11px 10px}
+.shift-manager-v3 .sm-content table td{border-bottom:1px solid #e8efeb;text-align:right;padding:10px}
+.shift-manager-v3 .sm-content table tbody tr:nth-child(even){background:#f8fbfa}
+.shift-manager-v3 .sm-content input,.shift-manager-v3 .sm-content select{max-width:100%}
+.shift-manager-v3 .sm-content .card-p{border:1px solid #dfebe6;border-radius:13px}
+.shift-manager-v3 .sm-content .row{row-gap:9px}
+.shift-manager-v3 .sm-scroll-table{overflow:auto;max-height:560px;border:1px solid #e0eae5;border-radius:12px}
+.shift-manager-v3 .sm-status-error{background:#fff1ee;border:1px solid #f3c4bb;color:#ac322a;padding:11px;border-radius:10px;font-size:12px}
+.shift-manager-v3 .sm-empty{padding:20px;text-align:center;color:#68817b;font-size:12px}
+@media(max-width:760px){.shift-manager-v3 .sm-hero{padding:16px}.shift-manager-v3 .sm-content{padding:12px}.shift-manager-v3 .sm-nav-label{width:100%;min-width:0}.shift-manager-v3 .sm-nav-btn{flex:1}}
+`;
 function ShiftManager() {
     const [tab, setTab] = useState("shifts");
-    const TABS = [["shifts", "تعریف شیفت‌ها"], ["assign", "تخصیص به نیروها"], ["autoRules", "قوانین شیفت خودکار"], ["userRules", "قانون اختصاصی افراد"], ["shiftOps", "عملیات و عیب‌یابی شیفت"], ["rejectLogs", "لاگ رد حضور"], ["offlineConflicts", "تعارض آفلاین"], ["holidays", "تعطیلات رسمی"], ["blocked", "روزهای ممنوعهٔ مرخصی"], ["leavebal", "ماندهٔ مرخصی ابتدای دوره"]];
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", null, "\uD83D\uDDD3 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0648 \u06A9\u0627\u0631\u06A9\u0631\u062F"),
-        React.createElement("div", { className: "tabbar", style: { flexWrap: "wrap" } }, TABS.map(([k, t]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) }, t))),
-        tab === "shifts" && React.createElement(ShiftList, null),
-        tab === "assign" && React.createElement(ShiftAssign, null),
-        tab === "autoRules" && React.createElement(AutoShiftRules, null),
-        tab === "userRules" && React.createElement(UserRuleOverrides, null),
-        tab === "shiftOps" && React.createElement(ShiftOperations, null),
-        tab === "rejectLogs" && React.createElement(AttendanceRejectLogs, null),
-        tab === "offlineConflicts" && React.createElement(OfflineSyncConflicts, null),
-        tab === "holidays" && React.createElement(Holidays, null),
-        tab === "blocked" && React.createElement(LeaveBlockedDates, null),
-        tab === "leavebal" && React.createElement(LeaveBalanceInit, null)));
+    const groups = [
+        { title: "برنامه‌ریزی", tabs: [["shifts", "تعریف شیفت‌ها", "ساخت و ویرایش شیفت ساده، تقویمی، شناور و چرخشی"], ["assign", "تخصیص به نیروها", "انتخاب شیفت ثابت یا خودکار برای هر نیرو"], ["autoRules", "قوانین شیفت خودکار", "تنظیم قوانین محاسبه بر اساس سمت"], ["userRules", "قانون اختصاصی افراد", "مدیریت استثناهای محاسبه برای کاربران مشخص"]] },
+        { title: "کنترل و پایش", tabs: [["shiftOps", "عملیات و عیب‌یابی", "بررسی تعارض‌ها، جلسات باز و محاسبه مجدد"], ["rejectLogs", "لاگ رد حضور", "جست‌وجوی خطاهای ثبت حضور و دلایل رد"], ["offlineConflicts", "تعارض آفلاین", "بررسی و تعیین تکلیف درخواست‌های آفلاین"]] },
+        { title: "تقویم و مرخصی", tabs: [["holidays", "تعطیلات رسمی", "مدیریت تعطیلات مورد استفاده در محاسبات"], ["blocked", "روزهای ممنوعه مرخصی", "تعریف روزهای غیرمجاز برای درخواست مرخصی"], ["leavebal", "مانده مرخصی ابتدای دوره", "ثبت موجودی اولیه مرخصی کارکنان"]] }
+    ];
+    const all = groups.flatMap(g => g.tabs);
+    const current = all.find(t => t[0] === tab) || all[0];
+    return React.createElement("div", { className: "panel admin-workspace-page shift-manager-v3" },
+        React.createElement("style", null, shiftManagerV3Styles),
+        React.createElement("header", { className: "sm-hero" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0648 \u06A9\u0627\u0631\u06A9\u0631\u062F"),
+                React.createElement("p", null, "\u062A\u0646\u0638\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0647\u0627\u060C \u062A\u062E\u0635\u06CC\u0635 \u0646\u06CC\u0631\u0648\u0647\u0627\u060C \u0642\u0648\u0627\u0646\u06CC\u0646\u060C \u067E\u0627\u06CC\u0634 \u0648 \u0645\u0631\u062E\u0635\u06CC \u062F\u0631 \u06CC\u06A9 \u0645\u0631\u06A9\u0632 \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647")),
+            React.createElement("span", { className: "sm-hero-count" },
+                fa(all.length),
+                " \u0628\u062E\u0634 \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC")),
+        React.createElement("nav", { className: "sm-nav", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A \u0634\u06CC\u0641\u062A" }, groups.map(group => React.createElement("div", { className: "sm-nav-group", key: group.title },
+            React.createElement("span", { className: "sm-nav-label" }, group.title),
+            group.tabs.map(([key, title]) => React.createElement("button", { key: key, type: "button", className: "sm-nav-btn", "aria-selected": tab === key, "aria-current": tab === key ? "page" : undefined, onClick: () => setTab(key) }, title))))),
+        React.createElement("section", { className: "sm-content", "aria-label": current[1] },
+            React.createElement("div", { className: "sm-content-head" },
+                React.createElement("div", null,
+                    React.createElement("h4", null, current[1]),
+                    React.createElement("p", null, current[2]))),
+            tab === "shifts" && React.createElement(ShiftList, null),
+            tab === "assign" && React.createElement(ShiftAssign, null),
+            tab === "autoRules" && React.createElement(AutoShiftRules, null),
+            tab === "userRules" && React.createElement(UserRuleOverrides, null),
+            tab === "shiftOps" && React.createElement(ShiftOperations, null),
+            tab === "rejectLogs" && React.createElement(AttendanceRejectLogs, null),
+            tab === "offlineConflicts" && React.createElement(OfflineSyncConflicts, null),
+            tab === "holidays" && React.createElement(Holidays, null),
+            tab === "blocked" && React.createElement(LeaveBlockedDates, null),
+            tab === "leavebal" && React.createElement(LeaveBalanceInit, null)));
 }
 function minToHMInput(m) { m = parseInt(m || 0, 10); return { h: Math.floor(m / 60), m: m % 60 }; }
 function hmInputToMin(h, m) { return (parseInt(h || 0, 10) * 60) + (parseInt(m || 0, 10)); }
@@ -11067,16 +11241,23 @@ function AutoShiftRules() {
     const patchHM = (i, key, k, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [key]: { ...r[key], [k]: v } } : r));
     const save = async (i) => {
         const r = rows[i];
+        if (saving !== null)
+            return;
+        const clocks = [r._d, r._o, r._s];
+        if (clocks.some(v => !Number.isFinite(Number(v.h)) || !Number.isFinite(Number(v.m)) || Number(v.h) < 0 || Number(v.m) < 0 || Number(v.m) > 59)) {
+            setMsg('ساعت و دقیقه نامعتبر است؛ دقیقه باید بین ۰ تا ۵۹ باشد.');
+            return;
+        }
         setSaving(r.role_key);
         setMsg('');
         const body = { ...r, duty_minutes: hmInputToMin(r._d.h, r._d.m), overtime_limit_minutes: hmInputToMin(r._o.h, r._o.m), surplus_after_minutes: hmInputToMin(r._s.h, r._s.m) };
         try {
             await db.saveRuleEngineRole(r.role_key, body);
-            setMsg('ذخیره شد');
             await load();
+            setMsg('✓ قانون سمت ذخیره شد.');
         }
         catch (e) {
-            setMsg(e.message || 'خطا در ذخیره');
+            setMsg(e.message || 'ذخیره قانون سمت ناموفق بود.');
         }
         finally {
             setSaving(null);
@@ -11086,8 +11267,8 @@ function AutoShiftRules() {
         return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     return (React.createElement("div", null,
         React.createElement("p", { style: { fontSize: 12.5, color: 'var(--muted)', margin: '6px 0 12px' } }, "\u0642\u0648\u0627\u0646\u06CC\u0646 \u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0627\u06CC\u0646\u062C\u0627 \u06A9\u0646\u062A\u0631\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0627\u06CC\u0646 \u0642\u0648\u0627\u0646\u06CC\u0646 \u062F\u0631 \u062A\u0627\u06CC\u0645\u0631 \u0627\u067E\u060C \u062B\u0628\u062A \u0648\u0631\u0648\u062F\u060C \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u0648\u0638\u0641\u06CC\u060C \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631\u060C \u0645\u0627\u0632\u0627\u062F\u060C \u0634\u0628\u200C\u06A9\u0627\u0631\u06CC\u060C \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u0648 \u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-        msg && React.createElement("p", { style: { fontWeight: 700, color: msg === 'ذخیره شد' ? 'var(--ok)' : 'var(--danger)' } }, msg),
-        React.createElement("div", { style: { overflowX: 'auto' } },
+        msg && React.createElement("p", { style: { fontWeight: 700, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)' } }, msg),
+        React.createElement("div", { className: "sm-scroll-table" },
             React.createElement("table", { style: { minWidth: 1480, fontSize: 12 } },
                 React.createElement("thead", null,
                     React.createElement("tr", null,
@@ -11179,28 +11360,77 @@ function AutoShiftRules() {
                         React.createElement("button", { className: "btn p", disabled: saving === r.role_key, onClick: () => save(i) }, saving === r.role_key ? 'در حال ذخیره' : 'ذخیره')))))))));
 }
 function UserRuleOverrides() {
+    var _a, _b;
     const [users, setUsers] = useState([]), [uid, setUid] = useState(''), [row, setRow] = useState(null), [msg, setMsg] = useState('');
-    useEffect(() => { db.usersLite().then(setUsers).catch(() => { }); }, []);
-    const load = async (id) => { setUid(id); setMsg(''); if (!id) {
+    const [busy, setBusy] = useState(false);
+    useEffect(() => { db.usersLite().then(setUsers).catch(e => setMsg(e.message || 'دریافت کاربران ناموفق بود.')); }, []);
+    const load = async (id) => {
+        var _a, _b, _c;
+        setUid(id);
+        setMsg('');
         setRow(null);
-        return;
-    } const r = await db.userRuleOverrides(id); const x = (r && r[0]) || { user_id: id, is_active: 1 }; setRow({ ...x, _d: minToHMInput(x.duty_minutes || 453), _o: minToHMInput(x.overtime_limit_minutes || 27), _s: minToHMInput(x.surplus_after_minutes || 480) }); };
+        if (!id)
+            return;
+        setBusy(true);
+        try {
+            const r = await db.userRuleOverrides(id);
+            const x = (r && r[0]) || { user_id: id, is_active: 1 };
+            // Zero is meaningful: do not override explicitly configured zero values.
+            setRow({ ...x, _d: minToHMInput((_a = x.duty_minutes) !== null && _a !== void 0 ? _a : 453), _o: minToHMInput((_b = x.overtime_limit_minutes) !== null && _b !== void 0 ? _b : 27), _s: minToHMInput((_c = x.surplus_after_minutes) !== null && _c !== void 0 ? _c : 480) });
+        }
+        catch (e) {
+            setMsg(e.message || 'دریافت قانون اختصاصی ناموفق بود.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     const patch = (k, v) => setRow(r => ({ ...r, [k]: v }));
     const patchHM = (key, k, v) => setRow(r => ({ ...r, [key]: { ...r[key], [k]: v } }));
-    const save = async () => { if (!uid || !row)
-        return; const body = { ...row, duty_minutes: hmInputToMin(row._d.h, row._d.m), overtime_limit_minutes: hmInputToMin(row._o.h, row._o.m), surplus_after_minutes: hmInputToMin(row._s.h, row._s.m) }; await db.saveUserRuleOverride(uid, body); setMsg('ذخیره شد'); await load(uid); };
-    const del = async () => { if (!uid)
-        return; if (!confirm('قانون اختصاصی این کاربر حذف شود؟'))
-        return; await db.deleteUserRuleOverride(uid); setMsg('حذف شد'); await load(uid); };
+    const save = async () => {
+        if (!uid || !row || busy)
+            return;
+        setBusy(true);
+        setMsg('');
+        const body = { ...row, duty_minutes: hmInputToMin(row._d.h, row._d.m), overtime_limit_minutes: hmInputToMin(row._o.h, row._o.m), surplus_after_minutes: hmInputToMin(row._s.h, row._s.m) };
+        try {
+            await db.saveUserRuleOverride(uid, body);
+            setMsg('✓ قانون اختصاصی ذخیره شد.');
+        }
+        catch (e) {
+            setMsg(e.message || 'ذخیره قانون اختصاصی ناموفق بود.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const del = async () => {
+        if (!uid || busy || !confirm('قانون اختصاصی این کاربر حذف شود؟'))
+            return;
+        setBusy(true);
+        setMsg('');
+        try {
+            await db.deleteUserRuleOverride(uid);
+            setRow(null);
+            setMsg('✓ قانون اختصاصی حذف شد.');
+        }
+        catch (e) {
+            setMsg(e.message || 'حذف قانون اختصاصی ناموفق بود.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     return React.createElement("div", null,
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u0641\u0631\u0627\u062F \u062E\u0627\u0635 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646 \u0642\u0627\u0646\u0648\u0646 \u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0631\u0627 \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u0633\u0645\u062A \u062A\u0646\u0638\u06CC\u0645 \u06A9\u0631\u062F. \u0645\u0642\u062F\u0627\u0631\u0647\u0627\u06CC \u062E\u0627\u0644\u06CC \u0627\u0632 \u0642\u0627\u0646\u0648\u0646 \u0633\u0645\u062A \u06AF\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-        React.createElement("select", { className: "input", style: { maxWidth: 320, marginBottom: 12 }, value: uid, onChange: e => load(e.target.value) },
+        React.createElement("select", { className: "input", style: { maxWidth: 320, marginBottom: 12 }, value: uid, disabled: busy, onChange: e => load(e.target.value) },
             React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631"),
             users.map(u => React.createElement("option", { key: u.id, value: u.id },
                 u.first_name,
                 " ",
                 u.last_name))),
-        msg && React.createElement("p", { style: { fontWeight: 700, color: 'var(--ok)' } }, msg),
+        msg && React.createElement("p", { role: "status", style: { fontWeight: 700, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)' } }, msg),
+        busy && React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u067E\u0631\u062F\u0627\u0632\u0634\u2026"),
         row && React.createElement("div", { className: "card-p" },
             React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } },
                 React.createElement("input", { className: "input", placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0642\u0627\u0646\u0648\u0646 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC", value: row.title || '', onChange: e => patch('title', e.target.value), style: { maxWidth: 240 } }),
@@ -11257,30 +11487,78 @@ function UserRuleOverrides() {
                                     React.createElement("input", { type: "checkbox", checked: Number(row.include_friday_in_duty) !== 0, onChange: e => patch('include_friday_in_duty', e.target.checked ? 1 : 0) }),
                                     " \u062C\u0645\u0639\u0647 \u062F\u0627\u062E\u0644 \u0645\u0648\u0638\u0641\u06CC")),
                             React.createElement("td", null,
-                                React.createElement("input", { className: "input", type: "number", value: row.max_open_session_minutes || 960, onChange: e => patch('max_open_session_minutes', e.target.value), style: { width: 90 } }),
+                                React.createElement("input", { className: "input", type: "number", value: (_a = row.max_open_session_minutes) !== null && _a !== void 0 ? _a : 960, onChange: e => patch('max_open_session_minutes', e.target.value), style: { width: 90 } }),
                                 React.createElement("br", null),
                                 React.createElement("label", null,
                                     React.createElement("input", { type: "checkbox", checked: Number(row.auto_close_enabled) !== 0, onChange: e => patch('auto_close_enabled', e.target.checked ? 1 : 0) }),
                                     " \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631"),
                                 React.createElement("br", null),
-                                React.createElement("input", { className: "input", type: "number", value: row.auto_close_after_minutes || 0, onChange: e => patch('auto_close_after_minutes', e.target.value), style: { width: 90 } })))))),
+                                React.createElement("input", { className: "input", type: "number", value: (_b = row.auto_close_after_minutes) !== null && _b !== void 0 ? _b : 0, onChange: e => patch('auto_close_after_minutes', e.target.value), style: { width: 90 } })))))),
             React.createElement("div", { style: { marginTop: 12 } },
-                React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u0642\u0627\u0646\u0648\u0646 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC"),
+                React.createElement("button", { type: "button", className: "btn p", disabled: busy, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u0642\u0627\u0646\u0648\u0646 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC"),
                 " ",
-                React.createElement("button", { className: "btn g", onClick: del }, "\u062D\u0630\u0641 \u0642\u0627\u0646\u0648\u0646 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC"))));
+                React.createElement("button", { type: "button", className: "btn g", disabled: busy, onClick: del }, "\u062D\u0630\u0641 \u0642\u0627\u0646\u0648\u0646 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC"))));
 }
 function ShiftOperations() {
     var _a, _b, _c, _e;
-    const [diag, setDiag] = useState(null), [msg, setMsg] = useState('');
+    const [diag, setDiag] = useState(null), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false);
     const tj = todayJStr();
     const [from, setFrom] = useState(tj), [to, setTo] = useState(tj), [uid, setUid] = useState('');
-    const load = async () => { setDiag(await db.shiftPlanningDiagnostics()); };
+    const [failed, setFailed] = useState(false);
+    const load = async () => { try {
+        setFailed(false);
+        setDiag(await db.shiftPlanningDiagnostics());
+    }
+    catch (e) {
+        setFailed(true);
+        setMsg(e.message || 'دریافت عیب‌یابی شیفت ناموفق بود.');
+    } };
     useEffect(() => { load(); }, []);
-    const recalc = async () => { const r = await db.attendanceRecalculate({ user_id: uid ? +uid : 0, from, to }); setMsg('محاسبه مجدد: ' + fa(r.rows_count || 0) + ' رکورد'); };
-    const autoclose = async (dry) => { const r = await db.autoCloseOpenSessions({ dry_run: dry }); setMsg((dry ? 'بررسی' : 'بستن') + ' جلسات باز: ' + fa(r.closed_count || 0) + ' مورد'); await load(); };
+    const recalc = async () => {
+        setMsg('');
+        setFailed(false);
+        if (!from || !to || from > to) {
+            setFailed(true);
+            setMsg('بازه تاریخ معتبر انتخاب کنید.');
+            return;
+        }
+        if (!confirm(uid ? 'کارکرد نیروی انتخاب‌شده در این بازه دوباره محاسبه شود؟' : 'کارکرد تمام نیروها در بازه انتخابی دوباره محاسبه شود؟'))
+            return;
+        setBusy(true);
+        try {
+            const r = await db.attendanceRecalculate({ user_id: uid ? +uid : 0, from, to });
+            setMsg('✓ محاسبه مجدد: ' + fa(r.rows_count || 0) + ' رکورد');
+        }
+        catch (e) {
+            setFailed(true);
+            setMsg(e.message || 'محاسبه مجدد کارکرد انجام نشد.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const autoclose = async (dry) => {
+        if (!dry && !confirm('جلسات باز واجد شرایط بسته شوند؟ این عملیات روی وضعیت حضور کاربران اثر می‌گذارد.'))
+            return;
+        setBusy(true);
+        setMsg('');
+        setFailed(false);
+        try {
+            const r = await db.autoCloseOpenSessions({ dry_run: dry });
+            setMsg('✓ ' + (dry ? 'بررسی' : 'بستن') + ' جلسات باز: ' + fa(r.closed_count || 0) + ' مورد');
+            await load();
+        }
+        catch (e) {
+            setFailed(true);
+            setMsg(e.message || 'اجرای خروج خودکار ناموفق بود.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     return React.createElement("div", null,
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u06A9\u0646\u062A\u0631\u0644 \u0646\u0647\u0627\u06CC\u06CC \u0634\u06CC\u0641\u062A\u200C\u0628\u0646\u062F\u06CC: \u062A\u0639\u0627\u0631\u0636 \u062A\u062E\u0635\u06CC\u0635\u060C \u0634\u06CC\u0641\u062A \u0686\u0631\u062E\u0634\u06CC \u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639\u060C \u062C\u0644\u0633\u0627\u062A \u0628\u0627\u0632 \u0637\u0648\u0644\u0627\u0646\u06CC \u0648 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F \u06A9\u0627\u0631\u06A9\u0631\u062F."),
-        msg && React.createElement("p", { style: { fontWeight: 700, color: 'var(--ok)' } }, msg),
+        msg && React.createElement("p", { role: "status", style: { fontWeight: 700, color: failed ? 'var(--danger)' : 'var(--ok)' } }, msg),
         React.createElement("div", { className: "card-p" },
             React.createElement("h4", null, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F \u06A9\u0627\u0631\u06A9\u0631\u062F"),
             React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap', alignItems: 'end' } },
@@ -11291,10 +11569,10 @@ function ShiftOperations() {
                     React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: to, onChange: setTo })),
                 React.createElement("input", { className: "input", placeholder: "\u0634\u0646\u0627\u0633\u0647 \u06A9\u0627\u0631\u0628\u0631\u060C \u062E\u0627\u0644\u06CC=\u0647\u0645\u0647", value: uid, onChange: e => setUid(e.target.value.replace(/\D/g, '')), style: { maxWidth: 160 } }),
-                React.createElement("button", { className: "btn p", onClick: recalc }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F"),
-                React.createElement("button", { className: "btn g", onClick: () => autoclose(true) }, "\u0628\u0631\u0631\u0633\u06CC \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631"),
-                React.createElement("button", { className: "btn p", onClick: () => autoclose(false) }, "\u0627\u062C\u0631\u0627\u06CC \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631"))),
-        React.createElement("button", { className: "btn g", style: { margin: '10px 0' }, onClick: load }, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u06CC\u0628\u200C\u06CC\u0627\u0628\u06CC"),
+                React.createElement("button", { type: "button", className: "btn p", disabled: busy, onClick: recalc }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F"),
+                React.createElement("button", { type: "button", className: "btn g", disabled: busy, onClick: () => autoclose(true) }, "\u0628\u0631\u0631\u0633\u06CC \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631"),
+                React.createElement("button", { type: "button", className: "btn p", disabled: busy, onClick: () => autoclose(false) }, "\u0627\u062C\u0631\u0627\u06CC \u062E\u0631\u0648\u062C \u062E\u0648\u062F\u06A9\u0627\u0631"))),
+        React.createElement("button", { type: "button", className: "btn g", style: { margin: '10px 0' }, disabled: busy, onClick: load }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u06CC\u0628\u200C\u06CC\u0627\u0628\u06CC"),
         diag && React.createElement("div", { className: "grid2" },
             React.createElement("div", { className: "card-p" },
                 React.createElement("h4", null, "\u062A\u0639\u0627\u0631\u0636 \u062A\u062E\u0635\u06CC\u0635 \u0634\u06CC\u0641\u062A"),
@@ -11323,30 +11601,39 @@ function ShiftOperations() {
                     r.role_title)) : React.createElement("p", { className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u0646\u06CC\u0633\u062A."))));
 }
 function AttendanceRejectLogs() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const [from, setFrom] = useState(today);
     const [to, setTo] = useState(today);
     const [uid, setUid] = useState('');
     const [rows, setRows] = useState([]);
-    const [busy, setBusy] = useState(false);
-    const load = async () => { setBusy(true); try {
-        const qs = '?from=' + encodeURIComponent(from || '') + '&to=' + encodeURIComponent(to || '') + (uid ? ('&user_id=' + encodeURIComponent(uid)) : '');
-        setRows(await db.attendanceRejectLogs(qs) || []);
-    }
-    catch (e) {
-        alert(e.message || 'خطا');
-    }
-    finally {
-        setBusy(false);
-    } };
+    const [busy, setBusy] = useState(false), [error, setError] = useState('');
+    const load = async () => {
+        if (from && to && from > to) {
+            setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
+            return;
+        }
+        setBusy(true);
+        setError('');
+        try {
+            const qs = '?from=' + encodeURIComponent(from || '') + '&to=' + encodeURIComponent(to || '') + (uid ? ('&user_id=' + encodeURIComponent(uid)) : '');
+            setRows(await db.attendanceRejectLogs(qs) || []);
+        }
+        catch (e) {
+            setError(e.message || 'دریافت لاگ‌های رد حضور ناموفق بود.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     useEffect(() => { load(); }, []);
     return (React.createElement("div", null,
+        error && React.createElement("p", { className: "sm-status-error", role: "alert" }, error),
         React.createElement("p", { style: { fontSize: 12.5, color: 'var(--muted)', margin: '6px 0 12px' } }, "\u0627\u06CC\u0646 \u0628\u062E\u0634 \u0639\u0644\u062A \u0641\u0639\u0627\u0644 \u0646\u0634\u062F\u0646 \u06CC\u0627 \u0631\u062F \u0634\u062F\u0646 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F: \u0641\u0627\u0635\u0644\u0647 \u0627\u0632 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u060C \u062E\u0637 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC\u060C \u062F\u0642\u062A GPS \u0648 \u067E\u06CC\u0627\u0645 \u062E\u0637\u0627."),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10, flexWrap: 'wrap' } },
             React.createElement("input", { className: "input", type: "date", value: from, onChange: e => setFrom(e.target.value), style: { maxWidth: 150 } }),
             React.createElement("input", { className: "input", type: "date", value: to, onChange: e => setTo(e.target.value), style: { maxWidth: 150 } }),
             React.createElement("input", { className: "input", placeholder: "\u0634\u0646\u0627\u0633\u0647 \u06A9\u0627\u0631\u0628\u0631", value: uid, onChange: e => setUid(e.target.value.replace(/\D/g, '')), style: { maxWidth: 130 } }),
-            React.createElement("button", { className: "btn p", onClick: load }, busy ? 'در حال دریافت' : 'نمایش')),
+            React.createElement("button", { className: "btn p", type: "button", disabled: busy, onClick: load }, busy ? 'در حال دریافت' : 'نمایش')),
         React.createElement("div", { style: { overflowX: 'auto' } },
             React.createElement("table", { style: { minWidth: 980, fontSize: 12 } },
                 React.createElement("thead", null,
@@ -11376,38 +11663,75 @@ function AttendanceRejectLogs() {
 function ShiftList() {
     const [list, setList] = useState([]);
     const [edit, setEdit] = useState(null);
-    const load = () => db.shifts().then(s => setList(s || [])).catch(() => { });
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const load = async () => { try {
+        setError('');
+        setList(await db.shifts() || []);
+    }
+    catch (e) {
+        setError(e.message || 'دریافت فهرست شیفت‌ها ناموفق بود.');
+    } };
     useEffect(() => { load(); }, []);
-    const create = async (type) => { const r = await db.saveShift({ title: "شیفت جدید", type, weekly: type === "simple" ? {} : undefined, float_minutes: type === "floating" ? 480 : null }); const full = await db.shift(r.id); setEdit(full); };
-    const del = async (id) => { if (!confirm("حذف این شیفت؟"))
-        return; await db.delShift(id); load(); };
+    const create = async (type) => { setBusy(true); setError(''); try {
+        const r = await db.saveShift({ title: "شیفت جدید", type, weekly: type === "simple" ? {} : undefined, float_minutes: type === "floating" ? 480 : null });
+        setEdit(await db.shift(r.id));
+    }
+    catch (e) {
+        setError(e.message || 'ساخت شیفت ناموفق بود.');
+        await load();
+    }
+    finally {
+        setBusy(false);
+    } };
+    const del = async (id) => { if (!confirm("حذف این شیفت؟ این عملیات ممکن است تخصیص‌ها را تحت تأثیر قرار دهد."))
+        return; setBusy(true); setError(''); try {
+        await db.delShift(id);
+        await load();
+    }
+    catch (e) {
+        setError(e.message || 'حذف شیفت ناموفق بود.');
+    }
+    finally {
+        setBusy(false);
+    } };
     if (edit)
         return React.createElement(ShiftEdit, { shift: edit, onClose: () => { setEdit(null); load(); } });
     return (React.createElement("div", null,
+        error && React.createElement("p", { className: "sm-status-error", role: "alert" }, error),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap" } },
-            React.createElement("button", { className: "btn p", onClick: () => create("simple") }, "+ \u0634\u06CC\u0641\u062A \u0633\u0627\u062F\u0647"),
-            React.createElement("button", { className: "btn p", onClick: () => create("advanced") }, "+ \u0634\u06CC\u0641\u062A \u067E\u06CC\u0634\u0631\u0641\u062A\u0647 (\u062A\u0642\u0648\u06CC\u0645\u06CC)"),
-            React.createElement("button", { className: "btn p", onClick: () => create("floating") }, "+ \u0634\u06CC\u0641\u062A \u0634\u0646\u0627\u0648\u0631"),
-            React.createElement("button", { className: "btn p", onClick: () => create("rotating") }, "+ \u0634\u06CC\u0641\u062A \u0686\u0631\u062E\u0634\u06CC \u06F7/\u06F7/\u06F7")),
-        list.length === 0 ? React.createElement("p", { className: "muted" }, "\u0634\u06CC\u0641\u062A\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
-            React.createElement("table", null,
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u0639\u0646\u0648\u0627\u0646"),
-                        React.createElement("th", null, "\u0646\u0648\u0639"),
-                        React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647/\u0645\u0627\u0647\u0627\u0646\u0647"),
-                        React.createElement("th", null))),
-                React.createElement("tbody", null, list.map(s => React.createElement("tr", { key: s.id },
-                    React.createElement("td", null, s.title),
-                    React.createElement("td", null, { simple: "ساده", advanced: "پیشرفته", floating: "شناور", rotating: "چرخشی" }[s.type] || s.type),
-                    React.createElement("td", { style: { fontSize: 12 } },
-                        s.daily_ot_cap ? fa(s.daily_ot_cap) + "د" : "—",
-                        " / ",
-                        s.monthly_ot_cap ? fa(s.monthly_ot_cap) + "د" : "—"),
-                    React.createElement("td", null,
-                        React.createElement("button", { className: "btn g", onClick: async () => setEdit(await db.shift(s.id)) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
-                        " ",
-                        React.createElement("button", { className: "btn g", onClick: () => del(s.id) }, "\u062D\u0630\u0641"))))))));
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: () => create("simple") }, "+ \u0634\u06CC\u0641\u062A \u0633\u0627\u062F\u0647"),
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: () => create("advanced") }, "+ \u0634\u06CC\u0641\u062A \u067E\u06CC\u0634\u0631\u0641\u062A\u0647 (\u062A\u0642\u0648\u06CC\u0645\u06CC)"),
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: () => create("floating") }, "+ \u0634\u06CC\u0641\u062A \u0634\u0646\u0627\u0648\u0631"),
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: () => create("rotating") }, "+ \u0634\u06CC\u0641\u062A \u0686\u0631\u062E\u0634\u06CC \u06F7/\u06F7/\u06F7")),
+        list.length === 0 ? React.createElement("p", { className: "sm-empty" }, "\u0634\u06CC\u0641\u062A\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
+            React.createElement("div", { className: "sm-scroll-table" },
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0639\u0646\u0648\u0627\u0646"),
+                            React.createElement("th", null, "\u0646\u0648\u0639"),
+                            React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647/\u0645\u0627\u0647\u0627\u0646\u0647"),
+                            React.createElement("th", null))),
+                    React.createElement("tbody", null, list.map(s => React.createElement("tr", { key: s.id },
+                        React.createElement("td", null, s.title),
+                        React.createElement("td", null, { simple: "ساده", advanced: "پیشرفته", floating: "شناور", rotating: "چرخشی" }[s.type] || s.type),
+                        React.createElement("td", { style: { fontSize: 12 } },
+                            s.daily_ot_cap ? fa(s.daily_ot_cap) + "د" : "—",
+                            " / ",
+                            s.monthly_ot_cap ? fa(s.monthly_ot_cap) + "د" : "—"),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn g", disabled: busy, onClick: async () => { setBusy(true); try {
+                                    setEdit(await db.shift(s.id));
+                                }
+                                catch (e) {
+                                    setError(e.message || 'خواندن شیفت ناموفق بود.');
+                                }
+                                finally {
+                                    setBusy(false);
+                                } } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                            " ",
+                            React.createElement("button", { className: "btn g", disabled: busy, onClick: () => del(s.id) }, "\u062D\u0630\u0641")))))))));
 }
 function ShiftEdit({ shift, onClose }) {
     const [s, setS] = useState(shift);
@@ -11459,38 +11783,134 @@ function ShiftEdit({ shift, onClose }) {
         s.type === "rotating" && React.createElement(RotatingShiftEditor, { s: s, set: set })));
 }
 // ویرایشگر هفتگی شیفت ساده (۷ روز، هر روز یک یا دو قطعه با آستانه)
+const simpleWeeklyV2Css = `
+.simple-weekly-v2{direction:rtl;margin-top:16px}.simple-weekly-v2 .sw-header{background:linear-gradient(105deg,#075548,#097e6b);color:#fff;border-radius:15px;padding:18px;display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.simple-weekly-v2 h3{margin:0 0 5px;font-size:19px;color:#fff}.simple-weekly-v2 .sw-header p{margin:0;color:#e1f5ef;font-size:12px}.simple-weekly-v2 .sw-count{border:1px solid #ffffff55;border-radius:12px;padding:9px 12px;font-size:12px}.simple-weekly-v2 .sw-toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:14px 0}.simple-weekly-v2 .sw-toolbar button,.simple-weekly-v2 .sw-actions button{background:#fff;border:1px solid #b7d6ca;border-radius:9px;color:#106756;padding:8px 11px;min-height:35px;font:750 12px Vazirmatn,Tahoma;cursor:pointer}.simple-weekly-v2 button:disabled{opacity:.48;cursor:not-allowed}.simple-weekly-v2 button:focus-visible{outline:3px solid #32ae91;outline-offset:2px}.simple-weekly-v2 .sw-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.simple-weekly-v2 .sw-card{border:1px solid #d5e6dc;border-radius:14px;background:#f2faf5;min-width:0;overflow:hidden}.simple-weekly-v2 .sw-card.off{background:#fff9f8;border-color:#ead4d0}.simple-weekly-v2 .sw-card.expanded{box-shadow:0 0 0 2px #0b856c}.simple-weekly-v2 .sw-card-head{padding:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}.simple-weekly-v2 .sw-card-head strong{color:#173f39;font-size:16px}.simple-weekly-v2 .sw-chip{font-size:11px;background:#d7f1e3;color:#12644c;border-radius:8px;padding:5px 8px}.simple-weekly-v2 .off .sw-chip{background:#fde9e6;color:#ac3833}.simple-weekly-v2 .sw-preview{display:grid;gap:7px;padding:0 14px 13px;min-height:47px}.simple-weekly-v2 .sw-time{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dbe8df;border-radius:9px;padding:8px 10px;gap:8px}.simple-weekly-v2 .sw-time span{font-size:11px;color:#55756e}.simple-weekly-v2 .sw-time strong{font-size:14px;color:#0e6354;white-space:nowrap;direction:ltr;unicode-bidi:isolate}.simple-weekly-v2 .sw-empty{color:#87625b;font-size:12px;padding:12px 0}.simple-weekly-v2 .sw-actions{border-top:1px solid #deebe3;padding:11px 14px;display:flex;flex-wrap:wrap;gap:6px}.simple-weekly-v2 .sw-actions .primary{flex:1;background:#0c7966;color:#fff;border-color:#0c7966}.simple-weekly-v2 .sw-editor{padding:14px;background:#fff;border-top:1px solid #dbe8e0}.simple-weekly-v2 .sw-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.simple-weekly-v2 .sw-fields .tf{min-width:0}.simple-weekly-v2 .sw-segment{border:1px solid #e1ebe6;border-radius:10px;padding:10px;margin-bottom:10px}.simple-weekly-v2 .sw-segment-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px}.simple-weekly-v2 .sw-note{font-size:11px;color:#5d7870;line-height:1.9}.simple-weekly-v2 .sw-toolbar .selected{background:#0c7966;color:#fff}.simple-weekly-v2 .sw-card-head input{accent-color:#0b856c;width:18px;height:18px}@media(max-width:1050px){.simple-weekly-v2 .sw-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.simple-weekly-v2 .sw-grid{grid-template-columns:1fr}.simple-weekly-v2 .sw-header{padding:15px}}@media(max-width:355px){.simple-weekly-v2 .sw-fields{grid-template-columns:1fr}}
+`;
 function SimpleWeekly({ s, set }) {
-    const weekly = s.weekly || {};
+    const weekly = s.weekly && typeof s.weekly === "object" && !Array.isArray(s.weekly) ? s.weekly : {};
+    const [expanded, setExpanded] = useState(null);
+    const [bulk, setBulk] = useState(false);
+    const [selected, setSelected] = useState([]);
+    const [clip, setClip] = useState(null);
+    const daySegments = d => {
+        const raw = weekly[d];
+        if (Array.isArray(raw))
+            return raw.filter(x => x && typeof x === "object" && !Array.isArray(x));
+        if (raw && typeof raw === "object") {
+            if (Array.isArray(raw.segments))
+                return raw.segments.filter(x => x && typeof x === "object" && !Array.isArray(x));
+            if ("s" in raw || "e" in raw)
+                return [raw];
+        }
+        return [];
+    };
     const setDay = (d, segs) => set({ weekly: { ...weekly, [d]: segs } });
-    const addSeg = (d) => { const cur = weekly[d] || []; if (cur.length >= 2)
-        return alert("حداکثر دو قطعه در روز"); setDay(d, [...cur, emptySeg()]); };
-    const updSeg = (d, i, k, v) => { const cur = [...(weekly[d] || [])]; cur[i] = { ...cur[i], [k]: v }; setDay(d, cur); };
-    const delSeg = (d, i) => { const cur = (weekly[d] || []).filter((_, j) => j !== i); setDay(d, cur); };
-    const copyDay = (d) => { window._shiftClip = JSON.stringify(weekly[d] || []); alert("شیفت روز کپی شد. روی روز مقصد «پیست» بزنید."); };
-    const pasteDay = (d) => { if (!window._shiftClip)
-        return alert("ابتدا یک روز را کپی کنید"); setDay(d, JSON.parse(window._shiftClip)); };
-    return (React.createElement("div", null,
-        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 8 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u0631\u0648\u0632 \u0647\u0641\u062A\u0647 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u06CC\u06A9 \u06CC\u0627 \u062F\u0648 \u0642\u0637\u0639\u0647 (\u0634\u06CC\u0641\u062A \u062F\u0648\u062A\u06A9\u0647) \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F. \u00AB\u0622\u0633\u062A\u0627\u0646\u0647\u0654 \u0648\u0631\u0648\u062F\u00BB = \u0632\u0648\u062F\u062A\u0631\u06CC\u0646/\u062F\u06CC\u0631\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0648\u0631\u0648\u062F\u061B \u00AB\u0622\u0633\u062A\u0627\u0646\u0647\u0654 \u062E\u0631\u0648\u062C\u00BB = \u0632\u0648\u062F\u062A\u0631\u06CC\u0646/\u062F\u06CC\u0631\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062E\u0631\u0648\u062C."),
-        WD.map((wd, d) => React.createElement("div", { key: d, className: "card-p", style: { marginBottom: 8 } },
-            React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginBottom: 6 } },
-                React.createElement("b", null, wd),
-                React.createElement("span", { className: "row", style: { gap: 6 } },
-                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: () => copyDay(d) }, "\u06A9\u067E\u06CC"),
-                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: () => pasteDay(d) }, "\u067E\u06CC\u0633\u062A"),
-                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: () => addSeg(d) }, "+ \u0642\u0637\u0639\u0647"))),
-            (weekly[d] || []).length === 0 ? React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u062A\u0639\u0637\u06CC\u0644 / \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A") :
-                (weekly[d] || []).map((seg, i) => React.createElement("div", { key: i, className: "seg-row" },
-                    React.createElement("span", { className: "seg-lbl" },
+    const addSeg = d => { const segments = daySegments(d); if (segments.length >= 2)
+        return alert("حداکثر دو قطعه در روز"); setDay(d, [...segments, emptySeg()]); setExpanded(d); };
+    const updSeg = (d, i, k, value) => { const segments = daySegments(d).map(x => ({ ...x })); if (!segments[i])
+        return; segments[i] = { ...segments[i], [k]: value }; setDay(d, segments); };
+    const delSeg = (d, i) => setDay(d, daySegments(d).filter((_, index) => index !== i));
+    const copyDay = d => { const payload = JSON.stringify(daySegments(d)); setClip(payload); window._shiftClip = payload; };
+    const pasteDay = d => {
+        const value = clip || window._shiftClip;
+        if (!value)
+            return alert("ابتدا روز مبدأ را کپی کنید");
+        try {
+            const seg = JSON.parse(value);
+            if (!Array.isArray(seg) || seg.length > 2 || seg.some(x => !x || typeof x !== "object" || Array.isArray(x)))
+                throw Error("invalid");
+            setDay(d, seg.map(x => ({ ...x })));
+            setExpanded(d);
+        }
+        catch (_) {
+            alert("محتوای شیفت کپی‌شده معتبر نیست.");
+        }
+    };
+    const toggle = d => setSelected(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+    const applyBulk = erase => {
+        if (!selected.length)
+            return;
+        const payload = clip || window._shiftClip;
+        let seg = [];
+        if (!erase) {
+            try {
+                seg = JSON.parse(payload || 'null');
+                if (!Array.isArray(seg) || seg.length > 2 || seg.some(x => !x || typeof x !== "object" || Array.isArray(x)))
+                    throw Error("invalid");
+            }
+            catch (_) {
+                return alert("ابتدا یک روز معتبر را کپی کنید");
+            }
+        }
+        if (erase && !confirm("شیفت " + fa(selected.length) + " روز انتخاب‌شده حذف شود؟"))
+            return;
+        const next = { ...weekly };
+        selected.forEach(d => { next[d] = seg.map(x => ({ ...x })); });
+        set({ weekly: next });
+        setSelected([]);
+        setBulk(false);
+    };
+    const active = WD.filter((_, d) => daySegments(d).length > 0).length;
+    return React.createElement("section", { className: "simple-weekly-v2", "aria-label": "\u0628\u0631\u0646\u0627\u0645\u0647 \u0647\u0641\u062A\u06AF\u06CC \u0634\u06CC\u0641\u062A \u0633\u0627\u062F\u0647" },
+        React.createElement("style", null, simpleWeeklyV2Css),
+        React.createElement("header", { className: "sw-header" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0628\u0631\u0646\u0627\u0645\u0647 \u0647\u0641\u062A\u06AF\u06CC \u0634\u06CC\u0641\u062A \u0633\u0627\u062F\u0647"),
+                React.createElement("p", null, "\u062A\u0639\u0631\u06CC\u0641 \u06CC\u06A9 \u06CC\u0627 \u062F\u0648 \u0642\u0637\u0639\u0647 \u0648 \u062A\u0646\u0638\u06CC\u0645 \u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0647\u0631 \u0631\u0648\u0632")),
+            React.createElement("div", { className: "sw-count" },
+                fa(active),
+                " \u0631\u0648\u0632 \u062F\u0627\u0631\u0627\u06CC \u0634\u06CC\u0641\u062A \u00B7 ",
+                fa(7 - active),
+                " \u0631\u0648\u0632 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A")),
+        React.createElement("div", { className: "sw-toolbar" },
+            React.createElement("button", { type: "button", className: bulk ? "selected" : "", "aria-pressed": bulk, onClick: () => { setBulk(v => !v); setSelected([]); } }, bulk ? "پایان انتخاب گروهی" : "انتخاب گروهی روزها"),
+            clip && React.createElement("span", { className: "sw-note" }, "\u0627\u0644\u06AF\u0648\u06CC \u06CC\u06A9 \u0631\u0648\u0632 \u06A9\u067E\u06CC \u0634\u062F\u0647 \u0627\u0633\u062A."),
+            bulk && React.createElement(React.Fragment, null,
+                React.createElement("span", { className: "sw-note" },
+                    fa(selected.length),
+                    " \u0631\u0648\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647"),
+                React.createElement("button", { type: "button", disabled: !selected.length || !(clip || window._shiftClip), onClick: () => applyBulk(false) }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646 \u0627\u0644\u06AF\u0648 \u0628\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627"),
+                React.createElement("button", { type: "button", disabled: !selected.length, onClick: () => applyBulk(true) }, "\u062D\u0630\u0641 \u0634\u06CC\u0641\u062A \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
+                React.createElement("button", { type: "button", onClick: () => setSelected([]) }, "\u0644\u063A\u0648 \u0627\u0646\u062A\u062E\u0627\u0628"))),
+        React.createElement("div", { className: "sw-grid" }, WD.map((name, d) => {
+            const segments = daySegments(d), has = segments.length > 0, open = expanded === d;
+            return React.createElement("article", { key: d, className: "sw-card " + (has ? "" : "off") + (open ? " expanded" : "") },
+                React.createElement("div", { className: "sw-card-head" },
+                    React.createElement("strong", null, name),
+                    React.createElement("span", { className: "sw-chip" }, has ? "دارای شیفت" : "تعطیل / بدون شیفت"),
+                    bulk && React.createElement("input", { type: "checkbox", checked: selected.includes(d), onChange: () => toggle(d), "aria-label": "انتخاب " + name })),
+                React.createElement("div", { className: "sw-preview" }, has ? segments.map((seg, i) => React.createElement("div", { className: "sw-time", key: i },
+                    React.createElement("span", null,
                         "\u0642\u0637\u0639\u0647 ",
                         fa(i + 1)),
-                    React.createElement(TimeField, { label: "\u0634\u0631\u0648\u0639", v: seg.s, on: x => updSeg(d, i, "s", x) }),
-                    React.createElement(TimeField, { label: "\u067E\u0627\u06CC\u0627\u0646", v: seg.e, on: x => updSeg(d, i, "e", x) }),
-                    React.createElement(TimeField, { label: "\u0648\u0631\u0648\u062F \u0627\u0632", v: seg.es, on: x => updSeg(d, i, "es", x) }),
-                    React.createElement(TimeField, { label: "\u0648\u0631\u0648\u062F \u062A\u0627", v: seg.ls, on: x => updSeg(d, i, "ls", x) }),
-                    React.createElement(TimeField, { label: "\u062E\u0631\u0648\u062C \u0627\u0632", v: seg.ee, on: x => updSeg(d, i, "ee", x) }),
-                    React.createElement(TimeField, { label: "\u062E\u0631\u0648\u062C \u062A\u0627", v: seg.le, on: x => updSeg(d, i, "le", x) }),
-                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: () => delSeg(d, i) }, "\u00D7"))))),
-        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0628\u0631\u0627\u06CC \u0634\u06CC\u0641\u062A \u0634\u0628\u0627\u0646\u0647\u060C \u00AB\u067E\u0627\u06CC\u0627\u0646\u00BB \u0631\u0627 \u06A9\u0648\u0686\u06A9\u200C\u062A\u0631 \u0627\u0632 \u00AB\u0634\u0631\u0648\u0639\u00BB \u0628\u06AF\u0630\u0627\u0631\u06CC\u062F (\u0645\u062B\u0644\u0627\u064B \u0634\u0631\u0648\u0639 \u06F2\u06F2:\u06F0\u06F0 \u0648 \u067E\u0627\u06CC\u0627\u0646 \u06F0\u06F6:\u06F0\u06F0)\u061B \u0633\u0627\u0645\u0627\u0646\u0647 \u0622\u0646 \u0631\u0627 \u0628\u06CC\u0646 \u062F\u0648 \u0631\u0648\u0632 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u06A9\u0646\u062F.")));
+                    React.createElement("strong", null,
+                        faPlain(seg.s || "--:--"),
+                        " \u2013 ",
+                        faPlain(seg.e || "--:--")))) : React.createElement("div", { className: "sw-empty" }, "\u0633\u0627\u0639\u062A \u06A9\u0627\u0631\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")),
+                React.createElement("div", { className: "sw-actions" },
+                    React.createElement("button", { type: "button", className: "primary", "aria-expanded": open, onClick: () => setExpanded(open ? null : d) }, open ? "بستن تنظیمات" : "✎ ویرایش ساعت‌ها"),
+                    React.createElement("button", { type: "button", disabled: !has, onClick: () => copyDay(d) }, "\u06A9\u067E\u06CC"),
+                    React.createElement("button", { type: "button", disabled: !(clip || window._shiftClip), onClick: () => pasteDay(d) }, "\u067E\u06CC\u0633\u062A")),
+                open && React.createElement("div", { className: "sw-editor" },
+                    segments.map((seg, i) => React.createElement("div", { key: i, className: "sw-segment" },
+                        React.createElement("div", { className: "sw-segment-header" },
+                            React.createElement("strong", null,
+                                "\u0642\u0637\u0639\u0647 ",
+                                fa(i + 1)),
+                            React.createElement("button", { type: "button", className: "btn g", onClick: () => delSeg(d, i) }, "\u062D\u0630\u0641 \u0642\u0637\u0639\u0647")),
+                        React.createElement("div", { className: "sw-fields" },
+                            React.createElement(TimeField, { label: "\u0634\u0631\u0648\u0639 \u0634\u06CC\u0641\u062A", v: seg.s, on: v => updSeg(d, i, "s", v) }),
+                            React.createElement(TimeField, { label: "\u067E\u0627\u06CC\u0627\u0646 \u0634\u06CC\u0641\u062A", v: seg.e, on: v => updSeg(d, i, "e", v) }),
+                            React.createElement(TimeField, { label: "\u0648\u0631\u0648\u062F \u0627\u0632", v: seg.es, on: v => updSeg(d, i, "es", v) }),
+                            React.createElement(TimeField, { label: "\u0648\u0631\u0648\u062F \u062A\u0627", v: seg.ls, on: v => updSeg(d, i, "ls", v) }),
+                            React.createElement(TimeField, { label: "\u062E\u0631\u0648\u062C \u0627\u0632", v: seg.ee, on: v => updSeg(d, i, "ee", v) }),
+                            React.createElement(TimeField, { label: "\u062E\u0631\u0648\u062C \u062A\u0627", v: seg.le, on: v => updSeg(d, i, "le", v) })))),
+                    segments.length < 2 && React.createElement("button", { type: "button", className: "btn g", onClick: () => addSeg(d) },
+                        "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0642\u0637\u0639\u0647 ",
+                        fa(segments.length + 1)),
+                    React.createElement("p", { className: "sw-note" }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u0627\u0646\u0647: \u0628\u0631\u0627\u06CC \u0645\u062B\u0627\u0644 \u0634\u0631\u0648\u0639 \u06F2\u06F2:\u06F0\u06F0 \u0648 \u067E\u0627\u06CC\u0627\u0646 \u06F0\u06F6:\u06F0\u06F0.")));
+        })),
+        React.createElement("p", { className: "sw-note" }, "\u0628\u0631\u0627\u06CC \u062B\u0628\u062A \u0646\u0647\u0627\u06CC\u06CC \u0633\u0627\u0639\u062A\u200C\u0647\u0627 \u0648 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u060C \u062F\u06A9\u0645\u0647 \u00AB\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0634\u06CC\u0641\u062A\u00BB \u0631\u0627 \u062F\u0631 \u0628\u0627\u0644\u0627\u06CC \u0647\u0645\u06CC\u0646 \u0635\u0641\u062D\u0647 \u0628\u0632\u0646\u06CC\u062F."));
 }
 function RotatingShiftEditor({ s, set }) {
     const adv = s.advanced || {};
@@ -11693,6 +12113,137 @@ function ShiftDayModal({ day, jdate, onSave, onClose }) {
             React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 16 }, onClick: save }, "\u062B\u0628\u062A"))));
 }
 // تقویم شمسی شیفت پیشرفته با کپی/پیست روز
+const shiftCalendarStyles = `
+.shift-calendar-v2{direction:rtl;--shift-green:#0b7661;--shift-line:#dbe7e4;--shift-ink:#193a43}
+.shift-calendar-v2 .sc-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:17px;background:linear-gradient(110deg,#07564b,#0a776a);border-radius:16px;color:#fff}
+.shift-calendar-v2 .sc-toolbar h3{margin:0;font-size:19px;font-weight:900;color:#fff}
+.shift-calendar-v2 .sc-toolbar small{display:block;font-size:12px;opacity:.85;margin-top:5px}
+.shift-calendar-v2 .sc-navigation,.shift-calendar-v2 .sc-toolbar-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.shift-calendar-v2 .sc-toolbar button{border:1px solid #ffffff55;background:#ffffff1a;color:#fff;padding:8px 11px;border-radius:10px;font:700 12px Vazirmatn,Tahoma;cursor:pointer}
+.shift-calendar-v2 .sc-toolbar button.sc-save{background:#fff;color:#07584c;border-color:#fff}
+.shift-calendar-v2 button:focus-visible,.shift-calendar-v2 summary:focus-visible{outline:3px solid #47bfa3;outline-offset:2px}
+.shift-calendar-v2 .sc-toolbar button:disabled,.shift-calendar-v2 .sc-bulk button:disabled{opacity:.45;cursor:not-allowed}
+.shift-calendar-v2 .sc-legend{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;font-size:12px}
+.shift-calendar-v2 .sc-legend span{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;background:#fff;border:1px solid var(--shift-line);border-radius:999px}
+.shift-calendar-v2 .sc-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.shift-calendar-v2 .sc-bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f4faf7;border:1px solid #cfe5db;border-radius:13px;padding:11px;margin-bottom:12px}
+.shift-calendar-v2 .sc-bulk strong{font-size:12px;margin-inline-end:auto;color:#145448}
+.shift-calendar-v2 .sc-bulk button{border:1px solid #b5d5ca;background:#fff;border-radius:9px;color:#165c50;font:700 11px Vazirmatn,Tahoma;padding:8px 10px;cursor:pointer}
+.shift-calendar-v2 .sc-bulk button.sc-danger{color:#b42318;border-color:#f2c3c0}
+.shift-calendar-v2 .sc-bulk button.sc-bulk-active{background:#116f5e;color:#fff}
+.shift-calendar-v2 .sc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.shift-calendar-v2 .sc-weekday{font-size:12px;font-weight:800;text-align:center;color:#50726e;padding:9px 3px}
+.shift-calendar-v2 .sc-day{position:relative;min-width:0;min-height:174px;display:flex;flex-direction:column;gap:8px;padding:11px;border-radius:13px;border:1px solid var(--shift-line);background:#f8faf9;color:var(--shift-ink);box-shadow:0 2px 9px rgba(20,74,62,.045);transition:border-color .15s,box-shadow .15s}
+.shift-calendar-v2 .sc-day--has-shift{background:#f0faf5;border-color:#bedecd}
+.shift-calendar-v2 .sc-day--holiday,.shift-calendar-v2 .sc-day--friday{border-top:3px solid #c3423c}
+.shift-calendar-v2 .sc-day--off{background:#fff8ed;border-color:#efd4af}
+.shift-calendar-v2 .sc-day--selected{outline:2px solid var(--shift-green);outline-offset:-2px;box-shadow:0 0 0 3px #c9e8dd}
+.shift-calendar-v2 .sc-day-header{display:flex;align-items:flex-start;justify-content:space-between;gap:7px}
+.shift-calendar-v2 .sc-date{display:flex;align-items:center;gap:7px;min-width:0}
+.shift-calendar-v2 .sc-number{font:900 22px Vazirmatn,Tahoma;color:#183f40;min-width:26px}
+.shift-calendar-v2 .sc-date-detail{display:flex;flex-direction:column;gap:1px;min-width:0}
+.shift-calendar-v2 .sc-day-name{font-size:11px;font-weight:800}
+.shift-calendar-v2 .sc-full-date{font-size:10px;color:#5b7274;white-space:nowrap;direction:ltr;unicode-bidi:isolate}
+.shift-calendar-v2 .sc-select{width:19px;height:19px;accent-color:#0b7661;cursor:pointer}
+.shift-calendar-v2 .sc-badges{display:flex;flex-wrap:wrap;gap:4px}
+.shift-calendar-v2 .sc-badge{border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;line-height:1.5;background:#e5f2ed;color:#086d58}
+.shift-calendar-v2 .sc-badge--red{background:#fee9e7;color:#af2d28}
+.shift-calendar-v2 .sc-badge--orange{background:#ffebcb;color:#915315}
+.shift-calendar-v2 .sc-content{display:flex;flex:1;justify-content:center;flex-direction:column;align-items:stretch;gap:4px}
+.shift-calendar-v2 .sc-time{display:block;border:1px solid #d2e9dd;background:#fff;border-radius:8px;text-align:center;padding:6px 2px;font:800 13px Vazirmatn,Tahoma;direction:ltr;unicode-bidi:isolate}
+.shift-calendar-v2 .sc-empty{text-align:center;font-size:12px;color:#687f80;padding:8px 0}
+.shift-calendar-v2 .sc-footer{display:flex;align-items:center;gap:5px;margin-top:auto}
+.shift-calendar-v2 .sc-edit{flex:1;min-height:34px;border:1px solid #9bcbb8;background:#fff;color:#096d5c;border-radius:9px;font:800 11px Vazirmatn,Tahoma;cursor:pointer}
+.shift-calendar-v2 .sc-more{position:relative}
+.shift-calendar-v2 .sc-more summary{display:grid;place-items:center;list-style:none;cursor:pointer;width:34px;height:34px;border:1px solid #c9dbd6;border-radius:9px;background:#fff;color:#285b53;font-weight:900}
+.shift-calendar-v2 .sc-more summary::-webkit-details-marker{display:none}
+.shift-calendar-v2 .sc-more-menu{position:absolute;inset-inline-end:0;bottom:39px;min-width:132px;z-index:30;background:#fff;border:1px solid #dce6e1;border-radius:10px;box-shadow:0 10px 23px #183a432c;padding:5px;display:grid;gap:3px}
+.shift-calendar-v2 .sc-more-menu button{border:0;background:transparent;text-align:right;padding:8px;border-radius:7px;font:700 11px Vazirmatn,Tahoma;cursor:pointer;color:#244f48}
+.shift-calendar-v2 .sc-more-menu button:hover{background:#edf8f3}
+.shift-calendar-v2 .sc-more-menu button.sc-danger{color:#a92020}
+.shift-calendar-v2 .sc-help{font-size:11px;color:#5e7778;margin:9px 0}
+@media(max-width:1100px){.shift-calendar-v2 .sc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.shift-calendar-v2 .sc-weekday,.shift-calendar-v2 .sc-blank{display:none}}
+@media(max-width:620px){.shift-calendar-v2 .sc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.shift-calendar-v2 .sc-day{min-height:165px;padding:8px}.shift-calendar-v2 .sc-toolbar h3{font-size:16px}.shift-calendar-v2 .sc-time{font-size:12px}.shift-calendar-v2 .sc-number{font-size:20px}}
+@media(max-width:360px){.shift-calendar-v2 .sc-grid{grid-template-columns:1fr}}
+`;
+function ShiftCalendarHeader({ month, year, onPrev, onNext, onToday, onSave, saving, children }) {
+    return React.createElement("header", { className: "sc-toolbar" },
+        React.createElement("div", null,
+            React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645 \u0634\u06CC\u0641\u062A \u062A\u0642\u0648\u06CC\u0645\u06CC"),
+            React.createElement("small", null,
+                month,
+                " ",
+                fa(year),
+                " \u00B7 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0631\u0648\u0632\u0627\u0646\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627")),
+        React.createElement("div", { className: "sc-navigation" },
+            React.createElement("button", { type: "button", onClick: onPrev }, "\u0645\u0627\u0647 \u0642\u0628\u0644 \u2039"),
+            React.createElement("button", { type: "button", onClick: onToday }, "\u0627\u0645\u0631\u0648\u0632"),
+            React.createElement("button", { type: "button", onClick: onNext }, "\u203A \u0645\u0627\u0647 \u0628\u0639\u062F")),
+        React.createElement("div", { className: "sc-toolbar-actions" },
+            children,
+            React.createElement("button", { type: "button", className: "sc-save", disabled: saving, onClick: onSave }, saving ? 'در حال ذخیره…' : 'ذخیره تقویم')));
+}
+function ShiftCalendarLegend() {
+    return React.createElement("div", { className: "sc-legend", "aria-label": "\u0631\u0627\u0647\u0646\u0645\u0627\u06CC \u0631\u0646\u06AF\u200C\u0647\u0627\u06CC \u062A\u0642\u0648\u06CC\u0645" },
+        React.createElement("span", null,
+            React.createElement("i", { style: { background: '#1d9a73' } }),
+            "\u062F\u0627\u0631\u0627\u06CC \u0634\u06CC\u0641\u062A"),
+        React.createElement("span", null,
+            React.createElement("i", { style: { background: '#9ba9a6' } }),
+            "\u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A"),
+        React.createElement("span", null,
+            React.createElement("i", { style: { background: '#c3423c' } }),
+            "\u062C\u0645\u0639\u0647 / \u062A\u0639\u0637\u06CC\u0644 \u0631\u0633\u0645\u06CC"),
+        React.createElement("span", null,
+            React.createElement("i", { style: { background: '#db9a3b' } }),
+            "\u062A\u0639\u0637\u06CC\u0644 \u0634\u06CC\u0641\u062A"));
+}
+function ShiftBulkActions({ enabled, onToggle, count, onClearSelection, onRepeat, onPaste, onDelete, onClearShift, onMarkOff, onUnmarkOff, onCopyYear, canPaste, hasExisting }) {
+    return React.createElement("section", { className: "sc-bulk", "aria-label": "\u0639\u0645\u0644\u06CC\u0627\u062A \u06AF\u0631\u0648\u0647\u06CC \u0631\u0648\u06CC \u0631\u0648\u0632\u0647\u0627\u06CC \u062A\u0642\u0648\u06CC\u0645" },
+        React.createElement("button", { type: "button", className: enabled ? 'sc-bulk-active' : '', "aria-pressed": enabled, onClick: onToggle }, enabled ? 'پایان انتخاب گروهی' : 'انتخاب گروهی'),
+        React.createElement("strong", null, enabled ? fa(count) + ' روز انتخاب‌شده' : 'برای انجام عملیات روی چند روز، انتخاب گروهی را فعال کنید.'),
+        enabled && React.createElement(React.Fragment, null,
+            React.createElement("button", { type: "button", disabled: !count, onClick: onClearSelection }, "\u0644\u063A\u0648 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627"),
+            React.createElement("button", { type: "button", disabled: count < 2, onClick: onRepeat }, "\u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0633\u0627\u0644"),
+            React.createElement("button", { type: "button", disabled: !count || !canPaste, onClick: onPaste }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646 \u0627\u0644\u06AF\u0648"),
+            React.createElement("button", { type: "button", disabled: !count, onClick: onMarkOff }, "\u062A\u0639\u0637\u06CC\u0644 \u06A9\u0631\u062F\u0646 \u0631\u0648\u0632\u0647\u0627"),
+            React.createElement("button", { type: "button", disabled: !count, onClick: onUnmarkOff }, "\u0631\u0641\u0639 \u062A\u0639\u0637\u06CC\u0644\u06CC \u0634\u06CC\u0641\u062A"),
+            React.createElement("button", { type: "button", disabled: !count || !hasExisting, onClick: onClearShift }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0633\u0627\u0639\u062A \u0634\u06CC\u0641\u062A"),
+            React.createElement("button", { type: "button", className: "sc-danger", disabled: !count || !hasExisting, onClick: onDelete }, "\u062D\u0630\u0641 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0648\u0632\u0647\u0627")),
+        React.createElement("button", { type: "button", onClick: onCopyYear }, "\u06A9\u067E\u06CC \u062A\u0642\u0648\u06CC\u0645 \u0628\u0647 \u0633\u0627\u0644 \u0628\u0639\u062F"));
+}
+function ShiftCalendarDayCard({ date, dayNumber, weekday, value, holidayTitle, isFriday, selected, selectionMode, clipboard, onSelect, onEdit, onCopy, onPaste, onDelete }) {
+    const off = !!(value === null || value === void 0 ? void 0 : value.is_off);
+    const segments = Array.isArray(value === null || value === void 0 ? void 0 : value.segments) ? value.segments : [];
+    const hasShift = !off && (segments.length > 0 || !!(value === null || value === void 0 ? void 0 : value.day_config));
+    const times = hasShift ? segments.filter(seg => seg && seg.s && seg.e).map(seg => seg.s + ' – ' + seg.e) : [];
+    const isOfficial = holidayTitle !== null;
+    const showPaste = clipboard && clipboard.source !== date;
+    const cls = ['sc-day', hasShift ? 'sc-day--has-shift' : '', off ? 'sc-day--off' : '', isFriday ? 'sc-day--friday' : '', isOfficial ? 'sc-day--holiday' : '', selected ? 'sc-day--selected' : ''].filter(Boolean).join(' ');
+    const badges = [isFriday ? 'جمعه' : null, isOfficial ? (holidayTitle || 'تعطیل رسمی') : null, off ? 'تعطیل شیفت' : null].filter(Boolean);
+    return React.createElement("article", { className: cls, "aria-label": weekday + ' ' + date.replace(/-/g, '/') + (badges.length ? '، ' + badges.join('، ') : ''), onClick: selectionMode ? onSelect : undefined, onContextMenu: e => { if (!clipboard || selectionMode || !showPaste)
+            return; e.preventDefault(); onPaste(); } },
+        React.createElement("div", { className: "sc-day-header" },
+            React.createElement("div", { className: "sc-date" },
+                React.createElement("strong", { className: "sc-number" }, fa(dayNumber)),
+                React.createElement("div", { className: "sc-date-detail" },
+                    React.createElement("span", { className: "sc-day-name" }, weekday),
+                    React.createElement("span", { className: "sc-full-date" }, faPlain(date.replace(/-/g, '/'))))),
+            selectionMode && React.createElement("input", { className: "sc-select", type: "checkbox", "aria-label": 'انتخاب ' + date, checked: selected, onClick: e => e.stopPropagation(), onChange: onSelect })),
+        badges.length > 0 && React.createElement("div", { className: "sc-badges" },
+            isFriday && React.createElement("span", { className: "sc-badge sc-badge--red" }, "\u062C\u0645\u0639\u0647"),
+            isOfficial && React.createElement("span", { className: "sc-badge sc-badge--red", title: holidayTitle || 'تعطیل رسمی' }, holidayTitle || 'تعطیل رسمی'),
+            off && React.createElement("span", { className: "sc-badge sc-badge--orange" }, "\u062A\u0639\u0637\u06CC\u0644 \u0634\u06CC\u0641\u062A")),
+        React.createElement("div", { className: "sc-content" }, times.length ? times.map((time, i) => React.createElement("span", { className: "sc-time", key: i }, faPlain(time))) : React.createElement("span", { className: "sc-empty" }, off ? 'تعطیل شیفت' : hasShift ? 'شیفت با تنظیمات پیشرفته' : 'بدون شیفت')),
+        React.createElement("div", { className: "sc-footer" },
+            React.createElement("button", { className: "sc-edit", type: "button", onClick: e => { e.stopPropagation(); onEdit(); } }, "\u270E \u0648\u06CC\u0631\u0627\u06CC\u0634"),
+            React.createElement("details", { className: "sc-more", onClick: e => e.stopPropagation() },
+                React.createElement("summary", { "aria-label": 'عملیات بیشتر ' + date }, "\u22EF"),
+                React.createElement("div", { className: "sc-more-menu" },
+                    hasShift && React.createElement("button", { type: "button", onClick: onCopy }, "\u06A9\u067E\u06CC \u0634\u06CC\u0641\u062A"),
+                    showPaste && React.createElement("button", { type: "button", onClick: onPaste }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646 \u0634\u06CC\u0641\u062A"),
+                    value && React.createElement("button", { type: "button", className: "sc-danger", onClick: onDelete }, "\u062D\u0630\u0641 \u0634\u06CC\u0641\u062A")))));
+}
 function AdvancedCalendar({ shift }) {
     const [tj] = useState(todayJ());
     const [jy, setJy] = useState(tj[0]);
@@ -11706,6 +12257,25 @@ function AdvancedCalendar({ shift }) {
     const [deletedDays, setDeletedDays] = useState([]);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [officialHolidays, setOfficialHolidays] = useState({});
+    const [holidaysError, setHolidaysError] = useState('');
+    useEffect(() => {
+        let active = true;
+        db.holidays().then(rows => {
+            if (!active)
+                return;
+            const mapped = {};
+            (Array.isArray(rows) ? rows : []).forEach(row => {
+                const key = String(row.jdate || '').replace(/\//g, '-');
+                if (/^\d{4}-\d{2}-\d{2}$/.test(key))
+                    mapped[key] = String(row.title || 'تعطیل رسمی');
+            });
+            setOfficialHolidays(mapped);
+            setHolidaysError('');
+        }).catch(() => { if (active)
+            setHolidaysError('فهرست تعطیلات رسمی دریافت نشد؛ وضعیت تعطیلات رسمی ممکن است ناقص باشد.'); });
+        return () => { active = false; };
+    }, []);
     useEffect(() => { db.shift(shift.id).then(full => { const map = {}; (full.days || []).forEach(d => { map[d.jdate] = { segments: typeof d.segments === "string" ? JSON.parse(d.segments || "[]") : (d.segments || []), is_off: !!d.is_off, day_config: typeof d.day_config === "string" ? JSON.parse(d.day_config || "null") : (d.day_config || null) }; }); setDays(map); setDeletedDays([]); setPatternKeys([]); setClip(null); }).catch(e => setSaveError(e.message || 'تقویم شیفت دریافت نشد.')); }, [shift.id]);
     const dim = (jm <= 6) ? 31 : (jm <= 11 ? 30 : (((jy % 33) % 4 === 1) ? 30 : 29));
     const jd2 = (d) => `${jy}-${String(jm).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -11780,80 +12350,69 @@ function AdvancedCalendar({ shift }) {
             return;
         setDay(key, JSON.parse(JSON.stringify(clip.value)));
     };
-    return (React.createElement("div", null,
-        React.createElement("div", { className: "row", style: { gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
-            React.createElement("button", { className: "btn g", onClick: () => { if (jm === 1) {
-                    setJy(jy - 1);
-                    setJm(12);
-                }
-                else
-                    setJm(jm - 1); } }, "\u2039 \u0645\u0627\u0647 \u0642\u0628\u0644"),
-            React.createElement("b", null,
-                J_MONTHS[jm - 1],
-                " ",
-                fa(jy)),
-            React.createElement("button", { className: "btn g", onClick: () => { if (jm === 12) {
-                    setJy(jy + 1);
-                    setJm(1);
-                }
-                else
-                    setJm(jm + 1); } }, "\u0645\u0627\u0647 \u0628\u0639\u062F \u203A"),
-            React.createElement("button", { className: patternMode ? "btn p" : "btn g", onClick: () => { setPatternMode(v => !v); if (patternMode)
-                    setPatternKeys([]); } },
-                "\u2637 \u0627\u0646\u062A\u062E\u0627\u0628 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0644\u06AF\u0648",
-                patternKeys.length ? " (" + fa(patternKeys.length) + ")" : ""),
-            React.createElement("button", { className: "btn g", onClick: repeatPattern, disabled: !patternKeys.length }, "\u27F3 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u0631\u0648\u06CC \u06A9\u0644 \u0633\u0627\u0644"),
-            React.createElement("button", { type: "button", className: "btn g", disabled: !patternKeys.length, onClick: () => { if (!clip)
-                    return alert('ابتدا از یک روز دارای شیفت، الگو را کپی کنید.'); patternKeys.forEach(k => { if (k !== clip.source)
-                    pasteShiftDay(k); }); setPatternKeys([]); setPatternMode(false); } }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646 \u062F\u0631 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
-            React.createElement("button", { type: "button", className: "btn g", style: { color: '#b42318', borderColor: '#e3aaa5' }, disabled: !patternKeys.some(k => days[k]), onClick: () => removeDays(patternKeys) }, "\u062D\u0630\u0641 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
-            React.createElement("button", { className: "btn g", onClick: copyNextYear }, "\u2295 \u06A9\u067E\u06CC \u0628\u0647 \u0633\u0627\u0644 \u0628\u0639\u062F"),
-            React.createElement("button", { className: "btn p", style: { marginInlineStart: "auto" }, disabled: saving, onClick: saveAll }, saving ? 'در حال ذخیره…' : 'ذخیرهٔ تقویم')),
-        saveError && React.createElement("div", { role: "alert", style: { padding: 10, marginBottom: 10, borderRadius: 10, background: '#fff3f1', color: '#9e302a' } }, saveError),
-        React.createElement("div", { style: { fontSize: 12, marginBottom: 8, color: "var(--muted)" } }, "\u0631\u0648\u06CC \u00AB\u0648\u06CC\u0631\u0627\u06CC\u0634\u00BB \u0647\u0631 \u0631\u0648\u0632 \u0628\u0631\u0627\u06CC \u062A\u0639\u06CC\u06CC\u0646 \u0633\u0627\u0639\u062A\u200C\u0647\u0627 \u0628\u0632\u0646\u06CC\u062F\u061B \u00AB\u062D\u0630\u0641\u00BB \u0641\u0642\u0637 \u0634\u06CC\u0641\u062A \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u0631\u0627 \u067E\u0627\u06A9 \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0628\u0627 \u00AB\u06A9\u067E\u06CC\u00BB \u06CC\u06A9 \u0631\u0648\u0632 \u0648 \u0633\u067E\u0633 \u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0642\u0635\u062F\u060C \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0622\u0646 \u0631\u0648\u0632 \u0631\u0627 \u0645\u0646\u062A\u0642\u0644 \u06A9\u0646\u06CC\u062F. \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0686\u0646\u062F \u0631\u0648\u0632\u060C \u062D\u0627\u0644\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0644\u06AF\u0648 \u0631\u0627 \u0641\u0639\u0627\u0644 \u06A9\u0646\u06CC\u062F. \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0628\u0627 \u00AB\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0642\u0648\u06CC\u0645\u00BB \u0646\u0647\u0627\u06CC\u06CC \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-        patternMode && React.createElement("div", { role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12 } },
-            React.createElement("span", null, "\u062D\u0627\u0644\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0644\u06AF\u0648 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0686\u0646\u062F \u0631\u0648\u0632 \u0646\u0645\u0648\u0646\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u0631\u062A\u06CC\u0628 \u0627\u0644\u06AF\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0627\u0631\u06CC\u062E \u0627\u0633\u062A \u0648 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0632 \u0631\u0648\u0632 \u0628\u0639\u062F \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0646\u0645\u0648\u0646\u0647 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0633\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-            React.createElement("button", { type: "button", className: "btn g", onClick: () => { setPatternMode(false); setPatternKeys([]); } }, "\u067E\u0627\u06CC\u0627\u0646 \u0627\u0646\u062A\u062E\u0627\u0628")),
-        patternKeys.length > 0 && React.createElement("div", { style: { fontSize: 12, marginBottom: 8, color: "var(--brand)" } },
-            "\u0631\u0648\u0632\u0647\u0627\u06CC \u0646\u0645\u0648\u0646\u0647: ",
-            patternKeys.slice().sort().map(k => k.replace(/-/g, "/")).join("، ")),
-        clip && React.createElement("div", { className: "shift-paste-mode", role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid #b7dfc8", borderRadius: 10, background: "#effaf3", color: "#17663b", fontSize: 12 } },
-            React.createElement("span", null, "\u062D\u0627\u0644\u062A \u067E\u06CC\u0633\u062A \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u067E\u06CC\u0633\u062A \u0631\u0648\u06CC \u0647\u0631 \u0631\u0648\u0632 \u0645\u0642\u0635\u062F \u0631\u0627\u0633\u062A\u200C\u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F. \u067E\u0633 \u0627\u0632 \u067E\u0627\u06CC\u0627\u0646\u060C \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
-            React.createElement("button", { type: "button", className: "btn g", onClick: () => setClip(null), style: { fontSize: 11, padding: "4px 10px", whiteSpace: "nowrap" } }, "\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A")),
-        React.createElement("div", { style: { overflowX: 'auto', paddingBottom: 6 }, role: "region", "aria-label": "\u062A\u0642\u0648\u06CC\u0645 \u0645\u0627\u0647\u0627\u0646\u0647\u0654 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u06CC\u0641\u062A\u061B \u062F\u0631 \u0635\u0641\u062D\u0647\u0654 \u06A9\u0648\u0686\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646 \u0627\u0641\u0642\u06CC \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0631\u062F" },
-            React.createElement("div", { className: "cal-grid shift-calendar-editor", style: { minWidth: 850 } },
-                WD.map(w => React.createElement("div", { key: w, className: "cal-h" }, w)),
-                Array.from({ length: firstWd }).map((_, i) => React.createElement("div", { key: "e" + i })),
-                Array.from({ length: dim }).map((_, i) => {
-                    const d = i + 1;
-                    const key = jd2(d);
-                    const v = days[key];
-                    const has = !!(v && !v.is_off && ((v.segments || []).length || v.day_config));
-                    const off = v && v.is_off;
-                    const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
-                    const showPaste = !!clip && clip.source !== key;
-                    const inPattern = patternKeys.includes(key);
-                    const isFriday = gregToJalaliWeekday(jy, jm, d) === 6;
-                    const isHoliday = !!off || isFriday;
-                    const isNight = !!(v && v.day_config && (v.day_config.is_night || v.day_config.night_work || v.day_config.night)) || (v && Array.isArray(v.segments) && v.segments.some(seg => seg.s && seg.e && seg.e < seg.s));
-                    return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (isHoliday ? " off" : "") + (inPattern ? " shift-pattern-selected" : ""), style: { minHeight: 114, padding: 7, display: 'flex', flexDirection: 'column', gap: 5 }, title: patternMode ? "برای افزودن/حذف از انتخاب کلیک کنید" : "ویرایش، کپی یا حذف شیفت این روز", onClick: e => { if (patternMode || e.ctrlKey || e.metaKey) {
-                            togglePatternDay(key);
-                            return;
-                        } setSel(key); }, onContextMenu: e => { if (!clip || patternMode)
-                            return; e.preventDefault(); if (clip.source !== key)
-                            pasteShiftDay(key); } },
-                        React.createElement("span", { className: "cal-n" }, fa(d)),
-                        React.createElement("label", { style: { position: 'absolute', top: 5, insetInlineStart: 5, display: 'flex', gap: 3, alignItems: 'center', fontSize: 10 }, title: "\u0627\u0646\u062A\u062E\u0627\u0628 \u0631\u0648\u0632 \u0628\u0631\u0627\u06CC \u0639\u0645\u0644\u06CC\u0627\u062A \u06AF\u0631\u0648\u0647\u06CC", onClick: e => e.stopPropagation() },
-                            React.createElement("input", { type: "checkbox", checked: inPattern, onChange: () => togglePatternDay(key), "aria-label": `انتخاب ${key}` }),
-                            isNight ? '🌙' : ''),
-                        React.createElement("div", { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 11, lineHeight: 1.6, direction: 'ltr', flexDirection: 'column' } }, shiftTimes.length ? shiftTimes.map((t, i) => React.createElement("span", { key: i }, t)) : React.createElement("span", { className: "muted", style: { fontSize: 10 } }, off ? 'تعطیل' : 'بدون شیفت')),
-                        React.createElement("div", { style: { display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: 'auto' } },
-                            React.createElement("button", { type: "button", className: "shift-day-action shift-day-edit", "aria-label": `ویرایش شیفت ${key}`, title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u0648 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); setSel(key); setAdvDay(key); } }, "\u270E \u0648\u06CC\u0631\u0627\u06CC\u0634"),
-                            has && React.createElement("button", { type: "button", className: "shift-day-action shift-day-copy", "aria-label": `کپی شیفت ${key}`, title: "\u06A9\u067E\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); copyShiftDay(key); } }, "\u29C9 \u06A9\u067E\u06CC"),
-                            showPaste && React.createElement("button", { type: "button", className: "shift-day-action shift-day-paste", "aria-label": `چسباندن شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); } }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646"),
-                            v && React.createElement("button", { type: "button", className: "shift-day-action shift-day-delete", "aria-label": `حذف شیفت ${key}`, title: "\u062D\u0630\u0641 \u0634\u06CC\u0641\u062A \u0647\u0645\u06CC\u0646 \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); removeDays([key]); } }, "\u062D\u0630\u0641"))));
-                }))),
-        advDay && React.createElement(ShiftDayModal, { jdate: advDay, day: days[advDay], onClose: () => setAdvDay(null), onSave: (v) => { setDay(advDay, { segments: v.segments || [], is_off: !!v.is_off, day_config: v.day_config }); setAdvDay(null); } })));
+    const jumpToday = () => { const current = todayJ(); setJy(current[0]); setJm(current[1]); };
+    const changeMonth = offset => { const next = (jy * 12 + (jm - 1)) + offset; setJy(Math.floor(next / 12)); setJm((next % 12 + 12) % 12 + 1); };
+    const updateSelectedOff = flag => {
+        if (!patternKeys.length)
+            return;
+        const label = flag ? 'تعطیل کردن' : 'رفع تعطیلی';
+        if (!confirm(label + ' ' + fa(patternKeys.length) + ' روز انتخاب‌شده؟ این تغییر پس از ذخیره نهایی می‌شود.'))
+            return;
+        setDays(prev => {
+            const next = { ...prev };
+            patternKeys.forEach(key => {
+                const current = next[key] || { segments: [], day_config: null, is_off: false };
+                next[key] = { ...current, is_off: flag };
+            });
+            return next;
+        });
+        setDeletedDays(prev => prev.filter(key => !patternKeys.includes(key)));
+    };
+    const clearSelectedShift = () => {
+        if (!patternKeys.length || !confirm('ساعت‌ها و تنظیمات شیفت ' + fa(patternKeys.length) + ' روز انتخاب‌شده پاک شود؟'))
+            return;
+        setDays(prev => {
+            const next = { ...prev };
+            patternKeys.forEach(key => {
+                if (next[key])
+                    next[key] = { ...next[key], segments: [], day_config: null };
+            });
+            return next;
+        });
+    };
+    const pasteToSelected = () => {
+        if (!clip || !patternKeys.length)
+            return;
+        setDays(prev => { const next = { ...prev }; patternKeys.forEach(key => { if (key !== clip.source)
+            next[key] = JSON.parse(JSON.stringify(clip.value)); }); return next; });
+        setDeletedDays(prev => prev.filter(key => !patternKeys.includes(key)));
+        setPatternKeys([]);
+        setPatternMode(false);
+    };
+    const currentMonthKeys = Array.from({ length: dim }, (_, i) => jd2(i + 1));
+    return React.createElement("div", { className: "shift-calendar-v2" },
+        React.createElement("style", null, shiftCalendarStyles),
+        React.createElement(ShiftCalendarHeader, { month: J_MONTHS[jm - 1], year: jy, onPrev: () => changeMonth(-1), onNext: () => changeMonth(1), onToday: jumpToday, onSave: saveAll, saving: saving }, clip && React.createElement("button", { type: "button", onClick: () => setClip(null) }, "\u067E\u0627\u06CC\u0627\u0646 \u06A9\u067E\u06CC")),
+        React.createElement(ShiftCalendarLegend, null),
+        saveError && React.createElement("div", { role: "alert", style: { padding: 10, marginBottom: 10, borderRadius: 10, background: '#fff1ef', color: '#a21f18' } }, saveError),
+        holidaysError && React.createElement("div", { role: "status", style: { padding: 10, marginBottom: 10, borderRadius: 10, background: '#fff8e8', color: '#8b5a13' } }, holidaysError),
+        React.createElement(ShiftBulkActions, { enabled: patternMode, count: patternKeys.length, onToggle: () => { setPatternMode(v => !v); setPatternKeys([]); }, onClearSelection: () => setPatternKeys([]), onRepeat: repeatPattern, onPaste: pasteToSelected, onDelete: () => removeDays(patternKeys), onClearShift: clearSelectedShift, onMarkOff: () => updateSelectedOff(true), onUnmarkOff: () => updateSelectedOff(false), onCopyYear: copyNextYear, canPaste: !!clip, hasExisting: patternKeys.some(key => !!days[key]) }),
+        patternMode && React.createElement("div", { className: "sc-help", role: "status" },
+            "\u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0627 \u0628\u0627 \u06A9\u0644\u06CC\u06A9 \u0631\u0648\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u0628\u0631\u0627\u06CC \u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648\u060C \u062F\u0633\u062A\u200C\u06A9\u0645 \u062F\u0648 \u0631\u0648\u0632 \u062F\u0627\u0631\u0627\u06CC \u0646\u0645\u0648\u0646\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.",
+            React.createElement("button", { type: "button", className: "btn g", style: { marginInlineStart: 8 }, onClick: () => setPatternKeys(currentMonthKeys) }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0627\u0647")),
+        clip && React.createElement("p", { className: "sc-help", role: "status" },
+            "\u0627\u0644\u06AF\u0648\u06CC \u06A9\u067E\u06CC\u200C\u0634\u062F\u0647 \u0627\u0632 ",
+            faPlain(clip.source.replace(/-/g, '/')),
+            " \u0622\u0645\u0627\u062F\u0647 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u0686\u0633\u0628\u0627\u0646\u062F\u0646\u060C \u0627\u0632 \u0645\u0646\u0648\u06CC \u0631\u0648\u0632 \u0645\u0642\u0635\u062F \u06CC\u0627 \u0639\u0645\u0644\u06CC\u0627\u062A \u06AF\u0631\u0648\u0647\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F."),
+        React.createElement("div", { className: "sc-grid", role: "region", "aria-label": 'ویرایش تقویم شیفت ' + J_MONTHS[jm - 1] + ' ' + jy },
+            WD.map(weekday => React.createElement("div", { key: weekday, className: "sc-weekday" }, weekday)),
+            Array.from({ length: firstWd }, (_, i) => React.createElement("div", { key: 'blank-' + i, className: "sc-blank", "aria-hidden": "true" })),
+            currentMonthKeys.map((key, i) => {
+                const day = i + 1;
+                const weekdayIndex = gregToJalaliWeekday(jy, jm, day);
+                return React.createElement(ShiftCalendarDayCard, { key: key, date: key, dayNumber: day, weekday: WD[weekdayIndex] || '', value: days[key], holidayTitle: Object.prototype.hasOwnProperty.call(officialHolidays, key) ? officialHolidays[key] : null, isFriday: weekdayIndex === 6, selected: patternKeys.includes(key), selectionMode: patternMode, clipboard: clip, onSelect: () => togglePatternDay(key), onEdit: () => { setSel(key); setAdvDay(key); }, onCopy: () => copyShiftDay(key), onPaste: () => pasteShiftDay(key), onDelete: () => removeDays([key]) });
+            })),
+        advDay && React.createElement(ShiftDayModal, { jdate: advDay, day: days[advDay], onClose: () => setAdvDay(null), onSave: value => { setDay(advDay, { segments: value.segments || [], is_off: !!value.is_off, day_config: value.day_config }); setAdvDay(null); } }));
 }
 function DayEditor({ jdate, val, onChange, onAdvanced }) {
     const segs = val.segments || [];
@@ -11898,8 +12457,13 @@ function ShiftAssign() {
     const [q, setQ] = useState("");
     const [error, setError] = useState("");
     const [busyUser, setBusyUser] = useState(null);
-    const load = () => db.userShifts().then(a => setAssigns(a || [])).catch(() => { });
-    useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); db.shifts().then(s => setShifts(s || [])).catch(() => { }); load(); }, []);
+    const load = async () => { try {
+        setAssigns(await db.userShifts() || []);
+    }
+    catch (e) {
+        setError(e.message || 'دریافت تخصیص‌های شیفت ناموفق بود.');
+    } };
+    useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(e => setError(e.message || 'دریافت فهرست نیروها ناموفق بود.')); db.shifts().then(s => setShifts(s || [])).catch(e => setError(e.message || 'دریافت شیفت‌ها ناموفق بود.')); load(); }, []);
     const cur = (uid) => assigns.find(a => Number(a.user_id) === Number(uid));
     const setShift = async (uid, sid) => { setError(""); setBusyUser(uid); try {
         if (sid === "") {
@@ -11917,28 +12481,34 @@ function ShiftAssign() {
     finally {
         setBusyUser(null);
     } };
-    const filtered = q.trim() ? users.filter(u => ((u.first_name || "") + " " + (u.last_name || "")).includes(q.trim())) : users;
+    const filtered = q.trim() ? users.filter(u => ((u.first_name || "") + " " + (u.last_name || "") + " " + (u.username || "") + " " + u.id).toLocaleLowerCase('fa').includes(q.trim().toLocaleLowerCase('fa'))) : users;
     return (React.createElement("div", null,
         error && React.createElement("div", { className: "attendance-shift-assignment-error", role: "alert", style: { padding: "9px 12px", marginBottom: 10, borderRadius: 9, background: "#fdeef0", color: "#a61b29", fontSize: 12 } }, error),
-        React.createElement("input", { className: "input", style: { maxWidth: 240, marginBottom: 10 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648\u2026", value: q, onChange: e => setQ(e.target.value) }),
-        React.createElement("table", null,
-            React.createElement("thead", null,
-                React.createElement("tr", null,
-                    React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                    React.createElement("th", null, "\u0634\u06CC\u0641\u062A \u062A\u062E\u0635\u06CC\u0635\u200C\u06CC\u0627\u0641\u062A\u0647"))),
-            React.createElement("tbody", null, filtered.map(u => {
-                const c = cur(u.id);
-                return (React.createElement("tr", { key: u.id },
-                    React.createElement("td", null,
-                        u.first_name,
-                        " ",
-                        u.last_name),
-                    React.createElement("td", null,
-                        React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? String(c.shift_id) : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
-                            React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A \u2014"),
-                            React.createElement("option", { value: "0" }, "\u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631"),
-                            shifts.map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
-            })))));
+        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' } },
+            React.createElement("input", { className: "input", style: { maxWidth: 320 }, "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u0634\u0646\u0627\u0633\u0647\u2026", value: q, onChange: e => setQ(e.target.value) }),
+            React.createElement("span", { className: "muted" },
+                fa(filtered.length),
+                " \u0646\u06CC\u0631\u0648")),
+        React.createElement("div", { className: "sm-scroll-table" },
+            React.createElement("table", null,
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                        React.createElement("th", null, "\u0634\u06CC\u0641\u062A \u062A\u062E\u0635\u06CC\u0635\u200C\u06CC\u0627\u0641\u062A\u0647"))),
+                React.createElement("tbody", null, filtered.map(u => {
+                    const c = cur(u.id);
+                    return (React.createElement("tr", { key: u.id },
+                        React.createElement("td", null,
+                            u.first_name,
+                            " ",
+                            u.last_name),
+                        React.createElement("td", null,
+                            React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? String(c.shift_id) : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
+                                React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A \u2014"),
+                                React.createElement("option", { value: "0" }, "\u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631"),
+                                shifts.map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
+                }))),
+            !filtered.length && React.createElement("p", { className: "sm-empty" }, "\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0628\u0627 \u0639\u0628\u0627\u0631\u062A \u062C\u0633\u062A\u062C\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F."))));
 }
 // تعطیلات رسمی
 function Holidays() {
@@ -11949,12 +12519,28 @@ function Holidays() {
     const [fy, setFy] = useState(tj[0]);
     const [fm, setFm] = useState(tj[1]);
     const [busy, setBusy] = useState(false);
-    const load = () => db.holidays().then(h => setList(h || [])).catch(() => { });
+    const [error, setError] = useState('');
+    const load = async () => { try {
+        setError('');
+        setList(await db.holidays() || []);
+    }
+    catch (e) {
+        setError(e.message || 'فهرست تعطیلات دریافت نشد.');
+    } };
     useEffect(() => { load(); }, []);
     const add = async () => { if (!d)
         return alert("تاریخ را انتخاب کنید"); const [y, m, dd] = d.split("-").map(Number); const [jy, jm, jd] = gregToJalali(y, m, dd); await db.addHolidays([{ jdate: `${jy}-${String(jm).padStart(2, "0")}-${String(jd).padStart(2, "0")}`, title }]); setD(""); setTitle(""); load(); };
-    const del = async (j) => { if (!confirm("حذف؟"))
-        return; await db.delHoliday(j); load(); };
+    const del = async (j) => { if (!confirm("تعطیلی انتخاب‌شده حذف شود؟"))
+        return; setBusy(true); setError(''); try {
+        await db.delHoliday(j);
+        await load();
+    }
+    catch (e) {
+        setError(e.message || 'حذف تعطیلی ناموفق بود.');
+    }
+    finally {
+        setBusy(false);
+    } };
     const fetchMonth = async () => { setBusy(true); try {
         const r = await db.fetchHolidays(fy, fm);
         alert(`فراخوان انجام شد: ${fa(r.added || 0)} تعطیلی برای ${J_MONTHS[fm - 1]} ${fa(fy)} ثبت شد.`);
@@ -11978,9 +12564,10 @@ function Holidays() {
     } setBusy(false); };
     return (React.createElement("div", null,
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 8 } }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u062A\u0639\u0637\u06CC\u0644 \u0631\u0633\u0645\u06CC \u0628\u0631\u0627\u06CC \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u00AB\u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC\u00BB \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F (\u062C\u0645\u0639\u0647\u200C\u0647\u0627 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u062D\u0633\u0627\u0628 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F)."),
+        error && React.createElement("p", { role: "alert", className: "sm-status-error" }, error),
         React.createElement("div", { className: "card-p", style: { marginBottom: 12 } },
-            React.createElement("b", null, "\u062F\u0631\u062C \u062A\u0639\u0637\u06CC\u0644\u0627\u062A \u0631\u0633\u0645\u06CC \u0633\u0627\u0644 \u06F1\u06F4\u06F0\u06F4"),
-            React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", margin: "6px 0" } }, "\u0641\u0647\u0631\u0633\u062A \u06A9\u0627\u0645\u0644 \u0648 \u0648\u0627\u0642\u0639\u06CC \u062A\u0639\u0637\u06CC\u0644\u0627\u062A \u0631\u0633\u0645\u06CC \u0633\u0627\u0644 \u06F1\u06F4\u06F0\u06F4 (\u0646\u0648\u0631\u0648\u0632\u060C \u0627\u0639\u06CC\u0627\u062F\u060C \u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627\u06CC \u0645\u0630\u0647\u0628\u06CC \u0648 \u0645\u0644\u06CC) \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u06CC\u06A9\u062C\u0627 \u062F\u0631\u062C \u0645\u06CC\u200C\u0634\u0648\u062F. \u0633\u0631\u0648\u06CC\u0633 holidayapi.ir \u062F\u06CC\u06AF\u0631 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A\u061B \u0627\u06CC\u0646 \u0641\u0647\u0631\u0633\u062A \u0627\u0632 \u062A\u0642\u0648\u06CC\u0645 \u0631\u0633\u0645\u06CC \u06A9\u0634\u0648\u0631 \u062A\u0647\u06CC\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A."),
+            React.createElement("b", null, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062A\u0639\u0637\u06CC\u0644\u0627\u062A \u0631\u0633\u0645\u06CC"),
+            React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", margin: "6px 0" } }, "\u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0631\u0633\u0645\u06CC \u0633\u0627\u0644\u200C\u0647\u0627\u06CC \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC\u200C\u0634\u062F\u0647 \u0631\u0627 \u0627\u0632 \u062A\u0642\u0648\u06CC\u0645 \u062F\u0627\u062E\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u062B\u0628\u062A \u06CC\u0627 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u06A9\u0646\u06CC\u062F."),
             React.createElement("button", { className: "btn p", disabled: busy, onClick: async () => { setBusy(true); try {
                     const r = await db.seedHolidays1404();
                     alert(`درج شد: ${fa(r.count || 0)} روز تعطیل رسمی ۱۴۰۴ ثبت/به‌روزرسانی شد.`);
@@ -11996,19 +12583,19 @@ function Holidays() {
                 }
                 catch (e) {
                     alert(e.message || "خطا");
-                } setBusy(false); } }, busy ? "…" : "درج تعطیلات رسمی ۱۴۰۵ (سال جاری)")),
+                } setBusy(false); } }, busy ? "…" : "درج تعطیلات رسمی ۱۴۰۵")),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u0627\u0641\u0632\u0648\u062F\u0646 \u062F\u0633\u062A\u06CC \u062A\u0639\u0637\u06CC\u0644\u06CC"),
                 React.createElement(JDate, { value: d, onChange: setD })),
             React.createElement("input", { className: "input", style: { maxWidth: 200 }, placeholder: "\u0639\u0646\u0648\u0627\u0646 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)", value: title, onChange: e => setTitle(e.target.value) }),
-            React.createElement("button", { className: "btn p", onClick: add }, "\u0627\u0641\u0632\u0648\u062F\u0646")),
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: add }, "\u0627\u0641\u0632\u0648\u062F\u0646")),
         list.length === 0 ? React.createElement("p", { className: "muted" }, "\u062A\u0639\u0637\u06CC\u0644\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647.") :
             React.createElement("div", { className: "chiprow" }, list.map(h => React.createElement("span", { key: h.jdate, className: "chip" },
                 h.jdate,
                 h.title ? ` — ${h.title}` : "",
                 " ",
-                React.createElement("b", { style: { cursor: "pointer" }, onClick: () => del(h.jdate) }, "\u00D7"))))));
+                React.createElement("button", { className: "btn g", type: "button", disabled: busy, "aria-label": 'حذف تعطیلی ' + h.jdate, style: { padding: '2px 7px', fontSize: 11 }, onClick: () => del(h.jdate) }, "\u00D7"))))));
 }
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
@@ -12457,7 +13044,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: to, onChange: setTo, jalali: true })),
-                React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? "…" : "🔍 مشاهده گزارش"),
+                React.createElement("button", { className: "btn p", type: "button", onClick: () => run(), disabled: busy || !uid }, busy ? "…" : "🔍 مشاهده گزارش"),
                 React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"),
                 data && React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDraftColumnIndexes(visibleColumnIndexes.slice()); setColumnSettingsOpen(true); } }, "\u2699 \u062A\u0646\u0638\u06CC\u0645 \u0633\u062A\u0648\u0646\u200C\u0647\u0627"))),
         busy && React.createElement("div", { className: "attendance-report-state", role: "status", "aria-live": "polite" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0622\u0645\u0627\u062F\u0647\u200C\u0633\u0627\u0632\u06CC \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F\u2026"),
@@ -12649,8 +13236,8 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                             React.createElement("table", { style: { width: "100%", minWidth: 720, tableLayout: "fixed" } },
                                 React.createElement("thead", null,
                                     React.createElement("tr", null,
-                                        React.createElement("th", { style: { width: 90 } }, "\u0648\u0631\u0648\u062F"),
-                                        React.createElement("th", { style: { width: 90 } }, "\u062E\u0631\u0648\u062C"),
+                                        React.createElement("th", { style: { width: 190 } }, "\u0648\u0631\u0648\u062F \u0648 \u0645\u0646\u0634\u0623 \u062B\u0628\u062A"),
+                                        React.createElement("th", { style: { width: 190 } }, "\u062E\u0631\u0648\u062C \u0648 \u0645\u0646\u0634\u0623 \u062B\u0628\u062A"),
                                         React.createElement("th", { style: { width: 100 } }, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
                                         React.createElement("th", { style: { minWidth: 180 } }, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
                                         React.createElement("th", { style: { width: 250 } }, "\u0627\u0642\u062F\u0627\u0645"))),
@@ -12659,8 +13246,12 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                                     const hasGpsOut = p.out_lat !== null && p.out_lat !== undefined && p.out_lat !== "" && p.out_lng !== null && p.out_lng !== undefined && p.out_lng !== "" && Number.isFinite(Number(p.out_lat)) && Number.isFinite(Number(p.out_lng));
                                     const hasGps = hasGpsIn || hasGpsOut;
                                     return React.createElement("tr", { key: p.id },
-                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pin(p) || "--:--")),
-                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pout(p) || "--:--")),
+                                        React.createElement("td", { style: { textAlign: "center", verticalAlign: "top" } },
+                                            attendanceCell(pin(p) || "--:--"),
+                                            React.createElement(ManualPunchSource, { punch: p, side: "in" })),
+                                        React.createElement("td", { style: { textAlign: "center", verticalAlign: "top" } },
+                                            attendanceCell(pout(p) || "--:--"),
+                                            React.createElement(ManualPunchSource, { punch: p, side: "out" })),
                                         React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, (({ manual: "دستی", admin: "ثبت مدیریتی", web: "پنل وب", mobile: "برنامه موبایل", app: "برنامه موبایل", gps: "موقعیت مکانی", wifi: "وای‌فای", offline: "آفلاین" })[String(p.method || "").toLowerCase()] || p.method || "—")),
                                         React.createElement("td", { style: { wordBreak: "break-word" } }, p.device || "—"),
                                         React.createElement("td", null,
@@ -12959,6 +13550,32 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
             err));
 }
 // پاپ‌آپ لیست ورود و خروج یک روز
+function ManualPunchSource({ punch, side }) {
+    var _a;
+    const meta = (_a = punch.manual_provenance) === null || _a === void 0 ? void 0 : _a[side];
+    if (!meta) {
+        if (side === "in" && String(punch.method || "").toLowerCase() === "manual")
+            return React.createElement("small", { className: "muted", style: { display: "block", whiteSpace: "normal" } }, "\u062F\u0633\u062A\u06CC \u2014 \u0645\u0646\u0634\u0623 \u062B\u0628\u062A \u0646\u0627\u0645\u0634\u062E\u0635");
+        return null;
+    }
+    return React.createElement("div", { style: { marginTop: 5, padding: "5px 7px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, lineHeight: 1.8, textAlign: "right", whiteSpace: "normal", overflowWrap: "anywhere" } },
+        React.createElement("b", null, meta.source === "request" ? "درخواست تردد دستی" : meta.action === "punch_edit" ? "اصلاح توسط مسئول" : "ثبت دستی توسط مسئول"),
+        React.createElement("div", null,
+            "\u062B\u0628\u062A\u200C\u06A9\u0646\u0646\u062F\u0647: ",
+            meta.actor || "نامشخص"),
+        React.createElement("div", null,
+            "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A: ",
+            faPlain(String(meta.registered_at || "نامشخص"))),
+        meta.source === "request" && React.createElement(React.Fragment, null,
+            React.createElement("div", null, meta.status === "approved" ? "تأیید شده" : "در انتظار تأیید"),
+            meta.status === "approved" && React.createElement(React.Fragment, null,
+                React.createElement("div", null,
+                    "\u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647: ",
+                    meta.approver || "نامشخص"),
+                React.createElement("div", null,
+                    "\u0632\u0645\u0627\u0646 \u062A\u0623\u06CC\u06CC\u062F: ",
+                    faPlain(String(meta.approved_at || "نامشخص"))))));
+}
 function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
     return (React.createElement("div", { style: { position: "absolute", top: "100%", right: 0, zIndex: 50, background: "#1f2330", border: "1px solid #3a3f4f", borderRadius: 10, padding: 12, minWidth: 320, boxShadow: "0 8px 24px rgba(0,0,0,.4)", textAlign: "right" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 8 } },
@@ -12976,9 +13593,11 @@ function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
                         React.createElement("td", { style: { padding: "4px 6px" } },
                             React.createElement("span", { style: { color: "#6cf", cursor: "pointer", marginInlineEnd: 4 }, onClick: () => onEdit({ ...p, field: "out" }) }, "\u270E"),
                             React.createElement("span", { style: { color: "#f66", cursor: "pointer", marginInlineEnd: 6 }, onClick: () => onDel(p) }, "\uD83D\uDDD1"),
-                            fa(p.out || "--:--")),
+                            fa(p.out || "--:--"),
+                            React.createElement(ManualPunchSource, { punch: p, side: "out" })),
                         React.createElement("td", { style: { padding: "4px 6px" } },
                             fa(p.in || "--:--"),
+                            React.createElement(ManualPunchSource, { punch: p, side: "in" }),
                             React.createElement("span", { style: { color: "#6cf", cursor: "pointer", marginInlineStart: 4 }, onClick: () => onEdit({ ...p, field: "in" }) }, "\u270E"),
                             React.createElement("span", { style: { color: "#f66", cursor: "pointer", marginInlineStart: 4 }, onClick: () => onDel(p) }, "\uD83D\uDDD1")),
                         React.createElement("td", null, (p.method) && React.createElement("span", { title: p.method, style: { color: "#69f", fontSize: 14 } }, "\u24D8"))),
@@ -13808,7 +14427,51 @@ function AttendanceReport(props) {
             React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'work', className: 'tabbtn' + (tab === 'work' ? ' on' : ''), onClick: () => setTab('work') }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F")),
         tab === 'daily' ? React.createElement(AttendanceDailyReport, { ...props }) : React.createElement(WorkReviewReport, null));
 }
+function MonthlyMetricDetails({ detail, onClose }) {
+    var _a;
+    const labels = { late_in: "تأخیر ورود", early_out: "تعجیل خروج", night: "شب‌کاری", overtime: "اضافه‌کاری", surplus: "مازاد حضور" };
+    const basis = { late_in: "اختلاف اولین ورود با شروع شیفت پس از کسر مهلت مجاز", early_out: "اختلاف آخرین خروج با پایان شیفت پس از کسر مهلت مجاز", night: "مدت حضور در بازه شب تعریف‌شده در شیفت", overtime: "اضافه‌کار مجاز طبق قواعد شیفت، به‌علاوه مازاد تبدیل‌شده؛ جمعه و تعطیل جداگانه", surplus: "حضور اضافه بر مبنای شیفت پس از کسر اضافه‌کار مجاز و تبدیل‌های تأییدشده" };
+    const fmt = v => faPlain(String(Math.floor(Math.max(0, Number(v) || 0) / 60)).padStart(2, "0") + ":" + String(Math.max(0, Number(v) || 0) % 60).padStart(2, "0"));
+    const { row, metric, year, month } = detail;
+    const available = Array.isArray(row.metric_details);
+    const days = (row.metric_details || []).filter(d => { var _a; return Number((_a = d.metrics) === null || _a === void 0 ? void 0 : _a[metric]) > 0; });
+    const sum = days.reduce((s, d) => s + Number(d.metrics[metric]), 0);
+    const expected = Number(metric === "overtime" ? ((_a = row.regular_overtime) !== null && _a !== void 0 ? _a : row.overtime) : row[metric]) || 0;
+    return React.createElement(PunchModalShell, { wide: true, title: "ریز " + labels[metric], subtitle: row.name + " · " + J_MONTHS[month - 1] + " " + faPlain(String(year)), onClose: onClose },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, "\u062C\u0645\u0639 \u0645\u0627\u0647\u0627\u0646\u0647"),
+            React.createElement("strong", { dir: "ltr" }, fmt(expected))),
+        React.createElement("p", { style: { lineHeight: 1.9 } }, basis[metric]),
+        !available ? React.createElement("p", { role: "status" }, "\u0631\u06CC\u0632 \u062F\u0642\u06CC\u0642 \u0627\u06CC\u0646 \u0645\u0627\u0647 \u062F\u0631 \u0646\u0633\u062E\u0647 \u0642\u0628\u0644\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0633\u0648\u0627\u0628\u0642 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0631\u0648\u06CC \u0646\u0627\u0645 \u0641\u0631\u062F \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.") : React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "muted" },
+                faPlain(String(days.length)),
+                " \u0631\u0648\u0632 \u0645\u0624\u062B\u0631 \u00B7 \u062C\u0645\u0639 \u062C\u0632\u0626\u06CC\u0627\u062A: ",
+                fmt(sum)),
+            sum !== expected && React.createElement("p", { role: "alert" }, "\u062C\u0645\u0639 \u062C\u0632\u0626\u06CC\u0627\u062A \u0628\u0627 \u0631\u0642\u0645 \u0645\u0627\u0647\u0627\u0646\u0647 \u0628\u0631\u0627\u0628\u0631 \u0646\u06CC\u0633\u062A\u061B \u0645\u0628\u0644\u063A \u06AF\u0632\u0627\u0631\u0634 \u0627\u0635\u0644\u06CC \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A."),
+            !days.length ? React.createElement("p", { role: "status" }, "\u0631\u0648\u0632\u06CC \u0628\u0627 \u0645\u0642\u062F\u0627\u0631 \u063A\u06CC\u0631\u0635\u0641\u0631 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0634\u0627\u062E\u0635 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement("div", { style: { overflow: "auto", maxHeight: "55vh" } },
+                React.createElement("table", { style: { width: "100%", minWidth: 720 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null, ["تاریخ", "شیفت و بازه موظفی", "ورود و خروج ثبت‌شده", "موظفی / حضور", "مبنای تکمیلی", "مقدار"].map(t => React.createElement("th", { key: t, style: { position: "sticky", top: 0, background: "var(--card,#fff)" } }, t)))),
+                    React.createElement("tbody", null, days.map(d => React.createElement("tr", { key: d.jdate },
+                        React.createElement("td", null, faPlain(d.jdate)),
+                        React.createElement("td", null,
+                            d.shift || "—",
+                            React.createElement("div", { dir: "ltr" }, (d.segments || []).map(s => faPlain((s.s || "—") + " – " + (s.e || "—"))).join(" / ") || "—")),
+                        React.createElement("td", null,
+                            (d.punches || []).map((p, i) => React.createElement("div", { key: i, dir: "ltr" },
+                                faPlain(String(p.in || "—").slice(11, 16) || "—"),
+                                " \u2013 ",
+                                faPlain(String(p.out || "—").slice(11, 16) || "—"))),
+                            React.createElement("small", null, faPlain((d.in || "—") + " / " + (d.out || "—")))),
+                        React.createElement("td", null,
+                            fmt(d.expected),
+                            " / ",
+                            fmt(d.worked)),
+                        React.createElement("td", null, metric === "late_in" ? "مهلت: " + fmt(d.late_ok) : metric === "early_out" ? "مهلت: " + fmt(d.early_ok) : metric === "night" ? faPlain(d.night_start + " – " + d.night_end) : "تبدیل مازاد: " + fmt(d.adjusted_ot)),
+                        React.createElement("td", { style: { fontWeight: 800 }, dir: "ltr" }, fmt(d.metrics[metric])))))))));
+}
 function ShiftReport() {
+    const [metricDetail, setMetricDetail] = useState(null);
     const [attendanceModal, setAttendanceModal] = useState(null);
     const [reportTab, setReportTab] = useState("monthly");
     const [reportError, setReportError] = useState("");
@@ -13877,6 +14540,7 @@ function ShiftReport() {
         }
     };
     const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
+    const metricCell = (r, key, value) => React.createElement("button", { type: "button", className: "btn g", style: { font: "inherit", fontWeight: 700, color: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: "3px 6px" }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0628\u0646\u0627 \u0648 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647", onClick: () => setMetricDetail({ row: r, metric: key, year: jy, month: jm }) }, faPlain(hm(value)));
     const run = async () => { const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
         const r = await db.shiftReport(year, month);
         if (generation === monthlyRequest.current)
@@ -13905,7 +14569,7 @@ function ShiftReport() {
     catch (e) {
         alert(e.message);
     } };
-    const [forecastRemaining, setForecastRemaining] = useState(false);
+    const [forecastRemaining, setForecastRemaining] = useState(true);
     const [includeSurplusInOvertime, setIncludeSurplusInOvertime] = useState(false);
     const exportOrganization = async () => { try {
         const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}`, { headers: tok() });
@@ -14008,19 +14672,20 @@ function ShiftReport() {
                             React.createElement("td", null, hm(r.expected)),
                             React.createElement("td", null, hm(r.worked)),
                             React.createElement("td", null, hm(r.in_shift || r.worked)),
-                            React.createElement("td", { style: { color: r.late_in ? "var(--danger)" : "inherit" } }, hm(r.late_in || 0)),
-                            React.createElement("td", { style: { color: r.early_out ? "var(--danger)" : "inherit" } }, hm(r.early_out || 0)),
+                            React.createElement("td", { style: { color: r.late_in ? "var(--danger)" : "inherit" } }, metricCell(r, "late_in", r.late_in || 0)),
+                            React.createElement("td", { style: { color: r.early_out ? "var(--danger)" : "inherit" } }, metricCell(r, "early_out", r.early_out || 0)),
                             React.createElement("td", { style: { color: r.shortage ? "var(--danger)" : "inherit" } }, hm(r.shortage)),
                             React.createElement("td", { style: { color: r.absent_min ? "var(--danger)" : "inherit" } }, hm(r.absent_min || 0)),
                             React.createElement("td", null, hm(gh)),
-                            React.createElement("td", null, hm(r.night)),
-                            React.createElement("td", { style: { color: "var(--ok)" } }, hm((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime)),
-                            React.createElement("td", { style: { color: "var(--danger,#c62828)", fontWeight: 700 } }, hm((_b = r.surplus) !== null && _b !== void 0 ? _b : 0)),
+                            React.createElement("td", null, metricCell(r, "night", r.night)),
+                            React.createElement("td", { style: { color: "var(--ok)" } }, metricCell(r, "overtime", (_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime)),
+                            React.createElement("td", { style: { color: "var(--danger,#c62828)", fontWeight: 700 } }, metricCell(r, "surplus", (_b = r.surplus) !== null && _b !== void 0 ? _b : 0)),
                             React.createElement("td", null, hm((_c = r.friday) !== null && _c !== void 0 ? _c : 0)),
                             React.createElement("td", null, hm((_e = r.holiday) !== null && _e !== void 0 ? _e : 0)),
                             React.createElement("td", null, hm(r.mission_min || 0)),
                             React.createElement("td", null, hm(r.annual_min || 0)),
                             React.createElement("td", null, hm(r.sick_min || 0)))); })))))),
+        metricDetail && React.createElement(MonthlyMetricDetails, { detail: metricDetail, onClose: () => setMetricDetail(null) }),
         attendanceModal && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": "گزارش تردد ماهانه " + attendanceModal.name, style: { position: "fixed", inset: 0, zIndex: 9900, background: "rgba(0,0,0,.65)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }, onClick: e => { if (e.target === e.currentTarget) {
                 setAttendanceModal(null);
                 run();
@@ -19709,6 +20374,35 @@ function SchoolServiceLauncher() {
     }, []);
     return React.createElement("div", { ref: hostRef, className: "ssv-page-host admin-workspace-page", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
 }
+function SchoolComplaintsLauncher() {
+    const [Component, setComponent] = useState(null), [error, setError] = useState("");
+    useEffect(() => {
+        let alive = true;
+        if (!document.querySelector('link[data-school-complaints]')) {
+            const css = document.createElement("link");
+            css.rel = "stylesheet";
+            css.href = "/assets/school-complaints-admin.css?v=20261119.2";
+            css.dataset.schoolComplaints = "1";
+            document.head.appendChild(css);
+        }
+        const ready = () => { if (alive && typeof window.KhatyarSchoolComplaints === "function")
+            setComponent(() => window.KhatyarSchoolComplaints);
+        else if (alive)
+            setError("رابط شکایات بارگذاری نشد"); };
+        if (window.KhatyarSchoolComplaints) {
+            ready();
+            return () => { alive = false; };
+        }
+        const script = document.createElement("script");
+        script.src = "/assets/school-complaints-admin.js?v=20261119.2";
+        script.onload = ready;
+        script.onerror = () => { if (alive)
+            setError("خطا در دریافت ماژول شکایات"); };
+        document.head.appendChild(script);
+        return () => { alive = false; script.onload = null; script.onerror = null; };
+    }, []);
+    return Component ? React.createElement(Component, { get: GET, send: SEND, DatePicker: JDate, ClockInput: ShiftClockInput }) : React.createElement("div", { className: "card-p", role: "status" }, error || "در حال بارگذاری شکایات سرویس مدارس...");
+}
 function ComplaintsLauncher() {
     const hostRef = useRef(null);
     const [error, setError] = useState("");
@@ -20329,11 +21023,12 @@ const VIEWS = {
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklistV2 },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
     schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
+    schoolcomplaints: { t: "شکایات سرویس مدارس", ic: "chat-message", c: SchoolComplaintsLauncher },
     complaints: { t: "شکایات تاکسیرانان", ic: "chat-message", c: ComplaintsLauncher },
 };
 const PANEL_MENU_SECTIONS = [
     ["داشبورد و نقشه", ["dashboard", "missiondashboard", "citydashboard", "map", "present", "presentchart"]],
-    ["بازرسی و خدمات", ["officials", "presence", "covertselfies", "outages", "schoolservice", "complaints", "companyrequests"]],
+    ["بازرسی و خدمات", ["officials", "presence", "covertselfies", "outages", "schoolservice", "schoolcomplaints", "complaints", "companyrequests"]],
     ["تاکسی و خطوط", ["drivers", "tempdrivers", "lines", "bills"]],
     ["امور مالی و اشتراک", ["subscriptioninvoices"]],
     ["گزارش‌ها و آمار", ["reportscenter", "monthlyworkreport", "attreport", "leavereport", "perfreport", "driverservicereport", "reports", "report", "useract"]],
@@ -20349,7 +21044,7 @@ const PANEL_MENU_KEYWORDS = {
     attreport: "تردد ورود خروج حضور", monthlyworkreport: "کارکرد ماهیانه موظفی شیفت سازمان",
     requests: "درخواست مرخصی ماموریت", inventory: "انبار تجهیزات واگذاری تحویل",
     logs: "رویداد رخداد امنیت خطا فعالیت", activesessions: "نشست دستگاه ورود امنیت",
-    schoolservice: "مدرسه مدارس سرویس دانش آموز", complaints: "شکایت شکایات اعتراض",
+    schoolservice: "مدرسه مدارس سرویس دانش آموز", schoolcomplaints: "شکایت والدین رانندگان مدارس", complaints: "شکایت شکایات اعتراض",
     zones: "منطقه زیرمنطقه منطقه بندی", appitems: "منو آیتم دسترسی سمت",
     covertselfies: "نظارت تصویر عکس سلفی نامحسوس", workpolicy: "قوانین قانون کار سیاست",
     config: "تذکر چک لیست چکلیست", vehiclechecklist: "چک لیست چکلیست خودرو موتور",
@@ -20606,6 +21301,8 @@ function AccountPasswordDialog({ onClose }) {
 function App() {
     const [me, setMe] = useState(null);
     const [authReady, setAuthReady] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [authRetry, setAuthRetry] = useState(0);
     const [v, setV] = useState("dashboard");
     const [allowed, setAllowed] = useState([]);
     const [drawer, setDrawer] = useState(false);
@@ -20676,15 +21373,22 @@ function App() {
         return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
     }, [accountOpen]);
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
-    useEffect(() => { let active = true; db.restoreSession().then(u => { if (active)
-        setMe(u); }).catch(() => { }).finally(() => { if (active)
-        setAuthReady(true); }); return () => { active = false; }; }, []);
+    useEffect(() => { let active = true; setAuthError(''); setAuthReady(false); db.restoreSession().then(u => { if (active)
+        setMe(u); }).catch(e => { if (active)
+        setAuthError(e.message || 'ارتباط با سرور موقتاً برقرار نیست.'); }).finally(() => { if (active)
+        setAuthReady(true); }); return () => { active = false; }; }, [authRetry]);
     useEffect(() => { if (me && me.is_admin && !me.must_change_pw) {
-        setAllowed([]);
-        db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed([]));
+        db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(e => { console.warn('Panel settings temporarily unavailable:', e.message); });
     } }, [me]);
     if (!authReady)
         return React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A\u2026");
+    if (authError && !me)
+        return React.createElement("div", { role: "alert", style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", padding: 22, textAlign: "center" } },
+            React.createElement("div", { className: "card-p", style: { maxWidth: 470 } },
+                React.createElement("h3", null, "\u0627\u0631\u062A\u0628\u0627\u0637 \u0645\u0648\u0642\u062A \u0628\u0627 \u0633\u0631\u0648\u0631 \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A"),
+                React.createElement("p", null, authError),
+                React.createElement("p", { className: "muted" }, "\u0646\u0634\u0633\u062A \u0634\u0645\u0627 \u062D\u0641\u0638 \u0634\u062F\u0647 \u0627\u0633\u062A. \u067E\u0633 \u0627\u0632 \u0628\u0631\u0642\u0631\u0627\u0631\u06CC \u0627\u0631\u062A\u0628\u0627\u0637 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F."),
+                React.createElement("button", { type: "button", className: "btn p", onClick: () => setAuthRetry(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")));
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (me.must_change_pw)
@@ -20722,7 +21426,7 @@ function App() {
         seniority: 'attendance-calendar', shifts: 'shift-cycle', monthlyworkreport: 'attendance-calendar', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen', workcontracts: 'form-document',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'chat-message'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', schoolcomplaints: 'chat-message', complaints: 'chat-message'
     };
     const currentSection = SECTIONS.find(([, keys]) => keys.includes(vk));
     const closeOnPick = (k) => { if (!VIEWS[k] || !can(k))
