@@ -20,7 +20,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $frozen=_frozen_attendance_report($userId,$from,$to);
     if($frozen!==null)return $frozen;
   }
-  $report = _attendance_report($userId, $from, $to);
+  $report = _attendance_report($userId, $from, $to, true);
   if (empty($report['days']) || !is_array($report['days'])) return $report;
 
   $metricKeys = ['worked','in_shift','expected','overtime','shortage','night','late_in','early_out','surplus','adjusted_ot','friday_work','holiday_work'];
