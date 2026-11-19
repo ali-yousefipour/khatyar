@@ -3489,7 +3489,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       $dayShift = _active_user_shift_assignment($a['user_id'], $jdate);
       if (!$dayShift) continue;
       $shift = $dayShift;
-      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
+      // Monthly work owns the complete session on its check-in date, including next-day checkout.
+      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate, true);
       $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id']??$shift['id'], $jdate) : null;
       $isHol = ShiftCalc::effectiveHoliday($jdate);
       // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
