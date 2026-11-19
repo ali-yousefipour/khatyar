@@ -1283,10 +1283,49 @@ function Dashboard() {
 function DashboardDiscipline() {
     const [days, setDays] = useState(30), [data, setData] = useState(null), [err, setErr] = useState(''), [retry, setRetry] = useState(0);
     const [from, setFrom] = useState(''), [to, setTo] = useState(''), [custom, setCustom] = useState(''), [selected, setSelected] = useState(null);
-    useEffect(() => { let alive = true; setSelected(null); setData(null); setErr(''); if (days === 0 && !custom)
-        return; GET('/admin/dashboard-discipline?' + (days === 0 ? custom : 'days=' + days)).then(v => { if (alive)
-        setData(v); }).catch(e => { if (alive)
-        setErr((e === null || e === void 0 ? void 0 : e.message) || 'خطا در دریافت رتبه‌بندی'); }); return () => { alive = false; }; }, [days, retry, custom]);
+    const [processed, setProcessed] = useState(0);
+    useEffect(() => {
+        let alive = true;
+        setSelected(null);
+        setData(null);
+        setErr('');
+        setProcessed(0);
+        if (days === 0 && !custom)
+            return;
+        const merge = (a, b, keys) => [...new Map([...a, ...b].map(row => [row.id, row])).values()].sort((x, y) => { for (const k of keys) {
+            const diff = Number(y[k] || 0) - Number(x[k] || 0);
+            if (diff)
+                return diff;
+        } return Number(x.id) - Number(y.id); }).slice(0, 10);
+        (async () => {
+            const query = days === 0 ? custom : 'days=' + days;
+            let cursor = 0, result = null;
+            do {
+                const v = await GET('/admin/dashboard-discipline?' + query + '&cursor=' + cursor);
+                if (!alive)
+                    return;
+                if (!v || !Array.isArray(v.corrections) || !Array.isArray(v.irregular))
+                    throw new Error('پاسخ رتبه‌بندی نامعتبر است');
+                if (!result)
+                    result = { from: v.from, to: v.to, corrections: [], irregular: [] };
+                if (result.from !== v.from || result.to !== v.to)
+                    throw new Error('بازه گزارش تغییر کرده است؛ دوباره تلاش کنید');
+                result.corrections = merge(result.corrections, v.corrections, ['total', 'edits', 'manual']);
+                result.irregular = merge(result.irregular, v.irregular, ['shortage', 'irregular_days', 'auto_close', 'late', 'early']);
+                const next = v.next_cursor;
+                if (next == null)
+                    break;
+                if (!Number.isInteger(next) || next <= cursor)
+                    throw new Error('صفحه‌بندی رتبه‌بندی نامعتبر است');
+                cursor = next;
+                setProcessed(n => n + 3);
+            } while (alive);
+            if (alive)
+                setData(result);
+        })().catch(e => { if (alive)
+            setErr((e === null || e === void 0 ? void 0 : e.message) || 'خطا در دریافت رتبه‌بندی'); });
+        return () => { alive = false; };
+    }, [days, retry, custom]);
     const hm = n => fa(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
     const tables = [{ title: '۱۰ نیروی دارای بیشترین اصلاحات تردد', rows: data === null || data === void 0 ? void 0 : data.corrections, cols: [['تردد دستی', 'manual'], ['اصلاح ساعت', 'edits'], ['مجموع', 'total']] }, { title: '۱۰ نیروی دارای بیشترین بی‌نظمی کاری', rows: data === null || data === void 0 ? void 0 : data.irregular, cols: [['کسر کار', 'shortage'], ['دیرکرد', 'late'], ['تعجیل', 'early'], ['خروج خودکار', 'auto_close']] }];
     return React.createElement("section", { className: "panel", dir: "rtl", style: { marginTop: 16 } },
@@ -1313,7 +1352,7 @@ function DashboardDiscipline() {
         err ? React.createElement("div", { role: "alert" },
             err,
             " ",
-            React.createElement("button", { className: "btn", onClick: () => setRetry(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : !data ? React.createElement("p", { className: "muted", role: "status" }, days === 0 && !custom ? 'بازه تاریخ را انتخاب کنید.' : 'در حال محاسبه رتبه‌بندی…') : React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn", onClick: () => setRetry(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : !data ? React.createElement("p", { className: "muted", role: "status" }, days === 0 && !custom ? 'بازه تاریخ را انتخاب کنید.' : 'در حال محاسبه رتبه‌بندی… ' + (processed ? fa(processed) + ' نیرو بررسی شد' : '')) : React.createElement(React.Fragment, null,
             React.createElement("p", { className: "muted" },
                 String(data.from).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]),
                 " \u062A\u0627 ",
