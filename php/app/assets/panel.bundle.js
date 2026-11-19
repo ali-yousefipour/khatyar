@@ -1283,49 +1283,71 @@ function Dashboard() {
 function DashboardDiscipline() {
     const [days, setDays] = useState(30), [data, setData] = useState(null), [err, setErr] = useState(''), [retry, setRetry] = useState(0);
     const [from, setFrom] = useState(''), [to, setTo] = useState(''), [custom, setCustom] = useState(''), [selected, setSelected] = useState(null);
-    const [processed, setProcessed] = useState(0);
+    const [busy, setBusy] = useState(false), [clock, setClock] = useState(Date.now());
+    const mounted = useRef(false), refreshing = useRef(false), offset = useRef(0);
+    const query = days === 0 ? custom : 'days=' + days;
+    const syncClock = v => { if (Number.isFinite(v === null || v === void 0 ? void 0 : v.server_now))
+        offset.current = v.server_now * 1000 - Date.now(); setClock(Date.now()); };
+    useEffect(() => { mounted.current = true; const timer = setInterval(() => setClock(Date.now()), 1000); return () => { mounted.current = false; clearInterval(timer); }; }, []);
     useEffect(() => {
         let alive = true;
         setSelected(null);
         setData(null);
         setErr('');
-        setProcessed(0);
-        if (days === 0 && !custom)
+        if (!query)
             return;
-        const merge = (a, b, keys) => [...new Map([...a, ...b].map(row => [row.id, row])).values()].sort((x, y) => { for (const k of keys) {
-            const diff = Number(y[k] || 0) - Number(x[k] || 0);
-            if (diff)
-                return diff;
-        } return Number(x.id) - Number(y.id); }).slice(0, 10);
-        (async () => {
-            const query = days === 0 ? custom : 'days=' + days;
-            let cursor = 0, result = null;
-            do {
-                const v = await GET('/admin/dashboard-discipline?' + query + '&cursor=' + cursor);
-                if (!alive)
-                    return;
-                if (!v || !Array.isArray(v.corrections) || !Array.isArray(v.irregular))
-                    throw new Error('پاسخ رتبه‌بندی نامعتبر است');
-                if (!result)
-                    result = { from: v.from, to: v.to, corrections: [], irregular: [] };
-                if (result.from !== v.from || result.to !== v.to)
-                    throw new Error('بازه گزارش تغییر کرده است؛ دوباره تلاش کنید');
-                result.corrections = merge(result.corrections, v.corrections, ['total', 'edits', 'manual']);
-                result.irregular = merge(result.irregular, v.irregular, ['shortage', 'irregular_days', 'auto_close', 'late', 'early']);
-                const next = v.next_cursor;
-                if (next == null)
-                    break;
-                if (!Number.isInteger(next) || next <= cursor)
-                    throw new Error('صفحه‌بندی رتبه‌بندی نامعتبر است');
-                cursor = next;
-                setProcessed(n => n + 3);
-            } while (alive);
-            if (alive)
-                setData(result);
-        })().catch(e => { if (alive)
-            setErr((e === null || e === void 0 ? void 0 : e.message) || 'خطا در دریافت رتبه‌بندی'); });
+        GET('/admin/dashboard-discipline?' + query).then(v => { if (alive) {
+            syncClock(v);
+            setData(v);
+        } }).catch(e => { if (alive)
+            setErr((e === null || e === void 0 ? void 0 : e.message) || 'خطا در دریافت نتایج ذخیره‌شده'); });
         return () => { alive = false; };
-    }, [days, retry, custom]);
+    }, [query, retry]);
+    const remaining = data ? Math.max(0, Math.ceil((Number(data.next_refresh_at) * 1000 - clock - offset.current) / 1000)) : 0;
+    const running = Boolean(data === null || data === void 0 ? void 0 : data.job);
+    const refresh = async () => {
+        if (!query || refreshing.current || (!running && remaining > 0))
+            return;
+        refreshing.current = true;
+        setBusy(true);
+        setErr('');
+        try {
+            let state = await SEND('POST', '/admin/dashboard-discipline?' + query, { action: 'start' });
+            while (mounted.current && (state === null || state === void 0 ? void 0 : state.job)) {
+                syncClock(state);
+                setData(v => ({ ...v, ...state, has_cache: v === null || v === void 0 ? void 0 : v.has_cache, generated_at: v === null || v === void 0 ? void 0 : v.generated_at }));
+                state = await SEND('POST', '/admin/dashboard-discipline?' + query, { action: 'step', job_id: state.job.id });
+            }
+            if (mounted.current) {
+                const result = await GET('/admin/dashboard-discipline?' + query);
+                if (mounted.current) {
+                    syncClock(result);
+                    setData(result);
+                }
+            }
+        }
+        catch (e) {
+            if (mounted.current) {
+                setErr((e === null || e === void 0 ? void 0 : e.message) || 'به‌روزرسانی کامل نشد؛ نتیجه قبلی محفوظ است.');
+                try {
+                    const v = await GET('/admin/dashboard-discipline?' + query);
+                    if (mounted.current) {
+                        syncClock(v);
+                        setData(v);
+                    }
+                }
+                catch (_) { }
+            }
+        }
+        finally {
+            refreshing.current = false;
+            if (mounted.current)
+                setBusy(false);
+        }
+    };
+    const faText = v => String(v !== null && v !== void 0 ? v : '').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+    const timeLabel = n => n ? new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(n * 1000)) : 'هنوز انجام نشده';
+    const leftLabel = n => faText(String(Math.floor(n / 3600)).padStart(2, '0') + ':' + String(Math.floor(n % 3600 / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0'));
     const hm = n => fa(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
     const tables = [{ title: '۱۰ نیروی دارای بیشترین اصلاحات تردد', rows: data === null || data === void 0 ? void 0 : data.corrections, cols: [['تردد دستی', 'manual'], ['اصلاح ساعت', 'edits'], ['مجموع', 'total']] }, { title: '۱۰ نیروی دارای بیشترین بی‌نظمی کاری', rows: data === null || data === void 0 ? void 0 : data.irregular, cols: [['کسر کار', 'shortage'], ['دیرکرد', 'late'], ['تعجیل', 'early'], ['خروج خودکار', 'auto_close']] }];
     return React.createElement("section", { className: "panel", dir: "rtl", style: { marginTop: 16 } },
@@ -1335,7 +1357,7 @@ function DashboardDiscipline() {
                 React.createElement("span", { className: "muted" }, "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0641\u0639\u0627\u0644 \u0645\u0648\u0638\u0641 \u0628\u0647 \u062D\u0636\u0648\u0631\u061B \u0628\u062F\u0648\u0646 \u062F\u0631\u062C\u0627\u062A \u06F1 \u062A\u0627 \u06F4 \u0648 \u0628\u062F\u0648\u0646 \u0631\u0648\u0632 \u062C\u0627\u0631\u06CC")),
             React.createElement("label", null,
                 "\u0628\u0627\u0632\u0647 ",
-                React.createElement("select", { value: days, onChange: e => setDays(Number(e.target.value)) },
+                React.createElement("select", { disabled: busy, value: days, onChange: e => setDays(Number(e.target.value)) },
                     [7, 14, 30].map(n => React.createElement("option", { key: n, value: n },
                         fa(n),
                         " \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631")),
@@ -1347,12 +1369,32 @@ function DashboardDiscipline() {
             React.createElement("div", null,
                 React.createElement("label", null, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                 React.createElement(JDate, { value: to, onChange: setTo, portal: true })),
-            React.createElement("button", { className: "btn p", disabled: !from || !to || from > to, onClick: () => { setCustom('from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)); setRetry(n => n + 1); } }, "\u0627\u0639\u0645\u0627\u0644 \u0628\u0627\u0632\u0647"),
+            React.createElement("button", { className: "btn p", disabled: busy || !from || !to || from > to, onClick: () => { setCustom('from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)); setRetry(n => n + 1); } }, "\u0627\u0639\u0645\u0627\u0644 \u0628\u0627\u0632\u0647"),
             React.createElement("small", { className: "muted" }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3\u06F1 \u0631\u0648\u0632 \u06A9\u0627\u0645\u0644")),
-        err ? React.createElement("div", { role: "alert" },
+        query && React.createElement("div", { className: "panel", style: { margin: '12px 0', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' } },
+            React.createElement("div", null,
+                React.createElement("b", null, "\u0646\u062A\u0627\u06CC\u062C \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u062F\u0631 \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633"),
+                React.createElement("div", { className: "muted", style: { fontSize: 12 } },
+                    "\u0622\u062E\u0631\u06CC\u0646 \u0645\u062D\u0627\u0633\u0628\u0647 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647: ",
+                    timeLabel(data === null || data === void 0 ? void 0 : data.generated_at)),
+                running && React.createElement("div", { role: "status", className: "muted" },
+                    fa(data.job.processed),
+                    " \u0646\u06CC\u0631\u0648 \u0628\u0631\u0631\u0633\u06CC \u0634\u062F\u0647 \u0627\u0633\u062A \u00B7 ",
+                    faText(data.job.from),
+                    " \u062A\u0627 ",
+                    faText(data.job.to))),
+            React.createElement("div", { style: { display: 'grid', gap: 5 } },
+                React.createElement("button", { type: "button", className: "btn p", disabled: !data || busy || (!running && remaining > 0), onClick: refresh }, busy ? 'در حال به‌روزرسانی…' : running && remaining > 0 ? 'ادامه به‌روزرسانی جدول' : 'به‌روزرسانی جدول'),
+                remaining > 0 && React.createElement("small", { className: "muted" },
+                    "\u062A\u0627 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062C\u062F\u06CC\u062F: ",
+                    leftLabel(remaining)))),
+        err && React.createElement("div", { role: "alert" },
             err,
             " ",
-            React.createElement("button", { className: "btn", onClick: () => setRetry(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : !data ? React.createElement("p", { className: "muted", role: "status" }, days === 0 && !custom ? 'بازه تاریخ را انتخاب کنید.' : 'در حال محاسبه رتبه‌بندی… ' + (processed ? fa(processed) + ' نیرو بررسی شد' : '')) : React.createElement(React.Fragment, null,
+            !busy && React.createElement("button", { className: "btn", onClick: () => setRetry(n => n + 1) }, "\u0628\u0627\u0632\u062E\u0648\u0627\u0646\u06CC \u0646\u062A\u0627\u06CC\u062C \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647")),
+        !data ? React.createElement("p", { className: "muted", role: "status" }, !query ? 'بازه تاریخ را انتخاب کنید.' : 'در حال دریافت اطلاعات ذخیره‌شده…') : !data.has_cache ? React.createElement("p", { className: "muted" },
+            "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0647\u0646\u0648\u0632 \u0646\u062A\u06CC\u062C\u0647 \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647\u200C\u0627\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F. ",
+            remaining > 0 && !running ? 'پس از پایان محدودیت ۲۴ ساعته می‌توانید به‌روزرسانی کنید.' : 'با دکمه به‌روزرسانی جدول محاسبه را آغاز کنید.') : React.createElement(React.Fragment, null,
             React.createElement("p", { className: "muted" },
                 String(data.from).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]),
                 " \u062A\u0627 ",
@@ -1376,7 +1418,7 @@ function DashboardDiscipline() {
                                         React.createElement("b", null, p.name),
                                         React.createElement("small", { className: "muted", style: { display: 'block' } }, p.role)))),
                             t.cols.map(([, key]) => React.createElement("td", { key: key }, key === 'shortage' ? hm(p[key]) : fa(p[key]))))))))); })),
-            React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0631\u062A\u0628\u0647 \u0627\u0635\u0644\u0627\u062D\u0627\u062A \u0628\u0631 \u0627\u0633\u0627\u0633 \u0645\u062C\u0645\u0648\u0639 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0648 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647 \u06CC\u06A9\u062A\u0627\u061B \u0631\u062A\u0628\u0647 \u0628\u06CC\u200C\u0646\u0638\u0645\u06CC \u0627\u0628\u062A\u062F\u0627 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062F\u0642\u0627\u06CC\u0642 \u06A9\u0633\u0631\u06CC \u0648 \u0633\u067E\u0633 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632\u0647\u0627\u06CC \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0646\u0627\u0645\u0646\u0638\u0645 \u0627\u0633\u062A.")),
+            React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0646\u0645\u0627\u06CC\u0634 \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0645\u062D\u0627\u0633\u0628\u0647 \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0635\u0641\u062D\u0647 \u06CC\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u062A\u0631\u062F\u062F \u0631\u0627 \u062F\u0648\u0628\u0627\u0631\u0647 \u0627\u062C\u0631\u0627 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F. \u0631\u062A\u0628\u0647 \u0627\u0635\u0644\u0627\u062D\u0627\u062A \u0628\u0631 \u0627\u0633\u0627\u0633 \u0645\u062C\u0645\u0648\u0639 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0648 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647 \u06CC\u06A9\u062A\u0627\u061B \u0631\u062A\u0628\u0647 \u0628\u06CC\u200C\u0646\u0638\u0645\u06CC \u0627\u0628\u062A\u062F\u0627 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062F\u0642\u0627\u06CC\u0642 \u06A9\u0633\u0631\u06CC \u0627\u0633\u062A.")),
         selected && React.createElement(Modal, { title: 'جزئیات ' + selected.person.name, onClose: () => setSelected(null), style: { width: 'min(800px,95vw)' } },
             React.createElement("p", { className: "muted" }, selected.title),
             React.createElement("div", { style: { maxHeight: '60vh', overflow: 'auto' } },
