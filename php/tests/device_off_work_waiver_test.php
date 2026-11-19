@@ -43,4 +43,8 @@ $session=[['check_in'=>'2026-11-15 10:00:00','check_out'=>'2026-11-15 11:00:00']
 same('legacy internet offline is counted after recovery',60,array_sum(array_column(internet_work_daily_details(41,$session),'minutes')));
 Db::$internetWaivers=[['start_at'=>'2026-11-15 10:00:00','end_at'=>'2026-11-15 11:00:00']];
 same('waived internet outage has zero effective minutes',0,array_sum(array_column(internet_work_daily_details(41,$session),'minutes')));
+Db::$internetWaivers=[['start_at'=>'2026-11-15 10:10:00','end_at'=>'2026-11-15 10:40:00']];
+same('partial internet waiver excludes only covered minutes',30,array_sum(array_column(internet_work_daily_details(41,$session),'minutes')));
+Db::$internetWaivers=[];
+same('removed internet waiver restores confirmed minutes',60,array_sum(array_column(internet_work_daily_details(41,$session),'minutes')));
 echo "PASS device-off waiver regressions\n";
