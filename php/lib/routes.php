@@ -3481,6 +3481,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
     }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
     $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
+    $metricDetails=[];
     for ($d=$firstIncludedDay; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       // Resolve the effective assignment on each date, including substitute shifts.
@@ -3522,6 +3523,17 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
       foreach (['worked','in_shift','expected','overtime','shortage','night','friday','holiday','late_in','early_out','surplus','adjusted_ot'] as $k) $tot[$k]+=($w[$k] ?? 0);
+      // Keep the exact contribution to the displayed monthly total, not a second calculation.
+      $metrics=array_intersect_key($w,array_flip(['late_in','early_out','night','overtime','surplus']));
+      if(array_sum($metrics)>0){
+        $cfg=ShiftCalc::parseJson($dr['day_config']??null);
+        $metricDetails[]=['jdate'=>$jdate,'metrics'=>$metrics,'shift'=>$shift['title']??'','shift_type'=>$shift['type']??'',
+          'segments'=>array_values(array_map(static fn($s)=>['s'=>$s['s']??null,'e'=>$s['e']??null],ShiftCalc::daySegments($shift,$jdate,$dr)?:[])),
+          'in'=>$w['in']??null,'out'=>$w['out']??null,'worked'=>(int)($w['worked']??0),'expected'=>(int)($w['expected']??0),
+          'adjusted_ot'=>(int)($w['adjusted_ot']??0),'late_ok'=>(int)($cfg['late_ok']??0),'early_ok'=>(int)($cfg['early_ok']??0),
+          'night_start'=>$shift['night_start']??'22:00','night_end'=>$shift['night_end']??'06:00',
+          'punches'=>array_values(array_map(static fn($r)=>['in'=>$r['check_in']??null,'out'=>$r['check_out']??null],$rows))];
+      }
       // جمعه کاری اضافه بر ساعت موظفی، مستقل از جمعه کاری پایه در گزارش سازمانی.
       // Friday worked minutes are already included in 'friday'; do not add them a second time.
       // Friday overtime is the Friday work itself; never add a separate overtime bucket.
@@ -3567,7 +3579,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
     $tot['payable_regular_overtime']=$monthlyCap>0?min($tot['regular_overtime'],$monthlyCap):$tot['regular_overtime'];
     $tot['capped_overtime_minutes']=$tot['regular_overtime']-$tot['payable_regular_overtime'];
     $tot['payable_total_overtime']=$tot['payable_regular_overtime']+$tot['holiday_friday_overtime'];
-    $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
+    $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto','metric_details'=>$metricDetails], $tot, $reqAgg);
   }
   return $out;
 }
