@@ -63,4 +63,19 @@ foreach ([0,3] as $index) {
 check(empty($report['days'][1]['outside_employment_period']) && empty($report['days'][2]['outside_employment_period']),'Employment start/end boundaries must be inclusive');
 $GLOBALS['frozen']=true; Db::$queries=[];
 check(attendance_report_owned_by_entry_date(1,'1405-07-01','1405-07-04')===['frozen'=>true] && Db::$queries===[],'Frozen reports must remain unchanged by live employment dates');
+$start=strpos($routesSource,'function _work_employment_contains(');
+$end=strpos($routesSource,'function _shift_month_report(',$start);
+eval(substr($routesSource,$start,$end-$start));
+$window=['start'=>'1405-07-02','end'=>'1405-07-03'];
+foreach(['1405-07-01'=>false,'1405-07-02'=>true,'1405-07-03'=>true,'1405-07-04'=>false] as $date=>$expected){
+  check(_work_employment_contains($window,$date)===$expected,'Monthly/forecast inclusive employment boundary '.$date);
+}
+check(_work_employment_contains([],'1405-07-01'),'Unspecified employment dates must not exclude days');
+$monthlyStart=strpos($routesSource,'function _shift_month_report(');
+$monthlyEnd=strpos($routesSource,'function _monthly_work_report_need(',$monthlyStart);
+$monthly=substr($routesSource,$monthlyStart,$monthlyEnd-$monthlyStart);
+check(str_contains($monthly,'if(!_work_employment_contains($employment,$jdate))continue;'),'Monthly day loop must filter employment dates');
+check(str_contains($monthly,'!_work_employment_contains($employment,$reqDate)'),'Monthly approved requests must filter employment dates');
+check(str_contains($monthly,"strtotime('yesterday noon')"),'Actual work cutoff must be yesterday');
+check(str_contains($routesSource,'if($firstJ<=$todayJ&&$todayJ<=$endJ)'),'Forecast includes last day of current month');
 echo "PASS employment period: validation before profile mutation, missing migration, Jalali month length, normalized save, canonical report boundaries, preserved punches and frozen history\n";
