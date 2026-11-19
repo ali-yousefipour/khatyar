@@ -1354,7 +1354,7 @@ function DashboardDiscipline() {
         React.createElement("div", { className: "dashboard-section-head", style: { flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h2", null, "\u0646\u0638\u0645 \u06A9\u0627\u0631\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
-                React.createElement("span", { className: "muted" }, "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0641\u0639\u0627\u0644 \u0645\u0648\u0638\u0641 \u0628\u0647 \u062D\u0636\u0648\u0631\u061B \u0628\u062F\u0648\u0646 \u062F\u0631\u062C\u0627\u062A \u06F1 \u062A\u0627 \u06F4 \u0648 \u0628\u062F\u0648\u0646 \u0631\u0648\u0632 \u062C\u0627\u0631\u06CC")),
+                React.createElement("span", { className: "muted" }, "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0641\u0639\u0627\u0644 \u0645\u0648\u0638\u0641 \u0628\u0647 \u062D\u0636\u0648\u0631")),
             React.createElement("label", null,
                 "\u0628\u0627\u0632\u0647 ",
                 React.createElement("select", { disabled: busy, value: days, onChange: e => setDays(Number(e.target.value)) },
