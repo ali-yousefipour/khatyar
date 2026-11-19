@@ -4,6 +4,38 @@
  * برای شیفت شب، خروج روز بعد بخشی از همان session روز ورود است و
  * نباید به‌صورت continuation در روز بعد نمایش داده شود.
  */
+// Read only minimal provenance for punches already authorized by the report.
+function attendance_punch_provenance(int $uid,array $ids): array {
+  if(!$ids)return [];
+  $ids=array_values(array_unique(array_map('intval',$ids)));
+  $marks=implode(',',array_fill(0,count($ids),'?'));
+  $result=[];
+  $dateLabel=static function($value){
+    if(!$value)return null;
+    $dt=new DateTimeImmutable($value,new DateTimeZone('Asia/Tehran'));
+    [$y,$m,$d]=gregorian_to_jalali((int)$dt->format('Y'),(int)$dt->format('m'),(int)$dt->format('d'));
+    return sprintf('%04d/%02d/%02d %s',$y,$m,$d,$dt->format('H:i:s'));
+  };
+  try{
+    $rows=Db::all("SELECT m.attendance_id,m.kind,r.id request_id,r.status,r.created_at,r.decided_at,r.in_time,r.out_time,r.the_date,r.approver_id,CONCAT_WS(' ',u.first_name,u.last_name) requester_name,CONCAT_WS(' ',a.first_name,a.last_name) approver_name FROM manual_attendance_provisional m JOIN requests r ON r.id=m.request_id AND r.user_id=m.user_id LEFT JOIN users u ON u.id=r.user_id LEFT JOIN users a ON a.id=r.approver_id WHERE m.user_id=? AND m.attendance_id IN ($marks) AND r.status IN ('pending','approved') ORDER BY r.id",array_merge([$uid],$ids));
+    foreach($rows as $r){
+      $id=(int)$r['attendance_id'];
+      $meta=['source'=>'request','request_id'=>(int)$r['request_id'],'status'=>$r['status'],'actor'=>$r['requester_name'],'registered_at'=>$dateLabel($r['created_at']),'approver'=>$r['status']==='approved'?$r['approver_name']:null,'approved_at'=>$r['status']==='approved'?$dateLabel($r['decided_at']):null];
+      foreach(['in','out'] as $side)if($r['kind']==='both'||$r['kind']===$side)$result[$id][$side]=$meta;
+    }
+  }catch(Throwable $e){error_log('attendance request provenance unavailable: '.$e->getMessage());}
+  try{
+    $rows=Db::all("SELECT a.punch_id,a.action,a.before_json,a.after_json,a.created_at,CONCAT_WS(' ',u.first_name,u.last_name) actor_name FROM attendance_change_audit a LEFT JOIN users u ON u.id=a.actor_id WHERE a.user_id=? AND a.punch_id IN ($marks) AND a.action IN ('punch_add','punch_edit') ORDER BY a.id",array_merge([$uid],$ids));
+    foreach($rows as $r){
+      $before=json_decode((string)$r['before_json'],true)?:[];$after=json_decode((string)$r['after_json'],true)?:[];
+      foreach(['in'=>'check_in','out'=>'check_out'] as $side=>$key){
+        if(empty($after[$key])||($r['action']==='punch_edit'&&($before[$key]??null)===$after[$key]))continue;
+        $result[(int)$r['punch_id']][$side]=['source'=>'admin','actor'=>$r['actor_name'],'registered_at'=>$dateLabel($r['created_at']),'action'=>$r['action']];
+      }
+    }
+  }catch(Throwable $e){error_log('attendance admin provenance unavailable: '.$e->getMessage());}
+  return $result;
+}
 function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false) {
   /*
    * این helper از route قدیمی _attendance_report استفاده می‌کند، اما باید
@@ -224,6 +256,14 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     foreach(['totals','work_totals','summary'] as $section)if(isset($report[$section])&&is_array($report[$section])&&array_key_exists($key,$report[$section])){
       $old=$report[$section][$key];$report[$section][$key]=is_string($old)&&strpos($old,':')!==false?sprintf('%02d:%02d',intdiv($sum,60),$sum%60):$sum;
     }
+  }
+  if(!$liveOnly){
+    $ids=[];foreach($report['days'] as $day)foreach($day['punches']??[] as $p)$ids[]=(int)$p['id'];
+    $provenance=attendance_punch_provenance((int)$userId,$ids);
+    foreach($report['days'] as &$day)if(isset($day['punches']))foreach($day['punches'] as &$p){
+      $p['manual_provenance']=$provenance[(int)$p['id']]??[];
+    }
+    unset($p,$day);
   }
   return $report;
 }
