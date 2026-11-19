@@ -73,6 +73,7 @@ jobs:
           php -l lib/DashboardDiscipline.php
           php tests/dashboard_discipline_test.php
           grep -q 'dashboard-discipline' app/assets/panel.bundle.js
+          grep -q 'به‌روزرسانی جدول' app/assets/panel.bundle.js
           php -l lib/school_service_sepand.php
           php -l lib/school_complaints_routes.php
           php -l lib/CompanyWork.php
@@ -223,7 +224,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql migrations/2026_11_19_dashboard_discipline_cache.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -585,6 +586,15 @@ jobs:
                   $config['db_user'], $config['db_pass'],
                   [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]
               );
+              // The cache is provisioned and verified before the dashboard is used.
+              $cacheMigration=dirname(__DIR__,2).'/migrations/2026_11_19_dashboard_discipline_cache.sql';
+              if(!is_file($cacheMigration))throw new RuntimeException('Discipline cache migration missing');
+              $cacheSql=file_get_contents($cacheMigration);
+              if($cacheSql===false)throw new RuntimeException('Discipline cache migration unreadable');
+              $pdo->exec($cacheSql);
+              $pdo->query("SELECT scope_key,slot,from_g,to_g,payload,generated_at,started_at,job_json FROM dashboard_discipline_cache LIMIT 0");
+              $pdo->query("SELECT u.id,u.presence_required,r.level FROM users u JOIN roles r ON r.id=u.role_id LIMIT 0");
+              if(!is_file(dirname(__DIR__,2).'/lib/DashboardDiscipline.php')||!is_file(dirname(__DIR__).'/api/admin-attendance-report-owned.php'))throw new RuntimeException('Discipline PHP dependencies missing');
               // Apply school complaint schema only during deployment.
               $migration = dirname(__DIR__, 2) . '/migrations/2026_11_18_school_complaints.sql';
               if (!is_file($migration)) throw new RuntimeException('School complaint migration missing');
@@ -694,7 +704,7 @@ jobs:
                   (user_id, check_out, check_in)");
               }
               @unlink(__FILE__);
-              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true]);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
               error_log('Employment schema deployment: '.$error->getMessage());
@@ -719,6 +729,7 @@ jobs:
           echo "${response}"
           echo "${response}" | grep -q '"employment_columns":2'
           echo "${response}" | grep -q '"school_complaints_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_schema":true'
           echo "Employment and school complaints schema verified on production database."
 
       - name: Verify public homepage, login and deployed assets against committed payload
@@ -807,7 +818,7 @@ jobs:
           fi
           # All protected endpoints must reject anonymous access with 401,
           # rather than crashing in route bootstrap/authentication with 500.
-          for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report /api/admin/company-work /api/admin/company-work/sources/0/download; do
+          for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report /api/admin/dashboard-discipline /api/admin/company-work /api/admin/company-work/sources/0/download; do
             code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/khatyar-protected-route.json -w '%{http_code}' "${base}${route}" || true)"
             echo "Anonymous GET ${route} -> HTTP ${code}"
             if [ "${code}" != "401" ]; then

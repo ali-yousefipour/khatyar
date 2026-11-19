@@ -11,6 +11,14 @@ function dashboard_discipline_rank(array $rows, array $keys): array {
   });
   return array_slice($rows,0,10);
 }
+function dashboard_discipline_load_report(): void {
+  if(function_exists('attendance_report_owned_by_entry_date'))return;
+  $root=dirname(__DIR__);
+  foreach([$root.'/khat-yar.ir/api/admin-attendance-report-owned.php',$root.'/app/api/admin-attendance-report-owned.php'] as $file){
+    if(is_file($file)){require_once $file;if(function_exists('attendance_report_owned_by_entry_date'))return;}
+  }
+  throw new RuntimeException('Dashboard attendance report module unavailable');
+}
 function dashboard_discipline_batch($viewer,array $params): array {
   $tz=new DateTimeZone('Asia/Tehran');
   $today=new DateTimeImmutable('today',$tz);
@@ -34,8 +42,8 @@ function dashboard_discipline_batch($viewer,array $params): array {
     $cursor=filter_var($params['cursor']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
   if($cursor===false)Http::error('شناسه صفحه نامعتبر است',422);
   $where.=" AND u.id>?";$args[]=$cursor;
-  $people=Db::all("SELECT u.id,CONCAT_WS(' ',u.first_name,u.last_name) name,r.title role FROM users u JOIN roles r ON r.id=u.role_id WHERE $where ORDER BY u.id ASC LIMIT 3",$args);
-  require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+  $people=Db::all("SELECT u.id,CONCAT_WS(' ',u.first_name,u.last_name) name,r.title role FROM users u JOIN roles r ON r.id=u.role_id WHERE $where ORDER BY u.id ASC LIMIT 1",$args);
+  dashboard_discipline_load_report();
   if(!_db_table_exists_safe('attendance_change_audit'))_attendance_change_audit_schema();
   $corrections=[];$irregular=[];
   foreach($people as $person){
@@ -78,8 +86,7 @@ function dashboard_discipline_batch($viewer,array $params): array {
     if($m+$ed>0)$corrections[]=$person+['manual'=>$m,'edits'=>$ed,'total'=>$m+$ed,'details'=>array_values(array_filter($details,fn($d)=>!empty($d['manual']))),'edits_detail'=>array_values($editDetails)];
     if($shortage+$late+$early+$ac>0)$irregular[]=$person+['shortage'=>$shortage,'late'=>$late,'early'=>$early,'auto_close'=>$ac,'irregular_days'=>$irregularDays,'details'=>array_values(array_filter($details,fn($d)=>$d['shortage']||$d['late']||$d['early']||$d['auto_close']))];
   }
-  return ['from'=>$from,'to'=>$to,'next_cursor'=>count($people)===3?(int)end($people)['id']:null,'corrections'=>dashboard_discipline_rank($corrections,['total','edits','manual']),
-    'irregular'=>dashboard_discipline_rank($irregular,['shortage','irregular_days','auto_close','late','early'])];
+  return ['from'=>$from,'to'=>$to,'next_cursor'=>count($people)===1?(int)end($people)['id']:null,'corrections'=>$corrections,'irregular'=>$irregular];
 }
 
 
@@ -225,7 +232,7 @@ function dashboard_discipline_refresh(array $viewer,array $body): array {
     $next=$batch['next_cursor']??null;
     if($next!==null){
       if((int)$next<=(int)$job['cursor'])throw new RuntimeException('discipline cursor did not advance');
-      $job['cursor']=(int)$next;$job['processed']+=3;
+      $job['cursor']=(int)$next;$job['processed']+=1;
       Db::run("UPDATE dashboard_discipline_cache SET job_json=? WHERE scope_key=? AND slot='state'",[dashboard_discipline_json($job),$scope['key']]);
     }else{
       $pdo=Db::pdo();$pdo->beginTransaction();

@@ -3704,7 +3704,11 @@ function _frozen_attendance_report($userId,$from,$to){
     if(++$month>12){$month=1;$year++;}
   }
   if(!$hasFrozen)return null;
-  require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+  if(!function_exists('attendance_report_owned_by_entry_date')){
+    $reportFile=dirname(__DIR__).'/khat-yar.ir/api/admin-attendance-report-owned.php';
+    if(!is_file($reportFile))$reportFile=dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
+    require_once $reportFile;
+  }
   $result=null;$days=[];$missing=false;
   foreach($parts as $part){
     if($part['final']){
