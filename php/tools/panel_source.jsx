@@ -871,40 +871,50 @@ function Dashboard(){
 function DashboardDiscipline(){
   const [days,setDays]=useState(30),[data,setData]=useState(null),[err,setErr]=useState(''),[retry,setRetry]=useState(0);
   const [from,setFrom]=useState(''),[to,setTo]=useState(''),[custom,setCustom]=useState(''),[selected,setSelected]=useState(null);
-  const [processed,setProcessed]=useState(0);
+  const [busy,setBusy]=useState(false),[clock,setClock]=useState(Date.now());
+  const mounted=useRef(false),refreshing=useRef(false),offset=useRef(0);
+  const query=days===0?custom:'days='+days;
+  const syncClock=v=>{if(Number.isFinite(v?.server_now))offset.current=v.server_now*1000-Date.now();setClock(Date.now());};
+  useEffect(()=>{mounted.current=true;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>{mounted.current=false;clearInterval(timer);};},[]);
   useEffect(()=>{
-    let alive=true;setSelected(null);setData(null);setErr('');setProcessed(0);
-    if(days===0&&!custom)return;
-    const merge=(a,b,keys)=>[...new Map([...a,...b].map(row=>[row.id,row])).values()].sort((x,y)=>{for(const k of keys){const diff=Number(y[k]||0)-Number(x[k]||0);if(diff)return diff;}return Number(x.id)-Number(y.id)}).slice(0,10);
-    (async()=>{
-      const query=days===0?custom:'days='+days;
-      let cursor=0,result=null;
-      do{
-        const v=await GET('/admin/dashboard-discipline?'+query+'&cursor='+cursor);
-        if(!alive)return;
-        if(!v||!Array.isArray(v.corrections)||!Array.isArray(v.irregular))throw new Error('پاسخ رتبه‌بندی نامعتبر است');
-        if(!result)result={from:v.from,to:v.to,corrections:[],irregular:[]};
-        if(result.from!==v.from||result.to!==v.to)throw new Error('بازه گزارش تغییر کرده است؛ دوباره تلاش کنید');
-        result.corrections=merge(result.corrections,v.corrections,['total','edits','manual']);
-        result.irregular=merge(result.irregular,v.irregular,['shortage','irregular_days','auto_close','late','early']);
-        const next=v.next_cursor;
-        if(next==null)break;
-        if(!Number.isInteger(next)||next<=cursor)throw new Error('صفحه‌بندی رتبه‌بندی نامعتبر است');
-        cursor=next;setProcessed(n=>n+3);
-      }while(alive);
-      if(alive)setData(result);
-    })().catch(e=>{if(alive)setErr(e?.message||'خطا در دریافت رتبه‌بندی')});
-    return()=>{alive=false};
-  },[days,retry,custom]);
+    let alive=true;setSelected(null);setData(null);setErr('');
+    if(!query)return;
+    GET('/admin/dashboard-discipline?'+query).then(v=>{if(alive){syncClock(v);setData(v);}}).catch(e=>{if(alive)setErr(e?.message||'خطا در دریافت نتایج ذخیره‌شده')});
+    return()=>{alive=false;};
+  },[query,retry]);
+  const remaining=data?Math.max(0,Math.ceil((Number(data.next_refresh_at)*1000-clock-offset.current)/1000)):0;
+  const running=Boolean(data?.job);
+  const refresh=async()=>{
+    if(!query||refreshing.current||(!running&&remaining>0))return;
+    refreshing.current=true;setBusy(true);setErr('');
+    try{
+      let state=await SEND('POST','/admin/dashboard-discipline?'+query,{action:'start'});
+      while(mounted.current&&state?.job){
+        syncClock(state);setData(v=>({...v,...state,has_cache:v?.has_cache,generated_at:v?.generated_at}));
+        state=await SEND('POST','/admin/dashboard-discipline?'+query,{action:'step',job_id:state.job.id});
+      }
+      if(mounted.current){const result=await GET('/admin/dashboard-discipline?'+query);if(mounted.current){syncClock(result);setData(result);}}
+    }catch(e){
+      if(mounted.current){setErr(e?.message||'به‌روزرسانی کامل نشد؛ نتیجه قبلی محفوظ است.');try{const v=await GET('/admin/dashboard-discipline?'+query);if(mounted.current){syncClock(v);setData(v);}}catch(_){}}
+    }finally{refreshing.current=false;if(mounted.current)setBusy(false);}
+  };
+  const faText=v=>String(v??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+  const timeLabel=n=>n?new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'}).format(new Date(n*1000)):'هنوز انجام نشده';
+  const leftLabel=n=>faText(String(Math.floor(n/3600)).padStart(2,'0')+':'+String(Math.floor(n%3600/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0'));
   const hm=n=>fa(Math.floor(n/60))+':'+String(n%60).padStart(2,'0').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
   const tables=[{title:'۱۰ نیروی دارای بیشترین اصلاحات تردد',rows:data?.corrections,cols:[['تردد دستی','manual'],['اصلاح ساعت','edits'],['مجموع','total']]},{title:'۱۰ نیروی دارای بیشترین بی‌نظمی کاری',rows:data?.irregular,cols:[['کسر کار','shortage'],['دیرکرد','late'],['تعجیل','early'],['خروج خودکار','auto_close']]}];
   return <section className="panel" dir="rtl" style={{marginTop:16}}>
-    <div className="dashboard-section-head" style={{flexWrap:'wrap'}}><div><h2>نظم کاری نیروها</h2><span className="muted">نیروهای فعال موظف به حضور؛ بدون درجات ۱ تا ۴ و بدون روز جاری</span></div><label>بازه <select value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(n=><option key={n} value={n}>{fa(n)} روز اخیر</option>)}<option value={0}>بازه دلخواه</option></select></label></div>
-    {days===0&&<div className="row" style={{flexWrap:'wrap',gap:10,margin:'12px 0'}}><div><label>از تاریخ</label><JDate value={from} onChange={setFrom} portal/></div><div><label>تا تاریخ</label><JDate value={to} onChange={setTo} portal/></div><button className="btn p" disabled={!from||!to||from>to} onClick={()=>{setCustom('from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));setRetry(n=>n+1)}}>اعمال بازه</button><small className="muted">حداکثر ۳۱ روز کامل</small></div>}
-    {err?<div role="alert">{err} <button className="btn" onClick={()=>setRetry(n=>n+1)}>تلاش مجدد</button></div>:!data?<p className="muted" role="status">{days===0&&!custom?'بازه تاریخ را انتخاب کنید.':'در حال محاسبه رتبه‌بندی… '+(processed?fa(processed)+' نیرو بررسی شد':'')}</p>:<>
+    <div className="dashboard-section-head" style={{flexWrap:'wrap'}}><div><h2>نظم کاری نیروها</h2><span className="muted">نیروهای فعال موظف به حضور؛ بدون درجات ۱ تا ۴ و بدون روز جاری</span></div><label>بازه <select disabled={busy} value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(n=><option key={n} value={n}>{fa(n)} روز اخیر</option>)}<option value={0}>بازه دلخواه</option></select></label></div>
+    {days===0&&<div className="row" style={{flexWrap:'wrap',gap:10,margin:'12px 0'}}><div><label>از تاریخ</label><JDate value={from} onChange={setFrom} portal/></div><div><label>تا تاریخ</label><JDate value={to} onChange={setTo} portal/></div><button className="btn p" disabled={busy||!from||!to||from>to} onClick={()=>{setCustom('from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));setRetry(n=>n+1)}}>اعمال بازه</button><small className="muted">حداکثر ۳۱ روز کامل</small></div>}
+    {query&&<div className="panel" style={{margin:'12px 0',display:'flex',flexWrap:'wrap',gap:12,alignItems:'center',justifyContent:'space-between'}}>
+      <div><b>نتایج ذخیره‌شده در دیتابیس</b><div className="muted" style={{fontSize:12}}>آخرین محاسبه این بازه: {timeLabel(data?.generated_at)}</div>{running&&<div role="status" className="muted">{fa(data.job.processed)} نیرو بررسی شده است · {faText(data.job.from)} تا {faText(data.job.to)}</div>}</div>
+      <div style={{display:'grid',gap:5}}><button type="button" className="btn p" disabled={!data||busy||(!running&&remaining>0)} onClick={refresh}>{busy?'در حال به‌روزرسانی…':running&&remaining>0?'ادامه به‌روزرسانی جدول':'به‌روزرسانی جدول'}</button>{remaining>0&&<small className="muted">تا به‌روزرسانی جدید: {leftLabel(remaining)}</small>}</div>
+    </div>}
+    {err&&<div role="alert">{err} {!busy&&<button className="btn" onClick={()=>setRetry(n=>n+1)}>بازخوانی نتایج ذخیره‌شده</button>}</div>}
+    {!data?<p className="muted" role="status">{!query?'بازه تاریخ را انتخاب کنید.':'در حال دریافت اطلاعات ذخیره‌شده…'}</p>:!data.has_cache?<p className="muted">برای این بازه هنوز نتیجه ذخیره‌شده‌ای وجود ندارد. {remaining>0&&!running?'پس از پایان محدودیت ۲۴ ساعته می‌توانید به‌روزرسانی کنید.':'با دکمه به‌روزرسانی جدول محاسبه را آغاز کنید.'}</p>:<>
     <p className="muted">{String(data.from).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])} تا {String(data.to).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])}</p>
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,360px),1fr))',gap:12}}>{tables.map(t=><article className="panel" key={t.title} style={{minWidth:0,margin:0}}><h3>{t.title}</h3>{!t.rows?.length?<p className="muted">موردی در این بازه ثبت نشده است.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'}}><thead><tr><th>رتبه</th><th>نام و سمت</th>{t.cols.map(([label,key])=><th key={key}>{label}</th>)}</tr></thead><tbody>{t.rows.map((p,i)=><tr key={p.id}><td>{fa(i+1)}</td><td><button type="button" onClick={()=>setSelected({person:p,title:t.title,correction:t.cols[0][1]==='manual'})} className="btn g" style={{display:'flex',alignItems:'center',gap:8,textAlign:'right'}}><span className="avatar" style={{width:38,height:38,borderRadius:'50%',overflow:'hidden',display:'grid',placeItems:'center'}}><AuthenticatedAvatar url={p.photo} name={p.name}/></span><span><b>{p.name}</b><small className="muted" style={{display:'block'}}>{p.role}</small></span></button></td>{t.cols.map(([,key])=><td key={key}>{key==='shortage'?hm(p[key]):fa(p[key])}</td>)}</tr>)}</tbody></table></div>}</article>)}</div>
-    <p className="muted" style={{fontSize:12}}>رتبه اصلاحات بر اساس مجموع رکوردهای دستی و فیلدهای اصلاح‌شده یکتا؛ رتبه بی‌نظمی ابتدا بر اساس دقایق کسری و سپس تعداد روزهای ورود و خروج نامنظم است.</p></>}
+    <p className="muted" style={{fontSize:12}}>نمایش از آخرین محاسبه ذخیره‌شده است؛ باز کردن صفحه یا تغییر فیلتر محاسبه تردد را دوباره اجرا نمی‌کند. رتبه اصلاحات بر اساس مجموع رکوردهای دستی و فیلدهای اصلاح‌شده یکتا؛ رتبه بی‌نظمی ابتدا بر اساس دقایق کسری است.</p></>}
     {selected&&<Modal title={'جزئیات '+selected.person.name} onClose={()=>setSelected(null)} style={{width:'min(800px,95vw)'}}><p className="muted">{selected.title}</p><div style={{maxHeight:'60vh',overflow:'auto'}}>{(selected.person.details||[]).map((d,i)=><article className="panel" key={i}><b>{String(d.date).replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])}</b>{selected.correction?<div>{d.manual.map((m,k)=><p key={k}>ورود: {String(m.in||'—').replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])} | خروج: {String(m.out||'—').replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])}</p>)}</div>:<p>کسر کار: {hm(d.shortage)} | دیرکرد: {hm(d.late)} | تعجیل: {hm(d.early)} | خروج خودکار: {fa(d.auto_close)}</p>}</article>)}{selected.correction&&(selected.person.edits_detail||[]).map((e,i)=><article className="panel" key={'e'+i}><b>{String(e.date).replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])} — اصلاح {e.side==='check_in'?'ورود':'خروج'}</b><p>قبل: {String(e.before||'—').slice(11,16).replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])||'—'} | بعد: {String(e.after||'—').slice(11,16).replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[Number(x)])||'—'}</p></article>)}</div></Modal>}
   </section>;
 }

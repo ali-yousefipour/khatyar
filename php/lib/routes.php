@@ -8472,6 +8472,10 @@ route('GET', '/api/admin/dashboard-discipline', function($p,$b,$u){
   require_once __DIR__.'/DashboardDiscipline.php';
   return dashboard_discipline($u);
 }, false, ADMIN);
+route('POST', '/api/admin/dashboard-discipline', function($p,$b,$u){
+  require_once __DIR__.'/DashboardDiscipline.php';
+  return dashboard_discipline_refresh($u,$b);
+}, false, ADMIN);
 route('GET', '/api/admin/top-workers', function($p,$b,$u){
   return _dashboard_groups((int)($u['role_id']??0), _viewer_zone($u), 'web');
 }, false, ADMIN);
