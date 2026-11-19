@@ -21,6 +21,7 @@ class Db {
     if(str_contains($sql,'SELECT * FROM users'))return ['id'=>$params[0],'work_policy_id'=>1];
     if(str_contains($sql,'FROM users'))return $params[0]>0?['id'=>$params[0]]:null;
     if(str_contains($sql,'FROM requests')){$r=self::$rows[$params[0]]??null;if(self::$stale&&str_contains($sql,'FOR UPDATE'))$r['reason']='changed concurrently';return $r;}
+    if(str_contains($sql,'FROM manual_attendance_provisional'))return null;
     if(str_contains($sql,'FROM staff_attendance'))return self::$conflict?['id'=>999]:null;
     if(str_contains($sql,'FROM substitute_assignments')){
       foreach(self::$assignments as $a){if($a['status']!=='active')continue;if(str_contains($sql,'JOIN requests')){if($a['substitute_user_id']==$params[0]&&$a['request_id']!=$params[1]&&$a['from_date']<=$params[2]&&$a['to_date']>=$params[3])return $a;}elseif($a['request_id']==$params[0])return $a;}
@@ -61,6 +62,7 @@ function loadPart($source,$start,$end){$a=strpos($source,$start);$b=strpos($sour
 loadPart($source,'function gregorian_to_jalali(','function j_to_ts(');
 loadPart($source,'function _req_active_work_policy(','function _req_approver(');
 loadPart($source,'function _date_ranges_overlap(','// بررسی اینکه آیا تاریخ‌های بازه');
+loadPart($source,'function _manual_provisional_schema(',"route('POST', '/api/my/requests'");
 loadPart($source,'function _req_prepare_approval_storage(','// گزارش درخواست‌ها برای ادمین');
 function expect($name,$value){if(!$value)throw new LogicException('FAIL '.$name);echo "PASS $name\n";}
 function denied($name,$code,$fn){try{$fn();}catch(RuntimeException $e){expect($name,$e->getCode()===$code);return;}throw new LogicException('Unexpected success: '.$name);}

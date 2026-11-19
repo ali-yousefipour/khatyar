@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'php/tools/panel_source.jsx'
       - 'php/**/*.ts'
       - 'php/**/*.tsx'
       - 'php/tools/build_panel_bundle.sh'

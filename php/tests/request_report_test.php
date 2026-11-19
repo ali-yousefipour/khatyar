@@ -25,6 +25,7 @@ class Db {
     if(str_contains($sql,'FROM requests'))return self::$request;
     throw new LogicException($sql);
   }
+  static function insert($sql,$params=[]){self::run($sql,$params);return 77;}
   static function run($sql,$params=[]){
     if(self::$failAttendance&&str_contains($sql,'INSERT INTO staff_attendance'))throw new RuntimeException('simulated storage failure');
     if(self::$failReply&&str_contains($sql,'INSERT INTO report_routes'))throw new RuntimeException('simulated reply storage failure');
@@ -76,10 +77,10 @@ check(Db::pdo()->rollbacks===1,'attendance error rolls decision back');Db::$fail
 Db::$changed=0;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),409);check(Db::pdo()->rollbacks===2,'concurrent decision rolls back');Db::$changed=1;
 Db::$request['status']='approved';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),409);
 Db::$request['status']='rejected';$decide(['id'=>3],['status'=>'approved'],$director);
-check(Db::$writes[count(Db::$writes)-2][1][4]==='rejected','reapproval compares original rejected status atomically');
+check(array_values(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'pending_on=NULL')))[count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'pending_on=NULL')))-1][1][4]==='rejected','reapproval compares original rejected status atomically');
 Db::$request['status']='pending';Db::$request['in_time']='25:99';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),422);
 Db::$request['status']='pending';Db::$request['in_time']=null;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),422);
-Db::$open=['id'=>8];$decide(['id'=>3],['status'=>'approved'],$director);check(str_contains(end(Db::$writes)[0],'UPDATE staff_attendance'),'out-only request closes open attendance');
+Db::$open=['id'=>8];$decide(['id'=>3],['status'=>'approved'],$director);check(count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'UPDATE staff_attendance')))>0,'out-only request closes open attendance');
 Db::$writes=[];_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-01','the_date'=>null],3);
 check(str_contains(Db::$writes[0][0],'INSERT INTO substitute_assignments'),'admin approval creates substitute assignment');
 Db::$subConflict=true;denied(fn()=>_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-01','the_date'=>null],3),409);Db::$subConflict=false;
