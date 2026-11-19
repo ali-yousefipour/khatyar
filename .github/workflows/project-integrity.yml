@@ -27,6 +27,8 @@ jobs:
           php php/tests/cron_background_test.php
           php php/tests/delivery_queue_retry_test.php
           php -l php/lib/routes.php
+          php -l php/lib/DashboardDiscipline.php
+          php php/tests/dashboard_discipline_test.php
           php -l .github/scripts/khatyar-cutover-activate.php
           if grep -Fq '\nRewriteRule' php/app/.htaccess; then echo 'Invalid literal rewrite line break'; exit 1; fi
           php -l php/lib/school_service_sepand.php

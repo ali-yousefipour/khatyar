@@ -852,6 +852,7 @@ function Dashboard(){
     {activeTab==='overview'&&<section className="dashboard-overview" id="dashboard-content-overview" role="tabpanel" aria-labelledby="dashboard-tab-overview" aria-label="آمار کلی سامانه">
       <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">نمای کلی سامانه</span><h2>آمار و شاخص‌های اصلی</h2></div><span className="dashboard-section-caption">خلاصه وضعیت جاری خطیار</span></div>
       <div className="kpis dashboard-overview-grid">{K.map(([l,n,desc],i)=><div className="kpi" key={l}><span className="dashboard-kpi-index" aria-hidden="true">{fa(i+1).padStart(2,"۰")}</span><div className="n">{n==null?"—":fa(n)}</div><div className="l">{l}</div><div className="dashboard-kpi-desc">{desc}</div></div>)}</div>
+      <DashboardDiscipline/>
     </section>}
     {activeTab==='personnel'&&<div id="dashboard-content-personnel" role="tabpanel" aria-labelledby="dashboard-tab-personnel"><PersonnelDistributionDashboard/></div>}
     {activeTab==='attendance'&&<div id="dashboard-content-attendance" role="tabpanel" aria-labelledby="dashboard-tab-attendance"><LiveStaffDashboard/></div>}
@@ -864,6 +865,21 @@ function Dashboard(){
     </section> : <p className="panel muted" id="dashboard-content-performance" role="tabpanel">داده‌ای برای نمایش کارایی نیروها نیست.</p>)}
     {activeTab==='insights'&&<div id="dashboard-content-insights" role="tabpanel" aria-labelledby="dashboard-tab-insights"><DashboardManagementInsights stats={s} workers={tw}/></div>}
   </div>);
+}
+
+
+function DashboardDiscipline(){
+  const [days,setDays]=useState(30),[data,setData]=useState(null),[err,setErr]=useState(''),[retry,setRetry]=useState(0);
+  useEffect(()=>{let alive=true;setData(null);setErr('');GET('/admin/dashboard-discipline?days='+days).then(v=>{if(alive)setData(v)}).catch(e=>{if(alive)setErr(e?.message||'خطا در دریافت رتبه‌بندی')});return()=>{alive=false}},[days,retry]);
+  const hm=n=>fa(Math.floor(n/60))+':'+String(n%60).padStart(2,'0').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+  const tables=[{title:'۱۰ نیروی دارای بیشترین اصلاحات تردد',rows:data?.corrections,cols:[['تردد دستی','manual'],['اصلاح ساعت','edits'],['مجموع','total']]},{title:'۱۰ نیروی دارای بیشترین بی‌نظمی کاری',rows:data?.irregular,cols:[['کسر کار','shortage'],['دیرکرد','late'],['تعجیل','early'],['خروج خودکار','auto_close']]}];
+  return <section className="panel" dir="rtl" style={{marginTop:16}}>
+    <div className="dashboard-section-head" style={{flexWrap:'wrap'}}><div><h2>نظم کاری نیروها</h2><span className="muted">نیروهای فعال موظف به حضور؛ بدون درجات ۱ تا ۴ و بدون روز جاری</span></div><label>بازه <select value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(n=><option key={n} value={n}>{fa(n)} روز اخیر</option>)}</select></label></div>
+    {err?<div role="alert">{err} <button className="btn" onClick={()=>setRetry(n=>n+1)}>تلاش مجدد</button></div>:!data?<p className="muted" role="status">در حال محاسبه رتبه‌بندی…</p>:<>
+    <p className="muted">{String(data.from).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])} تا {String(data.to).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)])}</p>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,360px),1fr))',gap:12}}>{tables.map(t=><article className="panel" key={t.title} style={{minWidth:0,margin:0}}><h3>{t.title}</h3>{!t.rows?.length?<p className="muted">موردی در این بازه ثبت نشده است.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'}}><thead><tr><th>رتبه</th><th>نام و سمت</th>{t.cols.map(([label,key])=><th key={key}>{label}</th>)}</tr></thead><tbody>{t.rows.map((p,i)=><tr key={p.id}><td>{fa(i+1)}</td><td><b>{p.name}</b><small className="muted" style={{display:'block'}}>{p.role}</small></td>{t.cols.map(([,key])=><td key={key}>{key==='shortage'?hm(p[key]):fa(p[key])}</td>)}</tr>)}</tbody></table></div>}</article>)}</div>
+    <p className="muted" style={{fontSize:12}}>رتبه اصلاحات بر اساس مجموع رکوردهای دستی و فیلدهای اصلاح‌شده یکتا؛ رتبه بی‌نظمی ابتدا بر اساس دقایق کسری و سپس تعداد روزهای ورود و خروج نامنظم است.</p></>}
+  </section>;
 }
 
 function DashboardManagementInsights({stats,workers}){
