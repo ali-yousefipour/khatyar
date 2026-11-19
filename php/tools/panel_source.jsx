@@ -8199,7 +8199,28 @@ function AttendanceReport(props){
   return <div><div className="tabbar" role="tablist" aria-label="بخش‌های گزارش تردد" style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}><button type="button" role="tab" aria-selected={tab==='daily'} className={'tabbtn'+(tab==='daily'?' on':'')} onClick={()=>setTab('daily')}>گزارش تردد</button><button type="button" role="tab" aria-selected={tab==='work'} className={'tabbtn'+(tab==='work'?' on':'')} onClick={()=>setTab('work')}>بررسی کارکرد</button></div>{tab==='daily'?<AttendanceDailyReport {...props}/>:<WorkReviewReport/>}</div>;
 }
 
+function MonthlyMetricDetails({detail,onClose}){
+  const labels={late_in:"تأخیر ورود",early_out:"تعجیل خروج",night:"شب‌کاری",overtime:"اضافه‌کاری",surplus:"مازاد حضور"};
+  const basis={late_in:"اختلاف اولین ورود با شروع شیفت پس از کسر مهلت مجاز",early_out:"اختلاف آخرین خروج با پایان شیفت پس از کسر مهلت مجاز",night:"مدت حضور در بازه شب تعریف‌شده در شیفت",overtime:"اضافه‌کار مجاز طبق قواعد شیفت، به‌علاوه مازاد تبدیل‌شده؛ جمعه و تعطیل جداگانه",surplus:"حضور اضافه بر مبنای شیفت پس از کسر اضافه‌کار مجاز و تبدیل‌های تأییدشده"};
+  const fmt=v=>faPlain(String(Math.floor(Math.max(0,Number(v)||0)/60)).padStart(2,"0")+":"+String(Math.max(0,Number(v)||0)%60).padStart(2,"0"));
+  const {row,metric,year,month}=detail;
+  const available=Array.isArray(row.metric_details);
+  const days=(row.metric_details||[]).filter(d=>Number(d.metrics?.[metric])>0);
+  const sum=days.reduce((s,d)=>s+Number(d.metrics[metric]),0);
+  const expected=Number(metric==="overtime"?(row.regular_overtime??row.overtime):row[metric])||0;
+  return <PunchModalShell wide title={"ریز "+labels[metric]} subtitle={row.name+" · "+J_MONTHS[month-1]+" "+faPlain(String(year))} onClose={onClose}>
+    <div className="punch-summary"><span>جمع ماهانه</span><strong dir="ltr">{fmt(expected)}</strong></div>
+    <p style={{lineHeight:1.9}}>{basis[metric]}</p>
+    {!available?<p role="status">ریز دقیق این ماه در نسخه قبلی ذخیره نشده است. برای مشاهده سوابق ثبت‌شده روی نام فرد در گزارش کلیک کنید.</p>:<>
+      <p className="muted">{faPlain(String(days.length))} روز مؤثر · جمع جزئیات: {fmt(sum)}</p>
+      {sum!==expected&&<p role="alert">جمع جزئیات با رقم ماهانه برابر نیست؛ مبلغ گزارش اصلی بدون تغییر نمایش داده شده است.</p>}
+      {!days.length?<p role="status">روزی با مقدار غیرصفر برای این شاخص ثبت نشده است.</p>:<div style={{overflow:"auto",maxHeight:"55vh"}}><table style={{width:"100%",minWidth:720}}><thead><tr>{["تاریخ","شیفت و بازه موظفی","ورود و خروج ثبت‌شده","موظفی / حضور","مبنای تکمیلی","مقدار"].map(t=><th key={t} style={{position:"sticky",top:0,background:"var(--card,#fff)"}}>{t}</th>)}</tr></thead><tbody>{days.map(d=><tr key={d.jdate}><td>{faPlain(d.jdate)}</td><td>{d.shift||"—"}<div dir="ltr">{(d.segments||[]).map(s=>faPlain((s.s||"—")+" – "+(s.e||"—"))).join(" / ")||"—"}</div></td><td>{(d.punches||[]).map((p,i)=><div key={i} dir="ltr">{faPlain(String(p.in||"—").slice(11,16)||"—")} – {faPlain(String(p.out||"—").slice(11,16)||"—")}</div>)}<small>{faPlain((d.in||"—")+" / "+(d.out||"—"))}</small></td><td>{fmt(d.expected)} / {fmt(d.worked)}</td><td>{metric==="late_in"? "مهلت: "+fmt(d.late_ok):metric==="early_out"?"مهلت: "+fmt(d.early_ok):metric==="night"?faPlain(d.night_start+" – "+d.night_end):"تبدیل مازاد: "+fmt(d.adjusted_ot)}</td><td style={{fontWeight:800}} dir="ltr">{fmt(d.metrics[metric])}</td></tr>)}</tbody></table></div>}
+    </>}
+  </PunchModalShell>;
+}
+
 function ShiftReport(){
+  const [metricDetail,setMetricDetail]=useState(null);
   const [attendanceModal,setAttendanceModal]=useState(null);
   const [reportTab,setReportTab]=useState("monthly");
   const [reportError,setReportError]=useState("");
@@ -8227,6 +8248,7 @@ function ShiftReport(){
     finally{finalLock.current=false;if(finalScope.current===scope)setFinalBusy(false);}
   };
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
+  const metricCell=(r,key,value)=><button type="button" className="btn g" style={{font:"inherit",fontWeight:700,color:"inherit",textDecoration:"underline",textUnderlineOffset:3,padding:"3px 6px"}} title="مشاهده مبنا و ریز روزانه" onClick={()=>setMetricDetail({row:r,metric:key,year:jy,month:jm})}>{faPlain(hm(value))}</button>;
   const run=async()=>{const generation=++monthlyRequest.current;const year=jy,month=jm;setBusy(true);setReportError("");try{const r=await db.shiftReport(year,month);if(generation===monthlyRequest.current)setRows(Array.isArray(r.rows)?r.rows:[]);}catch(e){if(generation===monthlyRequest.current){setRows(null);setReportError(e.message||"دریافت گزارش کارکرد ناموفق بود.");}}finally{if(generation===monthlyRequest.current)setBusy(false);}};
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`کارکرد_${jy}_${jm}.xlsx`; a.click(); }catch(e){ alert(e.message); } };
   const [forecastRemaining,setForecastRemaining]=useState(false);
@@ -8249,9 +8271,10 @@ function ShiftReport(){
     {!busy&&!reportError&&rows===null&&<div className="work-report-state" role="status">سال و ماه را انتخاب کنید و دکمهٔ «محاسبه کارکرد» را بزنید.</div>}
     {!busy&&rows&&(rows.length===0?<div className="work-report-state" role="status">داده‌ای برای این ماه وجود ندارد (نیرویی شیفت ندارد یا ترددی ثبت نشده است).</div>:
     <div className="work-report-table-wrap" role="region" tabIndex={0} aria-label="جدول کارکرد ماهانه؛ برای دیدن ستون‌های بیشتر پیمایش کنید"><table className="work-report-table"><thead><tr><th>نام و نام خانوادگی</th><th>موظفی</th><th>حضور کل</th><th>حضور در شیفت</th><th>تاخیر ورود</th><th>تعجیل خروج</th><th>کسری کار</th><th>غیبت</th><th>جمع غیبت و کسری</th><th>شب کاری</th><th>اضافه کاری</th><th>مازاد حضور</th><th>جمعه کاری</th><th>تعطیل کاری</th><th>ماموریت</th><th>م.استحقاقی</th><th>م.استعلاجی</th></tr></thead><tbody>
-      {rows.map((r,i)=>{ const gh=(r.absent_min||0)+(r.shortage||0); return(<tr key={i}><td style={{fontWeight:700}}><button type="button" onClick={()=>setAttendanceModal({id:r.user_id,name:r.name,year:jy,month:jm})} style={{background:"none",border:0,padding:0,color:"var(--primary,#087f5b)",font:"inherit",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>{r.name}</button></td><td>{hm(r.expected)}</td><td>{hm(r.worked)}</td><td>{hm(r.in_shift||r.worked)}</td><td style={{color:r.late_in?"var(--danger)":"inherit"}}>{hm(r.late_in||0)}</td><td style={{color:r.early_out?"var(--danger)":"inherit"}}>{hm(r.early_out||0)}</td><td style={{color:r.shortage?"var(--danger)":"inherit"}}>{hm(r.shortage)}</td><td style={{color:r.absent_min?"var(--danger)":"inherit"}}>{hm(r.absent_min||0)}</td><td>{hm(gh)}</td><td>{hm(r.night)}</td><td style={{color:"var(--ok)"}}>{hm(r.regular_overtime??r.overtime)}</td><td style={{color:"var(--danger,#c62828)",fontWeight:700}}>{hm(r.surplus??0)}</td><td>{hm(r.friday??0)}</td><td>{hm(r.holiday??0)}</td><td>{hm(r.mission_min||0)}</td><td>{hm(r.annual_min||0)}</td><td>{hm(r.sick_min||0)}</td></tr>); })}
+      {rows.map((r,i)=>{ const gh=(r.absent_min||0)+(r.shortage||0); return(<tr key={i}><td style={{fontWeight:700}}><button type="button" onClick={()=>setAttendanceModal({id:r.user_id,name:r.name,year:jy,month:jm})} style={{background:"none",border:0,padding:0,color:"var(--primary,#087f5b)",font:"inherit",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>{r.name}</button></td><td>{hm(r.expected)}</td><td>{hm(r.worked)}</td><td>{hm(r.in_shift||r.worked)}</td><td style={{color:r.late_in?"var(--danger)":"inherit"}}>{metricCell(r,"late_in",r.late_in||0)}</td><td style={{color:r.early_out?"var(--danger)":"inherit"}}>{metricCell(r,"early_out",r.early_out||0)}</td><td style={{color:r.shortage?"var(--danger)":"inherit"}}>{hm(r.shortage)}</td><td style={{color:r.absent_min?"var(--danger)":"inherit"}}>{hm(r.absent_min||0)}</td><td>{hm(gh)}</td><td>{metricCell(r,"night",r.night)}</td><td style={{color:"var(--ok)"}}>{metricCell(r,"overtime",r.regular_overtime??r.overtime)}</td><td style={{color:"var(--danger,#c62828)",fontWeight:700}}>{metricCell(r,"surplus",r.surplus??0)}</td><td>{hm(r.friday??0)}</td><td>{hm(r.holiday??0)}</td><td>{hm(r.mission_min||0)}</td><td>{hm(r.annual_min||0)}</td><td>{hm(r.sick_min||0)}</td></tr>); })}
     </tbody></table></div>)}
     </>}
+    {metricDetail&&<MonthlyMetricDetails detail={metricDetail} onClose={()=>setMetricDetail(null)}/>}
     {attendanceModal&&<div role="dialog" aria-modal="true" aria-label={"گزارش تردد ماهانه "+attendanceModal.name} style={{position:"fixed",inset:0,zIndex:9900,background:"rgba(0,0,0,.65)",display:"flex",justifyContent:"center",alignItems:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget){setAttendanceModal(null);run();}}}>
       <div style={{background:"var(--card,#fff)",borderRadius:14,width:"min(98vw,1600px)",maxHeight:"94vh",overflow:"auto",padding:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:10}}><strong>گزارش تردد ماهانه و ویرایش — {attendanceModal.name}</strong><button type="button" className="btn" onClick={()=>{setAttendanceModal(null);run();}}>✕ بستن</button></div>
