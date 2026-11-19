@@ -4690,6 +4690,43 @@ function _req_policy_balance($uid,array $policy,$jy,$jm){
   }return $out;
 }
 
+// Reject time already covered by a real or provisional attendance interval.
+function _req_reject_attendance_overlap(int $uid,array $request): void {
+  $type=$request['type']??'';
+  if($type!=='manual'&&(!in_array($type,['annual','mission','overtime'],true)||($request['unit']??'daily')!=='hourly'))return;
+  $date=_req_policy_date($request['the_date']??$request['from_jdate']??null);
+  if(!$date)return; // Existing request validation handles malformed dates.
+  $at=static function($value)use($date){
+    $value=trim((string)$value);
+    if(!preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/D',$value))return null;
+    return $date->setTime((int)substr($value,0,2),(int)substr($value,3,2));
+  };
+  $kind=$type==='manual'?($request['manual_kind']??'both'):'range';
+  $start=$at($type==='manual'?($request['in_time']??null):($request['from_time']??null));
+  $end=$at($type==='manual'?($request['out_time']??null):($request['to_time']??null));
+  $point=false;
+  if($kind==='in'){$end=$start;$point=true;}
+  elseif($kind==='out'){$start=$end;$point=true;}
+  elseif($kind==='both'&&$start&&$end&&$end<$start)$end=$end->modify('+1 day');
+  if(!$start||!$end||(!$point&&$end<=$start))return;
+  $a=$start->format('Y-m-d H:i:s');$b=$end->format('Y-m-d H:i:s');
+  // Read full timestamps, not just time-of-day, and normalize legacy overnight rows.
+  // Open attendance covers elapsed time only, not future planned time.
+  $rows=Db::all("SELECT id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in<=? AND (check_out IS NULL OR check_out>=? OR check_out<=check_in)",[$uid,$b,$a]);
+  $now=time();
+  foreach($rows as $row){
+    $in=strtotime((string)$row['check_in']);
+    $open=empty($row['check_out']);
+    $out=$open?$now:strtotime((string)$row['check_out']);
+    if(!$in||!$out)continue;
+    if(!$open)[$in,$out]=ShiftCalc::normalizeSessionPair($in,$out);
+    if($out<$in)continue;
+    // A missing checkout must still be repairable: closing its own open session is not a duplicate.
+    if($kind==='out'&&$open)continue;
+    $overlap=$point?($start->getTimestamp()>=$in&&$start->getTimestamp()<=$out):($start->getTimestamp()<$out&&$end->getTimestamp()>$in);
+    if($overlap)Http::error('شما در این بازه تردد داشته‌اید',422);
+  }
+}
 function _req_reject_overlap($uid,array $request,$excludeId=0){
   $span=_req_policy_span($request);
   if(!$span)return; // Existing handlers retain responsibility for invalid input.
@@ -4724,6 +4761,7 @@ function _req_work_policy_handler($path,callable $handler){
     $locked=Db::one("SELECT GET_LOCK(?,10) acquired",[$lock]);
     if((int)($locked['acquired']??0)!==1) Http::error('درخواست دیگری در حال بررسی است؛ دوباره تلاش کنید.',409);
     try{
+      if(!$approval && ($request['type']??'')!=='manual') _req_reject_attendance_overlap($uid,$request);
       if(!$approval || ($request['status']??'')==='rejected') _req_reject_overlap($uid,$request);
       $policy=_req_active_work_policy($uid);
       if(!$policy)Http::error('برای بررسی درخواست، ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
@@ -5356,6 +5394,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
       return ['id'=>$existingId,'minutes'=>0,'provisional_attendance_id'=>(int)($mapped['attendance_id']??0),'duplicate'=>true];
     }
   }
+  if($type==='manual')_req_reject_attendance_overlap((int)$u['id'],$b);
   $id = Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,attachment_name,attachment_data,selfie_data,pending_on,substitute_user_id)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     [$u['id'],$type,$unit,$b['from_jdate']??null,$b['to_jdate']??null,$b['the_date']??null,$b['from_time']??null,$b['to_time']??null,
