@@ -7664,10 +7664,10 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
         <div style={{overflowY:"auto",padding:"16px 18px"}}>
           <div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
             <table style={{width:"100%",minWidth:720,tableLayout:"fixed"}}>
-              <thead><tr><th style={{width:90}}>ورود</th><th style={{width:90}}>خروج</th><th style={{width:100}}>روش ثبت</th><th style={{minWidth:180}}>دستگاه</th><th style={{width:250}}>اقدام</th></tr></thead>
+              <thead><tr><th style={{width:190}}>ورود و منشأ ثبت</th><th style={{width:190}}>خروج و منشأ ثبت</th><th style={{width:100}}>روش ثبت</th><th style={{minWidth:180}}>دستگاه</th><th style={{width:250}}>اقدام</th></tr></thead>
               <tbody>{(d.punches||[]).map(p=>{const hasGpsIn=p.in_lat!==null&&p.in_lat!==undefined&&p.in_lat!==""&&p.in_lng!==null&&p.in_lng!==undefined&&p.in_lng!==""&&Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));const hasGpsOut=p.out_lat!==null&&p.out_lat!==undefined&&p.out_lat!==""&&p.out_lng!==null&&p.out_lng!==undefined&&p.out_lng!==""&&Number.isFinite(Number(p.out_lat))&&Number.isFinite(Number(p.out_lng));const hasGps=hasGpsIn||hasGpsOut;return <tr key={p.id}>
-                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pin(p)||"--:--")}</td>
-                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pout(p)||"--:--")}</td>
+                <td style={{textAlign:"center",verticalAlign:"top"}}>{attendanceCell(pin(p)||"--:--")}<ManualPunchSource punch={p} side="in"/></td>
+                <td style={{textAlign:"center",verticalAlign:"top"}}>{attendanceCell(pout(p)||"--:--")}<ManualPunchSource punch={p} side="out"/></td>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{(({manual:"دستی",admin:"ثبت مدیریتی",web:"پنل وب",mobile:"برنامه موبایل",app:"برنامه موبایل",gps:"موقعیت مکانی",wifi:"وای‌فای",offline:"آفلاین"})[String(p.method||"").toLowerCase()]||p.method||"—")}</td>
                 <td style={{wordBreak:"break-word"}}>{p.device||"—"}</td>
                 <td><div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -7836,6 +7836,19 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
 }
 
 // پاپ‌آپ لیست ورود و خروج یک روز
+function ManualPunchSource({punch,side}){
+  const meta=punch.manual_provenance?.[side];
+  if(!meta){
+    if(side==="in"&&String(punch.method||"").toLowerCase()==="manual")return <small className="muted" style={{display:"block",whiteSpace:"normal"}}>دستی — منشأ ثبت نامشخص</small>;
+    return null;
+  }
+  return <div style={{marginTop:5,padding:"5px 7px",border:"1px solid var(--line)",borderRadius:6,fontSize:11,lineHeight:1.8,textAlign:"right",whiteSpace:"normal",overflowWrap:"anywhere"}}>
+    <b>{meta.source==="request"?"درخواست تردد دستی":meta.action==="punch_edit"?"اصلاح توسط مسئول":"ثبت دستی توسط مسئول"}</b>
+    <div>ثبت‌کننده: {meta.actor||"نامشخص"}</div>
+    <div>زمان ثبت: {faPlain(String(meta.registered_at||"نامشخص"))}</div>
+    {meta.source==="request"&&<><div>{meta.status==="approved"?"تأیید شده":"در انتظار تأیید"}</div>{meta.status==="approved"&&<><div>تأییدکننده: {meta.approver||"نامشخص"}</div><div>زمان تأیید: {faPlain(String(meta.approved_at||"نامشخص"))}</div></>}</>}
+  </div>;
+}
 function PunchPopup({day,onClose,onEdit,onDel,onAdd}){
   return(<div style={{position:"absolute",top:"100%",right:0,zIndex:50,background:"#1f2330",border:"1px solid #3a3f4f",borderRadius:10,padding:12,minWidth:320,boxShadow:"0 8px 24px rgba(0,0,0,.4)",textAlign:"right"}}>
     <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
@@ -7849,9 +7862,9 @@ function PunchPopup({day,onClose,onEdit,onDel,onAdd}){
           <td style={{padding:"4px 6px"}}>
             <span style={{color:"#6cf",cursor:"pointer",marginInlineEnd:4}} onClick={()=>onEdit({...p,field:"out"})}>✎</span>
             <span style={{color:"#f66",cursor:"pointer",marginInlineEnd:6}} onClick={()=>onDel(p)}>🗑</span>
-            {fa(p.out||"--:--")}
+            {fa(p.out||"--:--")}<ManualPunchSource punch={p} side="out"/>
           </td>
-          <td style={{padding:"4px 6px"}}>{fa(p.in||"--:--")}
+          <td style={{padding:"4px 6px"}}>{fa(p.in||"--:--")}<ManualPunchSource punch={p} side="in"/>
             <span style={{color:"#6cf",cursor:"pointer",marginInlineStart:4}} onClick={()=>onEdit({...p,field:"in"})}>✎</span>
             <span style={{color:"#f66",cursor:"pointer",marginInlineStart:4}} onClick={()=>onDel(p)}>🗑</span>
           </td>
