@@ -6147,13 +6147,19 @@ unset($policyRoute);
 
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
-  $req=Db::one("SELECT id,status,pending_on,approver_id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  $req=Db::one("SELECT id,type,status,pending_on,approver_id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
   if(!_req_admin_can_view_request($u,$req))Http::error('این درخواست در دسترس شما نیست',403);
+  // MySQL DDL implicitly commits even with CREATE TABLE IF NOT EXISTS.
+  // Prepare storage before starting the deletion transaction.
+  if(($req['type']??'')==='manual')_manual_provisional_schema();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
-    if(!Db::one("SELECT id FROM requests WHERE id=? FOR UPDATE",[$id]))Http::error('درخواست یافت نشد',404);
+    $locked=Db::one("SELECT id,type,status,pending_on,approver_id FROM requests WHERE id=? FOR UPDATE",[$id]);
+    if(!$locked)Http::error('درخواست یافت نشد',404);
+    if(!_req_admin_can_view_request($u,$locked))Http::error('این درخواست در دسترس شما نیست',403);
+    if($locked['type']!==$req['type']||$locked['status']!==$req['status'])Http::error('وضعیت درخواست تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if(_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=?",[$id]);
-    _manual_provisional_revert($id);
+    if(($locked['type']??'')==='manual')_manual_provisional_revert($id);
     Db::run("DELETE FROM requests WHERE id=?",[$id]);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
