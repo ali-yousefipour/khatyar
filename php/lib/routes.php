@@ -5849,6 +5849,7 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
 
 // Storage DDL runs before the decision transaction (MySQL DDL implicitly commits).
 function _req_prepare_approval_storage(array $request){
+  if(($request['type']??'')==='manual')_manual_provisional_schema();
   if(_req_substitute_eligible($request)&&!empty($request['substitute_user_id']))Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 function _req_substitute_eligible(array $request){
@@ -5880,7 +5881,8 @@ function _req_apply_approval_effects(array $request,int $id){
     $in=$day->format('Y-m-d').' '.substr($request['in_time'],0,5).':00';
     $out=!empty($request['out_time'])?$day->format('Y-m-d').' '.substr($request['out_time'],0,5).':00':null;
     if($out&&$out<$in)$out=(new DateTimeImmutable($out))->modify('+1 day')->format('Y-m-d H:i:s');
-    Db::run("INSERT INTO staff_attendance(user_id,check_in,check_out,method) VALUES(?,?,?, 'manual')",[(int)$request['user_id'],$in,$out]);
+    $attendanceId=Db::insert("INSERT INTO staff_attendance(user_id,check_in,check_out,method) VALUES(?,?,?, 'manual')",[(int)$request['user_id'],$in,$out]);
+    Db::run("INSERT INTO manual_attendance_provisional(request_id,user_id,attendance_id,kind) VALUES(?,?,?,?)",[$id,(int)$request['user_id'],$attendanceId,$out?'both':'in']);
   }elseif($request['type']==='manual'&&!empty($request['out_time'])){
     $day=_req_policy_date($request['the_date']??'');
     if(!$day)Http::error('تاریخ تردد دستی نامعتبر است',422);
@@ -5888,6 +5890,7 @@ function _req_apply_approval_effects(array $request,int $id){
     $open=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL AND check_in>=? AND check_in<=? ORDER BY check_in DESC LIMIT 1 FOR UPDATE",[(int)$request['user_id'],$day->format('Y-m-d').' 00:00:00',$out]);
     if(!$open)Http::error('برای ثبت خروج، ورود باز در تاریخ درخواست یافت نشد؛ ابتدا ورود را ثبت یا اصلاح کنید.',422);
     Db::run("UPDATE staff_attendance SET check_out=? WHERE id=? AND check_out IS NULL",[$out,(int)$open['id']]);
+    Db::run("INSERT INTO manual_attendance_provisional(request_id,user_id,attendance_id,kind,previous_checkout) VALUES(?,?,?,?,NULL)",[$id,(int)$request['user_id'],(int)$open['id'],'out']);
   }
 }
 
