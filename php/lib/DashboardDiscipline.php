@@ -190,7 +190,9 @@ function dashboard_discipline_cache_view(array $scope,array $period): array {
   $ids=array_values(array_unique(array_merge(array_column($rank['corrections'],'id'),array_column($rank['irregular'],'id'))));
   if($ids){
     $marks=implode(',',array_fill(0,count($ids),'?'));$photos=[];
-    foreach(Db::all("SELECT u.id,CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN CONCAT('/api/media?path=',u.photo_path) ELSE u.photo END photo FROM users u JOIN roles r ON r.id=u.role_id WHERE ".$scope['where']." AND u.id IN ($marks)",array_merge($scope['args'],$ids)) as $p)$photos[(int)$p['id']]=$p['photo'];
+    $fallback=_db_col_exists_safe('users','photo')?'u.photo':'NULL';
+    $photoExpr=_db_col_exists_safe('users','photo_path')?"CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN CONCAT('/api/media?path=',u.photo_path) ELSE $fallback END":$fallback;
+    foreach(Db::all("SELECT u.id,$photoExpr photo FROM users u JOIN roles r ON r.id=u.role_id WHERE ".$scope['where']." AND u.id IN ($marks)",array_merge($scope['args'],$ids)) as $p)$photos[(int)$p['id']]=$p['photo'];
     foreach(['corrections','irregular'] as $key){foreach($rank[$key] as &$p)$p['photo']=$photos[$p['id']]??null;unset($p);}
   }
   $meta['has_cache']=true;$meta['generated_at']=(int)$row['generated_at'];

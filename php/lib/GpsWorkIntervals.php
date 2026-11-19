@@ -171,3 +171,17 @@ function gps_work_is_waived(int $userId, string $start, string $end): bool {
     if((string)$w['start_at']===$start && (string)$w['end_at']===$end)return true;
   return false;
 }
+
+/** Union of confirmed device-off evidence, without altering recorded presence. */
+function work_device_off_union_minutes(array $gpsDetails,array $internetDetails): int {
+  $ranges=[];
+  foreach(array_merge($gpsDetails,$internetDetails) as $detail){
+    $start=strtotime((string)($detail['start_at']??''));$end=strtotime((string)($detail['end_at']??''));
+    if($start!==false&&$end!==false&&$end>$start)$ranges[]=[$start,$end];
+  }
+  usort($ranges,static fn($a,$b)=>$a[0]<=>$b[0]);
+  $seconds=0;$start=null;$end=null;
+  foreach($ranges as $r){if($start===null){[$start,$end]=$r;}elseif($r[0]<=$end){$end=max($end,$r[1]);}else{$seconds+=$end-$start;[$start,$end]=$r;}}
+  if($start!==null)$seconds+=$end-$start;
+  return (int)ceil($seconds/60);
+}

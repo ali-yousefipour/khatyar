@@ -5595,6 +5595,8 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $internetDetails=internet_work_daily_details((int)$u['id'],$rows);
   $w['internet_invalid_min']=array_sum(array_column($internetDetails,'minutes'));
   $w['internet_inactive_minutes']=$w['internet_invalid_min'];
+  $gpsEvidence=array_map(static fn($r)=>['start_at'=>date('Y-m-d H:i:s',$r[0]),'end_at'=>date('Y-m-d H:i:s',$r[1])],$gpsInvalidRanges);
+  $w['device_off_union_minutes']=work_device_off_union_minutes($gpsEvidence,$internetDetails);
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
   return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>$isCalHoliday,'holiday_title'=>$cal['title']??'', 'sessions'=>$rows,'data'=>$w];

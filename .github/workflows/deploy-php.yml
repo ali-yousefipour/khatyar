@@ -72,6 +72,7 @@ jobs:
           php -l lib/routes.php
           php -l lib/DashboardDiscipline.php
           php tests/dashboard_discipline_test.php
+          php tests/gps_work_intervals_test.php
           grep -q 'dashboard-discipline' app/assets/panel.bundle.js
           grep -q 'به‌روزرسانی جدول' app/assets/panel.bundle.js
           php -l lib/school_service_sepand.php
@@ -595,6 +596,22 @@ jobs:
               $pdo->query("SELECT scope_key,slot,from_g,to_g,payload,generated_at,started_at,job_json FROM dashboard_discipline_cache LIMIT 0");
               $pdo->query("SELECT u.id,u.presence_required,r.level FROM users u JOIN roles r ON r.id=u.role_id LIMIT 0");
               if(!is_file(dirname(__DIR__,2).'/lib/DashboardDiscipline.php')||!is_file(dirname(__DIR__).'/api/admin-attendance-report-owned.php'))throw new RuntimeException('Discipline PHP dependencies missing');
+              // Exercise the production cache reader directly, inside the existing
+              // authenticated one-use installer. Do not return user data or start a refresh.
+              $libRoot=dirname(__DIR__,2).'/lib';
+              require_once $libRoot.'/Db.php';
+              require_once $libRoot.'/Http.php';
+              require_once $libRoot.'/ShiftCalc.php';
+              function route(...$args) {}
+              require_once $libRoot.'/routes.php';
+              require_once $libRoot.'/DashboardDiscipline.php';
+              $viewer=Db::one("SELECT u.id,u.role_id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.is_admin=1 ORDER BY r.level,u.id LIMIT 1");
+              if(!$viewer)throw new RuntimeException('No active administrative scope for discipline smoke test');
+              $_GET=['days'=>'30'];
+              $cacheResponse=dashboard_discipline($viewer);
+              if(!is_array($cacheResponse['corrections']??null)||!is_array($cacheResponse['irregular']??null)||!array_key_exists('has_cache',$cacheResponse)||!array_key_exists('next_refresh_at',$cacheResponse))throw new RuntimeException('Discipline cache response invalid');
+              dashboard_discipline_load_report();
+
               // Apply school complaint schema only during deployment.
               $migration = dirname(__DIR__, 2) . '/migrations/2026_11_18_school_complaints.sql';
               if (!is_file($migration)) throw new RuntimeException('School complaint migration missing');
@@ -704,7 +721,7 @@ jobs:
                   (user_id, check_out, check_in)");
               }
               @unlink(__FILE__);
-              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true]);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true,'discipline_cache_reader'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
               error_log('Employment schema deployment: '.$error->getMessage());
@@ -730,6 +747,7 @@ jobs:
           echo "${response}" | grep -q '"employment_columns":2'
           echo "${response}" | grep -q '"school_complaints_schema":true'
           echo "${response}" | grep -q '"discipline_cache_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_reader":true'
           echo "Employment and school complaints schema verified on production database."
 
       - name: Verify public homepage, login and deployed assets against committed payload

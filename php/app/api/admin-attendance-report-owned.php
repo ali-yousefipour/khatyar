@@ -153,6 +153,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $internetDetails=internet_work_daily_details((int)$userId,$owned);
     $day['internet_inactive_details']=$internetDetails;
     $day['internet_inactive_minutes']=array_sum(array_column($internetDetails,'minutes'));
+    $day['device_off_union_minutes']=work_device_off_union_minutes($gpsDetails,$internetDetails);
     if(isset($day['data'])&&is_array($day['data']))$day['data']['internet_inactive_minutes']=$day['internet_inactive_minutes'];
     }
     $sessions = [];
@@ -252,7 +253,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
   }
   unset($day);
   // Replace stale totals with the corrected daily values, preserving each field's format.
-  $sumKeys=array_merge($metricKeys,['absence_shortage','gps_inactive_minutes','internet_inactive_minutes','friday_overtime','holiday_overtime','total_overtime','holiday_friday_overtime']);
+  $sumKeys=array_merge($metricKeys,['absence_shortage','gps_inactive_minutes','internet_inactive_minutes','device_off_union_minutes','friday_overtime','holiday_overtime','total_overtime','holiday_friday_overtime']);
   foreach($sumKeys as $key){
     $sum=0;foreach($report['days'] as $entry){$v=$entry[$key]??0;if(is_string($v)&&preg_match('/^(\d+):(\d{2})$/',$v,$m))$sum+=(int)$m[1]*60+(int)$m[2];else $sum+=(int)$v;}
     foreach(['totals','work_totals','summary'] as $section)if(isset($report[$section])&&is_array($report[$section])&&array_key_exists($key,$report[$section])){

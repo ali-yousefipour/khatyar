@@ -54,17 +54,18 @@ assert_ranges('internet checkpoint and state aliases must not double count',[[10
 ],$base,$base+5000,'internet_off','internet_on'));
 
 require_once __DIR__.'/../lib/ShiftCalc.php';
-// Overlap is removed once from worked time, even when GPS and Internet are
-// simultaneously down. This is the contract used by all work calculators.
+// Recorded presence is independent of device-off evidence. Overlapping confirmed
+// GPS and internet windows must be counted once when a combined penalty is shown.
 $parts=ShiftCalc::validSessionParts([
   'in'=>$base,'out'=>$base+5400,'gps_invalid'=>[
-    [$base+600,$base+2400], // GPS confirmed unavailable
-    [$base+1800,$base+3600], // Internet confirmed unavailable
+    [$base+600,$base+2400],[$base+1800,$base+3600],
   ],
 ]);
-assert_ranges('overlapping GPS and Internet penalties are never doubled',[
-  [$base,$base+600],[$base+3600,$base+5400],
-],$parts);
+assert_ranges('telemetry never shortens actual presence',[[$base,$base+5400]],$parts);
+$detail=static fn($a,$b)=>['start_at'=>date('Y-m-d H:i:s',$a),'end_at'=>date('Y-m-d H:i:s',$b)];
+if(work_device_off_union_minutes([$detail($base+600,$base+2400)],[$detail($base+1800,$base+3600)])!==50)throw new RuntimeException('Overlapping device-off windows must count only once');
+if(work_device_off_union_minutes([$detail($base,$base+600)],[$detail($base+1200,$base+1800)])!==20)throw new RuntimeException('Disjoint evidence must retain both intervals');
+if(work_device_off_union_minutes([],[])!==0)throw new RuntimeException('Empty device evidence cannot deduct time');
 $routes=file_get_contents(__DIR__.'/../lib/routes.php');
 $owned=file_get_contents(__DIR__.'/../app/api/admin-attendance-report-owned.php');
 if (!str_contains($routes,"kind IN ('internet_off','internet_on','offline','online')") &&
@@ -74,6 +75,7 @@ if (!str_contains($routes,"$"."w['internet_invalid_min']"))
   throw new RuntimeException('Daily work API must return Internet-off minutes');
 if (!str_contains($routes,"'_work_invalid'"))
   throw new RuntimeException('Live work must include combined downtime evidence');
-if (!str_contains($owned,"'gps_invalid'=>$blocked"))
-  throw new RuntimeException('Monthly report must apply the same penalty windows it displays');
+if (!str_contains($owned,'work_device_off_union_minutes') || !str_contains($routes,'work_device_off_union_minutes'))
+  throw new RuntimeException('Daily and monthly reports must expose deduplicated device-off evidence');
+echo "PASS independent presence and overlapping device-off evidence\n";
 echo "PASS GPS/internet deductions are aligned in live, daily and monthly work\n";
