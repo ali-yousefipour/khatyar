@@ -4,6 +4,7 @@ set_error_handler(static function($severity,$message,$file,$line){ throw new Err
 class Http { static function error($message,$code=400){ throw new RuntimeException($message,$code); } }
 function _ensure_requests_table(){}
 class Db {
+  static $attendance=[];
   static $policy=null,$rows=[],$request=null,$locked=1,$locks=[],$exclude=null,$overlaps=[];
   static function one($sql,$params=[]){
     if(str_contains($sql,'GET_LOCK')) { self::$locks[]='acquire'; return ['acquired'=>self::$locked]; }
@@ -14,6 +15,7 @@ class Db {
     throw new LogicException('Unexpected query: '.$sql);
   }
   static function all($sql,$params=[]){
+    if(str_contains($sql,'FROM staff_attendance'))return self::$attendance;
     if(str_contains($sql,'AND type=? AND status')&&!str_contains($sql,'id<>?'))return self::$overlaps;
     if(!str_contains($sql,"status IN ('pending','approved')")||!str_contains($sql,'id<>?')) throw new LogicException('Quota query must exclude rejected/canceled/self');
     self::$exclude=$params[2]; return self::$rows;
@@ -190,3 +192,25 @@ Db::$request=daily()+['id'=>90,'user_id'=>12,'status'=>'rejected'];
 $retry=_req_work_policy_handler('/api/admin/requests/{id}/decision',static fn()=>['ok'=>true]);
 denied(fn()=>$retry(['id'=>90],['status'=>'approved'],['id'=>99]),'reapproval rejects overlapping active request',409);
 Db::$overlaps=[];check($retry(['id'=>90],['status'=>'approved'],['id'=>99])['ok'],'reapproval permitted when policy and overlap checks pass');
+
+require_once __DIR__.'/../lib/ShiftCalc.php';
+$day=_req_policy_date('1405-07-01');
+$base=$day->format('Y-m-d');
+$next=$day->modify('+1 day')->format('Y-m-d');
+Db::$attendance=[['id'=>1,'check_in'=>$base.' 06:00:00','check_out'=>$base.' 13:00:00']];
+foreach(['annual','mission','overtime'] as $type){
+  denied(fn()=>_req_reject_attendance_overlap(12,hourly('1405-07-01','05:00','07:00',$type)),'partial attendance overlap '.$type);
+  denied(fn()=>_req_reject_attendance_overlap(12,hourly('1405-07-01','08:00','09:00',$type)),'contained attendance overlap '.$type);
+  _req_reject_attendance_overlap(12,hourly('1405-07-01','04:00','06:00',$type));
+  _req_reject_attendance_overlap(12,hourly('1405-07-01','13:00','14:00',$type));
+}
+$manual=['type'=>'manual','the_date'=>'1405-07-01','manual_kind'=>'both','in_time'=>'05:00','out_time'=>'07:00'];
+denied(fn()=>_req_reject_attendance_overlap(12,$manual),'manual interval overlap');
+denied(fn()=>_req_reject_attendance_overlap(12,array_merge($manual,['manual_kind'=>'in','in_time'=>'08:00'])),'manual entry overlap');
+Db::$attendance=[['id'=>2,'check_in'=>$base.' 22:00:00','check_out'=>$next.' 07:00:00']];
+denied(fn()=>_req_reject_attendance_overlap(12,hourly('1405-07-02','01:00','03:00')),'overnight overlap');
+_req_reject_attendance_overlap(12,hourly('1405-07-02','07:00','08:00'));
+Db::$attendance=[['id'=>3,'check_in'=>$base.' 06:00:00','check_out'=>null]];
+_req_reject_attendance_overlap(12,array_merge($manual,['manual_kind'=>'out','out_time'=>'13:00']));
+Db::$attendance=[];
+echo "PASS attendance overlap request validation and manual checkout repair\n";
