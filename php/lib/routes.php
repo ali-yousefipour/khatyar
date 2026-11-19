@@ -3248,7 +3248,7 @@ function _attendance_day_bounds($jdate){
   $end = date('Y-m-d H:i:s', strtotime($start) + 86400);
   return [$start, $end, date('Y-m-d', strtotime($start))];
 }
-function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
+function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false,$includeTelemetry=true){
   [$start,$end,$g] = _attendance_day_bounds($jdate);
   if (!$start || !$end) return [];
   // فاز ۷.۲: رکوردهایی که با روز هم‌پوشانی دارند انتخاب می‌شوند، نه فقط رکوردهایی که همان روز شروع شده‌اند.
@@ -3264,7 +3264,7 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
   // Calculate both types from the same confirmed evidence and attendance
   // sessions. Reuse the effective internet ranges after administrative waivers.
   require_once __DIR__.'/../lib/InternetWorkIntervals.php';
-  $internetDetails=internet_work_daily_details((int)$userId,$rows);
+  $internetDetails=$includeTelemetry?internet_work_daily_details((int)$userId,$rows):[];
   $internetRanges=[];
   foreach($internetDetails as $detail) {
     $from=strtotime((string)($detail['start_at']??''));
@@ -3285,7 +3285,7 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
     $gpsFrom=max(strtotime($r['_clip_start']),$rowIn?:strtotime($start));
     $gpsTo=min(strtotime($r['_clip_end']),$rowOut?:time());
     $pendingGpsGrace=empty($r['check_out']) && $gpsTo>=time()-60; // مهلت فقط برای نیم‌ساعت جاری؛ روزهای بسته‌شده دیگر مهلت ندارند.
-    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,$pendingGpsGrace):[];
+    $r['_gps_invalid']=$includeTelemetry&&$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,$pendingGpsGrace):[];
     $r['_internet_invalid']=[];
     foreach($internetRanges as $range){
       $from=max($gpsFrom,(int)$range[0]);$to=min($gpsTo,(int)$range[1]);
@@ -3490,7 +3490,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       if (!$dayShift) continue;
       $shift = $dayShift;
       // Monthly work owns the complete session on its check-in date, including next-day checkout.
-      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate, true);
+      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate, true, false);
       $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id']??$shift['id'], $jdate) : null;
       $isHol = ShiftCalc::effectiveHoliday($jdate);
       // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
@@ -3898,7 +3898,7 @@ function _jweekday_name($jy,$jm,$jd){
   return $names[$map[$w]];
 }
 // گزارش تردد روزانهٔ یک پرسنل در بازهٔ جلالی
-function _attendance_report($userId,$fromJ,$toJ){
+function _attendance_report($userId,$fromJ,$toJ,$ownedByEntry=false){
   // گزارش باید همان وضعیت Auto-Close را که تایمر و ثبت تردد استفاده می‌کنند ببیند.
   try { _attendance_auto_close_stale((int)$userId); } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='personnel_code'")) Db::run("ALTER TABLE users ADD COLUMN personnel_code VARCHAR(40) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
@@ -3962,7 +3962,7 @@ function _attendance_report($userId,$fromJ,$toJ){
     $jdateDash=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     $g=date('Y-m-d',$ts);
     // پانچ‌های این روز
-    $rows=_attendance_rows_for_jdate($userId,$jdateDash);
+    $rows=_attendance_rows_for_jdate($userId,$jdateDash,$ownedByEntry,false);
     $punches=[]; $sessions=[];
     foreach($rows as $r){
       // ابتدا نام ذخیره‌شده، در غیر این صورت استخراج از مختصات (برای رکوردهای قدیمی)
