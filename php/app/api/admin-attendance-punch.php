@@ -57,6 +57,21 @@ function authAdmin(){
   if(empty($u['is_admin']))ape('دسترسی مدیریتی لازم است',403);
   return $u;
 }
+function punchAudit($uid,$jdate,$id,$action,$actor,$before,$after){
+  Db::run("INSERT INTO attendance_change_audit(user_id,jdate,punch_id,action,actor_id,before_json,after_json) VALUES(?,?,?,?,?,?,?)",[$uid,$jdate,$id,$action,$actor,$before===null?null:json_encode($before,JSON_UNESCAPED_UNICODE),json_encode($after,JSON_UNESCAPED_UNICODE)]);
+}
+function ensurePunchAudit(){
+  Db::run("CREATE TABLE IF NOT EXISTS attendance_change_audit (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,jdate VARCHAR(10) NOT NULL,punch_id BIGINT NULL,action VARCHAR(40) NOT NULL,actor_id INT NOT NULL,before_json JSON NULL,after_json JSON NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,INDEX idx_attendance_audit_person_day(user_id,jdate,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+function punchJdate(DateTimeInterface $date){
+  // Find the Jalali date using the existing calendar conversion, without requiring Intl.
+  $year=(int)$date->format('Y')-621;
+  foreach([$year-1,$year] as $y)for($m=1;$m<=12;$m++)for($d=1;$d<=IranCalendar::monthLength($y,$m);$d++){
+    [$gy,$gm,$gd]=IranCalendar::toGregorian($y,$m,$d);
+    if(sprintf('%04d-%02d-%02d',$gy,$gm,$gd)===$date->format('Y-m-d'))return sprintf('%04d-%02d-%02d',$y,$m,$d);
+  }
+  throw new RuntimeException('Punch date conversion failed');
+}
 try{
   $actor=authAdmin();
   $method=$_SERVER['REQUEST_METHOD'];
@@ -84,10 +99,14 @@ try{
       if($coMin<=$ciMin)$checkOut=addOneDay($checkOut);
       if($checkOut<=$checkIn)ape('ساعت خروج باید بعد از ورود باشد',422);
     }
+    ensurePunchAudit();
+    Db::pdo()->beginTransaction();
     $id=Db::insert("INSERT INTO staff_attendance
       (user_id,check_in,check_out,method,client_check_in,client_check_out,offline_synced,auto_closed)
       VALUES(?,?,?,?,?,?,1,0)",
       [$uid,$checkIn,$checkOut,'manual',$checkIn,$checkOut]);
+    punchAudit($uid,$jdate,$id,'punch_add',(int)$actor['id'],null,['check_in'=>$checkIn,'check_out'=>$checkOut,'method'=>'manual']);
+    Db::pdo()->commit();
     apj(['ok'=>true,'id'=>(int)$id,'user_id'=>$uid,'jdate'=>$jdate,'check_in'=>$ci,'check_out'=>$co,'method'=>'manual'],201);
   }
   if(preg_match('#/api/admin/attendance-punch/(\d+)$#',$path,$mm)){
@@ -114,13 +133,18 @@ try{
         if($coMin<=$ciMin)$checkOut=addOneDay($checkOut);
         if($checkOut<=$checkIn)ape('ساعت خروج باید بعد از ورود باشد',422);
       }
+      ensurePunchAudit();
+      Db::pdo()->beginTransaction();
       Db::run("UPDATE staff_attendance SET check_in=?,check_out=?,client_check_in=?,client_check_out=?,method='manual',auto_closed=0 WHERE id=?",
         [$checkIn,$checkOut,$checkIn,$checkOut,$id]);
+      punchAudit((int)$row['user_id'],punchJdate($base),$id,'punch_edit',(int)$actor['id'],$row,['check_in'=>$checkIn,'check_out'=>$checkOut]);
+      Db::pdo()->commit();
       apj(['ok'=>true,'id'=>$id,'check_in'=>$ci,'check_out'=>$co,'method'=>'manual']);
     }
   }
   ape('روش درخواست پشتیبانی نمی‌شود',405);
 }catch(Throwable $e){
+  try{if(Db::pdo()->inTransaction())Db::pdo()->rollBack();}catch(Throwable $ignored){}
   $mysqlCode=$e instanceof PDOException?(int)($e->errorInfo[1]??0):0;
   if($mysqlCode===1203||($e instanceof PDOException&&stripos($e->getMessage(),'max_user_connections')!==false)){
     error_log('admin-attendance-punch: database connection capacity reached');
