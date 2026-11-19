@@ -2535,6 +2535,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
+  _attendance_reentry_guard((int)$u['id'],$eventAt);
   _attendance_checkin_traffic((int)$u['id'],$eventAt);
   $lineId = (int)($b['line_id'] ?? 0);
   $method = strtolower((string)($b['method'] ?? 'gps'));
@@ -2641,8 +2642,16 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
   // نام محل ورود از روی مختصات (نزدیک‌ترین ایستگاه/محدودهٔ خط)
   $inStation = $method === 'wifi' ? null : (($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds));
-  $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
-    [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    // Serialize concurrent check-ins for this employee and repeat the guard before inserting.
+    Db::one("SELECT id FROM users WHERE id=? FOR UPDATE",[(int)$u['id']]);
+    if(Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL LIMIT 1",[(int)$u['id']]))Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.',409);
+    _attendance_reentry_guard((int)$u['id'],$eventAt);
+    $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
+      [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+    $pdo->commit();
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   if (_gps_work_required() && $lat !== null && $lng !== null) {
     try { _gps_work_record_event((int)$u['id'], 'gps_on', $eventAt, ['source'=>'attendance_checkin','attendance_id'=>(int)$id,'interval_minutes'=>30]); }
     catch (Throwable $e) { error_log('GPS check-in verification event failed: '.$e->getMessage()); }
@@ -3065,6 +3074,26 @@ route('DELETE', '/api/admin/holidays/{jdate}', function($p,$b,$u){
 // Schema DDL belongs to the deployment migration, never routine requests.
 function _ensure_attendance_phase1_schema(){ return; }
 
+function _attendance_timing_minutes(string $key,int $default,int $min): int {
+  $value=_req_setting($key,$default);
+  $valid=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>$min,'max_range'=>10080]]);
+  return $valid===false?$default:$valid;
+}
+function _attendance_reentry_guard(int $userId,string $eventAt): void {
+  $minutes=_attendance_timing_minutes('staff_reentry_gap_minutes',180,0);
+  if($minutes===0)return;
+  // Use actual event time, including queued offline attendance, rather than upload time.
+  $eventTs=strtotime($eventAt);
+  $last=Db::one("SELECT check_out FROM staff_attendance WHERE user_id=? AND check_out IS NOT NULL ORDER BY check_out DESC LIMIT 1",[$userId]);
+  if(!$last||empty($last['check_out']))return;
+  $outTs=strtotime($last['check_out']);
+  if($eventTs===false||$outTs===false)return;
+  $next=$outTs+$minutes*60;
+  if($eventTs<$next){
+    $remaining=(int)ceil(($next-$eventTs)/60);
+    Http::error('حداقل فاصله خروج تا ورود مجدد رعایت نشده است. زمان مجاز ورود: '._app_jdate_from_time(date('Y-m-d H:i:s',$next)).' ساعت '.date('H:i',$next).' ('.$remaining.' دقیقه فاصله باقی مانده در زمان ثبت).',422);
+  }
+}
 function _attendance_auto_close_stale($userId, $now=null){
   _ensure_attendance_phase1_schema();
   $now = $now ?: date('Y-m-d H:i:s');
@@ -3072,9 +3101,10 @@ function _attendance_auto_close_stale($userId, $now=null){
   if (!$open || empty($open['check_in'])) return null;
   $inTs = strtotime($open['check_in']);
   $nowTs = strtotime($now);
-  if ($inTs === false || $nowTs === false || ($nowTs - $inTs) < 14*3600) return null;
+  $limit=_attendance_timing_minutes('staff_auto_close_minutes',840,1);
+  if ($inTs === false || $nowTs === false || ($nowTs - $inTs) < $limit*60) return null;
 
-  $autoOutTs = $inTs + 14*3600;
+  $autoOutTs = $inTs + $limit*60;
   $autoOut = date('Y-m-d H:i:s', $autoOutTs);
   try {
     $gy=(int)date('Y', $inTs); $gm=(int)date('n', $inTs); $gd=(int)date('j', $inTs);
@@ -3091,7 +3121,7 @@ function _attendance_auto_close_stale($userId, $now=null){
       [$autoOut,$autoOut,(int)$open['id']]);
     error_log('attendance auto-close calculation failed: '.$e->getMessage());
   }
-  return ['id'=>(int)$open['id'],'check_out'=>$autoOut,'check_in'=>$open['check_in'],'line_id'=>$open['line_id'],'method'=>$open['method'],'reason'=>'14_hour_limit'];
+  return ['id'=>(int)$open['id'],'check_out'=>$autoOut,'check_in'=>$open['check_in'],'line_id'=>$open['line_id'],'method'=>$open['method'],'reason'=>$limit===840?'14_hour_limit':'configured_time_limit'];
 }
 
 function _user_role_title($userId){
@@ -11098,9 +11128,19 @@ route('GET', '/api/admin/settings', function($p,$b,$u){
   $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings") as $r) $out[$r['key']] = json_decode($r['value'], true);
   if (!isset($out['android_sms_app_hash']) || trim((string)$out['android_sms_app_hash']) === '')
     $out['android_sms_app_hash'] = KHATYAR_MYKET_SMS_APP_HASH;
+  $out['staff_auto_close_minutes']=_attendance_timing_minutes('staff_auto_close_minutes',840,1);
+  $out['staff_reentry_gap_minutes']=_attendance_timing_minutes('staff_reentry_gap_minutes',180,0);
   return $out;
 },false,ADMIN);
 route('PUT', '/api/admin/settings', function($p,$b,$u){
+  foreach(['staff_auto_close_minutes'=>1,'staff_reentry_gap_minutes'=>0] as $key=>$min){
+    if(!array_key_exists($key,$b))continue;
+    $raw=$b[$key];
+    if(!is_int($raw)&&!is_string($raw))Http::error('بازه زمانی ثبت تردد معتبر نیست.',422);
+    $value=filter_var(_app_en_digits($raw),FILTER_VALIDATE_INT,['options'=>['min_range'=>$min,'max_range'=>10080]]);
+    if($value===false)Http::error('بازه زمانی ثبت تردد باید بر حسب دقیقه و در محدوده مجاز باشد.',422);
+    $b[$key]=$value;
+  }
   // یکسان‌سازی تنظیمات اشتراک برای جلوگیری از باقی‌ماندن حالت قدیمی یا متناقض.
   if(array_key_exists('subscription_mode',$b) || array_key_exists('subscription_enabled',$b)){
     // ذخیرهٔ جزئی تنظیمات نباید حالت انتخاب‌شده را ناخواسته به «معمولی» برگرداند.
@@ -13883,9 +13923,7 @@ route('POST', '/api/admin/attendance/auto-close-open-sessions', function($p,$b,$
   $dry=!empty($b['dry_run']); $closed=[];
   $rows=Db::all("SELECT id,user_id,check_in,line_id FROM staff_attendance WHERE check_out IS NULL ORDER BY check_in LIMIT 500");
   foreach($rows as $r){
-    $shift=_auto_shift_for_user((int)$r['user_id']);
-    if(empty($shift['auto_close_enabled'])) continue;
-    $after=(int)($shift['auto_close_after_minutes']??0); if($after<=0) $after=(int)($shift['max_open_session_minutes']??960);
+    $after=_attendance_timing_minutes('staff_auto_close_minutes',840,1);
     $checkIn=strtotime($r['check_in']); if(!$checkIn || time()-$checkIn < $after*60) continue;
     $out=date('Y-m-d H:i:s',$checkIn+$after*60);
     if(!$dry){ Db::run("UPDATE staff_attendance SET check_out=?, method=CONCAT(COALESCE(method,''),'|auto_close') WHERE id=? AND check_out IS NULL",[$out,$r['id']]); try{ $calc=_phase7p7_calc_for_attendance_row(['id'=>$r['id'],'user_id'=>$r['user_id'],'check_in'=>$r['check_in'],'check_out'=>$out]); Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?",[json_encode($calc,JSON_UNESCAPED_UNICODE),$r['id']]); }catch(Throwable $e){} }
