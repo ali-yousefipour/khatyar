@@ -152,3 +152,20 @@ same('early night checkout retains real shortage',30,$result['data']['shortage']
 $_GET['date']=$nextDate;
 $result=$dailyPerformanceHandler([],[],['id'=>1]);
 same('night session is not counted again on checkout date',[],$result['sessions']);
+
+
+ // Monthly work must use entry-owned sessions rather than midnight-clipped overlaps.
+$monthlyStart=strpos($source,'function _shift_month_report(');
+$monthlyEnd=strpos($source,'function _monthly_work_report_need(',$monthlyStart);
+$monthlySource=substr($source,$monthlyStart,$monthlyEnd-$monthlyStart);
+same('monthly aggregation uses complete entry-owned sessions',true,str_contains($monthlySource,'_attendance_rows_for_jdate($a[\'user_id\'], $jdate, true)'));
+$nightConfig=['segments'=>[['s'=>'22:00','e'=>'07:00']],'day_config'=>['early_ok'=>0]];
+foreach ([['07:00:00',0,540],['06:30:00',30,510],['07:15:00',0,555]] as [$checkout,$early,$worked]){
+  Db::$attendance=[['id'=>12,'check_in'=>$base.'22:00:00','check_out'=>$nextBase.$checkout]];
+  $owned=_attendance_rows_for_jdate(1,$date,true);
+  $sessions=array_map(static fn($r)=>['in'=>strtotime($r['check_in']),'out'=>strtotime($r['check_out']),'clip_start'=>strtotime($r['_clip_start']),'clip_end'=>strtotime($r['_clip_end'])],$owned);
+  $actual=ShiftCalc::dayWork($shift,$date,$nightConfig,$sessions,false);
+  same('overnight early checkout '.$checkout,$early,$actual['early_out']);
+  same('overnight full presence '.$checkout,$worked,$actual['worked']);
+  same('no duplicate checkout-day session '.$checkout,[],_attendance_rows_for_jdate(1,$nextDate,true));
+}
