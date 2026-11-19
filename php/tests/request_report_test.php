@@ -71,7 +71,7 @@ $attendance=array_values(array_filter(Db::$writes,fn($x)=>str_contains($x[0],'IN
 check(count($attendance)===1,'admin approval creates attendance');
 check(strtotime($attendance[0][1][2])-strtotime($attendance[0][1][1])===10800,'overnight exit is next day');
 check(Db::pdo()->commits===1,'decision committed');
-check(str_contains(Db::$writes[0][0],'pending_on=NULL'),'completed decision clears inbox');
+check(count(array_filter(Db::$writes,fn($w)=>str_starts_with($w[0],'UPDATE requests SET')&&str_contains($w[0],'pending_on=NULL')))===1,'completed decision clears inbox');
 Db::$failAttendance=true;try{$decide(['id'=>3],['status'=>'approved'],$director);}catch(RuntimeException $e){}
 check(Db::pdo()->rollbacks===1,'attendance error rolls decision back');Db::$failAttendance=false;
 Db::$changed=0;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),409);check(Db::pdo()->rollbacks===2,'concurrent decision rolls back');Db::$changed=1;
@@ -95,9 +95,9 @@ check($GLOBALS['routeOptions']['GET/api/admin/requests/{id}/detail']===[false,AD
 Db::$request=['id'=>3,'type'=>'manual','selfie_data'=>'data:image/jpeg;base64,ZmFrZQ=='];
 $detail=$handlers['GET/api/admin/requests/{id}/detail'](['id'=>3],[],$director);check($detail['selfie_data']===Db::$request['selfie_data'],'details include stored manual selfie');
 Db::$request=null;denied(fn()=>$handlers['GET/api/admin/requests/{id}/detail'](['id'=>99],[],$director),404);
-Db::$request=['id'=>3];
+Db::$request=['id'=>3,'type'=>'annual','status'=>'approved'];
 $a=strpos($source,"route('DELETE', '/api/admin/requests/{id}'");$b=strpos($source,'// خروجی اکسل گزارش',$a);eval(substr($source,$a,$b-$a));Db::$writes=[];
-$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(str_contains(Db::$writes[0][0],"status='canceled'"),'delete releases substitute');
+$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],"UPDATE substitute_assignments SET status='canceled'")))===1 && count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'DELETE FROM requests')))===1,'delete releases substitute and removes request');
 // Real report action handler: reply must atomically return ownership to sender.
 $a=strpos($source,"route('POST', '/api/reports/{id}/action'");
 $b=strpos($source,"\n});",$a);
