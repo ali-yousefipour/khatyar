@@ -158,7 +158,7 @@ same('night session is not counted again on checkout date',[],$result['sessions'
 $monthlyStart=strpos($source,'function _shift_month_report(');
 $monthlyEnd=strpos($source,'function _monthly_work_report_need(',$monthlyStart);
 $monthlySource=substr($source,$monthlyStart,$monthlyEnd-$monthlyStart);
-same('monthly aggregation uses complete entry-owned sessions',true,str_contains($monthlySource,'_attendance_rows_for_jdate($a[\'user_id\'], $jdate, true)'));
+same('monthly aggregation uses complete entry-owned sessions',true,str_contains($monthlySource,'_attendance_rows_for_jdate($a[\'user_id\'], $jdate, true, false)'));
 $nightConfig=['segments'=>[['s'=>'22:00','e'=>'07:00']],'day_config'=>['early_ok'=>0]];
 foreach ([['07:00:00',0,540],['06:30:00',30,510],['07:15:00',0,555]] as [$checkout,$early,$worked]){
   Db::$attendance=[['id'=>12,'check_in'=>$base.'22:00:00','check_out'=>$nextBase.$checkout]];
