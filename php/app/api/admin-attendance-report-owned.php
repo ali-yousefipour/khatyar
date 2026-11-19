@@ -36,7 +36,7 @@ function attendance_punch_provenance(int $uid,array $ids): array {
   }catch(Throwable $e){error_log('attendance admin provenance unavailable: '.$e->getMessage());}
   return $result;
 }
-function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false) {
+function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false, $includeTelemetry=true) {
   /*
    * این helper از route قدیمی _attendance_report استفاده می‌کند، اما باید
    * مستقل از ترتیب load فایل‌ها هم قابل اجرا باشد. در index معمولاً routes.php
@@ -116,6 +116,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
 
     // کسری GPS/برنامه برای هر session فقط به تاریخ ورود همان session تعلق دارد.
     // این کار از شکستن یک شیفت شب بین دو روز و نمایش کسری گمراه‌کننده در روز بعد جلوگیری می‌کند.
+    if($includeTelemetry){
     $gpsRanges = [];
     $gpsDetails = [];
     foreach ($owned as $attendanceRow) {
@@ -153,6 +154,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $day['internet_inactive_details']=$internetDetails;
     $day['internet_inactive_minutes']=array_sum(array_column($internetDetails,'minutes'));
     if(isset($day['data'])&&is_array($day['data']))$day['data']['internet_inactive_minutes']=$day['internet_inactive_minutes'];
+    }
     $sessions = [];
     foreach ($punches as $p) {
       $in = !empty($p['in_full']) ? strtotime($p['in_full']) : 0;

@@ -58,6 +58,13 @@ jobs:
                   }
               }
           } catch (Throwable $e) { $out['checks']['database']=['ok'=>false,'error'=>check_error($e)]; }
+          $out['checks']['discipline_module_present']=is_file(dirname(__DIR__,2).'/lib/DashboardDiscipline.php');
+          try {
+              $db->query("SELECT u.id,u.presence_required,u.photo_path,u.photo,r.level FROM users u JOIN roles r ON r.id=u.role_id LIMIT 1")->fetch();
+              $out['checks']['discipline_user_columns']=['ok'=>true];
+              $db->query("SELECT punch_id,jdate,before_json,after_json FROM attendance_change_audit LIMIT 1")->fetch();
+              $out['checks']['discipline_audit_columns']=['ok'=>true];
+          } catch(Throwable $e) { $out['checks']['discipline_schema']=['ok'=>false,'error'=>check_error($e)]; }
           // Report only index structure, never session/device identifiers.
           try {
               $indexes=$db->query('SHOW INDEX FROM user_sessions')->fetchAll(PDO::FETCH_ASSOC);

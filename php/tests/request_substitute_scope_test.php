@@ -7,6 +7,7 @@ class Db {
     if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7];
     return ['Field'=>'substitute_user_id'];
   }
+  static function all($sql,$args=[]){if(str_contains($sql,'FROM staff_attendance'))return [];throw new LogicException('Unexpected read: '.$sql);}
   static function run($sql,$args=[]){}
   static function insert($sql,$args=[]){self::$insert=$args;return 1;}
 }
@@ -19,12 +20,14 @@ function _zone_leave_requirement_storage(){}
 function _req_approver($uid){return 99;}
 function _leave_blocked_in_range($from,$to){return null;}
 function _substitute_availability($id,$from,$to){$GLOBALS['checked_sub']=$id;return ['available'=>true];}
+function _req_policy_date($date){return new DateTimeImmutable('2026-10-22',new DateTimeZone('Asia/Tehran'));}
 function j_to_ts($date){return strtotime('2026-10-22');}
 function route($method,$path,$fn,...$options){$GLOBALS['submit']=$fn;}
 function check($ok,$message){if(!$ok)throw new LogicException($message);}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
 $a=strpos($source,'function _req_leave_substitute_required(');$b=strpos($source,'function _req_policy_date(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,'function _req_substitute_eligible(');$b=strpos($source,'function _req_apply_approval_effects(',$a);eval(substr($source,$a,$b-$a));
+$a=strpos($source,'function _req_reject_attendance_overlap(');$b=strpos($source,'function _req_reject_overlap(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,"route('POST', '/api/my/requests'");$b=strpos($source,"route('GET', '/api/my/requests'",$a);eval(substr($source,$a,$b-$a));
 foreach(range(1,6) as $level){
   $GLOBALS['roleLevel']=$level;
