@@ -101,4 +101,10 @@ ServerSignature Off
   <If "%{REQUEST_URI} =~ m#/(vendor/leaflet|vendor/leaflet-draw|tiles|map-tiles|maps)(/|$)#">
     Header set Cache-Control "public, max-age=2592000, immutable"
   </If>
+  # Public static scripts/styles may be stored and revalidated (304).
+  # HTML, JSON and API rules remain unchanged.
+  <If "%{REQUEST_URI} =~ m#^/assets/[A-Za-z0-9_/-][A-Za-z0-9_./-]*[.](js|mjs|css)$# && -f %{REQUEST_FILENAME}">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+    Header unset Pragma
+  </If>
 </IfModule>
