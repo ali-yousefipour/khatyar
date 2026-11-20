@@ -3470,10 +3470,10 @@ function _work_employment_windows(): array {
 function _work_employment_contains(array $window,string $date): bool {
   return (empty($window['start'])||$date>=$window['start'])&&(empty($window['end'])||$date<=$window['end']);
 }
-function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null) {
-  return WorkReportReadScope::run(static fn()=>_shift_month_report_impl($jy,$jm,$throughJdate,$onlyUserId,$fromJdate,$allowedUserIds));
+function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null, $organization=false) {
+  return WorkReportReadScope::run(static fn()=>_shift_month_report_impl($jy,$jm,$throughJdate,$onlyUserId,$fromJdate,$allowedUserIds,$organization));
 }
-function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null) {
+function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null, $organization=false) {
   // Restricted work review must not calculate every employee before applying filters.
   if ($allowedUserIds !== null && !$allowedUserIds) return [];
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
@@ -3505,7 +3505,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
   if($endJ>$yesterdayJ && ($throughJdate===null || $throughJdate>$yesterdayJ))$throughJdate=$yesterdayJ;
   $lastDay=$firstJ>$yesterdayJ?0:ShiftCalc::monthReportLastDay($jy,$jm,$throughJdate);
   // monthReportLastDay may treat a cutoff before the month as a full month.
-  if($firstJ>$yesterdayJ)$lastDay=0;
+  if($firstJ>$yesterdayJ||($organization&&$throughJdate!==null&&$throughJdate<$firstJ))$lastDay=0;
   $reportNow=time();
   $holidays = array_column(Db::all("SELECT jdate FROM holidays WHERE jdate LIKE ?", [$prefix.'%']), 'jdate');
   $holidaySet = array_flip($holidays);
@@ -3549,6 +3549,16 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
       $shift=_active_user_shift_assignment($reportUid,$probeJ);
       if($shift)break;
     }
+    // Include personnel whose employment/shift begins today or later in the selected
+    // organization month, without inventing actual duty or absence for those days.
+    if(!$shift&&$organization){
+      for($probe=max($firstIncludedDay,$lastDay+1);$probe<=$days;$probe++){
+        $probeJ=$prefix.str_pad($probe,2,'0',STR_PAD_LEFT);
+        if(!_work_employment_contains($employment,$probeJ))continue;
+        $shift=_active_user_shift_assignment($reportUid,$probeJ);
+        if($shift)break;
+      }
+    }
     if(!$shift)continue;
     $dayRows = [];
     if (($shift['type'] ?? '') === 'advanced') {
@@ -3590,6 +3600,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
     }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
     $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
+    if($organization&&$lastDay<$firstIncludedDay)$tot['gps_inactive_minutes']=$tot['internet_inactive_minutes']=0;
     $metricDetails=[];
     $batchRows=$lastDay>=$firstIncludedDay?_work_report_attendance_batch($reportUid,$fromJdate,$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT)):[];
     for ($d=$firstIncludedDay; $d<=$lastDay; $d++) {
@@ -4468,10 +4479,24 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
 }, false, ADMIN);
 
 // خروجی مستقل کارکرد جهت ارسال به سازمان؛ هیچ رکورد تردد یا محاسبه پایه‌ای را تغییر نمی‌دهد.
+// Single Tehran calendar boundary for actual and forecast portions of an organization report.
+function _work_organization_period($jy,$jm,?DateTimeImmutable $now=null): array {
+  $clock=($now??new DateTimeImmutable('now'))->setTimezone(new DateTimeZone('Asia/Tehran'));
+  $prior=$clock->modify('-1 day');
+  [$y,$m,$d]=gregorian_to_jalali((int)$clock->format('Y'),(int)$clock->format('n'),(int)$clock->format('j'));
+  [$py,$pm,$pd]=gregorian_to_jalali((int)$prior->format('Y'),(int)$prior->format('n'),(int)$prior->format('j'));
+  $today=sprintf('%04d-%02d-%02d',$y,$m,$d);
+  $yesterday=sprintf('%04d-%02d-%02d',$py,$pm,$pd);
+  $first=sprintf('%04d-%02d-01',$jy,$jm);
+  $end=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
+  return ['today'=>$today,'actual_end'=>min($end,$yesterday),'first'=>$first,'end'=>$end,'forecast_start'=>max($first,$today)];
+}
 function _work_organization_records($u,$jy,$jm,array $options){
   $final=_final_work_month($jy,$jm);
-  $reuse=$final?null:_work_report_reuse_load($u,$jy,$jm,$options['reuse_token']??null);
-  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):($reuse??_shift_month_report($jy,$jm)));
+  $period=_work_organization_period($jy,$jm);
+  // Organization actuals are always calculated through the explicit completed-day cutoff.
+  // Do not reuse a generic monthly snapshot with an unverified cutoff.
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,null,true));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
@@ -4480,14 +4505,13 @@ function _work_organization_records($u,$jy,$jm,array $options){
   $forecastByUser=[];
   _work_progress_tick(56,'آماده‌سازی پیش‌بینی');
   if($forecastRequested&&!$final){
-    [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
-    $todayJ=sprintf('%04d-%02d-%02d',$cy,$cm,$cd);
-    $firstJ=sprintf('%04d-%02d-01',$jy,$jm);
-    $endJ=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
-    if($firstJ<=$todayJ&&$todayJ<=$endJ){
+    $todayJ=$period['today'];
+    $firstJ=$period['first'];
+    $endJ=$period['end'];
+    if($period['forecast_start']<=$endJ){
       $employmentWindows=_work_employment_windows();
       $monthStartTs=ShiftCalc::jdateToTs($firstJ);
-      $todayTs=ShiftCalc::jdateToTs($todayJ);
+      $todayTs=ShiftCalc::jdateToTs($period['forecast_start']);
       $monthEndTs=ShiftCalc::jdateToTs($endJ);
       // Exclude approved leave dates from the historical average denominator per employee.
       $approved=Db::all("SELECT user_id,from_jdate,to_jdate,the_date,type FROM requests WHERE status='approved' AND type IN ('annual','sick','unpaid') AND ((from_jdate IS NOT NULL AND REPLACE(from_jdate,'/','-') <= ? AND REPLACE(COALESCE(NULLIF(to_jdate,''),from_jdate),'/','-') >= ?) OR (REPLACE(the_date,'/','-') BETWEEN ? AND ?))",[$endJ,$firstJ,$firstJ,$endJ]);
@@ -4502,16 +4526,16 @@ function _work_organization_records($u,$jy,$jm,array $options){
           $leaveByUser[$uid][sprintf('%04d-%02d-%02d',$y,$m,$d)]=true;
         }
       }
-      $forecastDone=0;
+      $forecastDone=0;$actualEnd=$period['actual_end'];
       foreach($rows as $r){
-        WorkReportReadScope::run(static function()use($r,&$forecastByUser,$employmentWindows,$leaveByUser,$monthStartTs,$todayTs,$monthEndTs,$firstJ,$endJ,$includeSurplus,&$forecastDone,$rows){
+        WorkReportReadScope::run(static function()use($r,&$forecastByUser,$employmentWindows,$leaveByUser,$monthStartTs,$todayTs,$monthEndTs,$firstJ,$endJ,$todayJ,$actualEnd,$includeSurplus,&$forecastDone,$rows){
         _work_progress_tick(56+(int)floor(23*$forecastDone/max(1,count($rows))),'محاسبه پیش‌بینی', $forecastDone++,count($rows));
         $uid=(int)($r['user_id']??0);
         if($uid<=0)return;
         // Build the employee-specific average from actual completed prior workdays,
         // not from a calendar-day denominator or monthly totals containing holiday overtime.
         $priorOvertime=0;$workedDays=0;
-        $forecastBatch=_work_report_attendance_batch($uid,$firstJ,$endJ);
+        $forecastBatch=$firstJ<$todayJ?_work_report_attendance_batch($uid,$firstJ,$actualEnd):[];
         for($ts=$monthStartTs;$ts<$todayTs;$ts+=86400){
           [$py,$pm,$pd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $pj=sprintf('%04d-%02d-%02d',$py,$pm,$pd);
@@ -4580,8 +4604,7 @@ function _work_organization_records($u,$jy,$jm,array $options){
         require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
         $first=sprintf('%04d-%02d-01',$jy,$jm);
         $last=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
-        $yesterday=ShiftCalc::normJdate(_app_jdate_from_time(date('Y-m-d H:i:s',strtotime('yesterday noon'))));
-        $last=min($last,$yesterday);
+        $last=min($last,$period['actual_end']);
         $count=$last<$first?0:(int)substr($last,8,2);
         $retry=$count?WorkReportReadScope::totals(static fn()=>attendance_report_owned_by_entry_date((int)$r['user_id'],$first,$last,true,true)):['days'=>[]];
       }
@@ -4610,7 +4633,8 @@ function _work_organization_records($u,$jy,$jm,array $options){
   }
   return ['records'=>$records,'finalized'=>(bool)$final,'forecast_remaining'=>$forecastRequested,'include_surplus'=>$includeSurplus];
 }
-require_once __DIR__.'/work_report_template_routes.php';
+// Optional module must not take unrelated authentication/settings routes offline during deployment.
+if(is_file(__DIR__.'/work_report_template_routes.php')&&is_file(__DIR__.'/WorkReportTemplateRepository.php')&&is_file(__DIR__.'/WorkReportTemplateParser.php')&&is_file(__DIR__.'/WorkReportTemplateArchive.php')&&is_file(__DIR__.'/OrganizationWorkPlacement.php')&&is_file(__DIR__.'/WorkReportSnapshot.php')&&is_file(__DIR__.'/WorkReportTemplateExporter.php'))require_once __DIR__.'/work_report_template_routes.php';
 route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);

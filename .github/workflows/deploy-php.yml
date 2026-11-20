@@ -56,6 +56,7 @@ jobs:
           php -l lib/Http.php
           php -l app/index.php
           php tests/attendance_peak_load_guard_test.php
+          php tests/work_report_organization_cutoff_test.php
           php -l lib/WorkReportReadScope.php
           php -l lib/routes.php
           php -l lib/DashboardDiscipline.php
