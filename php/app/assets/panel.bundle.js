@@ -3068,7 +3068,7 @@ function Users() {
                     React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
                     React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645\u0627\u062A"))),
             React.createElement("tbody", null, pg.slice.map(u => React.createElement("tr", { key: u.id },
-                React.createElement("td", null, u.photo ? React.createElement("img", { className: "users-avatar", src: u.photo, alt: "تصویر " + (u.first_name || "") + " " + (u.last_name || "") }) : React.createElement("span", { className: "pf2 users-avatar-fallback" }, (u.first_name || "؟")[0])),
+                React.createElement("td", null, u.photo ? React.createElement("img", { loading: "lazy", decoding: "async", className: "users-avatar", src: u.photo, alt: "تصویر " + (u.first_name || "") + " " + (u.last_name || "") }) : React.createElement("span", { className: "pf2 users-avatar-fallback" }, (u.first_name || "؟")[0])),
                 React.createElement("td", null,
                     React.createElement("strong", { className: "users-person-name" },
                         u.first_name,
@@ -9772,7 +9772,7 @@ function LineLocationsPanel() {
                         types ? React.createElement(React.Fragment, null,
                             React.createElement("br", null),
                             React.createElement("small", null, types)) : null),
-                    React.createElement("td", null, x.location_photo_url ? React.createElement("img", { src: authImg(x.location_photo_url), style: { width: 72, height: 54, objectFit: 'cover', borderRadius: 7 } }) : '—')));
+                    React.createElement("td", null, x.location_photo_url ? React.createElement("img", { loading: "lazy", decoding: "async", src: authImg(x.location_photo_url), style: { width: 72, height: 54, objectFit: 'cover', borderRadius: 7 } }) : '—')));
             })))));
 }
 function LineSignTypesPanel() {
@@ -18082,7 +18082,7 @@ function PlateTrainingPanel() {
                 React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.id },
                     React.createElement("td", null, fa(r.id)),
                     React.createElement("td", null,
-                        r.crop_image ? React.createElement("img", { src: r.crop_image, onClick: () => openMediaUrl(r.crop_image), style: { width: 145, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' } }) : React.createElement("span", { className: "muted" }, "\u0628\u062F\u0648\u0646 \u0628\u0631\u0634"),
+                        r.crop_image ? React.createElement("img", { loading: "lazy", decoding: "async", src: r.crop_image, onClick: () => openMediaUrl(r.crop_image), style: { width: 145, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' } }) : React.createElement("span", { className: "muted" }, "\u0628\u062F\u0648\u0646 \u0628\u0631\u0634"),
                         r.original_image && React.createElement("div", null,
                             React.createElement("button", { className: "btn g", style: { fontSize: 10, padding: '3px 7px', marginTop: 4 }, onClick: () => openMediaUrl(r.original_image) }, "\u062A\u0635\u0648\u06CC\u0631 \u0627\u0635\u0644\u06CC"))),
                     React.createElement("td", null,
@@ -19236,7 +19236,7 @@ function CompanyRequestsAdmin() {
                         React.createElement("pre", { style: { whiteSpace: 'pre-wrap', direction: 'ltr', textAlign: 'left', fontSize: 12 } }, JSON.stringify(detail.form_data || {}, null, 2)))),
                 React.createElement("h3", null, "\u0645\u062F\u0627\u0631\u06A9 \u0627\u0631\u0633\u0627\u0644\u06CC"),
                 React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 } }, (detail.files || []).map(f => React.createElement("a", { key: f.id, href: fileUrl(f), target: "_blank", className: "panel", style: { display: 'block', textDecoration: 'none', color: 'inherit' } },
-                    String(f.mime_type || '').startsWith('image/') ? React.createElement("img", { src: thumbUrl(f), style: { width: '100%', height: 150, objectFit: 'contain', borderRadius: 8, background: '#f5f5f5' } }) : React.createElement("div", { style: { height: 150, display: 'grid', placeItems: 'center', fontSize: 44 } }, "\uD83D\uDCC4"),
+                    String(f.mime_type || '').startsWith('image/') ? React.createElement("img", { loading: "lazy", decoding: "async", src: thumbUrl(f), style: { width: '100%', height: 150, objectFit: 'contain', borderRadius: 8, background: '#f5f5f5' } }) : React.createElement("div", { style: { height: 150, display: 'grid', placeItems: 'center', fontSize: 44 } }, "\uD83D\uDCC4"),
                     React.createElement("b", null, DOC[f.document_type] || f.document_type),
                     React.createElement("div", { className: "muted", style: { fontSize: 11 } },
                         fa(Math.round((f.file_size || 0) / 1024)),
