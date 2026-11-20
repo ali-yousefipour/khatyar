@@ -77,9 +77,7 @@ class Db {
   }
 }
 function _auto_shift_for_user($userId){return ['type'=>'auto','title'=>'automatic','id'=>0];}
-$scopeStart=strpos($source,'final class WorkReportReadScope');
-$scopeEnd=strpos($source,'function _attendance_adjusted_overtime(',$scopeStart);
-if($scopeStart!==false&&$scopeEnd!==false)eval(substr($source,$scopeStart,$scopeEnd-$scopeStart));
+require_once __DIR__.'/../lib/WorkReportReadScope.php';
 $start=strpos($source,'function _active_user_shift_assignment(');
 $end=strpos($source,'function _shift_day_row(',$start);
 eval(substr($source,$start,$end-$start));

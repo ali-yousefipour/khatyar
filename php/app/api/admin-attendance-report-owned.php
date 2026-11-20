@@ -36,6 +36,7 @@ function attendance_punch_provenance(int $uid,array $ids): array {
   }catch(Throwable $e){error_log('attendance admin provenance unavailable: '.$e->getMessage());}
   return $result;
 }
+require_once dirname(__DIR__,2).'/lib/WorkReportReadScope.php';
 function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false, $includeTelemetry=true) {
   if(!function_exists('_attendance_report'))require_once dirname(__DIR__,2).'/lib/routes.php';
   return WorkReportReadScope::run(static fn()=>attendance_report_owned_by_entry_date_impl($userId,$from,$to,$liveOnly,$includeTelemetry));
@@ -87,7 +88,7 @@ function attendance_report_owned_by_entry_date_impl($userId, $from, $to, $liveOn
     if (($employmentStart && strcmp($j,$employmentStart)<0) || ($employmentEnd && strcmp($j,$employmentEnd)>0)) {
       $day['outside_employment_period']=true;
       foreach (array_merge($metricKeys,['absence_shortage','annual_leave','sick_leave','unpaid_leave','mission']) as $field) $day[$field]='00:00';
-      foreach (['annual_leave_minutes','sick_leave_minutes','unpaid_leave_minutes','mission_minutes','gps_inactive_minutes','internet_inactive_minutes','absent'] as $field) $day[$field]=0;
+      foreach (['annual_leave_minutes','sick_leave_minutes','unpaid_leave_minutes','mission_minutes','gps_inactive_minutes','internet_inactive_minutes','device_off_union_minutes','absent'] as $field) $day[$field]=0;
       $day['gps_inactive_details']=[];
       $day['internet_inactive_details']=[];
       if (isset($day['data']) && is_array($day['data'])) $day['data']=array_fill_keys($metricKeys,0);

@@ -3211,19 +3211,7 @@ function _auto_shift_for_user($userId){
     'allow_offday'=>1
   ];
 }
-final class WorkReportReadScope {
-  private static int $depth=0;
-  private static array $values=[];
-  public static function run(callable $fn){
-    self::$depth++;
-    try{return $fn();}finally{if(--self::$depth===0)self::$values=[];}
-  }
-  public static function remember(string $key,callable $fn){
-    if(!self::$depth)return $fn();
-    if(!array_key_exists($key,self::$values))self::$values[$key]=$fn();
-    return self::$values[$key];
-  }
-}
+require_once __DIR__.'/WorkReportReadScope.php';
 function _attendance_adjusted_overtime($userId,$jdate){
   return WorkReportReadScope::remember('ot:'.(int)$userId.':'.str_replace('/','-',$jdate),
     static fn()=>_attendance_adjusted_overtime_uncached($userId,$jdate));
@@ -4494,7 +4482,28 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
       if($reconciled===null)Http::error('اطلاعات روزانه کارکرد نهایی‌شده برای محاسبه مطمئن کسورات کافی نیست؛ ابتدا سوابق را بررسی کنید.',409);
       foreach(['shortage','absent_min','device_off_union_minutes'] as $field)$r[$field]=$reconciled[$field];
     }
-    if(!array_key_exists('device_off_union_minutes',$r))Http::error('محاسبه کسورات امنیتی کامل نشده است؛ گزارش را مجدداً تهیه کنید.',503);
+    if(!array_key_exists('device_off_union_minutes',$r)){
+      // A failed monthly reconciliation must not silently zero deductions.
+      // Retry only the affected employee from the canonical daily report.
+      if($final){
+        $retry=$daily[(int)$r['user_id']]??[];
+        $count=ShiftCalc::jMonthDays($jy,$jm);
+      }else{
+        require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+        $first=sprintf('%04d-%02d-01',$jy,$jm);
+        $last=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
+        $yesterday=ShiftCalc::normJdate(_app_jdate_from_time(date('Y-m-d H:i:s',strtotime('yesterday noon'))));
+        $last=min($last,$yesterday);
+        $count=$last<$first?0:(int)substr($last,8,2);
+        $retry=$count?attendance_report_owned_by_entry_date((int)$r['user_id'],$first,$last,true,true):['days'=>[]];
+      }
+      $verified=_work_month_daily_attendance_totals($retry,$count);
+      if($verified===null){
+        error_log('organization export incomplete reconciliation user='.(int)$r['user_id'].' month='.$jy.'-'.$jm);
+        Http::error('محاسبه کسورات کاربر شماره '.(int)$r['user_id'].' کامل نشده است. سوابق تردد این کاربر را بررسی کنید.',409);
+      }
+      foreach(['shortage','absent_min','device_off_union_minutes'] as $field)$r[$field]=$verified[$field];
+    }
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
     $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0,'sample_days'=>0];
     $settlement=_work_organization_settlement($r,$forecast,$includeSurplus);
