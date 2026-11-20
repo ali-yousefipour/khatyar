@@ -2253,15 +2253,16 @@ function DriverPortraitThumbnail({url,name}){
   useEffect(()=>{
     if(!visible||!url)return;
     let active=true,objectUrl='';
+    const controller=new AbortController();
     setSrc('');setFailed(false);
-    fetch(url,{headers:tok(),cache:'no-store'})
+    fetch(url,{headers:tok(),cache:'no-store',signal:controller.signal})
       .then(response=>{if(!response.ok)throw Error('photo');return response.blob();})
       .then(blob=>{objectUrl=URL.createObjectURL(blob);if(active)setSrc(objectUrl);else URL.revokeObjectURL(objectUrl);})
       .catch(()=>{if(active)setFailed(true);});
-    return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};
+    return()=>{active=false;controller.abort();if(objectUrl)URL.revokeObjectURL(objectUrl);};
   },[url,visible]);
   return <div ref={holder} style={{width:64,height:82,border:'1px solid var(--line)',borderRadius:10,overflow:'hidden',background:'var(--surface,#f3f6f5)',display:'flex',alignItems:'center',justifyContent:'center',margin:'auto'}}>
-    {src?<img src={src} alt={'تصویر پرسنلی '+name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span className="muted" style={{fontSize:10,textAlign:'center',padding:4}}>{failed?'تصویر در دسترس نیست':'در حال بارگذاری…'}</span>}
+    {src?<img loading="lazy" decoding="async" src={src} alt={'تصویر پرسنلی '+name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span className="muted" style={{fontSize:10,textAlign:'center',padding:4}}>{failed?'تصویر در دسترس نیست':'در حال بارگذاری…'}</span>}
   </div>;
 }
 
@@ -5474,24 +5475,36 @@ function authImg(url){
 }
 // عکس حساب: توکن دسترسی نباید در URL تصویر، تاریخچه یا گزارش‌های HTTP قرار گیرد.
 function AuthenticatedAvatar({url,name}){
+  const holder=useRef(null);
+  const [visible,setVisible]=useState(false);
   const [src,setSrc]=useState('');
   useEffect(()=>{
+    const node=holder.current;
+    if(!node)return;
+    if(!('IntersectionObserver' in window)){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}
+    },{rootMargin:'160px'});
+    observer.observe(node);
+    return()=>observer.disconnect();
+  },[]);
+  useEffect(()=>{
     let live=true,objectUrl='';
+    const controller=new AbortController();
     setSrc('');
-    if(!url)return()=>{live=false};
+    if(!visible||!url)return;
     const raw=String(url);
-    if(!/^\/?api\/media(?:\?|$)/.test(raw.replace(/^\//,''))){setSrc(raw);return()=>{live=false};}
+    if(!/^\/?api\/media(?:\?|$)/.test(raw.replace(/^\//,''))){setSrc(raw);return;}
     const mediaUrl=new URL(raw,window.location.origin);
-    // پاک‌سازی URLهای قدیمی که token را یک یا دو بار در Query داشته‌اند.
     mediaUrl.searchParams.delete('token');
     mediaUrl.searchParams.delete('access_token');
-    fetch(mediaUrl.toString(),{headers:tok(),cache:'no-store'})
+    fetch(mediaUrl.toString(),{headers:tok(),cache:'no-store',signal:controller.signal})
       .then(r=>{if(!r.ok)throw new Error('عکس در دسترس نیست');return r.blob();})
       .then(blob=>{if(!live)return;objectUrl=URL.createObjectURL(blob);setSrc(objectUrl);})
       .catch(()=>{if(live)setSrc('');});
-    return()=>{live=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};
-  },[url]);
-  return src?<img src={src} alt={'تصویر '+(name||'کاربر')} onError={()=>setSrc('')}/>:<span className="av-fallback">{(name||'؟')[0]}</span>;
+    return()=>{live=false;controller.abort();if(objectUrl)URL.revokeObjectURL(objectUrl);};
+  },[url,visible]);
+  return src?<img loading="lazy" decoding="async" src={src} alt={'تصویر '+(name||'کاربر')} onError={()=>setSrc('')}/>:<span ref={holder} className="av-fallback">{(name||'؟')[0]}</span>;
 }
 function validCoord(lat,lon){ lat=Number(lat); lon=Number(lon); return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180; }
 
