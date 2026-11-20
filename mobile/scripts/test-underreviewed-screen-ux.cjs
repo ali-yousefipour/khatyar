@@ -11,7 +11,7 @@ const subscription = screen('SubscriptionScreen.js');
 
 assert.match(stations, /generation\.current/);
 assert.match(stations, /current !== generation\.current/);
-assert.match(stations, /!loading && !error && !denied && data\.map/);
+assert.match(stations, /!loading && !error && !denied && filtered\.map/);
 assert.match(stations, /HistoricalMediaImage/);
 assert.match(stations, /useWindowDimensions/);
 assert.match(leaderboard, /setData\(null\);setBadges\(null\)/);

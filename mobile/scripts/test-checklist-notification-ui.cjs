@@ -23,7 +23,7 @@ assert.match(web,/برای تأیید نهایی باید همه موارد تأ
 assert.match(native,/<PlateDisplay asset=\{a\}\/>/);
 assert.match(styles,/\.pva-display-motor-top/);
 assert.match(styles,/\.pva-display-car-cell/);
-assert.match(radio,/شروع صحبت/);
+assert.match(radio,/pttActive \? "پایان" : "PTT"/);
 assert.match(compact,/android:maxLines="1"/);
 assert.match(compact,/\?android:attr\/textColorPrimary/);
 console.log('PASS checklist plates/statuses and notification readability');

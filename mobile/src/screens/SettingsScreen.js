@@ -20,7 +20,7 @@ const ITEMS = [
 const SETTINGS_GROUPS = [
   { title: 'نمایش و موقعیت‌یابی', subtitle: 'نقشه و اطلاعات موردنیاز برای کار در مسیر', keys: ['map-settings', 'import-times'] },
   { title: 'اعلان‌ها و هشدارها', subtitle: 'مدیریت هشدارهای عملیاتی و یادآوری‌ها', keys: ['field-alerts', 'expiry-settings'] },
-  { title: 'امنیت و نگهداری', subtitle: 'حفاظت از برنامه و گزارش مشکلات', keys: ['app-lock', 'crash-reports'] },
+  { title: 'امنیت و نگهداری', subtitle: 'حفاظت از برنامه و گزارش مشکلات', keys: ['app-lock', 'crash-reports', 'check-update'] },
   { title: 'درباره خطیار', subtitle: 'حریم خصوصی و اطلاعات سازنده', keys: ['privacy-policy', 'about-app'] },
 ];
 

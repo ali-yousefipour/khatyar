@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Install locked mobile dependencies for Babel and runtime tests
         working-directory: mobile
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
       - name: Run mobile regression scripts independently
         shell: bash
         run: |

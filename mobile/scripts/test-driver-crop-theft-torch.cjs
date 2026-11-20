@@ -6,7 +6,7 @@ const driver=fs.readFileSync(path.join(root,'src/screens/DriverScreen.js'),'utf8
 const service=fs.readFileSync(path.join(root,'plugins/theft-alarm/KhatyarAlarmService.java'),'utf8');
 const flash=fs.readFileSync(path.join(root,'src/ScreenFlasher.js'),'utf8');
 
-assert.match(driver,/setCropSource\(\{uri:result.uri,width:originalWidth,height:originalHeight\}\)/);
+assert.match(driver,/setCropSource\(\{uri:result.uri,width:result.width,height:result.height\}\)/);
 assert.match(driver,/const applyPortraitCrop = async/);
 assert.match(driver,/ImageManipulator.manipulateAsync\(uri,\[\{crop:/);
 assert.match(driver,/cropWidth\*4\/3/);

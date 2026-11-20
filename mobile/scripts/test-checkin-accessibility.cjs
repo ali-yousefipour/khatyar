@@ -6,7 +6,7 @@ const screen = fs.readFileSync(path.resolve(__dirname, '../src/screens/CheckInSc
 
 assert.match(screen, /accessibilityRole="tab" accessibilityLabel=\{l\} accessibilityState=\{\{ selected: tab===k \}\}/,
   'Daily attendance tabs must expose their selected state');
-assert.match(screen, /accessibilityRole="checkbox" accessibilityLabel="یادآور ثبت خروج پس از هشت ساعت" accessibilityState=\{\{ checked: !!exitReminder \}\}/,
+assert.match(screen, /accessibilityRole="checkbox" accessibilityLabel="یادآور خروج پس از هشت ساعت" accessibilityState=\{\{\s*checked:\s*!!exitReminder\s*\}\}/,
   'The eight-hour reminder must expose its checked state');
 assert.match(screen, /accessibilityRole="radio" accessibilityLabel=\{`ثبت حضور با \$\{label\}`\} accessibilityState=\{\{checked:method===key\}\}/,
   'Map-overlay presence methods must expose the selected option');

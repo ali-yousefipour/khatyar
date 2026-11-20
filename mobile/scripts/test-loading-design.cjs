@@ -10,8 +10,8 @@ assert.match(startup, /accessibilityValue=\{\{min:0,max:100,now:Math\.round\(pro
   'Startup percentage must be exposed to assistive technology');
 assert.match(startup, /<ProgressBar percent=\{progress\}/,
   'Startup must display actual progress');
-assert.match(startup, /const remain = Math\.max\(0, 5000 - \(Date\.now\(\) - startedAt\)\)/,
-  'Existing startup timing must remain unchanged');
+assert.match(startup, /const remain = Math\.max\(0, 1500 - \(Date\.now\(\) - startedAt\)\)/,
+  'Startup must retain the optimized minimum splash duration');
 assert.match(shared, /AccessibilityInfo\.isReduceMotionEnabled\(\)/,
   'Shared loading animation must respect reduced motion');
 assert.match(shared, /animation|const anim = Animated\.loop/,

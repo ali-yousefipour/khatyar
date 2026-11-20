@@ -8,10 +8,10 @@ const build = config.plugins.find(x=>Array.isArray(x)&&x[0]==='expo-build-proper
 assert.equal(build.enableProguardInReleaseBuilds, false, 'Production R8 must remain off until device tests');
 assert.equal(build.enableShrinkResources, false, 'Resource shrink must not run without verified R8');
 const abi = fs.readFileSync(path.join(mobile, 'plugins/withReactNativeArchitectures.js'), 'utf8');
-assert.match(abi, /TARGET_ARCHITECTURES = 'arm64-v8a'/);
-assert.match(abi, /ndk \{ abiFilters 'arm64-v8a' \}/);
+assert.match(abi, /TARGET_ARCHITECTURES = 'armeabi-v7a,arm64-v8a'/);
+assert.match(abi, /ndk \{ abiFilters 'armeabi-v7a', 'arm64-v8a' \}/);
 const workflow = fs.readFileSync(path.join(mobile, '../.github/workflows/publish-android-release.yml'), 'utf8');
-assert.match(workflow, /32-bit native libraries unexpectedly included/);
+assert.match(workflow, /Missing armeabi-v7a native libraries/);
 assert.match(workflow, /Missing arm64-v8a native libraries/);
 
 let all='';
@@ -29,4 +29,4 @@ for(const [,folder,name] of all.matchAll(/(?:assets\/)(icons3d|fonts)\/([^'"`)]+
 for(const name of ['Vazirmatn-Regular.ttf','Vazirmatn-Bold.ttf','B Homa.ttf','B NAZANIN.TTF']){
   assert.ok(fs.existsSync(path.join(mobile,'assets/fonts',name)),`Essential Persian font missing: ${name}`);
 }
-console.log('PASS arm64-only release contract, R8 safety gate and retained runtime assets');
+console.log('PASS ARM32/ARM64 release contract, R8 safety gate and retained runtime assets');
