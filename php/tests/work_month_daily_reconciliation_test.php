@@ -88,7 +88,10 @@ eq('Absence does not double-charge shortage',0,_work_month_net_shortage([
   'expected'=>453,'in_shift'=>0,'shortage'=>0,'absent_min'=>453
 ],[]));
 $result=_work_organization_settlement(['regular_overtime'=>1200,'mission_min'=>600,'shortage'=>120,'absent_min'=>60,'device_off_union_minutes'=>60,'friday'=>960,'holiday'=>480],[],false);
-eq('Export subtracts shortage absence and union once, adds mission once',1560,$result['net']);
+eq('Export subtracts real shortage and absence only, security is informational',1620,$result['net']);
+eq('Security evidence retained',60,$result['device']);
+$securityOnly=_work_organization_settlement(['regular_overtime'=>1200,'device_off_union_minutes'=>180,'gps_inactive_minutes'=>60,'internet_inactive_minutes'=>120],[],false);
+eq('Security alone never reduces overtime',1200,$securityOnly['net']);
 $result=_work_organization_settlement(['regular_overtime'=>1200,'monthly_ot_cap'=>600,'mission_min'=>60,'shortage'=>30],['overtime'=>100],false);
 eq('Monthly cap applied to regular overtime and forecast only',630,$result['net']);
 $result=_work_organization_settlement(['regular_overtime'=>27,'shortage'=>27],[],false);

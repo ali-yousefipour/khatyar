@@ -26,6 +26,8 @@ class XlsxWriter {
   private $decimalCols = [];
   private $rowHeights = [];
   private $fontName = 'Tahoma';
+  private $organizationNoteStyle = false;
+  function setOrganizationNoteStyle() { $this->organizationNoteStyle = true; }
 
   function __construct(array $headers) { $this->headers = array_values($headers); }
 
@@ -251,12 +253,20 @@ class XlsxWriter {
       $notes=''; $vml=''; $shape=1024;
       foreach ($this->comments as $ri=>$cells) foreach($cells as $ci=>$body){
         $ref=self::colLetter($ci).($ri+$headerRow+1);
+        if($this->organizationNoteStyle)$body=strtr($body,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
         $notes.='<comment ref="'.$ref.'" authorId="0"><text><t xml:space="preserve">'.self::xmlEsc($body).'</t></text></comment>';
         $shape++;
         // Compact note boxes: keep a readable fixed width and size height to the explanation lines.
         $noteLines=substr_count((string)$body,"\\n")+1;
         $noteHeight=min(360,max(110,24*$noteLines+36));
-        $vml.='<v:shape id="_x0000_s'.$shape.'" type="#_x0000_t202" style="position:absolute;visibility:hidden;width:300pt;height:'.$noteHeight.'pt;z-index:1" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:left"/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:AutoFill>False</x:AutoFill><x:Row>'.($ri+$headerRow).'</x:Row><x:Column>'.$ci.'</x:Column></x:ClientData></v:shape>';
+        $noteWidth=300;
+        if($this->organizationNoteStyle){
+          $noteWidth=420;
+          $wrapped=0;
+          foreach(explode("\n",$body) as $line)$wrapped+=max(1,(int)ceil(mb_strlen($line,'UTF-8')/48));
+          $noteHeight=min(570,max(135,20*$wrapped+30));
+        }
+        $vml.='<v:shape id="_x0000_s'.$shape.'" type="#_x0000_t202" style="position:absolute;visibility:hidden;width:'.$noteWidth.'pt;height:'.$noteHeight.'pt;z-index:1" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:'.($this->organizationNoteStyle?'right;direction:rtl':'left').'"/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:AutoFill>False</x:AutoFill><x:Row>'.($ri+$headerRow).'</x:Row><x:Column>'.$ci.'</x:Column></x:ClientData></v:shape>';
       }
       $zip->addFromString('xl/comments1.xml','<?xml version="1.0" encoding="UTF-8"?><comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><authors><author>خطیار</author></authors><commentList>'.$notes.'</commentList></comments>');
       $zip->addFromString('xl/drawings/comments.vml','<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>'.$vml.'</xml>');
