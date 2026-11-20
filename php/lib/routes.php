@@ -3328,30 +3328,31 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false,$includeT
 }
 
 /**
- * Monthly attendance totals must be derived from the identical day records
- * displayed by the attendance detail endpoint. In particular, a day with no
- * punch counts toward absence, not simultaneously toward shortage.
- * Returns null when the canonical report cannot provide a complete day range.
- */
-/**
- * Monthly net shortage is the uncovered remaining duty after crediting
- * eligible in-shift presence, approved leave/mission and separately-reported
- * absence. This caps (never increases) the sum of daily shortages.
- * Day-level late/early/GPS evidence remains in attendance detail.
- */
-/**
- * Monthly net shortage credits only approved leave/mission minutes that
- * actually cover an uncovered scheduled duty on their own date. Never subtract
- * mission minutes: mission is independent of shortage in these reports.
- * Existing daily shortage is an upper bound; absence is accounted separately.
+ * Daily shortage has already been reduced by eligible same-day leave.
+ * Do not credit extra presence from other dates again: the organization
+ * export subtracts shortage from the payable overtime exactly once.
+ * Absence is collected in its own independent bucket.
  */
 function _work_month_net_shortage(array $tot, array $requestMinutes=[]): int {
-  $expected=max(0,(int)($tot['expected']??0));
-  $inShift=max(0,(int)($tot['presence_for_shortage']??$tot['worked']??$tot['in_shift']??0));
-  $absence=max(0,(int)($tot['absent_min']??0));
-  $credits=max(0,(int)($tot['credited_exemption']??0));
-  $uncovered=max(0,$expected-$inShift-$absence-$credits);
-  return min(max(0,(int)($tot['shortage']??0)),$uncovered);
+  return max(0,(int)($tot['shortage']??0));
+}
+
+/** Pure export settlement; all inputs are minutes, not decimal hours. */
+function _work_organization_settlement(array $row,array $forecast,bool $includeSurplus): array {
+  $gross=max(0,(int)($row['regular_overtime']??$row['overtime']??0));
+  $cap=max(0,(int)($row['monthly_ot_cap']??0));
+  if(($row['shift_type']??'')==='auto')$cap=0;
+  $o=$cap>0?min($gross,$cap):$gross;
+  $mission=max(0,(int)($row['mission_min']??0));
+  $short=max(0,(int)($row['shortage']??0));
+  $absence=max(0,(int)($row['absent_min']??0));
+  $device=max(0,(int)($row['device_off_union_minutes']??0));
+  $surplusIncluded=$includeSurplus?max(0,(int)($row['surplus']??0)):0;
+  $forecastOt=max(0,(int)($forecast['overtime']??0));
+  // Apply any monthly regular-overtime cap to actual plus forecast, not mission/off-day work.
+  if($cap>0)$forecastOt=min($forecastOt,max(0,$cap-$o));
+  $net=$o+$surplusIncluded+$mission-$short-$absence-$device+$forecastOt;
+  return compact('gross','o','mission','short','absence','device','surplusIncluded','forecastOt','net');
 }
 
 function _work_month_daily_attendance_totals(array $report, int $lastDay): ?array {
@@ -3363,7 +3364,7 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     return ctype_digit($value) ? (int)$value : 0;
   };
   $tot=['expected'=>0,'in_shift'=>0,'presence_for_shortage'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0,
-    'gps_inactive_minutes'=>0,'internet_inactive_minutes'=>0];
+    'gps_inactive_minutes'=>0,'internet_inactive_minutes'=>0,'device_off_union_minutes'=>0];
   $seen=[];
   foreach ($report['days'] as $day) {
     if (!is_array($day)) return null;
@@ -3373,6 +3374,14 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     if (!empty($day['is_future']) || !empty($day['outside_employment_period'])) continue;
     $tot['gps_inactive_minutes'] += $parse($day['gps_inactive_minutes']??0);
     $tot['internet_inactive_minutes'] += $parse($day['internet_inactive_minutes']??0);
+    if(array_key_exists('device_off_union_minutes',$day)){
+      $tot['device_off_union_minutes'] += $parse($day['device_off_union_minutes']);
+    } elseif(!empty($day['gps_inactive_details'])||!empty($day['internet_inactive_details'])){
+      $tot['device_off_union_minutes'] += work_device_off_union_minutes($day['gps_inactive_details']??[],$day['internet_inactive_details']??[]);
+    } elseif($parse($day['gps_inactive_minutes']??0)>0 || $parse($day['internet_inactive_minutes']??0)>0){
+      // Never silently double-count or discard legacy deductions without interval evidence.
+      return null;
+    }
     $expected=$parse($day['expected']??0);
     $inShift=$parse($day['in_shift']??0);
     // Raw presence is the shortage basis; preserve actual within-shift minutes for display.
@@ -3606,9 +3615,10 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
         error_log('monthly work daily reconciliation failed for user '.$reportUid.': '.$reconciliationError->getMessage());
       }
     }
-    // Net monthly settlement: extra eligible presence on other dates covers
-    // short daily windows; recorded absences stay in their own column.
+    // Preserve daily shortages until export; absence remains a separate bucket.
     $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
+    if(work_deduction_security_exempt($reportUid))$tot['device_off_union_minutes']=0;
+    $tot['settlement_policy_version']=2;
     unset($tot['credited_exemption'],$tot['presence_for_shortage']);
     // Keep regular overtime and Friday/holiday work as disjoint minute buckets.
     // The monthly visible overtime is their sum, matching daily total_overtime.
@@ -4431,17 +4441,25 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
   $i=0;foreach($rows as $r){
     $person=_work_organization_person($r,$byId,$daily);
-    $o=(int)($r['regular_overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
+    // Reconcile legacy frozen months only from their immutable daily evidence.
+    // Never update the stored snapshot or consult current exemption settings for it.
+    if($final && (int)($r['settlement_policy_version']??0)<2){
+      $frozen=$daily[(int)$r['user_id']]??[];
+      $reconciled=_work_month_daily_attendance_totals($frozen,ShiftCalc::jMonthDays($jy,$jm));
+      if($reconciled===null)Http::error('اطلاعات روزانه کارکرد نهایی‌شده برای محاسبه مطمئن کسورات کافی نیست؛ ابتدا سوابق را بررسی کنید.',409);
+      foreach(['shortage','absent_min','device_off_union_minutes'] as $field)$r[$field]=$reconciled[$field];
+    }
+    if(!array_key_exists('device_off_union_minutes',$r))Http::error('محاسبه کسورات امنیتی کامل نشده است؛ گزارش را مجدداً تهیه کنید.',503);
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
     $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0,'sample_days'=>0];
-    $surplusIncluded=$includeSurplus?max(0,(int)($r['surplus']??0)):0;
-    $net=$o+$surplusIncluded+$mission-$short+(int)$forecast['overtime'];
+    $settlement=_work_organization_settlement($r,$forecast,$includeSurplus);
+    extract($settlement,EXTR_SKIP);
     $hol+=(int)$forecast['holiday'];
     $fri+=(int)($forecast['friday']??0);
     $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
     $xw->setComment($row,7,'جمعه‌کاری قطعی: '.$hm((int)($r['friday']??0)).' ساعت؛ پیش‌بینی: '.$hm($forecast['friday']??0).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.');
     $xw->setComment($row,8,'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.');
-    $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی: '.$hm($forecast['overtime']).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
+    $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
   }
   $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
 },false,ADMIN);

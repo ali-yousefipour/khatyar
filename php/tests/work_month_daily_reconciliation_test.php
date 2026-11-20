@@ -20,9 +20,12 @@ eq('monthly within-shift',600,$tot['in_shift']);
 $report['days'][0]['gps_inactive_minutes']='00:30';
 $report['days'][1]['gps_inactive_minutes']='۰۱:۱۵';
 $report['days'][1]['internet_inactive_minutes']='00:20';
+$report['days'][0]['device_off_union_minutes']='00:30';
+$report['days'][1]['device_off_union_minutes']='01:15';
 $deductions=_work_month_daily_attendance_totals($report,3);
 eq('GPS and inactive application minutes sum across selected days',105,$deductions['gps_inactive_minutes']);
 eq('Internet deduction minutes remain a separate column',20,$deductions['internet_inactive_minutes']);
+eq('Overlapping security deductions are counted once',105,$deductions['device_off_union_minutes']);
 if (!str_contains($source, 'if ($allowedUserIds !== null && !isset($allowedUserIds[$reportUid])) continue;'))
   throw new RuntimeException('Work review must apply user filters before expensive daily calculations');
 // Regression matching the reported 110:00 / 107:58 / 02:02 discrepancy:
@@ -53,24 +56,13 @@ $end=strpos($code,'function _work_month_daily_attendance_totals(', $start);
 if ($start===false || $end===false) throw new RuntimeException('Monthly net settlement helper missing');
 eval(substr($code,$start,$end-$start));
 $mins=static function($hm){[$h,$m]=array_map('intval',explode(':',$hm));return $h*60+$m;};
-eq('Ali 110 duty 110 shift must have zero shortage',0,_work_month_net_shortage([
-  'expected'=>$mins('110:00'),'in_shift'=>$mins('110:00'),'shortage'=>$mins('02:02'),'absent_min'=>0
-],[]));
-eq('Mehdi Sharifi 175:30 shift vs 166:06 duty',0,_work_month_net_shortage([
-  'expected'=>$mins('166:06'),'in_shift'=>$mins('175:30'),'shortage'=>$mins('06:31'),'absent_min'=>0
-],['annual_min'=>$mins('08:00')]));
-eq('Masoud absence is counted only once',0,_work_month_net_shortage([
-  'expected'=>$mins('166:06'),'in_shift'=>$mins('175:58'),'shortage'=>$mins('12:50'),'absent_min'=>$mins('07:33')
-],['annual_min'=>$mins('08:00')]));
-eq('Mohammad authorized leave covers short shift',0,_work_month_net_shortage([
-  'expected'=>$mins('166:06'),'in_shift'=>$mins('130:36'),'shortage'=>$mins('06:20'),'absent_min'=>0,'credited_exemption'=>$mins('35:30')
-],['annual_min'=>$mins('56:00')]));
-// Amir Mohammadian: full monthly mission is NOT a blanket credit.
-$amir=['expected'=>$mins('166:06'),'in_shift'=>$mins('149:48'),
-  'shortage'=>$mins('06:10'),'absent_min'=>0,
-  'credited_exemption'=>$mins('16:00')];
-eq('Amir: 16h leave leaves 18m uncovered despite 29:30 mission total',18,
-  _work_month_net_shortage($amir,['annual_min'=>$mins('16:00'),'mission_min'=>$mins('29:30')]));
+eq('Other-day presence cannot erase earned overtime deduction',27,_work_month_net_shortage([
+ 'expected'=>906,'worked'=>906,'shortage'=>27,'absent_min'=>0
+]));
+eq('Daily shortage already excludes absence',80,_work_month_net_shortage([
+ 'expected'=>906,'worked'=>373,'shortage'=>80,'absent_min'=>453
+]));
+eq('Mission cannot cover shortage',18,_work_month_net_shortage(['shortage'=>18],['mission_min'=>1770]));
 $missionDays=['days'=>[
  ['jdate'=>'1405/07/01','expected'=>'07:33','in_shift'=>'07:33','shortage'=>'00:00',
   'mission'=>'12:00','punches'=>[['id'=>1]]],
@@ -85,13 +77,20 @@ $dated=_work_month_daily_attendance_totals($missionDays,2);
 eq('Same-day mission never offsets shortage',0,$dated['credited_exemption']);
 eq('Shortage stays independent of mission',30,_work_month_net_shortage($dated));
 $missionDays['days'][1]['annual_leave']='00:20';
+$missionDays['days'][1]['shortage']='00:10';
 $dated=_work_month_daily_attendance_totals($missionDays,2);
 eq('Approved leave still covers its own duty gap',20,$dated['credited_exemption']);
 eq('Remaining shortage after approved leave',10,_work_month_net_shortage($dated));
-eq('Genuine uncovered shortage is preserved',40,_work_month_net_shortage([
+eq('Daily shortage is preserved',70,_work_month_net_shortage([
   'expected'=>300,'in_shift'=>260,'shortage'=>70,'absent_min'=>0
 ],[]));
 eq('Absence does not double-charge shortage',0,_work_month_net_shortage([
-  'expected'=>453,'in_shift'=>0,'shortage'=>453,'absent_min'=>453
+  'expected'=>453,'in_shift'=>0,'shortage'=>0,'absent_min'=>453
 ],[]));
+$result=_work_organization_settlement(['regular_overtime'=>1200,'mission_min'=>600,'shortage'=>120,'absent_min'=>60,'device_off_union_minutes'=>60,'friday'=>960,'holiday'=>480],[],false);
+eq('Export subtracts shortage absence and union once, adds mission once',1560,$result['net']);
+$result=_work_organization_settlement(['regular_overtime'=>1200,'monthly_ot_cap'=>600,'mission_min'=>60,'shortage'=>30],['overtime'=>100],false);
+eq('Monthly cap applied to regular overtime and forecast only',630,$result['net']);
+$result=_work_organization_settlement(['regular_overtime'=>27,'shortage'=>27],[],false);
+eq('Equal overtime and shortage settle to zero',0,$result['net']);
 echo "All monthly attendance rollup tests passed.\n";
