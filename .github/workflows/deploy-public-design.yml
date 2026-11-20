@@ -77,6 +77,12 @@ jobs:
         shell: bash
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
+      - name: Restore versioned runtime library cache
+        uses: actions/cache@v4
+        with:
+          path: .vendor-ci-cache
+          key: local-vendor-v1-${{ runner.os }}-${{ hashFiles('.github/scripts/build-local-vendor.py') }}
+
       - name: Publish verified local runtime libraries before pages
         shell: bash
         env:

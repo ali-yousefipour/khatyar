@@ -20,6 +20,12 @@ jobs:
             fi
           done
           echo "PASS: all workflow files define top-level jobs."
+      - name: Check local runtime dependency references
+        run: |
+          bash -n .github/scripts/publish-local-vendor.sh
+          python3 -m py_compile .github/scripts/build-local-vendor.py
+          python3 .github/scripts/check-local-vendor.py
+
       - name: PHP syntax
         run: |
           php -v

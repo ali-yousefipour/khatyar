@@ -278,7 +278,15 @@ jobs:
           command -v lftp
           lftp --version | head -n 1
 
+      - name: Restore versioned runtime library cache
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
+        uses: actions/cache@v4
+        with:
+          path: .vendor-ci-cache
+          key: local-vendor-v1-${{ runner.os }}-${{ hashFiles('.github/scripts/build-local-vendor.py') }}
+
       - name: Publish verified local runtime libraries before pages
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com

@@ -2,7 +2,19 @@
 set -euo pipefail
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-python3 .github/scripts/build-local-vendor.py "$stage"
+cache="$PWD/.vendor-ci-cache"
+if [ ! -f "$cache/.complete" ] || ! (cd "$cache" && sha256sum --quiet -c .manifest); then
+  rm -rf "$cache"
+  python3 .github/scripts/build-local-vendor.py "$stage"
+  mkdir -p "$cache"
+  cp -a "$stage/." "$cache/"
+  (cd "$cache" && find . -type f ! -name .manifest -print0 | sort -z | xargs -0 sha256sum > .manifest)
+  touch "$cache/.complete"
+else
+  echo 'Using verified build cache for pinned runtime dependencies'
+  cp -a "$cache/." "$stage/"
+  rm -f "$stage/.manifest" "$stage/.complete"
+fi
 while IFS= read -r -d '' js; do node --check "$js"; done < <(find "$stage" -name '*.js' -print0)
 test -n "$FTP_USER" && test -n "$FTP_PASS"
 cert="$stage/ftp-cert.pem"
