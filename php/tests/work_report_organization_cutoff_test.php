@@ -1,8 +1,12 @@
 <?php
 require_once __DIR__.'/../lib/ShiftCalc.php';
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
+date_default_timezone_set('Asia/Tehran');
+$calendarStart=strpos($source,'function gregorian_to_jalali(');
+$calendarEnd=strpos($source,'function j_to_ts(',$calendarStart);
+eval(substr($source,$calendarStart,$calendarEnd-$calendarStart));
 $start=strpos($source,'function _work_organization_period(');
-$end=strpos($source,'function _work_organization_records(',$start);
+$end=strpos($source,'function _work_forecast_rows(',$start);
 if($start===false||$end===false)throw new RuntimeException('Period helper missing');
 eval(substr($source,$start,$end-$start));
 function verifyPeriod($a,$b){if($a!==$b)throw new RuntimeException(json_encode([$a,$b]));}
@@ -22,3 +26,7 @@ verifyPeriod($past['actual_end'],$past['end']);
 if($past['forecast_start']<=$past['end'])throw new RuntimeException('Past month must have no forecast');
 verifyPeriod(_work_organization_period($y,$m,$clock->setTimezone(new DateTimeZone('UTC'))),$p);
 echo "PASS organization Tehran cutoff and actual/forecast separation\n";
+
+verifyPeriod(_work_forecast_fraction(480,120),0.75);
+verifyPeriod(_work_forecast_fraction(480,480),0.0);
+verifyPeriod(_work_forecast_fraction(480,0),1.0);

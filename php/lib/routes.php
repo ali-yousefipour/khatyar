@@ -3899,9 +3899,9 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
   _work_progress_start($u,'monthly');
-  $rows=_work_month_rows($jy,$jm);
+  $rows=_work_monthly_display_rows($jy,$jm,($_GET['forecast_remaining']??'1')==='1');
   _work_progress_tick(100,'محاسبه تکمیل شد');
-  return ['year'=>$jy,'month'=>$jm,'rows'=>$rows,'reuse_token'=>_final_work_month($jy,$jm)?null:_work_report_reuse_save($u,$jy,$jm,$rows)];
+  return ['year'=>$jy,'month'=>$jm,'rows'=>$rows,'reuse_token'=>null];
 }, false, ADMIN);
 
 // بررسی کارکرد در گزارش تردد: از همان موتور ماهانه و snapshot ماه نهایی‌شده استفاده می‌کند.
@@ -4441,7 +4441,7 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
-  $rows=_work_month_rows($jy,$jm);
+  $rows=_work_monthly_display_rows($jy,$jm,($_GET['forecast_remaining']??'1')==='1');
   $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
   $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','مازاد حضور','جمعه کاری','تعطیل کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
   $xw=new XlsxWriter($headers);
@@ -4491,20 +4491,13 @@ function _work_organization_period($jy,$jm,?DateTimeImmutable $now=null): array 
   $end=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
   return ['today'=>$today,'actual_end'=>min($end,$yesterday),'first'=>$first,'end'=>$end,'forecast_start'=>max($first,$today)];
 }
-function _work_organization_records($u,$jy,$jm,array $options){
-  $final=_final_work_month($jy,$jm);
-  $period=_work_organization_period($jy,$jm);
-  // Organization actuals are always calculated through the explicit completed-day cutoff.
-  // Do not reuse a generic monthly snapshot with an unverified cutoff.
-  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,null,true));
-  $byId=$final?null:_work_month_people();
-  $daily=$final?_work_snapshot_decode($final['daily_json']):[];
-  // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
-  $forecastRequested=($options['forecast_remaining']??'1')==='1';
-  $includeSurplus=($options['include_surplus']??'0')==='1';
+function _work_forecast_fraction($baseline,$leaveMinutes): float {
+  return max(0.0,min(1.0,1-max(0,(int)$leaveMinutes)/max(1,(float)$baseline)));
+}
+function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $includeSurplus=false): array {
   $forecastByUser=[];
   _work_progress_tick(56,'آماده‌سازی پیش‌بینی');
-  if($forecastRequested&&!$final){
+  if($forecastRequested){
     $todayJ=$period['today'];
     $firstJ=$period['first'];
     $endJ=$period['end'];
@@ -4514,16 +4507,22 @@ function _work_organization_records($u,$jy,$jm,array $options){
       $todayTs=ShiftCalc::jdateToTs($period['forecast_start']);
       $monthEndTs=ShiftCalc::jdateToTs($endJ);
       // Exclude approved leave dates from the historical average denominator per employee.
-      $approved=Db::all("SELECT user_id,from_jdate,to_jdate,the_date,type FROM requests WHERE status='approved' AND type IN ('annual','sick','unpaid') AND ((from_jdate IS NOT NULL AND REPLACE(from_jdate,'/','-') <= ? AND REPLACE(COALESCE(NULLIF(to_jdate,''),from_jdate),'/','-') >= ?) OR (REPLACE(the_date,'/','-') BETWEEN ? AND ?))",[$endJ,$firstJ,$firstJ,$endJ]);
+      $approved=Db::all("SELECT DISTINCT user_id,from_jdate,to_jdate,the_date,type,unit,minutes,from_time,to_time FROM requests WHERE status='approved' AND type IN ('annual','sick','unpaid') AND ((from_jdate IS NOT NULL AND REPLACE(from_jdate,'/','-') <= ? AND REPLACE(COALESCE(NULLIF(to_jdate,''),from_jdate),'/','-') >= ?) OR (REPLACE(the_date,'/','-') BETWEEN ? AND ?))",[$endJ,$firstJ,$firstJ,$endJ]);
       $leaveByUser=[];
       foreach($approved as $leave){
+        $hourly=($leave['unit']??'daily')==='hourly';
         $from=ShiftCalc::normJdate($leave['from_jdate']??'')?:ShiftCalc::normJdate($leave['the_date']??'');
         $to=ShiftCalc::normJdate($leave['to_jdate']??'')?:ShiftCalc::normJdate($leave['the_date']??'')?:$from;
-        if(!$from||!$to)continue;
+        if($hourly){$from=ShiftCalc::normJdate($leave['the_date']??'')?:$from;$to=$from;}
+        if(!$from||!$to||$to<$from)continue;
         $uid=(int)$leave['user_id'];
         for($ts=max($monthStartTs,ShiftCalc::jdateToTs($from));$ts<=min($monthEndTs,ShiftCalc::jdateToTs($to));$ts+=86400){
           [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
-          $leaveByUser[$uid][sprintf('%04d-%02d-%02d',$y,$m,$d)]=true;
+          $key=sprintf('%04d-%02d-%02d',$y,$m,$d);
+          $minutes=$hourly?max(0,(int)($leave['minutes']??0)):480;
+          if($hourly&&$minutes===0){$a=ShiftCalc::hm($leave['from_time']??'');$b=ShiftCalc::hm($leave['to_time']??'');$minutes=$a!==null&&$b!==null?max(0,$b-$a):0;}
+          $old=$leaveByUser[$uid][$key]??['full'=>false,'minutes'=>0];
+          $leaveByUser[$uid][$key]=['full'=>$old['full']||!$hourly,'minutes'=>min(1440,$old['minutes']+$minutes)];
         }
       }
       $forecastDone=0;$actualEnd=$period['actual_end'];
@@ -4534,12 +4533,12 @@ function _work_organization_records($u,$jy,$jm,array $options){
         if($uid<=0)return;
         // Build the employee-specific average from actual completed prior workdays,
         // not from a calendar-day denominator or monthly totals containing holiday overtime.
-        $priorOvertime=0;$workedDays=0;
+        $priorOvertime=0;$workedDays=0;$priorWorked=0;$priorInShift=0;$priorNight=0;$priorSurplus=0;$priorFriday=0;$fridaySamples=0;$priorHoliday=0;$holidaySamples=0;
         $forecastBatch=$firstJ<$todayJ?_work_report_attendance_batch($uid,$firstJ,$actualEnd):[];
         for($ts=$monthStartTs;$ts<$todayTs;$ts+=86400){
           [$py,$pm,$pd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $pj=sprintf('%04d-%02d-%02d',$py,$pm,$pd);
-          if(!_work_employment_contains($employmentWindows[$uid]??[],$pj)||isset($leaveByUser[$uid][$pj])||(int)date('w',$ts)===5||ShiftCalc::effectiveHoliday($pj))continue;
+          if(!_work_employment_contains($employmentWindows[$uid]??[],$pj)||!empty($leaveByUser[$uid][$pj]['full']))continue;
           $dayShift=_active_user_shift_assignment($uid,$pj);
           if(!$dayShift)continue;
           $dr=(($dayShift['type']??'')==='advanced')?_shift_day_row($dayShift['shift_id']??$dayShift['id'],$pj):null;
@@ -4552,32 +4551,87 @@ function _work_organization_records($u,$jy,$jm,array $options){
             'clip_end'=>strtotime($a['_clip_end']??'2999-01-01 00:00:00'),
             'gps_invalid'=>$a['_gps_invalid']??[]
           ],$dayRows);
-          $dayWork=ShiftCalc::dayWork($dayShift,$pj,$dr,$sessions,false);
+          $dayWork=ShiftCalc::dayWork($dayShift,$pj,$dr,$sessions,ShiftCalc::effectiveHoliday($pj));
           if((int)($dayWork['worked']??0)<=0)continue;
+          if(ShiftCalc::isFriday($pj)){$priorFriday+=(int)$dayWork['worked'];$fridaySamples++;continue;}
+          if(ShiftCalc::effectiveHoliday($pj)){$priorHoliday+=(int)$dayWork['worked'];$holidaySamples++;continue;}
+          if(!empty($leaveByUser[$uid][$pj]['minutes']))continue;
+          $priorWorked+=(int)$dayWork['worked'];$priorInShift+=(int)($dayWork['in_shift']??0);$priorNight+=(int)($dayWork['night']??0);
+          $adjusted=min(max(0,(int)($dayWork['surplus']??0)),max(0,(int)_attendance_adjusted_overtime($uid,$pj)));
+          $priorSurplus+=max(0,(int)($dayWork['surplus']??0)-$adjusted);
           $extra=max(0,(int)($dayWork['overtime']??0));
           $extra+=($includeSurplus?max(0,(int)($dayWork['surplus']??0)):min(max(0,(int)($dayWork['surplus']??0)),max(0,(int)_attendance_adjusted_overtime($uid,$pj))));
           $priorOvertime+=$extra;
           $workedDays++;
         }
         $dailyOt=$workedDays>0?$priorOvertime/$workedDays:0;
-        $futureOt=0;$futureHoliday=0;$futureFriday=0;$futureWorkCount=0;$futureHolidayCount=0;$futureFridayCount=0;
+        $futureOt=0;$futureHoliday=0;$futureFriday=0;$futureWorkCount=0;$futureHolidayCount=0;$futureFridayCount=0;$futureWorked=0;$futureInShift=0;$futureExpected=0;$futureNight=0;$futureSurplus=0;$leaveDays=0;$leaveMinutes=0;
         for($ts=$todayTs;$ts<=$monthEndTs;$ts+=86400){
           [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
-          if(!_work_employment_contains($employmentWindows[$uid]??[],$j)||isset($leaveByUser[$uid][$j]))continue;
+          if(!_work_employment_contains($employmentWindows[$uid]??[],$j))continue;
           $dayShift=_active_user_shift_assignment($uid,$j);
           if(!$dayShift)continue;
           $dr=($dayShift['type']??'')==='advanced'?_shift_day_row($dayShift['shift_id']??$dayShift['id'],$j):null;
           if(!empty($dr['is_off']))continue;
-          if((int)date('w',$ts)===5){$futureFriday+=480;$futureFridayCount++;}
-          elseif(ShiftCalc::effectiveHoliday($j)){$futureHoliday+=480;$futureHolidayCount++;}
-          elseif(($dayShift['type']??'')==='auto'||ShiftCalc::expectedMinutes($dayShift,$j,$dr)>0){$futureOt+=$dailyOt;$futureWorkCount++;}
+          $leave=$leaveByUser[$uid][$j]??['full'=>false,'minutes'=>0];
+          if($leave['full']){$leaveDays++;$leaveMinutes+=480;continue;}
+          $expected=max(0,ShiftCalc::expectedMinutes($dayShift,$j,$dr));
+          $baseline=$expected?:($workedDays?max(1,$priorWorked/$workedDays):480);
+          $fraction=_work_forecast_fraction($baseline,$leave['minutes']);
+          $leaveMinutes+=$leave['minutes'];
+          if(ShiftCalc::isFriday($j)){$v=($fridaySamples?$priorFriday/$fridaySamples:0)*$fraction;$futureFriday+=$v;$futureWorked+=$v;if($fraction>0)$futureFridayCount++;}
+          elseif(ShiftCalc::effectiveHoliday($j)){$v=($holidaySamples?$priorHoliday/$holidaySamples:0)*$fraction;$futureHoliday+=$v;$futureWorked+=$v;if($fraction>0)$futureHolidayCount++;}
+          elseif(($dayShift['type']??'')==='auto'||$expected>0){
+            $futureExpected+=$expected*$fraction;
+            $futureWorked+=($workedDays?$priorWorked/$workedDays:0)*$fraction;
+            $futureInShift+=($workedDays?$priorInShift/$workedDays:0)*$fraction;
+            $futureNight+=($workedDays?$priorNight/$workedDays:0)*$fraction;
+            $futureSurplus+=($workedDays?$priorSurplus/$workedDays:0)*$fraction;
+            $futureOt+=$dailyOt*$fraction;if($fraction>0)$futureWorkCount++;
+          }
         }
-        $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>$futureHoliday,'friday'=>$futureFriday,'friday_days'=>$futureFridayCount,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt),'sample_days'=>$workedDays];
+        $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>(int)round($futureHoliday),'friday'=>(int)round($futureFriday),'worked'=>(int)round($futureWorked),'in_shift'=>(int)round($futureInShift),'expected'=>(int)round($futureExpected),'night'=>(int)round($futureNight),'surplus'=>(int)round($futureSurplus),'leave_days'=>$leaveDays,'leave_minutes'=>$leaveMinutes,'friday_days'=>$futureFridayCount,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt),'sample_days'=>$workedDays];
         });
       }
     }
   }
+
+  return $forecastByUser;
+}
+function _work_monthly_display_rows($jy,$jm,bool $forecastRequested): array {
+  $final=_final_work_month($jy,$jm);
+  $period=_work_organization_period($jy,$jm);
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,null,true));
+  if($final||!$forecastRequested)return $rows;
+  $forecast=_work_forecast_rows($rows,$period,true);
+  foreach($rows as &$r){
+    $f=$forecast[(int)$r['user_id']]??[];
+    $r['actual_through']=$period['actual_end'];$r['forecast']=$f;
+    foreach(['expected','worked','in_shift','night','surplus','friday','holiday'] as $key)$r[$key]=(int)($r[$key]??0)+(int)($f[$key]??0);
+    $r['regular_overtime']=(int)($r['regular_overtime']??$r['overtime']??0)+(int)($f['overtime']??0);
+    $r['overtime']=$r['regular_overtime'];
+    $r['friday_overtime']=$r['friday'];$r['holiday_overtime']=$r['holiday'];$r['holiday_friday_overtime']=$r['friday']+$r['holiday'];
+    $r['total_overtime']=$r['regular_overtime']+$r['holiday_friday_overtime'];
+    $cap=(int)($r['monthly_ot_cap']??0);$r['payable_regular_overtime']=$cap>0?min($cap,$r['regular_overtime']):$r['regular_overtime'];
+    $r['capped_overtime_minutes']=$r['regular_overtime']-$r['payable_regular_overtime'];
+    $r['payable_total_overtime']=$r['payable_regular_overtime']+$r['holiday_friday_overtime'];
+    // Never augment shortage, absence, lateness, early departure or security deductions.
+  }
+  unset($r);return $rows;
+}
+function _work_organization_records($u,$jy,$jm,array $options){
+  $final=_final_work_month($jy,$jm);
+  $period=_work_organization_period($jy,$jm);
+  // Organization actuals are always calculated through the explicit completed-day cutoff.
+  // Do not reuse a generic monthly snapshot with an unverified cutoff.
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,null,true));
+  $byId=$final?null:_work_month_people();
+  $daily=$final?_work_snapshot_decode($final['daily_json']):[];
+  // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
+  $forecastRequested=($options['forecast_remaining']??'1')==='1';
+  $includeSurplus=($options['include_surplus']??'0')==='1';
+  $forecastByUser=_work_forecast_rows($rows,$period,$forecastRequested&&!$final,$includeSurplus);
 
   _work_progress_tick(80,'ساخت فایل اکسل');
   $fa=static fn($v)=>strtr((string)$v,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
@@ -4647,7 +4701,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $xw->setOrganizationNoteStyle();
   $fa=static fn($v)=>strtr((string)$v,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
   $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-  $xw->setReportHeading('صورت وضعیت اضافه‌کاری پرسنل مدیریت پیمان خطوط تاکسیرانی شهر مشهد مقدس',($months[$jm-1]??'').' '.$fa($jy),'');
+  $xw->setReportHeading('صورت وضعیت اضافه‌کاری پرسنل مدیریت پیمان خطوط تاکسیرانی شهر مشهد مقدس',($months[$jm-1]??'').' '.$fa($jy),'کارکرد قطعی تا دیروز؛ پیش‌بینی بدون کسورات برای روزهای باقی‌مانده در صورت فعال بودن گزینه.');
   foreach([8,24,29,12,19,23,17,21,21,21] as $i=>$w)$xw->setColWidth($i,$w);
   foreach([7,8,9] as $col)$xw->setDecimalCol($col);
   $xw->setTextCol(6);

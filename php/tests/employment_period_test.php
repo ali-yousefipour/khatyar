@@ -77,5 +77,5 @@ $monthly=substr($routesSource,$monthlyStart,$monthlyEnd-$monthlyStart);
 check(str_contains($monthly,'if(!_work_employment_contains($employment,$jdate))continue;'),'Monthly day loop must filter employment dates');
 check(str_contains($monthly,'!_work_employment_contains($employment,$reqDate)'),'Monthly approved requests must filter employment dates');
 check(str_contains($monthly,"strtotime('yesterday noon')"),'Actual work cutoff must be yesterday');
-check(str_contains($routesSource,'if($firstJ<=$todayJ&&$todayJ<=$endJ)'),'Forecast includes last day of current month');
+check(str_contains($routesSource,'if($period[\'forecast_start\']<=$endJ)'),'Forecast includes last day of current month');
 echo "PASS employment period: validation before profile mutation, missing migration, Jalali month length, normalized save, canonical report boundaries, preserved punches and frozen history\n";
