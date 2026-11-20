@@ -34,8 +34,30 @@ try{
     $w=new XlsxWriter(['A','B','C','D','E','F','G','H','I','J']);$w->setOrganizationNoteStyle();$row=$w->addRow($records[1]['cells']);$w->setComment($row,7,$records[1]['comments'][7]);$baseline=$w->output('fixture.xlsx','fixture',true);
     $bz=new ZipArchive();verifyExport($bz->open($baseline)===true,'baseline archive');$bn=WorkReportTemplateArchive::xml($bz,'xl/comments1.xml')->getElementsByTagNameNS($s,'comment')->item(0)->textContent;$bz->close();
     verifyExport($notes['G2']===$bn,'serialized comment parity');
-    verifyExport($xp->evaluate('count(//s:c[s:is/s:t="فهرست نیروهای مازاد بر ظرفیت قالب"])')===1.0,'overflow table');
-    verifyExport($xp->evaluate('count(//s:c[s:is/s:t="فهرست نیروهای بدون تطبیق سازمانی"])')===1.0,'unmatched table');
+    $titles=[];
+    foreach($xp->query('//s:row/s:c[@t="inlineStr"]/s:is/s:t') as $node){
+        $titles[$node->textContent][]=$node->parentNode->parentNode->getAttribute('r');
+    }
+    foreach(['فهرست نیروهای مازاد بر ظرفیت قالب'=>3,'فهرست نیروهای بدون تطبیق سازمانی'=>4] as $title=>$id){
+        $refs=$titles[$title]??[];
+        verifyExport(count($refs)===1,'missing or repeated table title: '.$title.' actual cells: '.json_encode($titles,JSON_UNESCAPED_UNICODE));
+        verifyExport(preg_match('/^A(\d+)$/D',$refs[0],$m)===1,'table title column');
+        $row=(int)$m[1]+2;
+        verifyExport($xp->evaluate('string(//s:c[@r="A'.$row.'"]/s:is/s:t)')===$records[$id-1]['cells'][4],'supplement personnel');
+        verifyExport($xp->evaluate('string(//s:c[@r="C'.$row.'"]/s:is/s:t)')===$records[$id-1]['cells'][6],'supplement code');
+        foreach(['G'=>7,'H'=>8,'I'=>9] as $col=>$index){
+            verifyExport((float)$xp->evaluate('string(//s:c[@r="'.$col.$row.'"]/s:v)')===(float)$records[$id-1]['cells'][$index],'supplement hours');
+            verifyExport(($notes[$col.$row]??null)===strtr($records[$id-1]['comments'][$index],['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']),'supplement note');
+        }
+    }
+    foreach(['G'=>7,'H'=>8,'I'=>9] as $col=>$index){
+        $sum=0;foreach([2,3,8,11] as $row)$sum+=(int)round((float)$xp->evaluate('string(//s:c[@r="'.$col.$row.'"]/s:v)')*1000000);
+        $expected=0;foreach($records as $record)$expected+=(int)round($record['cells'][$index]*1000000);
+        verifyExport($sum===$expected,'serialized total hours');
+    }
+    $artifact=getenv('WORK_REPORT_EXPORT_ARTIFACT_DIR');
+    if($artifact){if(!is_dir($artifact)&&!mkdir($artifact,0700,true))throw new RuntimeException('Artifact directory');verifyExport(copy($out,$artifact.'/sample.xlsx'),'artifact copy');}
+
     $z->close();
     try{WorkReportTemplateExporter::export($input,$structure,$records,['assignments'=>[2=>1,3=>1]],[]);throw new LogicException('duplicate accepted');}catch(InvalidArgumentException $e){}
     echo "OK\n";
