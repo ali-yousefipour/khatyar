@@ -1,0 +1,75 @@
+name: Production browser and bounded concurrency smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/production-browser-smoke.yml]
+permissions:
+  contents: read
+concurrency:
+  group: production-browser-smoke
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Install pinned browser test runner
+        run: |
+          npm install --no-save playwright@1.51.1
+          npx playwright install --with-deps chromium
+      - name: Verify public login with external runtime CDNs blocked
+        run: |
+          node <<'JS'
+          const { chromium } = require('playwright');
+          const assert = require('node:assert/strict');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            try {
+              for (const viewport of [{width:1366,height:768},{width:390,height:844}]) {
+                const page = await browser.newPage({viewport});
+                const errors=[],blocked=[];
+                await page.route('**/*', route=>{
+                  const url=new URL(route.request().url());
+                  if (['unpkg.com','cdn.jsdelivr.net','cdnjs.cloudflare.com','fonts.googleapis.com','fonts.gstatic.com'].includes(url.hostname)){
+                    blocked.push(url.hostname);
+                    return route.abort();
+                  }
+                  return route.continue();
+                });
+                page.on('pageerror',e=>errors.push(e.message));
+                const res=await page.goto('https://khat-yar.ir/login',{waitUntil:'domcontentloaded',timeout:45000});
+                assert.equal(res.status(),200);
+                await page.waitForFunction(()=>{const root=document.getElementById('root');return !!(window.React && window.ReactDOM && root && root.childElementCount);},{},{timeout:45000});
+                await page.waitForFunction(()=>{const loader=document.getElementById('kh-initial-loader');return !loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).display==='none'||getComputedStyle(loader).visibility==='hidden';},{},{timeout:45000});
+                assert.equal(errors.length,0,errors.join('\n'));
+                assert.equal(blocked.length,0,'External runtime requests: '+blocked.join(','));
+                console.log('PASS rendered login',viewport,await page.evaluate(()=>({react:React.version,domReady:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd})));
+                await page.close();
+              }
+            } finally {await browser.close();}
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          JS
+  concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Measure bounded read-only concurrency
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures, subprocess, statistics, time
+          base='https://khat-yar.ir'
+          def run(item):
+              path,expected=item
+              p=subprocess.run(['curl','--silent','--show-error','--max-time','15','-o','/dev/null','-w','%{http_code} %{time_total}',base+path],capture_output=True,text=True)
+              if p.returncode: raise RuntimeError('Request failed '+path)
+              status,elapsed=p.stdout.split()
+              if int(status)!=expected: raise RuntimeError(path+' unexpected HTTP '+status)
+              return float(elapsed)*1000
+          targets=[('/api/health',200),('/api/session/web-login-config',200),('/api/auth/me',401)]
+          for workers in [1,2,4]:
+              with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+                  values=list(pool.map(run,targets*2))
+              print('concurrency',workers,'requests',len(values),'median_ms',round(statistics.median(values)),'max_ms',round(max(values)))
+              time.sleep(3)
+          PY
