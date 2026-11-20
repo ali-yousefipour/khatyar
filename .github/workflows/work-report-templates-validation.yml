@@ -1,0 +1,44 @@
+name: Work report templates validation
+on:
+  push:
+    branches: [feature/work-report-templates-v2]
+  pull_request:
+    paths:
+      - 'php/lib/OrganizationWorkPlacement.php'
+      - 'php/lib/WorkReportTemplate*.php'
+      - 'php/tests/organization_work_placement_test.php'
+      - 'php/tests/work_report_template*.php'
+      - 'php/migrations/20261120_work_report_templates.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: zip, dom, simplexml, xml, mbstring, pdo_mysql
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PHP validation
+        run: |
+          php -l php/lib/OrganizationWorkPlacement.php
+          php -l php/lib/WorkReportTemplateArchive.php
+          php php/tests/organization_work_placement_test.php
+          php php/tests/work_report_template_archive_test.php
+          php php/tests/xlsx_organization_style_test.php
+          php php/tests/attendance_monthly_reconciliation_test.php
+          git show 27d7d9c30531392a26978f89cd245bc1705212bf:php/lib/XlsxWriter.php > "$RUNNER_TEMP/xlsx-baseline.php"
+          XLSX_BASELINE="$RUNNER_TEMP/xlsx-baseline.php" php php/tests/xlsx_stream_regression_test.php
+      - name: Panel build
+        run: |
+          npm install --no-save typescript@5.6.3
+          bash php/tools/build_panel_bundle.sh
+          node --check php/app/assets/panel.bundle.js
