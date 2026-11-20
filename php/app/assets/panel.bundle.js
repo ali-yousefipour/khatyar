@@ -14645,7 +14645,10 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
     const [file, setFile] = useState(null), [target, setTarget] = useState(""), [title, setTitle] = useState(""), [description, setDescription] = useState(""), [sheet, setSheet] = useState("Sheet1"), [first, setFirst] = useState(3), [last, setLast] = useState(109), [headingCell, setHeadingCell] = useState(""), [headingFormat, setHeadingFormat] = useState("");
     const [columns, setColumns] = useState({ ordinal: "A", location: "B", role: "C", first_name: "E", last_name: "F", personnel_code: "G", friday: "H", holiday: "I", overtime: "J", region: "" });
     const [versions, setVersions] = useState({}), [clock, setClock] = useState(Date.now());
-    const lock = useRef(false), initialized = useRef(false), touchDrag = useRef(null);
+    const lock = useRef(false), initialized = useRef(false), touchDrag = useRef(null), batchResume = useRef(null);
+    const [resumeAvailable, setResumeAvailable] = useState(false);
+    const previewKey = JSON.stringify([selected, year, month, forecast, surplus]);
+    useEffect(() => { batchResume.current = null; setResumeAvailable(false); }, [previewKey]);
     const request = async (path = "", method = "GET", body = null, binary = false) => {
         const headers = { ...tok() };
         if (body instanceof FormData) {
@@ -14657,7 +14660,9 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         const response = await fetch(base + path, { method, headers, body: body === null ? undefined : body instanceof FormData ? body : JSON.stringify(body) });
         if (!response.ok) {
             const d = await response.json().catch(() => ({}));
-            throw Error(d.error || d.message || ("خطا در درخواست (HTTP " + response.status + ")"));
+            const err = Error(d.error || d.message || ("خطا در درخواست (HTTP " + response.status + ")"));
+            err.status = response.status;
+            throw err;
         }
         if (binary) {
             const b = await response.blob();
@@ -14689,35 +14694,70 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         mapping.heading = { cell: headingCell.trim().toUpperCase(), format: headingFormat }; const form = new FormData(); form.append("file", file); form.append("mapping", JSON.stringify(mapping)); form.append("title", title); form.append("description", description); await request(target ? "/" + target + "/versions" : "", "POST", form); setFile(null); await refresh(); });
     const patch = (t, change) => action(async () => { await request("/" + t.id, "PUT", { title: t.title, description: t.description || "", enabled: Number(t.enabled) === 1, version_id: Number(t.active_version_id), ...change }); await refresh(); });
     const makeDefault = id => action(async () => { await request("/default", "POST", { template_id: id }); await refresh(); setSelected(id == null ? "" : String(id)); });
-    const startPreview = async () => { var _a, _b; if (lock.current || working || !selected)
-        return; const id = beginWork("محاسبه و پیش‌نمایش جانمایی نیروها"); if (!id)
-        return; lock.current = true; setLoading(true); setError(""); try {
-        await new Promise(r => setTimeout(r, 0));
-        let data = await request("/preview?progress_id=" + (id === "local" ? "" : id), "POST", { template_id: Number(selected), year, month, forecast_remaining: forecast, include_surplus: surplus, batched: true });
-        while (data.pending) {
-            const token = data.batch_token;
+    const retryPreviewBatch = async (token, id) => {
+        const delays = [1000, 2500, 5000, 10000];
+        for (let attempt = 0;; attempt++) {
             try {
-                data = await request("/preview-batch?progress_id=" + (id === "local" ? "" : id), "POST", { batch_token: token });
+                return await request("/preview-batch?progress_id=" + (id === "local" ? "" : id), "POST", { batch_token: token });
             }
             catch (e) {
-                throw Error("خطا در مرحله محاسبه " + faPlain((_a = data.done) !== null && _a !== void 0 ? _a : 0) + " از " + faPlain((_b = data.total) !== null && _b !== void 0 ? _b : 0) + " نیرو: " + e.message);
+                const retryable = e instanceof TypeError || [408, 429, 500, 502, 503, 504].includes(e.status);
+                if (!retryable || attempt >= delays.length)
+                    throw e;
+                await new Promise(resolve => setTimeout(resolve, delays[attempt]));
             }
         }
-        setPreview(data);
-        setAssignment({ ...data.assignments });
-        setClock(Date.now());
-        setPicked("");
-        setQuery("");
-        endWork(true);
-    }
-    catch (e) {
-        setError(e.message);
-        endWork();
-    }
-    finally {
-        lock.current = false;
-        setLoading(false);
-    } };
+    };
+    const startPreview = async () => {
+        var _a, _b, _c;
+        if (lock.current || working || !selected)
+            return;
+        const id = beginWork("محاسبه و پیش‌نمایش جانمایی نیروها");
+        if (!id)
+            return;
+        lock.current = true;
+        setLoading(true);
+        setError("");
+        try {
+            await new Promise(r => setTimeout(r, 0));
+            let data = ((_a = batchResume.current) === null || _a === void 0 ? void 0 : _a.key) === previewKey ? batchResume.current.data : null;
+            if (!data)
+                data = await request("/preview?progress_id=" + (id === "local" ? "" : id), "POST", { template_id: Number(selected), year, month, forecast_remaining: forecast, include_surplus: surplus, batched: true });
+            while (data.pending) {
+                batchResume.current = { key: previewKey, data };
+                setResumeAvailable(true);
+                try {
+                    data = await retryPreviewBatch(data.batch_token, id);
+                }
+                catch (e) {
+                    if ([400, 401, 403, 409, 422].includes(e.status)) {
+                        batchResume.current = null;
+                        setResumeAvailable(false);
+                    }
+                    const message = e instanceof TypeError ? "ارتباط با سرور قطع شد. پس از برقراری ارتباط، ادامه محاسبه را بزنید." : e.message;
+                    throw Error("خطا در مرحله محاسبه " + faPlain((_b = data.done) !== null && _b !== void 0 ? _b : 0) + " از " + faPlain((_c = data.total) !== null && _c !== void 0 ? _c : 0) + " نیرو: " + message);
+                }
+            }
+            if (!data.ok || !data.snapshot_token)
+                throw Error("پاسخ پیش‌نمایش معتبر نیست");
+            batchResume.current = null;
+            setResumeAvailable(false);
+            setPreview(data);
+            setAssignment({ ...data.assignments });
+            setClock(Date.now());
+            setPicked("");
+            setQuery("");
+            endWork(true);
+        }
+        catch (e) {
+            setError(e.message);
+            endWork();
+        }
+        finally {
+            lock.current = false;
+            setLoading(false);
+        }
+    };
     const people = (preview === null || preview === void 0 ? void 0 : preview.people) || [], slots = (preview === null || preview === void 0 ? void 0 : preview.slots) || [];
     const personById = new Map(people.map(p => [String(p.id), p]));
     const assigned = new Set(Object.values(assignment).filter(v => v != null).map(String));
@@ -14782,8 +14822,9 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                     React.createElement("option", { value: "" }, "\u0642\u0627\u0644\u0628 \u062F\u0627\u062E\u0644\u06CC \u062E\u0637\u06CC\u0627\u0631"),
                     catalog.filter(t => Number(t.enabled) === 1).map(t => React.createElement("option", { key: t.id, value: String(t.id) }, t.title)))),
             canManage && React.createElement("button", { className: "btn g", disabled: working || loading, onClick: () => { setError(""); setManage(true); } }, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0642\u0627\u0644\u0628\u200C\u0647\u0627"),
-            React.createElement("button", { className: "btn p", disabled: working || loading, onClick: selected ? startPreview : legacyExport }, selected ? "محاسبه و پیش‌نمایش جانمایی نیروها" : "تولید فایل اکسل سازمان")),
+            React.createElement("button", { className: "btn p", disabled: working || loading, onClick: selected ? startPreview : legacyExport }, selected ? (resumeAvailable ? "ادامه محاسبه و پیش‌نمایش" : "محاسبه و پیش‌نمایش جانمایی نیروها") : "تولید فایل اکسل سازمان")),
         !manage && !preview && error && React.createElement("p", { role: "alert" }, error),
+        !manage && !preview && resumeAvailable && !loading && !working && React.createElement("button", { type: "button", className: "btn g", onClick: () => { batchResume.current = null; setResumeAvailable(false); setError(""); } }, "\u0634\u0631\u0648\u0639 \u0645\u062D\u0627\u0633\u0628\u0647 \u0627\u0632 \u0627\u0628\u062A\u062F\u0627"),
         manage && React.createElement("div", { style: overlay },
             React.createElement("section", { role: "dialog", "aria-modal": "true", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0642\u0627\u0644\u0628\u200C\u0647\u0627", style: modal },
                 React.createElement("div", { className: "row", style: { justifyContent: "space-between" } },
