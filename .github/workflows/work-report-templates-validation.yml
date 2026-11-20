@@ -51,8 +51,7 @@ jobs:
           XLSX_BASELINE="$RUNNER_TEMP/xlsx-baseline.php" php php/tests/xlsx_stream_regression_test.php
       - name: Panel build
         run: |
-          npm install --no-save typescript@5.6.3
-          bash php/tools/build_panel_bundle.sh
+          (cd php && npm install --no-save --no-package-lock typescript@5.9.3 && bash ./tools/build_panel_bundle.sh)
           node --check php/app/assets/panel.bundle.js
       - name: Independent workbook read
         run: |
@@ -101,8 +100,7 @@ jobs:
           node-version: '22'
       - name: Build and verify exact source
         run: |
-          npm install --no-save typescript@5.6.3
-          bash php/tools/build_panel_bundle.sh
+          (cd php && npm install --no-save --no-package-lock typescript@5.9.3 && bash ./tools/build_panel_bundle.sh)
           node --check php/app/assets/panel.bundle.js
           python -m py_compile php/tools/verify_work_template_bundle.py
           python php/tools/verify_work_template_bundle.py
