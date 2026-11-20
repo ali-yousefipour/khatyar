@@ -151,3 +151,17 @@ checkPlacement(OrganizationWorkPlacement::rowColor('سر بازرس')==='FFC6EFC
 checkPlacement(OrganizationWorkPlacement::rowColor('نیروی اداری ارشد')==='FFBDD7EE');
 checkPlacement(OrganizationWorkPlacement::rowColor('گشت موتوری')===null);
 echo "Senior staff placement and colors OK\n";
+
+$slots=[
+ ['id'=>'and','location'=>'اندرزگو','role'=>'بازرس خط'],
+ ['id'=>'jaw','location'=>'باب‌الجواد','role'=>'بازرس خط']
+];
+$people=[
+ ['id'=>91,'region'=>'ثامن','role'=>'سربازرس'],
+ ['id'=>92,'location'=>'خط اندرزگو','role'=>'بازرس خط']
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']['and']===92&&$r['assignments']['jaw']===91);
+$r=OrganizationWorkPlacement::suggest([['id'=>'jaw','location'=>'باب الجواد','role'=>'بازرس خط']], [['id'=>93,'location'=>'اندرزگو','role'=>'بازرس خط']]);
+checkPlacement($r['assignments']['jaw']===93);
+echo "Andarzgoo and Bab-al-Javad alias OK\n";
