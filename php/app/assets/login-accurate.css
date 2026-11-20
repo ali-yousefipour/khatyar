@@ -1,7 +1,7 @@
 
 /* KHATYAR SIGN-IN 2026 | exact approved Canva artwork + existing working React auth form.
    No fabricated taxi illustration, no external photo dependency, no auth API changes. */
-@import url('https://fonts.googleapis.com/css2?family=Estedad:wght@400;500;600;700;800;900&display=swap');
+@import url('/vendor/estedad/estedad.css');
 body:has(.login-page){margin:0!important;background:#d8eafa!important;font-family:Estedad,Vazirmatn,Tahoma,sans-serif!important}
 .login-page{
  --kh-blue:#0c4689;--kh-deep:#082f66;--kh-green:#079b5a;
