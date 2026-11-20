@@ -110,3 +110,24 @@ $r=OrganizationWorkPlacement::suggest([['id'=>'1','location'=>'راه آهن','r
  ['id'=>63,'location'=>'راه آهن','role'=>'ناظر خط','last_name'=>'پورمحمدی']
 ]);
 checkPlacement($r['assignments'][1]===63&&$r['assignments'][2]===62);
+
+$slots=[
+ ['id'=>'in','location'=>'فرودگاه','role'=>'اپراتور فاکتور سفر داخلی نوبت کاری ۱۵٪','rotation'=>'15'],
+ ['id'=>'out','location'=>'فرودگاه','role'=>'اپراتور فاکتور سفر خارجی نوبت کاری ۱۰٪','rotation'=>'10'],
+ ['id'=>'hall','location'=>'پایانه مسافربری','role'=>'اپراتور فاکتور سفر داخل سالن'],
+ ['id'=>'ordinary','location'=>'پایانه مسافربری','role'=>'اپراتور فاکتور سفر'],
+ ['id'=>'rail1','location'=>'راه آهن','role'=>'بازرس مقیم خط'],
+ ['id'=>'rail2','location'=>'راه آهن','role'=>'بازرس مقیم خط'],
+];
+$people=[
+ ['id'=>71,'region'=>'فرودگاه','role'=>'اپراتور','rotation'=>'15'],
+ ['id'=>72,'region'=>'فرودگاه','role'=>'اپراتور','rotation'=>'10'],
+ ['id'=>73,'region'=>'پایانه مسافربری','role'=>'اپراتور','rotation'=>'morning'],
+ ['id'=>74,'region'=>'راه آهن','role'=>'بازرس مقیم','rotation'=>'morning','last_name'=>'تقی زاده'],
+ ['id'=>75,'region'=>'راه آهن','role'=>'بازرس مقیم','rotation'=>'afternoon','last_name'=>'احمدی'],
+ ['id'=>76,'region'=>'فرودگاه','role'=>'اپراتور','rotation'=>''],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['in'=>71,'out'=>72,'hall'=>73,'ordinary'=>null,'rail1'=>75,'rail2'=>74]);
+checkPlacement($r['unmatched']===[76]);
+echo "Airport operators, terminal hall and railway inspectors OK\n";

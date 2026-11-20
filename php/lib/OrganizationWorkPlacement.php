@@ -81,8 +81,23 @@ final class OrganizationWorkPlacement {
             }else $targetRole='بازرس مقیم';
         }elseif($actualRole==='ناظر خط'&&$site==='فرودگاه'&&in_array($shift,['10','15'],true)){
             $targetArea='فرودگاه';$targetRole=$shift==='15'?'ناظر خط داخلی':'ناظر خط خارجی';
+        }elseif($actualRole==='اپراتور'&&$site==='فرودگاه'){
+            if(!in_array($shift,['10','15'],true)||$expected!=='فرودگاه'||self::role($slotRole)!=='اپراتور')return null;
+            $required=self::rotation($slot['rotation']??'');
+            if($required===''){
+                if(preg_match('/(?:^| )15(?: |$)/u',$slotRole))$required='15';
+                elseif(preg_match('/(?:^| )10(?: |$)/u',$slotRole))$required='10';
+            }
+            if($required!==''&&$required!==$shift)return null;
+            $inside=str_contains($slotRole,'داخلی')||str_contains($slotRole,'داخل سالن');
+            $outside=str_contains($slotRole,'خارجی');
+            if(($inside&&$shift!=='15')||($outside&&$shift!=='10'))return null;
+            if(!$inside&&!$outside&&$required==='')return null;
+            return 160;
         }elseif($actualRole==='اپراتور'&&$site==='پایانه مسافربری'&&$shift==='morning'){
-            $targetArea=$site;$targetRole='اپراتور فاکتور سفر';
+            if($expected!==$site||self::role($slotRole)!=='اپراتور'||self::rotation($slot['rotation']??'')!=='')return null;
+            if(str_contains($slotRole,'خارجی')||preg_match('/(?:^| )(?:10|15)(?: |$)/u',$slotRole))return null;
+            return str_contains($slotRole,'داخل سالن')?170:($slotRole==='اپراتور فاکتور سفر'?160:null);
         }
         if($targetArea!==null){
             if($expected!==$targetArea)return null;
