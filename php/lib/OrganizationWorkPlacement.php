@@ -30,6 +30,20 @@ final class OrganizationWorkPlacement {
     private static function rotation($value): string {
         return preg_replace('/[^0-9]/','',self::normalize($value))??'';
     }
+    public static function isSenior($role): bool {
+        $role=self::normalize($role);
+        return (bool)preg_match('/^سر\s*بازرس(?:\s|$)/u',$role);
+    }
+    public static function comparePeople(array $a,array $b): int {
+        // Persian alphabet: Unicode order alone does not place پ چ ژ گ correctly.
+        $alphabet=preg_split('//u','آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی',-1,PREG_SPLIT_NO_EMPTY);
+        $map=[];foreach($alphabet as $i=>$letter)$map[$letter]=sprintf('%03d',$i+1);
+        $key=static function($value)use($map){
+            $out='';foreach(preg_split('//u',self::normalize($value),-1,PREG_SPLIT_NO_EMPTY)?:[] as $c)$out.=$map[$c]??('999'.$c);
+            return $out;
+        };
+        return strcmp($key($a['last_name']??''),$key($b['last_name']??'')) ?: strcmp($key($a['first_name']??''),$key($b['first_name']??'')) ?: (int)($a['id']??0)<=>(int)($b['id']??0);
+    }
     private static function score(array $slot,array $person,array $aliases): ?int {
         $region=self::area($person['region']??'', $aliases['region']??[]);
         $location=self::area($person['location']??'', $aliases['location']??[]);
@@ -47,6 +61,35 @@ final class OrganizationWorkPlacement {
         // Explicit organization mapping takes precedence over geographical slots.
         $targetGroup=null;
         $rawRole=self::equivalent($person['role']??'', $aliases['role']??[]);
+        $slotRole=self::normalize(!empty($slot['combined'])?($slot['location']??''):($slot['role']??''));
+        $shift=(string)($person['rotation']??'');
+        $site=$location!==''?$location:$region;
+        $targetArea=null;$targetRole=null;
+        if(self::isSenior($rawRole)){
+            $seniorAreas=['مبادی ورودی'=>'فرودگاه','مبادی'=>'فرودگاه','ثامن'=>'باب الجواد','غرب'=>'نواب صفوی','مرکزی'=>'شیرازی','مرکز'=>'شیرازی','شرق'=>'طبرسی'];
+            if(isset($seniorAreas[$region])){
+                $targetArea=$seniorAreas[$region];$targetRole=$targetArea==='فرودگاه'?'بازرس مقیم':'بازرس خط';
+            }
+        }elseif(in_array($rawRole,['گشت خودرویی','بازرس خودرویی','بازرسین خودرویی','بازرسان خودرویی'],true)){
+            return in_array($slotRole,['بازرس مناطق تاکسیرانی','بازرسین مناطق تاکسیرانی','بازرسان مناطق تاکسیرانی'],true)?150:null;
+        }elseif(preg_match('/^بازرس مقیم(?:\s|$)/u',$rawRole)&&in_array($site,['فرودگاه','راه آهن','پایانه مسافربری'],true)){
+            $targetArea=$site;
+            if($site==='فرودگاه'){
+                if($shift==='morning')$targetRole='بازرس مقیم';
+                elseif(in_array($shift,['afternoon','night','10','15'],true))$targetRole='ناظر خط خارجی';
+                else return null;
+            }else $targetRole='بازرس مقیم';
+        }elseif($actualRole==='ناظر خط'&&$site==='فرودگاه'&&in_array($shift,['10','15'],true)){
+            $targetArea='فرودگاه';$targetRole=$shift==='15'?'ناظر خط داخلی':'ناظر خط خارجی';
+        }elseif($actualRole==='اپراتور'&&$site==='پایانه مسافربری'&&$shift==='morning'){
+            $targetArea=$site;$targetRole='اپراتور فاکتور سفر';
+        }
+        if($targetArea!==null){
+            if($expected!==$targetArea)return null;
+            if($targetRole==='بازرس مقیم')return preg_match('/^بازرس مقیم(?:\s|$)/u',$slotRole)?160:null;
+            if($targetRole==='بازرس خط')return self::role($slotRole)==='بازرس خط'?160:null;
+            return $slotRole===$targetRole?160:null;
+        }
         if(in_array($rawRole,['گشت موتوری','گشت های موتوری','گشت موتور سوار','گشت موتورسوار'],true)){
             $targetGroup='ناظر خطوط گردشی';
         }elseif(in_array($rawRole,['ناظر خط','ناظر خطوط','ناظر خط ثابت','ناظر خطوط ثابت'],true)
@@ -86,6 +129,7 @@ final class OrganizationWorkPlacement {
         $result=self::validate($slots,$people,[]);
         $assign=$result['assignments'];
         $candidates=[];$unmatched=[];$overflow=[];
+        $personMap=[];foreach($people as $p)$personMap[$p['id']]=$p;
         foreach($people as $person){
             $id=(int)$person['id'];$best=null;$options=[];
             foreach($slots as $slot){
@@ -97,7 +141,7 @@ final class OrganizationWorkPlacement {
             if(!$options){$unmatched[]=$id;continue;}
             $candidates[]=['id'=>$id,'score'=>$best,'slots'=>$options];
         }
-        usort($candidates,static fn($a,$b)=>count($a['slots'])<=>count($b['slots']) ?: $b['score']<=>$a['score'] ?: $a['id']<=>$b['id']);
+        usort($candidates,static fn($a,$b)=>count($a['slots'])<=>count($b['slots']) ?: $b['score']<=>$a['score'] ?: self::comparePeople($personMap[$a['id']],$personMap[$b['id']]));
         $occupied=[];$byPerson=[];
         $augment=function($id,$options,&$visited)use(&$augment,&$occupied,&$assign,&$byPerson){
             // Prefer a free slot; displace an earlier assignment only to increase coverage.
@@ -117,6 +161,14 @@ final class OrganizationWorkPlacement {
         };
         foreach($candidates as $c)$byPerson[$c['id']]=$c['slots'];
         foreach($candidates as $c){$visited=[];if(!$augment($c['id'],$c['slots'],$visited))$overflow[]=$c['id'];}
+        // Sort within an identical template group, without changing compatible groups.
+        $groups=[];foreach($slots as $slot){$group=$slot['group_id']??json_encode([$slot['location']??'',$slot['role']??'',$slot['region']??'',$slot['rotation']??'',$slot['combined']??false]);$groups[$group][]=(string)$slot['id'];}
+        foreach($groups as $keys){
+            $ids=[];foreach($keys as $key)if($assign[$key]!==null)$ids[]=$assign[$key];
+            usort($ids,static fn($a,$b)=>self::comparePeople($personMap[$a],$personMap[$b]));
+            foreach($keys as $i=>$key)$assign[$key]=$ids[$i]??null;
+        }
+        foreach([&$overflow,&$unmatched] as &$ids)usort($ids,static fn($a,$b)=>self::comparePeople($personMap[$a],$personMap[$b]));unset($ids);
         $validated=self::validate($slots,$people,$assign);
         return $validated+['unmatched'=>$unmatched,'overflow'=>$overflow];
     }

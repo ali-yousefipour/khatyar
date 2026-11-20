@@ -132,6 +132,31 @@ final class WorkReportTemplateExporter {
         if(!$has){$n=self::element($types,self::C,'Default');$n->setAttribute('Extension','vml');$n->setAttribute('ContentType','application/vnd.openxmlformats-officedocument.vmlDrawing');$types->documentElement->appendChild($n);}
         self::put($zip,$cp,$comments);self::put($zip,$vp,$vml);self::put($zip,$rp,$rels);
     }
+    private static function greenRow(ZipArchive $zip,DOMElement $row,array $columns,?DOMDocument &$styles,array &$cache): void {
+        if(!$styles)$styles=WorkReportTemplateArchive::xml($zip,'xl/styles.xml');
+        $fills=$styles->getElementsByTagNameNS(self::S,'fills')->item(0);
+        $xfs=$styles->getElementsByTagNameNS(self::S,'cellXfs')->item(0);
+        if(!$fills||!$xfs)throw new RuntimeException('Missing workbook styles');
+        if(!isset($cache['fill'])){
+            $cache['fill']=$fills->getElementsByTagNameNS(self::S,'fill')->length;
+            $fill=self::element($styles,self::S,'fill');$pattern=self::element($styles,self::S,'patternFill');$pattern->setAttribute('patternType','solid');
+            $fg=self::element($styles,self::S,'fgColor');$fg->setAttribute('rgb','FFC6EFCE');$pattern->appendChild($fg);$fill->appendChild($pattern);$fills->appendChild($fill);
+            $fills->setAttribute('count',(string)$fills->getElementsByTagNameNS(self::S,'fill')->length);
+        }
+        foreach($row->getElementsByTagNameNS(self::S,'c') as $cell){
+            $column=preg_replace('/[0-9]+$/','',$cell->getAttribute('r'));
+            if(!in_array($column,$columns,true))continue;
+            $base=(int)$cell->getAttribute('s');$key='xf'.$base;
+            if(!isset($cache[$key])){
+                $xf=$xfs->getElementsByTagNameNS(self::S,'xf')->item($base);
+                if(!$xf)throw new RuntimeException('Invalid original cell style');
+                $copy=$xf->cloneNode(true);$copy->setAttribute('fillId',(string)$cache['fill']);$copy->setAttribute('applyFill','1');
+                $cache[$key]=$xfs->getElementsByTagNameNS(self::S,'xf')->length;$xfs->appendChild($copy);
+                $xfs->setAttribute('count',(string)$xfs->getElementsByTagNameNS(self::S,'xf')->length);
+            }
+            $cell->setAttribute('s',(string)$cache[$key]);
+        }
+    }
     public static function export(string $templateFile,array $structure,array $records,array $placement,array $context): string {
         $meta=WorkReportTemplateArchive::inspect($templateFile);
         if(!hash_equals($structure['sha256'],$meta['sha256']))throw new InvalidArgumentException('Template hash mismatch');
@@ -166,14 +191,14 @@ final class WorkReportTemplateExporter {
                     foreach($structure['columns'] as $field=>$mapped)if($column===$mapped&&$cell->hasAttribute('s')&&!isset($fieldStyles[$field]))$fieldStyles[$field]=$cell->getAttribute('s');
                 }
             }
-            $replace=[];$notes=[];$counts=[];$totals=[7=>0,8=>0,9=>0];$used=[];
+            $replace=[];$notes=[];$counts=[];$totals=[7=>0,8=>0,9=>0];$used=[];$greenStyles=null;$greenCache=[];
             $addTotals=static function(array $r)use(&$totals,&$used){$id=$r['user_id'];if(isset($used[$id]))throw new LogicException('Duplicate output');$used[$id]=true;foreach([7,8,9] as $c)$totals[$c]+=(int)round($r['cells'][$c]*1000000);};
             foreach($structure['slots'] as $slot){
                 $n=(int)$slot['row'];$row=$rows[$n]??null;if(!$row)throw new InvalidArgumentException('Missing slot row');
                 $id=$checked['assignments'][$slot['id']];$r=$id===null?null:$byId[$id];
                 $group=$slot['group_id'];if(!isset($counts[$group]))$counts[$group]=[$slot['location'],$slot['role'],0,0];$counts[$group][2]++;if($r)$counts[$group][3]++;
                 foreach(self::FIELDS as $key=>$c){$col=$structure['columns'][$key];if(self::protectedCell($col,$n,$structure['merges']))throw new InvalidArgumentException('Merged target cell');$ref=$col.$n;$replace[$ref]=true;self::setCell($sheet,$row,$col,$r['cells'][$c]??null,$c>=7);if($r&&$c>=7)$notes[$ref]=$r['comments'][$c];}
-                if($r)$addTotals($r);
+                if($r){$addTotals($r);if(OrganizationWorkPlacement::isSenior($r['placement']['role']??''))self::greenRow($zip,$row,array_map(static fn($key)=>$structure['columns'][$key],array_keys(self::FIELDS)),$greenStyles,$greenCache);}
             }
             // Append below existing content: no shifts of formulas, drawings or merge ranges.
             $append=function(array $values,array $comment=[],array $styleFields=[])use($sheet,$data,&$max,&$notes,$fieldStyles){
@@ -241,6 +266,7 @@ final class WorkReportTemplateExporter {
             $calc->setAttribute('forceFullCalc','1');
             self::put($zip,'xl/workbook.xml',$book);
             self::notes($zip,$sheet,$path,$replace,$notes,$types);
+            if($greenStyles)self::put($zip,'xl/styles.xml',$greenStyles);
             self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
             if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
             WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;

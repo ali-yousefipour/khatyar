@@ -78,3 +78,35 @@ $r=OrganizationWorkPlacement::suggest($slots,$people);
 checkPlacement($r['assignments']===['fixed1'=>41,'fixed2'=>42,'fixed3'=>43,'mobile'=>44,'airport'=>45]);
 checkPlacement($r['overflow']===[46]&&$r['unmatched']===[47,48]);
 echo "Regional fixed and motorcycle mobile placement OK\n";
+
+$slots=[
+ ['id'=>'a','location'=>'فرودگاه شهید هاشمی نژاد','role'=>'بازرس مقیم خط'],
+ ['id'=>'b','location'=>'فرودگاه','role'=>'بازرس مقیم خط'],
+ ['id'=>'c','location'=>'فرودگاه','role'=>'ناظر خط خارجی'],
+ ['id'=>'d','location'=>'فرودگاه','role'=>'ناظر خط خارجی'],
+ ['id'=>'e','location'=>'فرودگاه','role'=>'ناظر خط داخلی'],
+ ['id'=>'f','location'=>'پایانه مسافربری','role'=>'اپراتور فاکتور سفر'],
+ ['id'=>'g','location'=>'راه آهن','role'=>'بازرس مقیم خط'],
+ ['id'=>'h','location'=>'باب الجواد','role'=>'بازرس خط'],
+ ['id'=>'i','location'=>'بازرسین مناطق تاکسیرانی','role'=>'','combined'=>true],
+];
+$people=[
+ ['id'=>51,'region'=>'مبادی ورودی','role'=>'سربازرس'],
+ ['id'=>52,'region'=>'فرودگاه','role'=>'بازرس مقیم','rotation'=>'morning'],
+ ['id'=>53,'region'=>'فرودگاه','role'=>'بازرس مقیم','rotation'=>'night'],
+ ['id'=>54,'region'=>'فرودگاه','role'=>'ناظر خط','rotation'=>'10'],
+ ['id'=>55,'region'=>'فرودگاه','role'=>'ناظر خط','rotation'=>'15'],
+ ['id'=>56,'region'=>'پایانه مسافربری','role'=>'اپراتور','rotation'=>'morning'],
+ ['id'=>57,'region'=>'راه آهن','role'=>'بازرس مقیم'],
+ ['id'=>58,'region'=>'ثامن','role'=>'سر بازرس'],
+ ['id'=>59,'region'=>'غرب','role'=>'گشت خودرویی'],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement(count($r['unassigned'])===0);
+checkPlacement($r['assignments']['e']===55&&$r['assignments']['f']===56&&$r['assignments']['g']===57&&$r['assignments']['h']===58&&$r['assignments']['i']===59);
+checkPlacement(OrganizationWorkPlacement::isSenior('سر بازرس منطقه')&&!OrganizationWorkPlacement::isSenior('بازرس مقیم'));
+$r=OrganizationWorkPlacement::suggest([['id'=>'1','location'=>'راه آهن','role'=>'ناظر خط'],['id'=>'2','location'=>'راه آهن','role'=>'ناظر خط']],[
+ ['id'=>62,'location'=>'راه آهن','role'=>'ناظر خط','last_name'=>'تقی زاده'],
+ ['id'=>63,'location'=>'راه آهن','role'=>'ناظر خط','last_name'=>'پورمحمدی']
+]);
+checkPlacement($r['assignments'][1]===63&&$r['assignments'][2]===62);

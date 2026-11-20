@@ -3829,7 +3829,7 @@ function _finalize_work_month($year,$month,$userId){
     $people=_work_month_people();
     foreach($rows as &$row){
       $row['organization_person']=$people[(int)$row['user_id']]??[];
-      if(preg_match('/^اپراتور(?:\s|$)/u',trim((string)($row['role']??''))))$row['organization_rotation']=_work_operator_month_rotation((int)$row['user_id'],_work_organization_period($year,$month));
+      if(preg_match('/^(?:اپراتور|ناظر خط|بازرس مقیم)(?:\s|$)/u',trim((string)($row['role']??''))))$row['organization_rotation']=_work_operator_month_rotation((int)$row['user_id'],_work_organization_period($year,$month));
     }
     unset($row);
     $daily=[];
@@ -4546,6 +4546,17 @@ function _work_operator_cycle_kinds(array $shift): array {
   }
   return $kinds;
 }
+function _work_organization_excluded_role($role): bool {
+  $role=trim(preg_replace('/\s+/u',' ',strtr((string)$role,['ي'=>'ی','ك'=>'ک','‌'=>' ','ئ'=>'ی']))??'');
+  return in_array($role,['نیروی صدور پروانه','رییس اداره بازرسی','معاونت بازرسی','معاون بازرسی','مدیر کل','مدیرکل','نماینده اجرایی'],true);
+}
+function _work_organization_eligible_ids(): array {
+  $ids=[];
+  foreach(Db::all("SELECT u.id,r.title role FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.id") as $p){
+    if(!_work_organization_excluded_role($p['role']??''))$ids[(int)$p['id']]=true;
+  }
+  return $ids;
+}
 function _work_operator_month_rotation(int $uid,array $period): string {
   return WorkReportReadScope::run(static function()use($uid,$period){
     $profiles=[];$scheduled=[];$unknown=false;
@@ -4565,6 +4576,7 @@ function _work_operator_month_rotation(int $uid,array $period): string {
     }
     if($scheduled){
       $class=_work_operator_rotation_percentage($scheduled);
+      if($class===''&&count($scheduled)===1&&!isset($scheduled['unknown']))$class=(string)array_key_first($scheduled);
       if($class==='')$unknown=true;else $profiles[$class]=true;
     }
     return !$unknown&&count($profiles)===1?(string)array_key_first($profiles):'';
@@ -4713,10 +4725,15 @@ function _work_organization_records($u,$jy,$jm,array $options,?array $allowedUse
 function _work_organization_records_impl($u,$jy,$jm,array $options,?array $allowedUserIds=null){
   $final=_final_work_month($jy,$jm);
   $period=_work_organization_period($jy,$jm);
+  if(!$final){
+    $eligible=_work_organization_eligible_ids();
+    $allowedUserIds=$allowedUserIds===null?$eligible:array_intersect_key($allowedUserIds,$eligible);
+  }
   // Organization actuals are always calculated through the explicit completed-day cutoff.
   // Do not reuse a generic monthly snapshot with an unverified cutoff.
   $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,$allowedUserIds,true));
   if($allowedUserIds!==null)$rows=array_values(array_filter($rows,static fn($r)=>isset($allowedUserIds[(int)$r['user_id']])));
+  $rows=array_values(array_filter($rows,static fn($r)=>!_work_organization_excluded_role($r['role']??'')));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
@@ -4774,7 +4791,7 @@ function _work_organization_records_impl($u,$jy,$jm,array $options,?array $allow
       9=>'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت'
     ]];
     $rotation=(string)($r['organization_rotation']??$person['shift_percentage']??'');
-    if(!$final&&preg_match('/^اپراتور(?:\s|$)/u',trim((string)($r['role']??''))))$rotation=_work_operator_month_rotation((int)$r['user_id'],$period);
+    if(!$final&&preg_match('/^(?:اپراتور|ناظر خط|بازرس مقیم)(?:\s|$)/u',trim((string)($r['role']??''))))$rotation=_work_operator_month_rotation((int)$r['user_id'],$period);
     $record['placement']=['id'=>$record['user_id'],'region'=>(string)($person['zone_name']??''),'location'=>(string)($person['location_name']??''),'role'=>(string)($r['role']??''),'rotation'=>$rotation];
     $records[]=$record;
   }

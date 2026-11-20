@@ -53,3 +53,6 @@ verifyPeriod(_work_operator_rotation_percentage(_work_operator_cycle_kinds($cycl
 verifyPeriod(_work_operator_rotation_percentage(_work_operator_shift_kinds([['s'=>'07:00','e'=>'15:00'],['s'=>'15:00','e'=>'23:00']])),'10');
 verifyPeriod(_work_operator_rotation_percentage(_work_operator_shift_kinds([['s'=>'07:00','e'=>'15:00']])),'');
 verifyPeriod(_work_operator_rotation_percentage(['morning'=>true,'afternoon'=>true,'unknown'=>true]),'');
+
+foreach(['نیروی صدور پروانه','رئیس اداره بازرسی','معاونت بازرسی','مدیر کل','نماینده اجرایی'] as $role)verifyPeriod(_work_organization_excluded_role($role),true);
+verifyPeriod(_work_organization_excluded_role('بازرس مقیم'),false);

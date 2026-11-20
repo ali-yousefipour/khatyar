@@ -101,7 +101,8 @@ route('POST','/api/admin/shift-report/templates/preview',function($p,$b,$u){
         $id=_work_template_id($b['template_id']??null);
         $template=$repo->get($id,isset($b['template_version'])?_work_template_id($b['template_version']):null,true);
         if(!empty($b['batched'])){
-            $ids=array_map('intval',array_column(Db::all('SELECT id FROM users WHERE is_active=1 ORDER BY id'),'id'));
+            $frozen=_final_work_month($year,$month);
+            $ids=$frozen?array_map('intval',array_column(array_values(array_filter(_work_only_active_users(_work_snapshot_decode($frozen['monthly_json'])),static fn($r)=>!_work_organization_excluded_role($r['role']??''))),'user_id')):array_keys(_work_organization_eligible_ids());
             $context=['year'=>$year,'month'=>$month,'finalized'=>(bool)_final_work_month($year,$month),'forecast_remaining'=>$forecast,'include_surplus'=>$surplus,'template_id'=>$id,'template_version'=>(int)$template['id'],'template_sha256'=>$template['sha256'],'policy_version'=>2,'batch_pending'=>true,'batch_ids'=>$ids,'batch_offset'=>0,'batch_period'=>_work_organization_period($year,$month)];
             $store=new WorkReportSnapshot();
             return ['pending'=>true,'batch_token'=>$store->save((int)$u['id'],$context,[]),'done'=>0,'total'=>count($ids)];
