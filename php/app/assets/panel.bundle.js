@@ -14647,6 +14647,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
     const [versions, setVersions] = useState({}), [clock, setClock] = useState(Date.now());
     const lock = useRef(false), initialized = useRef(false), touchDrag = useRef(null), batchResume = useRef(null);
     const [resumeAvailable, setResumeAvailable] = useState(false);
+    const [resolveOpen, setResolveOpen] = useState(false), [resolveDraft, setResolveDraft] = useState({});
     const previewKey = JSON.stringify([selected, year, month, forecast, surplus]);
     useEffect(() => { batchResume.current = null; setResumeAvailable(false); }, [previewKey]);
     const request = async (path = "", method = "GET", body = null, binary = false) => {
@@ -14744,6 +14745,8 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
             setResumeAvailable(false);
             setPreview(data);
             setAssignment({ ...data.assignments });
+            setResolveDraft({});
+            setResolveOpen((data.unmatched || []).length > 0);
             setClock(Date.now());
             setPicked("");
             setQuery("");
@@ -14768,6 +14771,29 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         return old; const displaced = destination === "" ? null : next[destination]; if (source !== undefined)
         next[source] = destination === "" ? null : (displaced !== null && displaced !== void 0 ? displaced : null); if (destination !== "")
         next[destination] = Number(person); return next; }); setPicked(""); };
+    const unresolved = unassigned.filter(p => unmatched.has(String(p.id)));
+    const openResolve = () => { setResolveDraft({}); setResolveOpen(true); };
+    const applyResolve = () => {
+        if (loading || working || expires <= 0)
+            return;
+        const next = { ...assignment };
+        const seen = new Set();
+        const validSlots = new Set(slots.map(s => String(s.id)));
+        for (const p of unresolved) {
+            const dest = resolveDraft[String(p.id)];
+            if (!dest || dest === "overflow")
+                continue;
+            if (!validSlots.has(dest) || next[dest] != null || seen.has(dest)) {
+                setError("جایگاه انتخاب‌شده دیگر خالی نیست؛ مقصد دیگری انتخاب کنید.");
+                return;
+            }
+            seen.add(dest);
+            next[dest] = Number(p.id);
+        }
+        setAssignment(next);
+        setResolveOpen(false);
+        setError("");
+    };
     const expires = preview ? Math.max(0, Math.floor(Number(preview.expires_at) - clock / 1000)) : 0;
     const exportFinal = async () => { if (lock.current || working || !preview || expires <= 0)
         return; const id = beginWork("اعتبارسنجی چینش و تولید Excel"); if (!id)
@@ -14898,11 +14924,11 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                         React.createElement("input", { type: "file", accept: ".xlsx", onChange: e => setFile(e.target.files[0] || null) })),
                     file && React.createElement("p", null, file.name)),
                 React.createElement("button", { className: "btn p", disabled: loading || !file, onClick: submit }, loading ? "در حال پردازش…" : "ذخیره قالب"))),
-        preview && React.createElement("div", { style: overlay },
-            React.createElement("section", { role: "dialog", "aria-modal": "true", "aria-label": "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC", style: modal },
+        preview && React.createElement("div", { style: overlay, inert: resolveOpen ? true : undefined, "aria-hidden": resolveOpen ? true : undefined },
+            React.createElement("section", { role: "dialog", "aria-modal": !resolveOpen, "aria-label": "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC", style: modal },
                 React.createElement("div", { className: "row", style: { justifyContent: "space-between" } },
                     React.createElement("h3", null, "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
-                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setPreview(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641")),
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => { setResolveOpen(false); setResolveDraft({}); setPreview(null); } }, "\u0627\u0646\u0635\u0631\u0627\u0641")),
                 error && React.createElement("p", { role: "alert" }, error),
                 React.createElement("p", { "aria-live": "polite" }, expires > 0 ? "اعتبار باقی‌مانده: " + faPlain(expires) + " ثانیه" : "پیش‌نمایش منقضی شده است؛ دوباره محاسبه کنید."),
                 React.createElement("div", { className: "kh-template-grid" }, [["کل نیروها", people.length], ["ظرفیت قالب", slots.length], ["جانمایی‌شده", assigned.size], ["جایگاه خالی", slots.length - assigned.size], ["مازاد", unassigned.filter(p => !unmatched.has(String(p.id))).length], ["بدون تطبیق", unassigned.filter(p => unmatched.has(String(p.id))).length]].map(([label, value]) => React.createElement("div", { key: label, className: "kh-template-drop" },
@@ -14951,9 +14977,53 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                         dragHandle(p.id),
                         React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setPicked(String(p.id)) }, personLabel(p))))))),
                 React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
-                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setAssignment({ ...preview.assignments }) }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
-                    React.createElement("button", { className: "btn p", disabled: loading || working || expires <= 0, onClick: exportFinal }, "\u062A\u0623\u06CC\u06CC\u062F \u0686\u06CC\u0646\u0634 \u0648 \u062F\u0627\u0646\u0644\u0648\u062F Excel"),
-                    expires <= 0 && React.createElement("button", { className: "btn g", disabled: loading, onClick: startPreview }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F")))));
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => { setAssignment({ ...preview.assignments }); setResolveDraft({}); setResolveOpen((preview.unmatched || []).length > 0); } }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
+                    unresolved.length > 0 && React.createElement("button", { type: "button", className: "btn g", disabled: loading || working || expires <= 0, onClick: openResolve },
+                        "\u062A\u0639\u06CC\u06CC\u0646 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u062A\u0637\u0628\u06CC\u0642 (",
+                        faPlain(unresolved.length),
+                        ")"),
+                    React.createElement("button", { className: "btn p", disabled: loading || working || expires <= 0 || resolveOpen, onClick: exportFinal }, "\u062A\u0623\u06CC\u06CC\u062F \u0686\u06CC\u0646\u0634 \u0648 \u062F\u0627\u0646\u0644\u0648\u062F Excel"),
+                    expires <= 0 && React.createElement("button", { className: "btn g", disabled: loading, onClick: startPreview }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F")))),
+        preview && resolveOpen && React.createElement("div", { style: { ...overlay, zIndex: 10060 } },
+            React.createElement("section", { role: "dialog", "aria-modal": "true", "aria-labelledby": "kh-unmatched-title", style: { ...modal, width: "min(780px,100%)", display: "flex", flexDirection: "column", gap: 12, maxHeight: "90dvh", overflow: "hidden" }, onKeyDown: e => { if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setResolveOpen(false);
+                } } },
+                React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center" } },
+                    React.createElement("h3", { id: "kh-unmatched-title", style: { margin: 0 } }, "\u062A\u0639\u06CC\u06CC\u0646 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u062A\u0637\u0628\u06CC\u0642"),
+                    React.createElement("button", { type: "button", className: "btn g", onClick: () => setResolveOpen(false) }, "\u0628\u0633\u062A\u0646")),
+                React.createElement("p", { className: "muted", style: { margin: 0 } },
+                    "\u0628\u0631\u0627\u06CC \u0647\u0631 \u06CC\u06A9 \u0627\u0632 ",
+                    faPlain(unresolved.length),
+                    " \u0646\u06CC\u0631\u0648 \u06CC\u06A9 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u062E\u0627\u0644\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0648 \u0631\u0627 \u062F\u0631 \u0627\u0646\u062A\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u0646\u06AF\u0647 \u062F\u0627\u0631\u06CC\u062F. \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0628\u0631\u0627\u06CC \u0633\u0627\u06CC\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+                error && React.createElement("p", { role: "alert" }, error),
+                expires <= 0 && React.createElement("p", { role: "alert" }, "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0645\u0646\u0642\u0636\u06CC \u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u067E\u0633 \u0627\u0632 \u0628\u0633\u062A\u0646 \u067E\u0646\u062C\u0631\u0647 \u062F\u0648\u0628\u0627\u0631\u0647 \u0645\u062D\u0627\u0633\u0628\u0647 \u06A9\u0646\u06CC\u062F."),
+                React.createElement("div", { style: { overflowY: "auto", minHeight: 0, display: "grid", gap: 8 } }, unresolved.map(p => {
+                    const key = String(p.id), value = resolveDraft[key] || "";
+                    return React.createElement("div", { key: key, style: { border: "1px solid var(--line,#cddcd5)", borderRadius: 12, padding: 12, display: "grid", gap: 7 } },
+                        React.createElement("strong", null, personLabel(p)),
+                        React.createElement("span", { className: "muted" }, [p.region, p.location, p.role].filter(Boolean).join(" · ") || "اطلاعات سازمانی نامشخص"),
+                        React.createElement("label", { style: { display: "grid", gap: 4 } },
+                            "\u062C\u0627\u06CC\u06AF\u0627\u0647 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644",
+                            React.createElement("select", { className: "input", style: { width: "100%", minWidth: 0 }, "aria-label": "جایگاه " + personLabel(p), value: value, disabled: loading || working || expires <= 0, onChange: e => { const val = e.target.value; setResolveDraft(old => ({ ...old, [key]: val })); } },
+                                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u062C\u0627\u06CC\u06AF\u0627\u0647"),
+                                React.createElement("option", { value: "overflow" }, "\u062F\u0631\u062C \u062F\u0631 \u0627\u0646\u062A\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634"),
+                                slots.filter(s => assignment[s.id] == null).map(s => { const id = String(s.id); const taken = Object.entries(resolveDraft).some(([other, dest]) => other !== key && dest === id); return React.createElement("option", { key: id, value: id, disabled: taken },
+                                    faPlain(s.row),
+                                    " \u00B7 ",
+                                    s.location,
+                                    " \u00B7 ",
+                                    s.role,
+                                    s.region ? " · " + s.region : ""); }))));
+                })),
+                React.createElement("div", { className: "row", style: { flexWrap: "wrap", justifyContent: "space-between", gap: 8 } },
+                    React.createElement("span", { "aria-live": "polite" },
+                        faPlain(unresolved.filter(p => !!resolveDraft[String(p.id)]).length),
+                        " \u0627\u0632 ",
+                        faPlain(unresolved.length),
+                        " \u062A\u0639\u06CC\u06CC\u0646 \u062A\u06A9\u0644\u06CC\u0641 \u0634\u062F\u0647"),
+                    React.createElement("button", { type: "button", className: "btn g", onClick: () => setResolveOpen(false) }, "\u0627\u062F\u0627\u0645\u0647 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC \u062F\u0633\u062A\u06CC"),
+                    React.createElement("button", { type: "button", className: "btn p", disabled: loading || working || expires <= 0 || unresolved.some(p => !resolveDraft[String(p.id)]), onClick: applyResolve }, "\u062A\u0623\u06CC\u06CC\u062F \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627")))));
 }
 function ShiftReport() {
     var _a, _b;
