@@ -309,7 +309,7 @@ jobs:
                 continue
               fi
 
-              if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/DashboardDiscipline.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/WorkReportReadScope.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Push.php" ] || [ "${rel}" = "lib/ZoneWorkflow.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+              if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/DashboardDiscipline.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/WorkReportReadScope.php" ] || [ "${rel}" = "lib/OrganizationWorkPlacement.php" ] || [ "${rel}" = "lib/WorkReportSnapshot.php" ] || [ "${rel}" = "lib/WorkReportTemplateArchive.php" ] || [ "${rel}" = "lib/WorkReportTemplateParser.php" ] || [ "${rel}" = "lib/WorkReportTemplateExporter.php" ] || [ "${rel}" = "lib/WorkReportTemplateRepository.php" ] || [ "${rel}" = "lib/work_report_template_routes.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Push.php" ] || [ "${rel}" = "lib/ZoneWorkflow.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
                 continue
               fi
 
@@ -370,6 +370,13 @@ jobs:
               'WorkContracts.php' => 'WorkContracts.php',
               'DashboardDiscipline.php' => 'DashboardDiscipline.php',
               'WorkReportReadScope.php' => 'WorkReportReadScope.php',
+              'OrganizationWorkPlacement.php' => 'OrganizationWorkPlacement.php',
+              'WorkReportSnapshot.php' => 'WorkReportSnapshot.php',
+              'WorkReportTemplateArchive.php' => 'WorkReportTemplateArchive.php',
+              'WorkReportTemplateParser.php' => 'WorkReportTemplateParser.php',
+              'WorkReportTemplateExporter.php' => 'WorkReportTemplateExporter.php',
+              'WorkReportTemplateRepository.php' => 'WorkReportTemplateRepository.php',
+              'work_report_template_routes.php' => 'work_report_template_routes.php',
               'routes.php' => 'routes.php',
               'IranCalendar.php' => 'IranCalendar.php',
               'ShiftCalc.php' => 'ShiftCalc.php',
@@ -420,7 +427,7 @@ jobs:
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
               echo 'set ssl:verify-certificate no'
-              for name in school_complaints_routes.php school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php ZoneWorkflow.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx DashboardDiscipline.php WorkReportReadScope.php routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
+              for name in school_complaints_routes.php school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Push.php ZoneWorkflow.php RegionalTeam.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx DashboardDiscipline.php WorkReportReadScope.php OrganizationWorkPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php work_report_template_routes.php routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/khat-yar.ir/assets/.attendance-deploy-$name"
                 fi
@@ -441,7 +448,7 @@ jobs:
             echo "${response}" | grep -q '"ok":true'
             # Assert that the host-side installer actually copied each module
             # to the canonical /lib directory. Staging alone is insufficient.
-            for name in Db.php Jwt.php Http.php KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php DashboardDiscipline.php WorkReportReadScope.php routes.php Push.php ZoneWorkflow.php complaints_routes_extra.php school_complaints_routes.php school_service_sepand.php ShiftCalc.php; do
+            for name in Db.php Jwt.php Http.php KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php DashboardDiscipline.php WorkReportReadScope.php OrganizationWorkPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php work_report_template_routes.php routes.php Push.php ZoneWorkflow.php complaints_routes_extra.php school_complaints_routes.php school_service_sepand.php ShiftCalc.php; do
               local_path="deploy-payload/lib/${name}"
               # Diff-only payloads may omit modules; never read a nonexistent
               # checksum or turn a successful host copy into a false failure.
@@ -465,7 +472,7 @@ jobs:
             echo "Host-side attendance PHP library installation completed."
           # The new form and contract modules must be present in the same
           # canonical /lib path used by app/index.php; absence fails deployment.
-          for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php; do
+          for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrganizationWorkPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php work_report_template_routes.php; do
             if [ ! -f "deploy-payload/lib/${name}" ]; then
               echo "ERROR: missing required module from deployment payload: ${name}" >&2
               exit 1
@@ -491,7 +498,7 @@ jobs:
               echo "FTP verify skipped for ${rel} (host-side installer verified canonical checksum)."
               continue
             fi
-            if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/DashboardDiscipline.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/WorkReportReadScope.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+            if [ "${rel}" = "lib/school_complaints_routes.php" ] || [ "${rel}" = "lib/school_service_sepand.php" ] || [ "${rel}" = "lib/DashboardDiscipline.php" ] || [ "${rel}" = "lib/RegionalTeam.php" ] || [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Jwt.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/WorkReportReadScope.php" ] || [ "${rel}" = "lib/OrganizationWorkPlacement.php" ] || [ "${rel}" = "lib/WorkReportSnapshot.php" ] || [ "${rel}" = "lib/WorkReportTemplateArchive.php" ] || [ "${rel}" = "lib/WorkReportTemplateParser.php" ] || [ "${rel}" = "lib/WorkReportTemplateExporter.php" ] || [ "${rel}" = "lib/WorkReportTemplateRepository.php" ] || [ "${rel}" = "lib/work_report_template_routes.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/InternetWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
               echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi
