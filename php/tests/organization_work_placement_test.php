@@ -131,3 +131,23 @@ $r=OrganizationWorkPlacement::suggest($slots,$people);
 checkPlacement($r['assignments']===['in'=>71,'out'=>72,'hall'=>73,'ordinary'=>null,'rail1'=>75,'rail2'=>74]);
 checkPlacement($r['unmatched']===[76]);
 echo "Airport operators, terminal hall and railway inspectors OK\n";
+
+$slots=[
+ ['id'=>'mobile1','location'=>'ناظر خطوط گردشی','role'=>'','combined'=>true],
+ ['id'=>'mobile2','location'=>'ناظر خطوط گردشی','role'=>'','combined'=>true],
+ ['id'=>'mobile3','location'=>'ناظر خطوط گردشی','role'=>'','combined'=>true],
+ ['id'=>'east','location'=>'طبرسی','role'=>'بازرس خط'],
+];
+$people=[
+ ['id'=>81,'region'=>'شرق','role'=>'سربازرس ارشد','last_name'=>'تقی زاده'],
+ ['id'=>82,'region'=>'شرکت','role'=>'نیروی اداری ارشد','last_name'=>'احمدی'],
+ ['id'=>83,'region'=>'غرب','role'=>'گشت موتوری','last_name'=>'پورمحمدی'],
+ ['id'=>84,'region'=>'شرق','role'=>'سربازرس'],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['mobile1'=>82,'mobile2'=>83,'mobile3'=>81,'east'=>84]);
+checkPlacement(OrganizationWorkPlacement::rowColor('سربازرس ارشد')==='FFC6EFCE');
+checkPlacement(OrganizationWorkPlacement::rowColor('سر بازرس')==='FFC6EFCE');
+checkPlacement(OrganizationWorkPlacement::rowColor('نیروی اداری ارشد')==='FFBDD7EE');
+checkPlacement(OrganizationWorkPlacement::rowColor('گشت موتوری')===null);
+echo "Senior staff placement and colors OK\n";

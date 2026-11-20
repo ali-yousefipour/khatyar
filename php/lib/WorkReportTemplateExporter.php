@@ -132,25 +132,25 @@ final class WorkReportTemplateExporter {
         if(!$has){$n=self::element($types,self::C,'Default');$n->setAttribute('Extension','vml');$n->setAttribute('ContentType','application/vnd.openxmlformats-officedocument.vmlDrawing');$types->documentElement->appendChild($n);}
         self::put($zip,$cp,$comments);self::put($zip,$vp,$vml);self::put($zip,$rp,$rels);
     }
-    private static function greenRow(ZipArchive $zip,DOMElement $row,array $columns,?DOMDocument &$styles,array &$cache): void {
+    private static function coloredRow(ZipArchive $zip,DOMElement $row,array $columns,?DOMDocument &$styles,array &$cache,string $color): void {
         if(!$styles)$styles=WorkReportTemplateArchive::xml($zip,'xl/styles.xml');
         $fills=$styles->getElementsByTagNameNS(self::S,'fills')->item(0);
         $xfs=$styles->getElementsByTagNameNS(self::S,'cellXfs')->item(0);
         if(!$fills||!$xfs)throw new RuntimeException('Missing workbook styles');
-        if(!isset($cache['fill'])){
-            $cache['fill']=$fills->getElementsByTagNameNS(self::S,'fill')->length;
+        if(!isset($cache['fill'.$color])){
+            $cache['fill'.$color]=$fills->getElementsByTagNameNS(self::S,'fill')->length;
             $fill=self::element($styles,self::S,'fill');$pattern=self::element($styles,self::S,'patternFill');$pattern->setAttribute('patternType','solid');
-            $fg=self::element($styles,self::S,'fgColor');$fg->setAttribute('rgb','FFC6EFCE');$pattern->appendChild($fg);$fill->appendChild($pattern);$fills->appendChild($fill);
+            $fg=self::element($styles,self::S,'fgColor');$fg->setAttribute('rgb',$color);$pattern->appendChild($fg);$fill->appendChild($pattern);$fills->appendChild($fill);
             $fills->setAttribute('count',(string)$fills->getElementsByTagNameNS(self::S,'fill')->length);
         }
         foreach($row->getElementsByTagNameNS(self::S,'c') as $cell){
             $column=preg_replace('/[0-9]+$/','',$cell->getAttribute('r'));
             if(!in_array($column,$columns,true))continue;
-            $base=(int)$cell->getAttribute('s');$key='xf'.$base;
+            $base=(int)$cell->getAttribute('s');$key='xf'.$color.':'.$base;
             if(!isset($cache[$key])){
                 $xf=$xfs->getElementsByTagNameNS(self::S,'xf')->item($base);
                 if(!$xf)throw new RuntimeException('Invalid original cell style');
-                $copy=$xf->cloneNode(true);$copy->setAttribute('fillId',(string)$cache['fill']);$copy->setAttribute('applyFill','1');
+                $copy=$xf->cloneNode(true);$copy->setAttribute('fillId',(string)$cache['fill'.$color]);$copy->setAttribute('applyFill','1');
                 $cache[$key]=$xfs->getElementsByTagNameNS(self::S,'xf')->length;$xfs->appendChild($copy);
                 $xfs->setAttribute('count',(string)$xfs->getElementsByTagNameNS(self::S,'xf')->length);
             }
@@ -198,7 +198,7 @@ final class WorkReportTemplateExporter {
                 $id=$checked['assignments'][$slot['id']];$r=$id===null?null:$byId[$id];
                 $group=$slot['group_id'];if(!isset($counts[$group]))$counts[$group]=[$slot['location'],$slot['role'],0,0];$counts[$group][2]++;if($r)$counts[$group][3]++;
                 foreach(self::FIELDS as $key=>$c){$col=$structure['columns'][$key];if(self::protectedCell($col,$n,$structure['merges']))throw new InvalidArgumentException('Merged target cell');$ref=$col.$n;$replace[$ref]=true;self::setCell($sheet,$row,$col,$r['cells'][$c]??null,$c>=7);if($r&&$c>=7)$notes[$ref]=$r['comments'][$c];}
-                if($r){$addTotals($r);if(OrganizationWorkPlacement::isSenior($r['placement']['role']??''))self::greenRow($zip,$row,array_map(static fn($key)=>$structure['columns'][$key],array_keys(self::FIELDS)),$greenStyles,$greenCache);}
+                if($r){$addTotals($r);if(($color=OrganizationWorkPlacement::rowColor($r['placement']['role']??''))!==null)self::coloredRow($zip,$row,array_map(static fn($key)=>$structure['columns'][$key],array_keys(self::FIELDS)),$greenStyles,$greenCache,$color);}
             }
             // Append below existing content: no shifts of formulas, drawings or merge ranges.
             $append=function(array $values,array $comment=[],array $styleFields=[])use($sheet,$data,&$max,&$notes,$fieldStyles){
@@ -216,7 +216,7 @@ final class WorkReportTemplateExporter {
                 if(!$ids)continue;
                 $reason=$title==='فهرست نیروهای مازاد بر ظرفیت قالب'?'عدم تخصیص جایگاه منطبق در چینش نهایی':'عدم وجود جایگاه منطبق با مشخصات سازمانی';
                 $append([$title]);$append(['نام','نام خانوادگی','شماره پرسنلی','منطقه','محل خدمت','سمت','جمعه‌کاری','تعطیل‌کاری','اضافه‌کاری','علت']);
-                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);}
+                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);if(($color=OrganizationWorkPlacement::rowColor($p['role']??''))!==null)self::coloredRow($zip,$data->lastElementChild,array_map(static fn($i)=>self::column($i),range(1,10)),$greenStyles,$greenCache,$color);}
             }
             if($includeSupplement){
                 $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);

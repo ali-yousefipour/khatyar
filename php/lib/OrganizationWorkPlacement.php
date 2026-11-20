@@ -34,6 +34,11 @@ final class OrganizationWorkPlacement {
         $role=self::normalize($role);
         return (bool)preg_match('/^سر\s*بازرس(?:\s|$)/u',$role);
     }
+    public static function rowColor($role): ?string {
+        if(self::isSenior($role))return 'FFC6EFCE';
+        if(self::normalize($role)==='نیروی اداری ارشد')return 'FFBDD7EE';
+        return null;
+    }
     public static function comparePeople(array $a,array $b): int {
         // Persian alphabet: Unicode order alone does not place پ چ ژ گ correctly.
         $alphabet=preg_split('//u','آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی',-1,PREG_SPLIT_NO_EMPTY);
@@ -65,6 +70,9 @@ final class OrganizationWorkPlacement {
         $shift=(string)($person['rotation']??'');
         $site=$location!==''?$location:$region;
         $targetArea=null;$targetRole=null;
+        if(in_array($rawRole,['سربازرس ارشد','سر بازرس ارشد','نیروی اداری ارشد'],true)){
+            return in_array($slotRole,['ناظر خطوط گردشی','ناظرین خطوط گردشی','ناظران خطوط گردشی'],true)?160:null;
+        }
         if(self::isSenior($rawRole)){
             $seniorAreas=['مبادی ورودی'=>'فرودگاه','مبادی'=>'فرودگاه','ثامن'=>'باب الجواد','غرب'=>'نواب صفوی','مرکزی'=>'شیرازی','مرکز'=>'شیرازی','شرق'=>'طبرسی'];
             if(isset($seniorAreas[$region])){
