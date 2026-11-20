@@ -3830,6 +3830,8 @@ function _work_progress_start($u,$mode){
   $path=_work_progress_path($u['id'],$_GET['progress_id']??null);
   if(!$path)return;
   $GLOBALS['kh_work_progress']=['path'=>$path,'mode'=>$mode];
+  if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
+  if(mt_rand(1,20)===1){foreach(glob(sys_get_temp_dir().'/khatyar-work-*.json')?:[] as $old){if(is_file($old)&&filemtime($old)<time()-3600)@unlink($old);}}
   _work_progress_tick(1,'آماده‌سازی اطلاعات');
   register_shutdown_function(static function()use($path){$v=json_decode((string)@file_get_contents($path),true);if(is_array($v)&&($v['percent']??0)<100){$v['ended']=true;@file_put_contents($path,json_encode($v,JSON_UNESCAPED_UNICODE),LOCK_EX);}});
 }
@@ -4575,7 +4577,26 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
   }
   _work_progress_tick(96,'بسته‌بندی و ارسال فایل اکسل');
-  $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
+  $tmp=null;
+  try{
+    $tmp=$xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان',true);
+    $check=new ZipArchive();
+    if($check->open($tmp,ZipArchive::CHECKCONS)!==true)throw new RuntimeException('Invalid XLSX archive');
+    $valid=$check->locateName('xl/workbook.xml')!==false&&$check->locateName('xl/worksheets/sheet1.xml')!==false;
+    $check->close();
+    if(!$valid)throw new RuntimeException('Missing XLSX parts');
+    _work_progress_tick(99,'فایل آماده دانلود است');
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="organization-work-'.$jy.'-'.$jm.'.xlsx"');
+    header('Content-Length: '.filesize($tmp));
+    header('Cache-Control: no-store');
+    readfile($tmp);
+    _work_progress_tick(100,'ارسال فایل تکمیل شد');
+  }catch(Throwable $error){
+    error_log('organization export XLSX failure: '.$error->getMessage());
+    Http::error('ساخت فایل اکسل سازمان ناموفق بود؛ خطای بسته‌بندی فایل در سرور ثبت شد.',500);
+  }finally{if(is_string($tmp))@unlink($tmp);}
+  exit;
 },false,ADMIN);
 
 // فراخوان خودکار تعطیلات رسمی یک ماه از سرویس holidayapi.ir (شمسی)

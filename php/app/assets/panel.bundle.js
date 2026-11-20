@@ -14570,8 +14570,8 @@ function ShiftReport() {
     const progressOp=useRef(null);
     const beginWork=(title)=>{
         if(workLock.current)return null;
+        const id=Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");
         workLock.current=true;
-        const id=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");
         progressOp.current=id;
         setWorkProgress({title,percent:0,stage:"در انتظار شروع پردازش"});
         const poll=async()=>{try{
@@ -14583,7 +14583,7 @@ function ShiftReport() {
         progressTimer.current=setInterval(poll,1000);
         return id;
     };
-    const endWork=()=>{clearInterval(progressTimer.current);progressOp.current=null;workLock.current=false;setWorkProgress(null);};
+    const endWork=(success=false)=>{clearInterval(progressTimer.current);const id=progressOp.current; if(!success){progressOp.current=null;workLock.current=false;setWorkProgress(null);return;} setWorkProgress(old=>old?{...old,percent:100,stage:'عملیات تکمیل شد'}:old);setTimeout(()=>{if(progressOp.current===id){progressOp.current=null;workLock.current=false;setWorkProgress(null);}},450);};
     useEffect(()=>()=>{clearInterval(progressTimer.current);progressOp.current=null;},[]);
     const finalRequest = useRef(0), finalScope = useRef(""), finalLock = useRef(false);
     const monthlyRequest = useRef(0);
@@ -14645,21 +14645,23 @@ function ShiftReport() {
     const metricCell = (r, key, value) => React.createElement("button", { type: "button", className: "btn g", style: { font: "inherit", fontWeight: 700, color: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: "3px 6px" }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0628\u0646\u0627 \u0648 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647", onClick: () => setMetricDetail({ row: r, metric: key, year: jy, month: jm }) }, faPlain(hm(value)));
     const run = async () => { const id=beginWork('در حال محاسبه کارکرد نیروها'); if(!id)return; const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
         const response=await fetch(API_BASE+'/admin/shift-report?year='+year+'&month='+month+'&progress_id='+id,{headers:tok()});
-        const r=await response.json();
+        const r=await response.json().catch(()=>({}));
         if(!response.ok)throw Error(r.error||r.message||'خطا در محاسبه کارکرد');
+        if(!Array.isArray(r.rows))throw Error('پاسخ گزارش کارکرد معتبر نیست');
         if (generation === monthlyRequest.current)
-            setRows(Array.isArray(r.rows) ? r.rows : []);
+            setRows(r.rows);
+        endWork(true);
     }
     catch (e) {
         if (generation === monthlyRequest.current) {
             setRows(null);
             setReportError(e.message || "دریافت گزارش کارکرد ناموفق بود.");
+            endWork();
         }
     }
     finally {
         if (generation === monthlyRequest.current)
             setBusy(false);
-        endWork();
     } };
     const exportExcel = async () => { try {
         const res = await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`, { headers: tok() });
@@ -14689,10 +14691,11 @@ function ShiftReport() {
         a.download = `کارکرد-سازمان-${jy}-${jm}.xlsx`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        endWork(true);
     }
     catch (e) {
-        setReportError(e.message || "خطا در تولید فایل سازمان");
-    } finally {endWork();} };
+        if(progressOp.current===id){setReportError(e.message || "خطا در تولید فایل سازمان");endWork();}
+    } };
     return (React.createElement("div", { className: "admin-workspace-page monthly-work-report-page" },
         workProgress && React.createElement("div",{role:"dialog","aria-modal":true,"aria-label":workProgress.title,style:{position:"fixed",inset:0,zIndex:2147483640,background:"rgba(0,0,0,.55)",display:"grid",placeItems:"center",padding:16}},
           React.createElement("div",{style:{width:"min(420px,100%)",background:"var(--card,#fff)",color:"var(--text,#172033)",borderRadius:20,padding:24,textAlign:"center",fontFamily:"Vazirmatn,Tahoma",boxShadow:"0 18px 60px #0005"}},
@@ -14751,7 +14754,7 @@ function ShiftReport() {
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
                     React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, disabled: finalBusy || !!workProgress, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
-                React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "در حال محاسبه…" : "محاسبه کارکرد"),
+                React.createElement("button", { className: "btn p", disabled: busy || !!workProgress, onClick: run }, busy ? "در حال محاسبه…" : "محاسبه کارکرد"),
                 rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
                 React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
             busy && React.createElement("div", { className: "work-report-state", role: "status", "aria-live": "polite" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u2026"),

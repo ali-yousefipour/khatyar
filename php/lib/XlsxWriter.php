@@ -90,7 +90,7 @@ class XlsxWriter {
     $headerRow=($this->reportHeading?4:1)+($this->headerGroups?1:0);
     $tmp = tempnam(sys_get_temp_dir(), 'xlsx_');
     $zip = new ZipArchive();
-    $zip->open($tmp, ZipArchive::OVERWRITE);
+    if($tmp===false || $zip->open($tmp, ZipArchive::OVERWRITE)!==true){if(is_string($tmp))@unlink($tmp);throw new RuntimeException('Cannot create XLSX archive');}
 
     $zip->addFromString('[Content_Types].xml',
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
@@ -273,7 +273,7 @@ class XlsxWriter {
         '</Relationships>');
     }
 
-    $zip->close();
+    if(!$zip->close()){ @unlink($tmp); throw new RuntimeException('Cannot finalize XLSX archive'); }
     if ($returnFile) return $tmp;
 
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

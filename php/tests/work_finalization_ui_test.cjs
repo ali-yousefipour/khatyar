@@ -27,6 +27,7 @@ const context = vm.createContext({
   useRef: initial => { const slot = index++; return states[slot] || (states[slot] = { current: initial }); },
   useEffect: callback => { const slot = index++; if (!effects[slot]) effects[slot] = callback() || (() => {}); },
   todayJ: () => [1405, 7, 25], J_MONTHS: Array.from({ length: 12 }, (_, offset) => 'month' + (offset + 1)),
+  crypto: require('node:crypto').webcrypto, setInterval, clearInterval, setTimeout, faPlain: String,
   API_BASE: '/api', tok: () => ({ Authorization: 'Bearer test' }), fa: String,
   window: { confirm: () => true }, alert: message => alerts.push(message),
   fetch: async (url, options) => { requests.push({ url, options }); return response(url, options); },
@@ -64,12 +65,15 @@ function button(tree, label) { return nodes(tree, node => node.type === 'button'
   assert.equal(button(tree, 'نهایی کردن کارکرد').props.disabled, true, 'saved month status retained');
   assert.equal(alerts.length, 1, 'single success notification');
   button(tree, 'گزارش کارکرد ماهانه').props.onClick(); tree = render();
-  const oldMonthly = deferred(); context.db.shiftReport = () => oldMonthly.promise;
+  const oldMonthly = deferred(); response = (url) => url.includes('/progress?') ? Promise.resolve({ok:true,json:async()=>({percent:45,stage:'محاسبه',done:9,total:20})}) : oldMonthly.promise;
   const monthlyLoad = button(tree, 'محاسبه کارکرد').props.onClick(); tree = render();
   assert.ok(text(tree).includes('در حال دریافت و محاسبه'), 'monthly report has an inline loading state');
   nodes(tree, node => node.type === 'select')[0].props.onChange({ target: { value: '3' } }); tree = render();
-  oldMonthly.resolve({ rows: [{ user_id: 90, name: 'OUTDATED PERSON' }] }); await monthlyLoad;
-  tree = render(); assert.ok(!text(tree).includes('OUTDATED PERSON'), 'late monthly response cannot overwrite a newly selected month');
+  assert.equal(nodes(tree,node=>node.type==='select')[0].props.value,5,'period locked during calculation');
+  oldMonthly.resolve({ok:true,json:async()=>({rows:[]})}); await monthlyLoad;
+  tree = render(); assert.ok(text(tree).includes('100٪'),'completed calculation shows 100 percent');
+  await new Promise(resolve=>setTimeout(resolve,500));
+  tree=render();
   assert.ok(text(tree).includes('محاسبه کارکرد'), 'newly selected month must explicitly request fresh calculation');
   effects.forEach(cleanup => cleanup?.());
   console.log('PASS compiled finalization UI: stale status, period scope, single-flight write, locked selectors and repeat prevention');
