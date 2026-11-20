@@ -50,3 +50,9 @@ checkPlacement($r['assignments']===['a'=>11,'b'=>12,'c'=>13,'d'=>14,'e'=>15,'f'=
 checkPlacement($r['unmatched']===[18]);
 
 echo "OK\n";
+
+
+$slots=[['id'=>'a','location'=>'شرکت','role'=>'کاربر خطوط'],['id'=>'b','location'=>'شرکت','role'=>'کاربر خطوط'],['id'=>'c','location'=>'شرکت','role'=>'نیروی اداری'],['id'=>'d','location'=>'فرودگاه','role'=>'اپراتور']];
+$people=[['id'=>31,'region'=>'منطقه ۲','role'=>'نیروی اداری مقیم سازمان'],['id'=>32,'region'=>'','role'=>'نیروی اداری مقیم سازمان'],['id'=>33,'region'=>'فرودگاه','role'=>'نیروی اداری مقیم سازمان'],['id'=>34,'region'=>'شرکت','role'=>'نیروی اداری']];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['a'=>31,'b'=>32,'c'=>34,'d'=>null]&&$r['overflow']===[33]);
