@@ -4468,19 +4468,15 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
 }, false, ADMIN);
 
 // خروجی مستقل کارکرد جهت ارسال به سازمان؛ هیچ رکورد تردد یا محاسبه پایه‌ای را تغییر نمی‌دهد.
-route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
-  _monthly_work_report_need($u);
-  $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
-  if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
-  _work_progress_start($u,'organization');
+function _work_organization_records($u,$jy,$jm,array $options){
   $final=_final_work_month($jy,$jm);
-  $reuse=$final?null:_work_report_reuse_load($u,$jy,$jm,$_GET['reuse_token']??null);
+  $reuse=$final?null:_work_report_reuse_load($u,$jy,$jm,$options['reuse_token']??null);
   $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):($reuse??_shift_month_report($jy,$jm)));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
-  $forecastRequested=($_GET['forecast_remaining']??'1')==='1';
-  $includeSurplus=($_GET['include_surplus']??'0')==='1';
+  $forecastRequested=($options['forecast_remaining']??'1')==='1';
+  $includeSurplus=($options['include_surplus']??'0')==='1';
   $forecastByUser=[];
   _work_progress_tick(56,'آماده‌سازی پیش‌بینی');
   if($forecastRequested&&!$final){
@@ -4560,19 +4556,11 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   }
 
   _work_progress_tick(80,'ساخت فایل اکسل');
-  $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
-  $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
-  $xw->setFontName('Vazirmatn');
-  $xw->setOrganizationNoteStyle();
   $fa=static fn($v)=>strtr((string)$v,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
-  $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-  $xw->setReportHeading('صورت وضعیت اضافه‌کاری پرسنل مدیریت پیمان خطوط تاکسیرانی شهر مشهد مقدس',($months[$jm-1]??'').' '.$fa($jy),'');
-  foreach([8,24,29,12,19,23,17,21,21,21] as $i=>$w)$xw->setColWidth($i,$w);
-  foreach([7,8,9] as $col)$xw->setDecimalCol($col);
-  $xw->setTextCol(6);
+  $records=[];
   $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
   $i=0;foreach($rows as $r){
-    _work_progress_tick(80+(int)floor(15*$i/max(1,count($rows))),'درج اطلاعات در اکسل',$i,count($rows));
+    _work_progress_tick(80+(int)floor(15*$i/max(1,count($rows))),'آماده‌سازی رکوردهای کارکرد',$i,count($rows));
     $person=_work_organization_person($r,$byId,$daily);
     // Reconcile legacy frozen months only from their immutable daily evidence.
     // Never update the stored snapshot or consult current exemption settings for it.
@@ -4611,11 +4599,38 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
       'surplusIncluded'=>$surplusIncluded,'forecastOt'=>$forecastOt,'net'=>$net]=$settlement;
     $hol+=(int)$forecast['holiday'];
     $fri+=(int)($forecast['friday']??0);
-    $i++;$row=$xw->addRow([$fa($i),(string)($person['zone_name']??''),($r['role']??''),$fa($i),$person['first_name']??'', $person['last_name']??'',$fa($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
+    $i++;
+    $record=['user_id'=>(int)$r['user_id'],'cells'=>[$fa($i),(string)($person['zone_name']??''),($r['role']??''),$fa($i),$person['first_name']??'', $person['last_name']??'',$fa($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)],'comments'=>[
+      7=>'جمعه‌کاری قطعی: '.$hm((int)($r['friday']??0)).' ساعت؛ پیش‌بینی: '.$hm($forecast['friday']??0).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.',
+      8=>'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.',
+      9=>'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت'
+    ]];
+    $record['placement']=['id'=>$record['user_id'],'region'=>(string)($person['zone_name']??''),'location'=>(string)($person['location_name']??''),'role'=>(string)($r['role']??''),'rotation'=>(string)($person['shift_percentage']??'')];
+    $records[]=$record;
+  }
+  return ['records'=>$records,'finalized'=>(bool)$final,'forecast_remaining'=>$forecastRequested,'include_surplus'=>$includeSurplus];
+}
+require_once __DIR__.'/work_report_template_routes.php';
+route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
+  _monthly_work_report_need($u);
+  $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
+  if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
+  _work_progress_start($u,'organization');
+  $data=_work_organization_records($u,$jy,$jm,$_GET);
+  $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
+  $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
+  $xw->setFontName('Vazirmatn');
+  $xw->setOrganizationNoteStyle();
+  $fa=static fn($v)=>strtr((string)$v,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+  $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+  $xw->setReportHeading('صورت وضعیت اضافه‌کاری پرسنل مدیریت پیمان خطوط تاکسیرانی شهر مشهد مقدس',($months[$jm-1]??'').' '.$fa($jy),'');
+  foreach([8,24,29,12,19,23,17,21,21,21] as $i=>$w)$xw->setColWidth($i,$w);
+  foreach([7,8,9] as $col)$xw->setDecimalCol($col);
+  $xw->setTextCol(6);
+  foreach($data['records'] as $record){
+    $row=$xw->addRow($record['cells']);
     $xw->setRowHeight($row,32);
-    $xw->setComment($row,7,'جمعه‌کاری قطعی: '.$hm((int)($r['friday']??0)).' ساعت؛ پیش‌بینی: '.$hm($forecast['friday']??0).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.');
-    $xw->setComment($row,8,'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.');
-    $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
+    foreach($record['comments'] as $column=>$comment)$xw->setComment($row,$column,$comment);
   }
   _work_progress_tick(96,'بسته‌بندی و ارسال فایل اکسل');
   $tmp=null;

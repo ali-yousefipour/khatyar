@@ -1,0 +1,198 @@
+name: Work report templates validation
+on:
+  push:
+    branches: [feature/work-report-templates-v2]
+  pull_request:
+    paths:
+      - 'php/lib/OrganizationWorkPlacement.php'
+      - 'php/lib/work_report_template_routes.php'
+      - 'php/lib/routes.php'
+      - 'php/tools/panel_source.jsx'
+      - 'php/tools/build_panel_bundle.sh'
+      - '.github/workflows/work-report-templates-validation.yml'
+      - 'php/lib/WorkReportTemplate*.php'
+      - 'php/tests/organization_work_placement_test.php'
+      - 'php/tests/work_report_template*.php'
+      - 'php/migrations/20261120_work_report_templates.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: zip, dom, simplexml, xml, mbstring, pdo_mysql
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PHP validation
+        run: |
+          php -l php/lib/OrganizationWorkPlacement.php
+          php -l php/lib/WorkReportTemplateArchive.php
+          php -l php/lib/WorkReportTemplateExporter.php
+          php -l php/lib/WorkReportTemplateRepository.php
+          php -l php/lib/WorkReportTemplateParser.php
+          php -l php/lib/work_report_template_routes.php
+          php -l php/lib/WorkReportSnapshot.php
+          WORK_REPORT_EXPORT_ARTIFACT_DIR="$RUNNER_TEMP/work-report-sample" php php/tests/work_report_template_exporter_test.php
+          php php/tests/work_report_snapshot_test.php
+          php php/tests/organization_work_placement_test.php
+          php php/tests/work_report_template_archive_test.php
+          php php/tests/xlsx_organization_style_test.php
+          php php/tests/attendance_monthly_reconciliation_test.php
+          git show 27d7d9c30531392a26978f89cd245bc1705212bf:php/lib/XlsxWriter.php > "$RUNNER_TEMP/xlsx-baseline.php"
+          XLSX_BASELINE="$RUNNER_TEMP/xlsx-baseline.php" php php/tests/xlsx_stream_regression_test.php
+      - name: Panel build
+        run: |
+          (cd php && npm install --no-save --no-package-lock typescript@5.9.3 && bash ./tools/build_panel_bundle.sh)
+          node --check php/app/assets/panel.bundle.js
+      - name: Independent workbook read
+        run: |
+          python -m pip install openpyxl
+          python -c "import openpyxl,os; w=openpyxl.load_workbook(os.environ['RUNNER_TEMP']+'/work-report-sample/sample.xlsx'); s=w.active; assert s['G2'].value==2.125 and s['G2'].comment is not None; assert s['G8'].value==3.125 and s['G11'].value==4.125"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: work-report-template-export-sample
+          path: ${{ runner.temp }}/work-report-sample/sample.xlsx
+          if-no-files-found: error
+  mysql-integration:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: work_report_test
+          MYSQL_USER: work_test
+          MYSQL_PASSWORD: test-only
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: zip, dom, simplexml, xml, mbstring, pdo_mysql
+          coverage: none
+      - name: Repository and migrations
+        env:
+          WORK_REPORT_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=work_report_test;charset=utf8mb4
+          WORK_REPORT_TEST_USER: work_test
+          WORK_REPORT_TEST_PASSWORD: test-only
+        run: php php/tests/work_report_template_repository_test.php
+  panel-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and verify exact source
+        run: |
+          (cd php && npm install --no-save --no-package-lock typescript@5.9.3 && bash ./tools/build_panel_bundle.sh)
+          node --check php/app/assets/panel.bundle.js
+          python -m py_compile php/tools/verify_work_template_bundle.py
+          python php/tools/verify_work_template_bundle.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: work-report-panel-build
+          path: |
+            php/app/assets/panel.bundle.js
+            php/app/panel.html
+            build-manifest.json
+          if-no-files-found: error
+  publish-panel-bundle:
+    needs: [validate, mysql-integration, panel-build, workbook-compatibility]
+    if: github.repository == 'ali-yousefipour/khatyar' && github.ref == 'refs/heads/feature/work-report-templates-v2' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: work-report-panel-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: work-report-panel-build
+          path: verified-build
+      - name: Verify artifact and publish exact tested assets
+        env:
+          TARGET_BRANCH: feature/work-report-templates-v2
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" || { echo "::error::Branch advanced; refusing stale publication"; exit 1; }
+          python - <<'PY'
+          import hashlib, json, os, re, shutil
+          from pathlib import Path
+          root = Path('verified-build')
+          manifest = json.loads((root/'build-manifest.json').read_text())
+          assert manifest['source_sha'] == os.environ['GITHUB_SHA']
+          assert manifest['syntax_validation'] == 'passed'
+          b = root/'php/app/assets/panel.bundle.js'
+          h = root/'php/app/panel.html'
+          digest = hashlib.sha256(b.read_bytes()).hexdigest()
+          assert digest == manifest['bundle_sha256']
+          assert digest[:16] == manifest['asset_version']
+          assert re.search(r'panel\.bundle\.js\?v='+digest[:16]+r'''(?=["'])''',h.read_text(encoding='utf-8'))
+          for p in (b,h):
+              shutil.copyfile(p, p.relative_to(root))
+          print('Verified SHA-256:', digest)
+          PY
+          node --check php/app/assets/panel.bundle.js
+          python php/tools/verify_work_template_bundle.py
+          git add -- php/app/assets/panel.bundle.js php/app/panel.html
+          if git diff --cached --quiet; then
+            echo "Generated panel assets already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(panel): publish verified work report template bundle"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$(git rev-parse HEAD)"
+          echo "Published generated assets at $(git rev-parse HEAD)"
+  workbook-compatibility:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: zip, dom, simplexml, xml, mbstring, pdo_mysql
+          coverage: none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install openpyxl==3.1.5 Pillow==11.3.0
+      - name: Test workbook interoperability
+        run: |
+          mkdir -p workbook-artifacts
+          python php/tests/work_report_workbook_compatibility.py fixture workbook-artifacts/fixture.xlsx -
+          php php/tests/work_report_template_multisheet_test.php workbook-artifacts/fixture.xlsx workbook-artifacts/export.xlsx
+          python php/tests/work_report_workbook_compatibility.py verify workbook-artifacts/fixture.xlsx workbook-artifacts/export.xlsx
+      - name: Test organization template structure
+        run: |
+          python php/tests/work_report_organization_fixture.py fixture workbook-artifacts/organization-fixture.xlsx -
+          php php/tests/work_report_organization_template_test.php workbook-artifacts/organization-fixture.xlsx workbook-artifacts/organization-export.xlsx
+          python php/tests/work_report_organization_fixture.py verify workbook-artifacts/organization-fixture.xlsx workbook-artifacts/organization-export.xlsx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workbook-compatibility
+          path: workbook-artifacts/
+          if-no-files-found: error

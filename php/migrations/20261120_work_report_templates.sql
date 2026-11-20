@@ -1,0 +1,37 @@
+CREATE TABLE IF NOT EXISTS work_report_templates (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ title VARCHAR(180) NOT NULL,
+ description TEXT NULL,
+ enabled TINYINT(1) NOT NULL DEFAULT 1,
+ created_by BIGINT UNSIGNED NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS work_report_template_versions (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ template_id BIGINT UNSIGNED NOT NULL,
+ version_no INT UNSIGNED NOT NULL,
+ sha256 CHAR(64) NOT NULL,
+ workbook MEDIUMBLOB NOT NULL,
+ mapping_json JSON NOT NULL,
+ created_by BIGINT UNSIGNED NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY template_version (template_id,version_no),
+ FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS work_report_template_state (
+ template_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+ active_version_id BIGINT UNSIGNED NOT NULL,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (template_id) REFERENCES work_report_templates(id),
+ FOREIGN KEY (active_version_id) REFERENCES work_report_template_versions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS work_report_template_default (
+ singleton_id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+ template_id BIGINT UNSIGNED NULL,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
