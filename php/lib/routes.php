@@ -3590,6 +3590,11 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
       foreach($reqDays as $reqDate=>$mins){
         if(strpos($reqDate,$prefix)!==0||strcmp($reqDate,$fromJdate)<0||!_work_employment_contains($employment,$reqDate))continue;
         if($throughJdate!==null&&strcmp($reqDate,$throughJdate)>0)continue;
+        if(in_array($rq['type'],['annual','sick','unpaid'],true)&&($rq['unit']??'daily')!=='hourly'){
+          $leaveShift=_active_user_shift_assignment($a['user_id'],$reqDate);
+          $leaveDay=($leaveShift['type']??'')==='advanced'?_shift_day_row($leaveShift['shift_id']??$leaveShift['id'],$reqDate):null;
+          $mins=_work_leave_daily_duty($leaveShift,$reqDate,$leaveDay);
+        }
         if($rq['type']==='annual')$reqAgg['annual_min']+=$mins;
         elseif($rq['type']==='sick')$reqAgg['sick_min']+=$mins;
         elseif($rq['type']==='unpaid')$reqAgg['unpaid_min']+=$mins;
@@ -4491,6 +4496,12 @@ function _work_organization_period($jy,$jm,?DateTimeImmutable $now=null): array 
   $end=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
   return ['today'=>$today,'actual_end'=>min($end,$yesterday),'first'=>$first,'end'=>$end,'forecast_start'=>max($first,$today)];
 }
+// Use the same daily duty calculation as the actual attendance report (including auto shifts).
+function _work_leave_daily_duty($shift,$jdate,$dayRow=null): int {
+  if(!$shift||!empty($dayRow['is_off']))return 0;
+  $day=ShiftCalc::dayWork($shift,$jdate,$dayRow,[],ShiftCalc::effectiveHoliday($jdate));
+  return max(0,(int)($day['expected']??0));
+}
 function _work_forecast_fraction($baseline,$leaveMinutes): float {
   return max(0.0,min(1.0,1-max(0,(int)$leaveMinutes)/max(1,(float)$baseline)));
 }
@@ -4519,10 +4530,14 @@ function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $i
         for($ts=max($monthStartTs,ShiftCalc::jdateToTs($from));$ts<=min($monthEndTs,ShiftCalc::jdateToTs($to));$ts+=86400){
           [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $key=sprintf('%04d-%02d-%02d',$y,$m,$d);
-          $minutes=$hourly?max(0,(int)($leave['minutes']??0)):480;
+          $minutes=$hourly?max(0,(int)($leave['minutes']??0)):0;
           if($hourly&&$minutes===0){$a=ShiftCalc::hm($leave['from_time']??'');$b=ShiftCalc::hm($leave['to_time']??'');$minutes=$a!==null&&$b!==null?max(0,$b-$a):0;}
-          $old=$leaveByUser[$uid][$key]??['full'=>false,'minutes'=>0];
-          $leaveByUser[$uid][$key]=['full'=>$old['full']||!$hourly,'minutes'=>min(1440,$old['minutes']+$minutes)];
+          $old=$leaveByUser[$uid][$key]??['full'=>false,'minutes'=>0,'full_type'=>null,'by_type'=>[]];
+          if(!$hourly)$old['full_type']=$old['full_type']??$leave['type'];
+          else $old['by_type'][$leave['type']]=($old['by_type'][$leave['type']]??0)+$minutes;
+          $old['full']=$old['full']||!$hourly;
+          $old['minutes']=min(1440,$old['minutes']+$minutes);
+          $leaveByUser[$uid][$key]=$old;
         }
       }
       $forecastDone=0;$actualEnd=$period['actual_end'];
@@ -4565,7 +4580,7 @@ function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $i
           $workedDays++;
         }
         $dailyOt=$workedDays>0?$priorOvertime/$workedDays:0;
-        $futureOt=0;$futureHoliday=0;$futureFriday=0;$futureWorkCount=0;$futureHolidayCount=0;$futureFridayCount=0;$futureWorked=0;$futureInShift=0;$futureExpected=0;$futureNight=0;$futureSurplus=0;$leaveDays=0;$leaveMinutes=0;
+        $futureOt=0;$futureHoliday=0;$futureFriday=0;$futureWorkCount=0;$futureHolidayCount=0;$futureFridayCount=0;$futureWorked=0;$futureInShift=0;$futureExpected=0;$futureNight=0;$futureSurplus=0;$leaveDays=0;$leaveMinutes=0;$leaveTotals=['annual_min'=>0,'sick_min'=>0,'unpaid_min'=>0];
         for($ts=$todayTs;$ts<=$monthEndTs;$ts+=86400){
           [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
@@ -4574,16 +4589,23 @@ function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $i
           if(!$dayShift)continue;
           $dr=($dayShift['type']??'')==='advanced'?_shift_day_row($dayShift['shift_id']??$dayShift['id'],$j):null;
           if(!empty($dr['is_off']))continue;
-          $leave=$leaveByUser[$uid][$j]??['full'=>false,'minutes'=>0];
-          if($leave['full']){$leaveDays++;$leaveMinutes+=480;continue;}
-          $expected=max(0,ShiftCalc::expectedMinutes($dayShift,$j,$dr));
-          $baseline=$expected?:($workedDays?max(1,$priorWorked/$workedDays):480);
+          $leave=$leaveByUser[$uid][$j]??['full'=>false,'minutes'=>0,'by_type'=>[]];
+          $expected=_work_leave_daily_duty($dayShift,$j,$dr);
+          $futureExpected+=$expected;
+          if($leave['full']){
+            if($expected>0){$leaveDays++;$leaveMinutes+=$expected;$leaveTotals[$leave['full_type'].'_min']+=$expected;}
+            continue;
+          }
+          $remaining=$expected;
+          foreach($leave['by_type'] as $type=>$minutes){
+            $credited=min($remaining,max(0,(int)$minutes));
+            $leaveTotals[$type.'_min']+=$credited;$leaveMinutes+=$credited;$remaining-=$credited;
+          }
+          $baseline=$expected?:($workedDays?max(1,$priorWorked/$workedDays):1);
           $fraction=_work_forecast_fraction($baseline,$leave['minutes']);
-          $leaveMinutes+=$leave['minutes'];
           if(ShiftCalc::isFriday($j)){$v=($fridaySamples?$priorFriday/$fridaySamples:0)*$fraction;$futureFriday+=$v;$futureWorked+=$v;if($fraction>0)$futureFridayCount++;}
           elseif(ShiftCalc::effectiveHoliday($j)){$v=($holidaySamples?$priorHoliday/$holidaySamples:0)*$fraction;$futureHoliday+=$v;$futureWorked+=$v;if($fraction>0)$futureHolidayCount++;}
           elseif(($dayShift['type']??'')==='auto'||$expected>0){
-            $futureExpected+=$expected*$fraction;
             $futureWorked+=($workedDays?$priorWorked/$workedDays:0)*$fraction;
             $futureInShift+=($workedDays?$priorInShift/$workedDays:0)*$fraction;
             $futureNight+=($workedDays?$priorNight/$workedDays:0)*$fraction;
@@ -4591,7 +4613,7 @@ function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $i
             $futureOt+=$dailyOt*$fraction;if($fraction>0)$futureWorkCount++;
           }
         }
-        $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>(int)round($futureHoliday),'friday'=>(int)round($futureFriday),'worked'=>(int)round($futureWorked),'in_shift'=>(int)round($futureInShift),'expected'=>(int)round($futureExpected),'night'=>(int)round($futureNight),'surplus'=>(int)round($futureSurplus),'leave_days'=>$leaveDays,'leave_minutes'=>$leaveMinutes,'friday_days'=>$futureFridayCount,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt),'sample_days'=>$workedDays];
+        $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>(int)round($futureHoliday),'friday'=>(int)round($futureFriday),'worked'=>(int)round($futureWorked),'in_shift'=>(int)round($futureInShift),'expected'=>(int)round($futureExpected),'night'=>(int)round($futureNight),'surplus'=>(int)round($futureSurplus),'leave_days'=>$leaveDays,'leave_minutes'=>$leaveMinutes,'annual_min'=>$leaveTotals['annual_min'],'sick_min'=>$leaveTotals['sick_min'],'unpaid_min'=>$leaveTotals['unpaid_min'],'friday_days'=>$futureFridayCount,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt),'sample_days'=>$workedDays];
         });
       }
     }
@@ -4608,7 +4630,7 @@ function _work_monthly_display_rows($jy,$jm,bool $forecastRequested): array {
   foreach($rows as &$r){
     $f=$forecast[(int)$r['user_id']]??[];
     $r['actual_through']=$period['actual_end'];$r['forecast']=$f;
-    foreach(['expected','worked','in_shift','night','surplus','friday','holiday'] as $key)$r[$key]=(int)($r[$key]??0)+(int)($f[$key]??0);
+    foreach(['expected','worked','in_shift','night','surplus','friday','holiday','annual_min','sick_min','unpaid_min'] as $key)$r[$key]=(int)($r[$key]??0)+(int)($f[$key]??0);
     $r['regular_overtime']=(int)($r['regular_overtime']??$r['overtime']??0)+(int)($f['overtime']??0);
     $r['overtime']=$r['regular_overtime'];
     $r['friday_overtime']=$r['friday'];$r['holiday_overtime']=$r['holiday'];$r['holiday_friday_overtime']=$r['friday']+$r['holiday'];
