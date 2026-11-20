@@ -14647,6 +14647,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
     const [versions, setVersions] = useState({}), [clock, setClock] = useState(Date.now());
     const lock = useRef(false), initialized = useRef(false), touchDrag = useRef(null), batchResume = useRef(null);
     const [resumeAvailable, setResumeAvailable] = useState(false);
+    const [groupFilter, setGroupFilter] = useState("all"), [statusFilter, setStatusFilter] = useState("all");
     const [resolveOpen, setResolveOpen] = useState(false), [resolveDraft, setResolveDraft] = useState({});
     const previewKey = JSON.stringify([selected, year, month, forecast, surplus]);
     useEffect(() => { batchResume.current = null; setResumeAvailable(false); }, [previewKey]);
@@ -14745,6 +14746,8 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
             setResumeAvailable(false);
             setPreview(data);
             setAssignment({ ...data.assignments });
+            setGroupFilter("all");
+            setStatusFilter("all");
             setResolveDraft({});
             setResolveOpen((data.unmatched || []).length > 0);
             setClock(Date.now());
@@ -14772,6 +14775,30 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         next[source] = destination === "" ? null : (displaced !== null && displaced !== void 0 ? displaced : null); if (destination !== "")
         next[destination] = Number(person); return next; }); setPicked(""); };
     const unresolved = unassigned.filter(p => unmatched.has(String(p.id)));
+    const groupData = Array.from(slots.reduce((map, s) => {
+        const key = String(s.group_id || [s.region, s.location, s.role, s.rotation].join("|"));
+        if (!map.has(key))
+            map.set(key, { id: key, label: [s.location, s.role, s.region].filter(Boolean).join(" · ") || "گروه بدون عنوان", capacity: 0, used: 0, first: null });
+        const g = map.get(key);
+        g.capacity++;
+        if (assignment[s.id] != null)
+            g.used++;
+        if (g.first === null)
+            g.first = s.row;
+        return map;
+    }, new Map()).values()).sort((a, b) => Number(a.first) - Number(b.first));
+    const visibleSlots = slots.filter(s => {
+        const group = String(s.group_id || [s.region, s.location, s.role, s.rotation].join("|"));
+        if (groupFilter !== "all" && group !== groupFilter)
+            return false;
+        if (statusFilter === "vacant" && assignment[s.id] != null)
+            return false;
+        if (statusFilter === "assigned" && assignment[s.id] == null)
+            return false;
+        return match(personById.get(String(assignment[s.id])), s);
+    });
+    const selectedGroup = groupData.find(g => g.id === groupFilter);
+    const nextVacant = slots.find(s => assignment[s.id] == null && (groupFilter === "all" || String(s.group_id || [s.region, s.location, s.role, s.rotation].join("|")) === groupFilter));
     const openResolve = () => { setResolveDraft({}); setResolveOpen(true); };
     const applyResolve = () => {
         if (loading || working || expires <= 0)
@@ -14840,7 +14867,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         move(d.person, (_c = target.dataset.khSlot) !== null && _c !== void 0 ? _c : ""); };
     const dragHandle = person => React.createElement("button", { type: "button", className: "btn g kh-template-handle", disabled: loading, "aria-label": "\u06AF\u0631\u0641\u062A\u0646 \u0648 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648", draggable: !loading, onDragStart: e => e.dataTransfer.setData("text/plain", String(person)), onPointerDown: e => touchStart(e, person), onPointerMove: touchMove, onPointerUp: e => touchEnd(e), onPointerCancel: e => touchEnd(e, true), onClick: () => setPicked(String(person)) }, "\u2195");
     return React.createElement("div", { dir: "rtl", style: { width: "100%", marginTop: 12, borderTop: "1px solid var(--line,#dce8df)", paddingTop: 12 } },
-        React.createElement("style", null, ".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}.kh-template-handle{touch-action:none;cursor:grab;user-select:none;min-width:36px}.kh-template-target{outline:2px solid #00856b;outline-offset:-2px;background:#dcefe8!important}"),
+        React.createElement("style", null, ".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}.kh-template-handle{touch-action:none;cursor:grab;user-select:none;min-width:36px}.kh-template-target{outline:2px solid #00856b;outline-offset:-2px;background:#dcefe8!important}.kh-place-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}.kh-place-filters .input{min-height:40px;max-width:100%}.kh-place-group-list{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scroll-snap-type:x proximity}.kh-place-group{flex:0 0 auto;min-width:165px;max-width:245px;scroll-snap-align:start;text-align:right;white-space:normal!important;border:1px solid var(--line,#c9dbd2)!important;border-radius:12px!important;padding:10px!important;display:grid;gap:5px;background:var(--card,#fff)!important}.kh-place-group[aria-pressed=true]{border-color:#168363!important;box-shadow:inset 0 0 0 1px #168363}.kh-place-progress{height:6px;border-radius:6px;background:#e1ebe6;overflow:hidden}.kh-place-progress>span{display:block;height:100%;background:#168363}.kh-place-row-empty{background:#fafbf8}.kh-place-person{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}@media(max-width:680px){.kh-template-table{min-width:850px}.kh-place-filters{display:grid;grid-template-columns:1fr 1fr}.kh-place-filters>input{grid-column:1/-1}.kh-place-group{min-width:185px}.kh-template-drop{padding:10px}}"),
         React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "end" } },
             React.createElement("label", null,
                 "\u0642\u0627\u0644\u0628 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F",
@@ -14935,6 +14962,39 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                     React.createElement("strong", null, faPlain(value)),
                     " ",
                     label))),
+                React.createElement("div", { className: "kh-place-group-list", role: "group", "aria-label": "\u06AF\u0631\u0648\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0632\u0645\u0627\u0646\u06CC" },
+                    React.createElement("button", { type: "button", className: "btn g kh-place-group", "aria-pressed": groupFilter === "all", onClick: () => setGroupFilter("all") },
+                        React.createElement("strong", null, "\u0647\u0645\u0647 \u06AF\u0631\u0648\u0647\u200C\u0647\u0627"),
+                        React.createElement("span", null,
+                            faPlain(assigned.size),
+                            " \u0627\u0632 ",
+                            faPlain(slots.length),
+                            " \u062C\u0627\u06CC\u06AF\u0627\u0647"),
+                        React.createElement("span", { className: "kh-place-progress" },
+                            React.createElement("span", { style: { width: (slots.length ? assigned.size / slots.length * 100 : 0) + "%" } }))),
+                    groupData.map(g => React.createElement("button", { type: "button", key: g.id, className: "btn g kh-place-group", "aria-pressed": groupFilter === g.id, onClick: () => setGroupFilter(g.id) },
+                        React.createElement("strong", null, g.label),
+                        React.createElement("span", null,
+                            faPlain(g.used),
+                            " \u0627\u0632 ",
+                            faPlain(g.capacity),
+                            " \u0646\u0641\u0631 \u00B7 ",
+                            faPlain(g.capacity - g.used),
+                            " \u062E\u0627\u0644\u06CC"),
+                        React.createElement("span", { className: "kh-place-progress" },
+                            React.createElement("span", { style: { width: (g.capacity ? g.used / g.capacity * 100 : 0) + "%" } }))))),
+                React.createElement("div", { className: "kh-place-filters" },
+                    React.createElement("label", null,
+                        "\u0646\u0645\u0627\u06CC\u0634",
+                        React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0648\u0636\u0639\u06CC\u062A \u062C\u0627\u06CC\u06AF\u0627\u0647", value: statusFilter, onChange: e => setStatusFilter(e.target.value) },
+                            React.createElement("option", { value: "all" }, "\u062A\u0645\u0627\u0645 \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627"),
+                            React.createElement("option", { value: "vacant" }, "\u0641\u0642\u0637 \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u062E\u0627\u0644\u06CC"),
+                            React.createElement("option", { value: "assigned" }, "\u0641\u0642\u0637 \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647"))),
+                    React.createElement("span", { className: "muted", "aria-live": "polite" },
+                        faPlain(visibleSlots.length),
+                        " \u0631\u062F\u06CC\u0641",
+                        selectedGroup ? " · " + selectedGroup.label : ""),
+                    picked && nextVacant && React.createElement("button", { type: "button", className: "btn g", disabled: loading || working, onClick: () => move(picked, String(nextVacant.id)) }, "\u062A\u062E\u0635\u06CC\u0635 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0628\u0647 \u0627\u0648\u0644\u06CC\u0646 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u062E\u0627\u0644\u06CC")),
                 React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
                     React.createElement("input", { className: "input", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0645\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC", value: query, onChange: e => setQuery(e.target.value) }),
                     React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648 \u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC", value: picked, onChange: e => setPicked(e.target.value) },
@@ -14950,34 +15010,39 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                             s.location,
                             " \u00B7 ",
                             s.role)))),
-                React.createElement("div", { "data-kh-scroll": "1", style: { maxHeight: "42vh", overflow: "auto" } },
+                React.createElement("div", { "data-kh-scroll": "1", role: "region", tabIndex: 0, "aria-label": "\u0641\u0647\u0631\u0633\u062A \u062C\u0627\u06CC\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u0642\u0627\u0644\u0628 \u0633\u0627\u0632\u0645\u0627\u0646\u061B \u0642\u0627\u0628\u0644 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u0627\u0641\u0642\u06CC \u0648 \u0639\u0645\u0648\u062F\u06CC", style: { maxHeight: "42vh", overflow: "auto", border: "1px solid var(--line,#dce8df)", borderRadius: 12 } },
                     React.createElement("table", { className: "kh-template-table" },
                         React.createElement("thead", null,
                             React.createElement("tr", null, ["جایگاه", "محل و سمت سازمانی", "نیرو / شماره پرسنلی", "منطقه و سمت نیرو", "جمعه", "تعطیل", "اضافه", "عملیات"].map(v => React.createElement("th", { key: v }, v)))),
-                        React.createElement("tbody", null, slots.filter(s => match(personById.get(String(assignment[s.id])), s)).map(s => { const p = personById.get(String(assignment[s.id])); return React.createElement("tr", { key: s.id, "data-kh-slot": String(s.id), onDragOver: e => e.preventDefault(), onDrop: e => drop(e, String(s.id)) },
+                        React.createElement("tbody", null, visibleSlots.map(s => { const p = personById.get(String(assignment[s.id])); return React.createElement("tr", { key: s.id, className: p ? "" : "kh-place-row-empty", "data-kh-slot": String(s.id), onDragOver: e => e.preventDefault(), onDrop: e => drop(e, String(s.id)) },
                             React.createElement("td", null, faPlain(s.row)),
                             React.createElement("td", null,
                                 s.location,
                                 " \u00B7 ",
                                 s.role),
                             React.createElement("td", null,
-                                p && dragHandle(p.id),
-                                " ",
-                                React.createElement("button", { type: "button", className: "btn g", disabled: !p || loading, onClick: () => p && setPicked(String(p.id)) }, personLabel(p))),
+                                React.createElement("span", { className: "kh-place-person" },
+                                    p ? dragHandle(p.id) : React.createElement("span", { className: "muted" }, "\u062C\u0627\u06CC\u06AF\u0627\u0647 \u062E\u0627\u0644\u06CC"),
+                                    p && React.createElement("button", { type: "button", className: "btn g", disabled: loading, onClick: () => setPicked(String(p.id)) }, personLabel(p)))),
                             React.createElement("td", null, p && [p.region, p.location, p.role].filter(Boolean).join(" · ")),
                             React.createElement("td", null, p && faPlain(p.friday)),
                             React.createElement("td", null, p && faPlain(p.holiday)),
                             React.createElement("td", null, p && faPlain(p.overtime)),
                             React.createElement("td", null,
                                 p && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(p.id, "") }, "\u062D\u0630\u0641 \u062A\u062E\u0635\u06CC\u0635"),
-                                picked && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(picked, String(s.id)) }, "\u062A\u062E\u0635\u06CC\u0635"))); })))),
+                                picked && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(picked, String(s.id)) }, "\u062A\u062E\u0635\u06CC\u0635"))); }))),
+                    visibleSlots.length === 0 && React.createElement("div", { className: "muted", style: { padding: 18, textAlign: "center" } }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631 \u0641\u0639\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0627\u0647\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u06AF\u0631\u0648\u0647 \u06CC\u0627 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0647\u06CC\u062F.")),
                 [["نیروهای مازاد", false], ["نیروهای بدون تطبیق", true]].map(([label, flag]) => React.createElement("div", { key: label, "data-kh-slot": "", className: "kh-template-drop", onDragOver: e => e.preventDefault(), onDrop: e => drop(e, "") },
-                    React.createElement("strong", null, label),
+                    React.createElement("strong", null,
+                        label,
+                        " \u00B7 ",
+                        faPlain(unassigned.filter(p => unmatched.has(String(p.id)) === flag).length),
+                        " \u0646\u0641\u0631"),
                     React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } }, unassigned.filter(p => unmatched.has(String(p.id)) === flag && match(p)).map(p => React.createElement("div", { key: p.id, className: "row", style: { gap: 4 } },
                         dragHandle(p.id),
                         React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setPicked(String(p.id)) }, personLabel(p))))))),
                 React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
-                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => { setAssignment({ ...preview.assignments }); setResolveDraft({}); setResolveOpen((preview.unmatched || []).length > 0); } }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => { setAssignment({ ...preview.assignments }); setResolveDraft({}); setGroupFilter("all"); setStatusFilter("all"); setResolveOpen((preview.unmatched || []).length > 0); } }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
                     unresolved.length > 0 && React.createElement("button", { type: "button", className: "btn g", disabled: loading || working || expires <= 0, onClick: openResolve },
                         "\u062A\u0639\u06CC\u06CC\u0646 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u062A\u0637\u0628\u06CC\u0642 (",
                         faPlain(unresolved.length),
