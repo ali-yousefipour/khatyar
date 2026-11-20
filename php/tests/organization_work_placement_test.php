@@ -165,3 +165,16 @@ checkPlacement(array_values($r['assignments'])===[91,92]||array_values($r['assig
 $r=OrganizationWorkPlacement::suggest([['id'=>'jaw','location'=>'باب الجواد','role'=>'بازرس خط']], [['id'=>93,'location'=>'اندرزگو','role'=>'بازرس خط']]);
 checkPlacement($r['assignments']['jaw']===93);
 echo "Andarzgoo and Bab-al-Javad alias OK\n";
+
+$slots=[
+ ['id'=>'preferred','location'=>'فرودگاه','role'=>'اپراتور'],
+ ['id'=>'alternative','location'=>'مرکز','role'=>'اپراتور']
+];
+$people=[
+ ['id'=>201,'region'=>'فرودگاه','location'=>'مرکز','role'=>'اپراتور','last_name'=>'احمدی'],
+ ['id'=>202,'region'=>'فرودگاه','role'=>'اپراتور','last_name'=>'زارعی'],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['preferred'=>202,'alternative'=>201]);
+checkPlacement($r['overflow']===[]&&$r['unmatched']===[]);
+echo "Fallback position preserves full placement coverage OK\\n";

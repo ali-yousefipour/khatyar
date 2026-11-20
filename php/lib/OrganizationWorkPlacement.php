@@ -154,15 +154,18 @@ final class OrganizationWorkPlacement {
         $candidates=[];$unmatched=[];$overflow=[];
         $personMap=[];foreach($people as $p)$personMap[$p['id']]=$p;
         foreach($people as $person){
-            $id=(int)$person['id'];$best=null;$options=[];
-            foreach($slots as $slot){
+            $id=(int)$person['id'];$best=null;$ranked=[];
+            foreach($slots as $index=>$slot){
                 $score=self::score($slot,$person,$aliases);
                 if($score===null)continue;
-                if($best===null||$score>$best){$best=$score;$options=[];}
-                if($score===$best)$options[]=(string)$slot['id'];
+                $best=$best===null?$score:max($best,$score);
+                $ranked[]=['id'=>(string)$slot['id'],'score'=>$score,'order'=>$index];
             }
-            if(!$options){$unmatched[]=$id;continue;}
-            $candidates[]=['id'=>$id,'score'=>$best,'slots'=>$options];
+            if(!$ranked){$unmatched[]=$id;continue;}
+            // Keep every compatible position, not merely the top-scoring ones:
+            // a lower-priority vacancy can prevent an otherwise unnecessary overflow.
+            usort($ranked,static fn($a,$b)=>$b['score']<=>$a['score'] ?: $a['order']<=>$b['order']);
+            $candidates[]=['id'=>$id,'score'=>$best,'slots'=>array_column($ranked,'id')];
         }
         usort($candidates,static fn($a,$b)=>count($a['slots'])<=>count($b['slots']) ?: $b['score']<=>$a['score'] ?: self::comparePeople($personMap[$a['id']],$personMap[$b['id']]));
         $occupied=[];$byPerson=[];
