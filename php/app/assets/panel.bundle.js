@@ -14648,7 +14648,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         return response.json();
     };
     const download = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
-    const refresh = async () => { var _a; const data = await request(); const list = data.templates || []; setCatalog(list); setCanManage(!!data.can_manage); setDefaultId((_a = data.default_template_id) !== null && _a !== void 0 ? _a : null); setSelected(old => { var _a; const next = !initialized.current ? String((_a = data.default_template_id) !== null && _a !== void 0 ? _a : "") : old; return list.some(t => String(t.id) === next && Number(t.enabled) === 1) ? next : ""; }); initialized.current = true; };
+    const refresh = async () => { var _a; const data = await request(); const list = data.templates || []; setCatalog(list); setCanManage(!!data.can_manage); setDefaultId((_a = data.default_template_id) !== null && _a !== void 0 ? _a : null); const initial = !initialized.current; initialized.current = true; setSelected(old => { var _a; const next = initial ? String((_a = data.default_template_id) !== null && _a !== void 0 ? _a : "") : old; return list.some(t => String(t.id) === next && Number(t.enabled) === 1) ? next : ""; }); };
     useEffect(() => { refresh().catch(() => setError("دریافت قالب‌ها ناموفق بود؛ خروجی داخلی خطیار همچنان قابل استفاده است.")); }, []);
     useEffect(() => { if (!preview)
         return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [preview]);
