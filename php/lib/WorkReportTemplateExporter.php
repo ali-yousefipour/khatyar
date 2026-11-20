@@ -184,42 +184,17 @@ final class WorkReportTemplateExporter {
             if($dimension){$ref=$dimension->getAttribute('ref');$parts=explode(':',$ref);$last=end($parts);preg_match('/^([A-Z]+)/',$last,$m);$endCol=self::column(max(10,self::col($m[1]??'A')));$dimension->setAttribute('ref',$parts[0].':'.$endCol.$max);}
             // Extend only the selected sheet's simple rectangular print area.
             $book=WorkReportTemplateArchive::xml($zip,'xl/workbook.xml');
-            $sheetIndex=null;$idx=0;foreach($book->getElementsByTagNameNS(self::S,'sheet') as $node){if($node->getAttribute('name')===$structure['sheet'])$sheetIndex=$idx;$idx++;}
+            $sheetIndex=null;$idx=0;
+            foreach($book->getElementsByTagNameNS(self::S,'sheet') as $node){if($node->getAttribute('name')===$structure['sheet'])$sheetIndex=$idx;$idx++;}
+            if($sheetIndex===null)throw new InvalidArgumentException('Unknown worksheet');
             $changed=false;
             foreach($book->getElementsByTagNameNS(self::S,'definedName') as $node){
                 if($node->getAttribute('name')!=='_xlnm.Print_Area'||!$node->hasAttribute('localSheetId')||(int)$node->getAttribute('localSheetId')!==$sheetIndex)continue;
                 if(!preg_match('/^(.+!)\$([A-Z]+)\$(\d+):\$([A-Z]+)\$(\d+)$/Du',$node->textContent,$m))throw new InvalidArgumentException('Complex print area requires explicit template adjustment');
                 $prefix="'".str_replace("'","''",$structure['sheet'])."'!";
                 if($m[1]!==$prefix&&$m[1]!==$structure['sheet'].'!')throw new InvalidArgumentException('Print area sheet mismatch');
-                $node->textContent=$m[1].'
-            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
-            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
-            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
-        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
-    }
-}
-.$m[2].'
-            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
-            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
-            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
-        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
-    }
-}
-.$m[3].':
-            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
-            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
-            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
-        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
-    }
-}
-.self::column(max(10,self::col($m[4]))).'
-            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
-            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
-            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
-        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
-    }
-}
-.max($max,(int)$m[5]);$changed=true;
+                $node->textContent=sprintf('%s$%s$%d:$%s$%d',$m[1],$m[2],(int)$m[3],self::column(max(10,self::col($m[4]))),max($max,(int)$m[5]));
+                $changed=true;
             }
             if($changed)self::put($zip,'xl/workbook.xml',$book);
             self::notes($zip,$sheet,$path,$replace,$notes,$types);
