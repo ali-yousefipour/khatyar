@@ -30,3 +30,15 @@ echo "PASS organization Tehran cutoff and actual/forecast separation\n";
 verifyPeriod(_work_forecast_fraction(480,120),0.75);
 verifyPeriod(_work_forecast_fraction(480,480),0.0);
 verifyPeriod(_work_forecast_fraction(480,0),1.0);
+
+$workingDate=$prior;
+foreach([453,360,300,0] as $duty){
+    verifyPeriod(_work_leave_daily_duty(['type'=>'auto','auto_expected_min'=>$duty],$workingDate),$duty);
+    verifyPeriod(_work_leave_daily_duty(['type'=>'floating','float_minutes'=>$duty],$workingDate),$duty);
+}
+verifyPeriod(_work_leave_daily_duty(['type'=>'auto','auto_expected_min'=>453],$today),0);
+verifyPeriod(_work_leave_daily_duty(null,$workingDate),0);
+verifyPeriod(_work_leave_daily_duty(['type'=>'auto','auto_expected_min'=>453],$workingDate,['is_off'=>1]),0);
+verifyPeriod(_work_forecast_fraction(360,120),1-120/360);
+verifyPeriod(_work_forecast_fraction(300,300),0.0);
+echo "PASS shift-specific daily leave duty and hourly forecast\n";
