@@ -10,7 +10,7 @@ for(const [title,tab] of [['سمت‌ها (نقش‌ها)','access'],['سیاس�
 const start=bundle.indexOf('function Settings()'),end=bundle.indexOf('\nfunction ',start+1),code=bundle.slice(start,end);
 let cursor=0;const states=[{},'general',['general'],'','',false];
 const context={SETTINGS_SECTION_INDEX:index,React:{createElement:(type,props,...children)=>({type,props:props||{},children})},
- useState(initial){const id=cursor++;if(states[id]===undefined)states[id]=initial;return[states[id],value=>states[id]=typeof value==='function'?value(states[id]):value];},useRef:()=>({current:false}),useEffect(){},fa:String,normalizePanelMenuText:s=>s.toLowerCase(),setTimeout(){},db:{},alert(){},console};
+ useState(initial){const id=cursor++;if(states[id]===undefined)states[id]=initial;return[states[id],value=>states[id]=typeof value==='function'?value(states[id]):value];},useRef:()=>({current:false}),useEffect(){},fa:String,faPlain:value=>String(value).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]),normalizePanelMenuText:s=>s.toLowerCase(),setTimeout(){},db:{},alert(){},console};
 for(const match of code.matchAll(/React\.createElement\(([A-Z]\w*)/g))context[match[1]]=()=>null;
 context.React={createElement:(type,props,...children)=>({type,props:props||{},children})};
 vm.createContext(context);vm.runInContext(code,context);
