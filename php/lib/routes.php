@@ -4611,11 +4611,15 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
       'surplusIncluded'=>$surplusIncluded,'forecastOt'=>$forecastOt,'net'=>$net]=$settlement;
     $hol+=(int)$forecast['holiday'];
     $fri+=(int)($forecast['friday']??0);
-    $i++;$row=$xw->addRow([$fa($i),(string)($person['zone_name']??''),($r['role']??''),$fa($i),$person['first_name']??'', $person['last_name']??'',$fa($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
+    $i++;
+    $record=['user_id'=>(int)$r['user_id'],'cells'=>[$fa($i),(string)($person['zone_name']??''),($r['role']??''),$fa($i),$person['first_name']??'', $person['last_name']??'',$fa($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)],'comments'=>[
+      7=>'جمعه‌کاری قطعی: '.$hm((int)($r['friday']??0)).' ساعت؛ پیش‌بینی: '.$hm($forecast['friday']??0).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.',
+      8=>'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.',
+      9=>'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت'
+    ]];
+    $row=$xw->addRow($record['cells']);
     $xw->setRowHeight($row,32);
-    $xw->setComment($row,7,'جمعه‌کاری قطعی: '.$hm((int)($r['friday']??0)).' ساعت؛ پیش‌بینی: '.$hm($forecast['friday']??0).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.');
-    $xw->setComment($row,8,'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.');
-    $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
+    foreach($record['comments'] as $column=>$comment)$xw->setComment($row,$column,$comment);
   }
   _work_progress_tick(96,'بسته‌بندی و ارسال فایل اکسل');
   $tmp=null;
