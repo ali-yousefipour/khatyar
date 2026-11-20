@@ -3763,7 +3763,11 @@ function _work_month_rows($y,$m){
 }
 function _work_month_people(){
   $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
-  $byId=[];foreach($people as $person)$byId[(int)$person['id']]=$person;
+  $windows=_work_employment_windows();
+  $byId=[];foreach($people as $person){
+    $person['employment_start_date']=$windows[(int)$person['id']]['start']??null;
+    $byId[(int)$person['id']]=$person;
+  }
   return $byId;
 }
 function _work_organization_person($row,$livePeople,$daily){
@@ -4557,6 +4561,11 @@ function _work_organization_eligible_ids(): array {
   }
   return $ids;
 }
+function _work_organization_start_note($date,array $period): ?string {
+  $date=ShiftCalc::normJdate(strtr((string)$date,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']));
+  if(!$date||$date<=($period['first']??'')||$date>($period['end']??''))return null;
+  return 'تاریخ شروع به کار: '.strtr(str_replace('-','/',$date),['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+}
 function _work_operator_month_rotation(int $uid,array $period): string {
   return WorkReportReadScope::run(static function()use($uid,$period){
     $profiles=[];$scheduled=[];$unknown=false;
@@ -4790,6 +4799,8 @@ function _work_organization_records_impl($u,$jy,$jm,array $options,?array $allow
       8=>'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.',
       9=>'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت'
     ]];
+    $startNote=_work_organization_start_note($person['employment_start_date']??null,$period);
+    if($startNote!==null)$record['comments'][5]=$startNote;
     $rotation=(string)($r['organization_rotation']??$person['shift_percentage']??'');
     if(!$final&&preg_match('/^(?:اپراتور|ناظر خط|بازرس مقیم)(?:\s|$)/u',trim((string)($r['role']??''))))$rotation=_work_operator_month_rotation((int)$r['user_id'],$period);
     $record['placement']=['id'=>$record['user_id'],'region'=>(string)($person['zone_name']??''),'location'=>(string)($person['location_name']??''),'role'=>(string)($r['role']??''),'rotation'=>$rotation];

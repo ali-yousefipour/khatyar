@@ -197,7 +197,7 @@ final class WorkReportTemplateExporter {
                 $n=(int)$slot['row'];$row=$rows[$n]??null;if(!$row)throw new InvalidArgumentException('Missing slot row');
                 $id=$checked['assignments'][$slot['id']];$r=$id===null?null:$byId[$id];
                 $group=$slot['group_id'];if(!isset($counts[$group]))$counts[$group]=[$slot['location'],$slot['role'],0,0];$counts[$group][2]++;if($r)$counts[$group][3]++;
-                foreach(self::FIELDS as $key=>$c){$col=$structure['columns'][$key];if(self::protectedCell($col,$n,$structure['merges']))throw new InvalidArgumentException('Merged target cell');$ref=$col.$n;$replace[$ref]=true;self::setCell($sheet,$row,$col,$r['cells'][$c]??null,$c>=7);if($r&&$c>=7)$notes[$ref]=$r['comments'][$c];}
+                foreach(self::FIELDS as $key=>$c){$col=$structure['columns'][$key];if(self::protectedCell($col,$n,$structure['merges']))throw new InvalidArgumentException('Merged target cell');$ref=$col.$n;$replace[$ref]=true;self::setCell($sheet,$row,$col,$r['cells'][$c]??null,$c>=7);if($r&&isset($r['comments'][$c])&&($c===5||$c>=7))$notes[$ref]=$r['comments'][$c];}
                 if($r){$addTotals($r);if(($color=OrganizationWorkPlacement::rowColor($r['placement']['role']??''))!==null)self::coloredRow($zip,$row,array_map(static fn($key)=>$structure['columns'][$key],array_keys(self::FIELDS)),$greenStyles,$greenCache,$color);}
             }
             // Append below existing content: no shifts of formulas, drawings or merge ranges.
@@ -216,7 +216,7 @@ final class WorkReportTemplateExporter {
                 if(!$ids)continue;
                 $reason=$title==='فهرست نیروهای مازاد بر ظرفیت قالب'?'عدم تخصیص جایگاه منطبق در چینش نهایی':'عدم وجود جایگاه منطبق با مشخصات سازمانی';
                 $append([$title]);$append(['نام','نام خانوادگی','شماره پرسنلی','منطقه','محل خدمت','سمت','جمعه‌کاری','تعطیل‌کاری','اضافه‌کاری','علت']);
-                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);if(($color=OrganizationWorkPlacement::rowColor($p['role']??''))!==null)self::coloredRow($zip,$data->lastElementChild,array_map(static fn($i)=>self::column($i),range(1,10)),$greenStyles,$greenCache,$color);}
+                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],(isset($r['comments'][5])?[1=>$r['comments'][5]]:[])+[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);if(($color=OrganizationWorkPlacement::rowColor($p['role']??''))!==null)self::coloredRow($zip,$data->lastElementChild,array_map(static fn($i)=>self::column($i),range(1,10)),$greenStyles,$greenCache,$color);}
             }
             if($includeSupplement){
                 $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);

@@ -56,3 +56,12 @@ verifyPeriod(_work_operator_rotation_percentage(['morning'=>true,'afternoon'=>tr
 
 foreach(['نیروی صدور پروانه','رئیس اداره بازرسی','معاونت بازرسی','مدیر کل','نماینده اجرایی'] as $role)verifyPeriod(_work_organization_excluded_role($role),true);
 verifyPeriod(_work_organization_excluded_role('بازرس مقیم'),false);
+
+$period=['first'=>'1405-08-01','end'=>'1405-08-30'];
+verifyPeriod(_work_organization_start_note('1405-08-01',$period),null);
+verifyPeriod(_work_organization_start_note('1405-07-30',$period),null);
+verifyPeriod(_work_organization_start_note('1405-09-01',$period),null);
+verifyPeriod(_work_organization_start_note(null,$period),null);
+verifyPeriod(_work_organization_start_note('۱۴۰۵/۰۸/۱۲',$period),'تاریخ شروع به کار: ۱۴۰۵/۰۸/۱۲');
+verifyPeriod(_work_organization_start_note('1405-08-30',$period),'تاریخ شروع به کار: ۱۴۰۵/۰۸/۳۰');
+echo "PASS organization employment start notes\n";

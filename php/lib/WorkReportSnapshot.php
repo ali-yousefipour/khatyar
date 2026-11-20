@@ -23,6 +23,7 @@ final class WorkReportSnapshot {
             if(!is_int($id)||$id<=0||isset($seen[$id]))throw new InvalidArgumentException('Invalid snapshot personnel');
             $seen[$id]=true;
             if(!is_array($record['cells']??null)||count($record['cells'])!==10)throw new InvalidArgumentException('Invalid snapshot cells');
+            if(isset($record['comments'][5])&&!is_string($record['comments'][5]))throw new InvalidArgumentException('Invalid employment start note');
             foreach([7,8,9] as $col){
                 if(!is_numeric($record['cells'][$col]??null)||!is_finite((float)$record['cells'][$col])||!is_string($record['comments'][$col]??null))throw new InvalidArgumentException('Invalid snapshot hours or comments');
             }
