@@ -8425,6 +8425,7 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
     const g=map.get(key);g.capacity++;if(assignment[s.id]!=null)g.used++;if(g.first===null)g.first=s.row;
     return map;
   },new Map()).values()).sort((a,b)=>Number(a.first)-Number(b.first));
+  const match=(p,s)=>!query||[p?.first_name,p?.last_name,p?.personnel_code,p?.region,p?.location,p?.role,s?.location,s?.role,s?.region].join(" ").includes(query);
   const visibleSlots=slots.filter(s=>{
     const group=String(s.group_id||[s.region,s.location,s.role,s.rotation].join("|"));
     if(groupFilter!=="all"&&group!==groupFilter)return false;
@@ -8448,7 +8449,6 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
   };
   const expires=preview?Math.max(0,Math.floor(Number(preview.expires_at)-clock/1000)):0;
   const exportFinal=async()=>{if(lock.current||working||!preview||expires<=0)return;const id=beginWork("اعتبارسنجی چینش و تولید Excel");if(!id)return;lock.current=true;setLoading(true);setError("");try{await new Promise(r=>setTimeout(r,0));const payload={snapshot_token:preview.snapshot_token,assignments:slots.map(s=>({slot_id:String(s.id),user_id:assignment[s.id]==null?null:Number(assignment[s.id])}))};await request("/validate-placement","POST",payload);const blob=await request("/export?progress_id="+(id==="local"?"":id),"POST",payload,true);download(blob,"کارکرد-سازمان-"+year+"-"+month+".xlsx");setPreview(null);endWork(true)}catch(e){setError(e.message);endWork()}finally{lock.current=false;setLoading(false)}};
-  const match=(p,s)=>!query||[p?.first_name,p?.last_name,p?.personnel_code,p?.region,p?.location,p?.role,s?.location,s?.role,s?.region].join(" ").includes(query);
   const names={ordinal:"شماره ردیف",region:"منطقه (اختیاری)",location:"محل خدمت",role:"سمت",first_name:"نام",last_name:"نام خانوادگی",personnel_code:"شماره پرسنلی",friday:"جمعه‌کاری",holiday:"تعطیل‌کاری",overtime:"اضافه‌کاری"};
   const overlay={position:"fixed",inset:0,zIndex:10050,background:"rgba(0,36,28,.55)",display:"grid",placeItems:"center",padding:12};
   const modal={background:"var(--card,#fff)",color:"var(--text,#173b32)",width:"min(1100px,100%)",maxHeight:"90vh",overflow:"auto",borderRadius:18,padding:18,boxShadow:"0 16px 70px #003b3333",direction:"rtl",fontFamily:"Vazirmatn,Tahoma"};
