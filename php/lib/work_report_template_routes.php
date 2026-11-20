@@ -206,7 +206,7 @@ route('POST','/api/admin/shift-report/templates/preview-batch',function($p,$b,$u
         $token=$store->save((int)$u['id'],$c,$records);$snapshot=$store->load((int)$u['id'],$token);
         $slots=$template['structure']['slots'];$people=_work_template_people($records);
         _work_progress_tick(98,'جانمایی نیروها',$total,$total);
-        $result=_work_template_suggest($slots,$people,$id);
+        $result=_work_template_suggest($slots,$people,(int)$c['template_id']);
         _work_progress_tick(100,'پیش‌نمایش آماده است',$total,$total);
         header('Cache-Control: no-store');
         return ['ok'=>true,'snapshot_token'=>$token,'expires_at'=>$snapshot['expires'],'template'=>['id'=>$c['template_id'],'version'=>$c['template_version'],'title'=>$template['title']],'people'=>$people,'slots'=>$slots,'groups'=>$template['structure']['groups']]+_work_template_preview_response($slots,$people,$result);
