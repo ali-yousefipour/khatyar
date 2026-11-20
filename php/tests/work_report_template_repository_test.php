@@ -7,6 +7,13 @@ if(!$dsn||!str_contains($dsn,'dbname=work_report_test'))throw new RuntimeExcepti
 $db=new PDO($dsn,getenv('WORK_REPORT_TEST_USER'),getenv('WORK_REPORT_TEST_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
 $repo=new WorkReportTemplateRepository($db);
 $repo->ensureSchema();$repo->ensureSchema();
+$orgId=$repo->ensureOrganizationTemplate();
+wrAssert($orgId===$repo->ensureOrganizationTemplate(),'organization seed idempotency');
+$org=$repo->get($orgId);
+wrAssert($org['title']==='قالب سازمان'&&$org['sha256']===WorkReportTemplateRepository::ORGANIZATION_SHA256,'approved organization seed');
+wrAssert($org['workbook']===file_get_contents(__DIR__.'/../lib/organization-template.xlsx'),'exact seeded workbook');
+wrAssert(count($org['structure']['slots'])===107&&count($org['structure']['merges'])===43,'approved organization structure');
+wrAssert(count($repo->versions($orgId))===1&&$repo->defaultId()===$orgId,'one seed and initial default');
 $w=new XlsxWriter(['ردیف','محل','سمت','نام','نام خانوادگی','پرسنلی','جمعه','تعطیل','اضافه']);
 $w->addRow([1,'راه آهن','بازرس','آزمایش','نمونه','001',2,3,4]);
 $file=$w->output('fixture.xlsx','fixture',true);
@@ -35,6 +42,9 @@ try {
     try{$repo->update($id,'Invalid cross-template','',true,$other['version_id'],1);throw new LogicException('Foreign version accepted');}catch(InvalidArgumentException $e){}
     wrAssert($repo->get($id)['title']==='Updated','failed update rollback');
     $repo->ensureSchema();wrAssert(count($repo->versions($id))===2,'migration idempotency');
+    $repo->ensureOrganizationTemplate();wrAssert($repo->defaultId()===null,'seed must not override later internal default');
+    $repo->update($orgId,'قالب سازمان','Disabled by administrator',false,(int)$org['id'],1);
+    $repo->ensureOrganizationTemplate();wrAssert((int)$repo->get($orgId,null,false)['enabled']===0,'seed must not reactivate disabled template');
     foreach($repo->all() as $row)wrAssert(!array_key_exists('workbook',$row),'catalog must not contain workbook');
     echo "Repository, parser, defaults and migration OK\n";
 } finally {if(is_string($file))@unlink($file);}

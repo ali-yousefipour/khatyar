@@ -55,6 +55,7 @@ function _work_template_preview_response(array $slots,array $people,array $resul
 route('GET','/api/admin/shift-report/templates',function($p,$b,$u){
     $repo=_work_template_repo($u);
     return _work_template_safe(function()use($repo,$u){
+        $repo->ensureOrganizationTemplate(); // Safe fallback for hosts not yet backfilled by deployment.
         $rows=$repo->all();
         if(empty($u['is_admin'])||(int)($u['level']??99)!==1)$rows=array_values(array_filter($rows,static fn($r)=>(bool)$r['enabled']));
         return ['templates'=>$rows,'default_template_id'=>$repo->defaultId(),'can_manage'=>!empty($u['is_admin'])&&(int)($u['level']??99)===1];

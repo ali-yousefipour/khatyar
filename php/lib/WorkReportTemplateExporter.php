@@ -138,7 +138,10 @@ final class WorkReportTemplateExporter {
         $people=[];$byId=[];
         foreach($records as $r){$id=$r['user_id'];if(isset($byId[$id]))throw new InvalidArgumentException('Duplicate personnel');$byId[$id]=$r;$people[]=['id'=>$id];}
         $checked=OrganizationWorkPlacement::validate($structure['slots'],$people,$placement['assignments']);
-        $remaining=$checked['unassigned'];$unmatched=array_values(array_intersect($remaining,$placement['unmatched']??[]));$overflow=array_values(array_diff($remaining,$unmatched));
+        $remaining=$checked['unassigned'];
+        // Preserve the approved organization sheet exactly when no supplement is necessary.
+        $includeSupplement=!hash_equals('0e99edf88411503a37f6a04154ac9a69b4e52100fd54ea398e77bc8a2914ea16',$meta['sha256'])||!empty($remaining);
+        $unmatched=array_values(array_intersect($remaining,$placement['unmatched']??[]));$overflow=array_values(array_diff($remaining,$unmatched));
         $tmp=tempnam(sys_get_temp_dir(),'kh-work-export-');
         if($tmp===false)throw new RuntimeException('Temporary file unavailable');
         $zip=new ZipArchive();$open=false;$success=false;
@@ -190,15 +193,18 @@ final class WorkReportTemplateExporter {
                 $append([$title]);$append(['نام','نام خانوادگی','شماره پرسنلی','منطقه','محل خدمت','سمت','جمعه‌کاری','تعطیل‌کاری','اضافه‌کاری','علت']);
                 foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);}
             }
-            $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);
-            foreach($counts as $c)$append([$c[0],$c[1],$c[2],$c[3],$c[2]-$c[3]]);
+            if($includeSupplement){
+                $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);
+                foreach($counts as $c)$append([$c[0],$c[1],$c[2],$c[3],$c[2]-$c[3]]);
+            }
             $expected=[7=>0,8=>0,9=>0];foreach($records as $r)foreach([7,8,9] as $c)$expected[$c]+=(int)round($r['cells'][$c]*1000000);
             if(count($used)!==count($records)||$expected!==$totals)throw new LogicException('Hours reconciliation failed');
-            $append(['مجموع کل ساعات',null,null,null,null,null,$totals[7]/1000000,$totals[8]/1000000,$totals[9]/1000000],[],[6=>'friday',7=>'holiday',8=>'overtime']);
+            if($includeSupplement)$append(['مجموع کل ساعات',null,null,null,null,null,$totals[7]/1000000,$totals[8]/1000000,$totals[9]/1000000],[],[6=>'friday',7=>'holiday',8=>'overtime']);
+            $book=WorkReportTemplateArchive::xml($zip,'xl/workbook.xml');
+            if($includeSupplement){
             $dimension=$sheet->getElementsByTagNameNS(self::S,'dimension')->item(0);
             if($dimension){$ref=$dimension->getAttribute('ref');$parts=explode(':',$ref);$last=end($parts);preg_match('/^([A-Z]+)/',$last,$m);$endCol=self::column(max(10,self::col($m[1]??'A')));$dimension->setAttribute('ref',$parts[0].':'.$endCol.$max);}
             // Extend only the selected sheet's simple rectangular print area.
-            $book=WorkReportTemplateArchive::xml($zip,'xl/workbook.xml');
             $sheetIndex=null;$idx=0;
             foreach($book->getElementsByTagNameNS(self::S,'sheet') as $node){if($node->getAttribute('name')===$structure['sheet'])$sheetIndex=$idx;$idx++;}
             if($sheetIndex===null)throw new InvalidArgumentException('Unknown worksheet');
@@ -221,6 +227,7 @@ final class WorkReportTemplateExporter {
                 }
                 $name=self::element($book,self::S,'definedName',sprintf("'%s'!\$A\$1:\$%s\$%d",str_replace("'","''",$structure['sheet']),$endCol??'J',$max));
                 $name->setAttribute('name','_xlnm.Print_Area');$name->setAttribute('localSheetId',(string)$sheetIndex);$names->appendChild($name);
+            }
             }
             // Original formulas remain intact; Excel must recalculate their cached values.
             $calc=$book->getElementsByTagNameNS(self::S,'calcPr')->item(0);
