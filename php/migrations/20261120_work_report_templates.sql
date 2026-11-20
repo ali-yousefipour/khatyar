@@ -18,3 +18,12 @@ CREATE TABLE IF NOT EXISTS work_report_template_versions (
  UNIQUE KEY template_version (template_id,version_no),
  FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS work_report_template_state (
+ template_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+ active_version_id BIGINT UNSIGNED NOT NULL,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (template_id) REFERENCES work_report_templates(id),
+ FOREIGN KEY (active_version_id) REFERENCES work_report_template_versions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

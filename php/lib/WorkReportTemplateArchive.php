@@ -17,7 +17,7 @@ final class WorkReportTemplateArchive {
                 if(isset($names[$lower])||preg_match('~(^/|\\\\|:|(^|/)\.\.(/|$))~',$name))throw new InvalidArgumentException('Unsafe ZIP path');
                 $names[$lower]=true;$total+=$entry['size'];
                 if($total>67108864||$entry['size']>16777216||($entry['size']>1048576&&$entry['size']>200*max(1,$entry['comp_size'])))throw new InvalidArgumentException('ZIP expansion limit');
-                if(preg_match('~(vbaproject|macrosheet|externallinks/|embeddings/|activex/|\.bin$|\.exe$|\.js$)~i',$name))throw new InvalidArgumentException('Unsupported active content');
+                if(!preg_match('~^xl/printerSettings/printerSettings[0-9]+\.bin$~D',$name)&&preg_match('~(vbaproject|macrosheet|externallinks/|embeddings/|activex/|\.bin$|\.exe$|\.js$)~i',$name))throw new InvalidArgumentException('Unsupported active content');
                 if(preg_match('~\.(xml|rels)$~i',$name)){
                     $xml=self::xml($zip,$name);
                     if(str_ends_with($lower,'.rels')){
