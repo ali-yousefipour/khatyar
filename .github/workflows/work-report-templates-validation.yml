@@ -104,21 +104,8 @@ jobs:
           npm install --no-save typescript@5.6.3
           bash php/tools/build_panel_bundle.sh
           node --check php/app/assets/panel.bundle.js
-          grep -Fq 'WorkTemplateControls' php/app/assets/panel.bundle.js
-          grep -Fq 'مدیریت قالب‌ها' php/app/assets/panel.bundle.js
-          grep -Fq 'قالب گزارش کارکرد' php/app/assets/panel.bundle.js
-          python - <<'PY'
-          import hashlib,json,os,datetime,re
-          from pathlib import Path
-          b=Path('php/app/assets/panel.bundle.js')
-          digest=hashlib.sha256(b.read_bytes()).hexdigest()
-          html=Path('php/app/panel.html')
-          text=html.read_text()
-          text,n=re.subn(r'(panel\.bundle\.js)(?:\?v=[^"'\s<>]+)?',lambda m:m.group(1)+'?v='+digest[:16],text)
-          assert n>0,'bundle reference not found'
-          html.write_text(text)
-          Path('build-manifest.json').write_text(json.dumps(dict(source_sha=os.environ['GITHUB_SHA'],bundle_sha256=digest,built_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),asset_version=digest[:16],syntax_validation='passed'),indent=2))
-          PY
+          python -m py_compile php/tools/verify_work_template_bundle.py
+          python php/tools/verify_work_template_bundle.py
       - uses: actions/upload-artifact@v4
         with:
           name: work-report-panel-build
