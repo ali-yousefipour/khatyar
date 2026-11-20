@@ -31,6 +31,8 @@ jobs:
         run: |
           php -l php/lib/OrganizationWorkPlacement.php
           php -l php/lib/WorkReportTemplateArchive.php
+          php -l php/lib/WorkReportSnapshot.php
+          php php/tests/work_report_snapshot_test.php
           php php/tests/organization_work_placement_test.php
           php php/tests/work_report_template_archive_test.php
           php php/tests/xlsx_organization_style_test.php
