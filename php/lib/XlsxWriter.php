@@ -77,9 +77,14 @@ class XlsxWriter {
   }
 
   private static function colLetter($idx) {
+    // Excel column labels are pure and repeat for every row. Bound the cache to valid XLSX columns.
+    static $letters = [];
+    if (isset($letters[$idx])) return $letters[$idx];
+    $original = $idx;
     $s = '';
     $idx++;
     while ($idx > 0) { $m = ($idx - 1) % 26; $s = chr(65 + $m) . $s; $idx = intdiv($idx - 1, 26); }
+    if ($original >= 0 && $original < 16384) $letters[$original] = $s;
     return $s;
   }
   private static function xmlEsc($v) {
