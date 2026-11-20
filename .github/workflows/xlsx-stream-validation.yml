@@ -1,0 +1,21 @@
+name: XLSX stream regression
+on:
+  push:
+    branches: [perf/xlsx-stream-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate PHP and compare archive contents
+        run: |
+          set -euo pipefail
+          php -l php/lib/XlsxWriter.php
+          php -l php/tests/xlsx_stream_regression_test.php
+          git show 27d7d9c30531392a26978f89cd245bc1705212bf:php/lib/XlsxWriter.php > "$RUNNER_TEMP/xlsx-baseline.php"
+          XLSX_BASELINE="$RUNNER_TEMP/xlsx-baseline.php" php php/tests/xlsx_stream_regression_test.php
