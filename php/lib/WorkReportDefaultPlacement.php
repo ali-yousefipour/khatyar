@@ -4,6 +4,17 @@
  * No attendance amounts, payroll data or workbook formulas are persisted.
  */
 final class WorkReportDefaultPlacement {
+    public static function ensureSchema(PDO $db): void {
+        $db->exec('CREATE TABLE IF NOT EXISTS work_report_default_placements (
+            template_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+            placement_json JSON NOT NULL,
+            source_sha256 CHAR(64) NOT NULL,
+            source_filename VARCHAR(255) NOT NULL,
+            updated_by BIGINT UNSIGNED NOT NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
     public static function normalize($value): string {
         return trim(preg_replace('/\s+/u',' ',strtr((string)$value,[
             'ي'=>'ی','ك'=>'ک','‌'=>' ','۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
