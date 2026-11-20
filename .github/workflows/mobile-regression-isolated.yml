@@ -1,0 +1,40 @@
+name: Mobile regression isolation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'php/lib/**'
+      - 'php/app/api/**'
+      - '.github/workflows/mobile-regression-isolated.yml'
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run mobile regression scripts independently
+        shell: bash
+        run: |
+          set -uo pipefail
+          failed=0
+          total=0
+          for script in mobile/scripts/test-*.cjs mobile/scripts/test-presence-camera.js; do
+            total=$((total+1))
+            echo "::group::$script"
+            if timeout 60s node "$script"; then
+              echo "PASS $script"
+            else
+              echo "::error file=$script::Regression failed"
+              failed=$((failed+1))
+            fi
+            echo "::endgroup::"
+          done
+          echo "Executed $total scripts; $failed failed"
+          test "$failed" -eq 0
