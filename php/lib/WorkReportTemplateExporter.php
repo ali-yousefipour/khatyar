@@ -154,6 +154,15 @@ final class WorkReportTemplateExporter {
                 if($month<1||$month>12||$year<1300||$year>1500||!preg_match('/^([A-Z]{1,3})([1-9][0-9]*)$/D',$h['cell'],$m)||!isset($rows[(int)$m[2]]))throw new InvalidArgumentException('Invalid reporting period heading');
                 self::setCell($sheet,$rows[(int)$m[2]],$m[1],strtr($h['format'],['{title}'=>$h['title'],'{month_name}'=>$months[$month-1],'{year}'=>self::note((string)$year)]));
             }
+            // Reuse existing template cell styles for appended personnel rows, including numeric formats.
+            $fieldStyles=[];
+            foreach($structure['slots'] as $slot){
+                $sample=$rows[(int)$slot['row']]??null;if(!$sample)continue;
+                foreach($sample->getElementsByTagNameNS(self::S,'c') as $cell){
+                    $column=preg_replace('/[0-9]+$/','',$cell->getAttribute('r'));
+                    foreach($structure['columns'] as $field=>$mapped)if($column===$mapped&&$cell->hasAttribute('s')&&!isset($fieldStyles[$field]))$fieldStyles[$field]=$cell->getAttribute('s');
+                }
+            }
             $replace=[];$notes=[];$counts=[];$totals=[7=>0,8=>0,9=>0];$used=[];
             $addTotals=static function(array $r)use(&$totals,&$used){$id=$r['user_id'];if(isset($used[$id]))throw new LogicException('Duplicate output');$used[$id]=true;foreach([7,8,9] as $c)$totals[$c]+=(int)round($r['cells'][$c]*1000000);};
             foreach($structure['slots'] as $slot){
@@ -164,22 +173,28 @@ final class WorkReportTemplateExporter {
                 if($r)$addTotals($r);
             }
             // Append below existing content: no shifts of formulas, drawings or merge ranges.
-            $append=function(array $values,array $comment=[])use($sheet,$data,&$max,&$notes){
+            $append=function(array $values,array $comment=[],array $styleFields=[])use($sheet,$data,&$max,&$notes,$fieldStyles){
                 if(++$max>1048576)throw new RuntimeException('Worksheet row limit');
                 $row=self::element($sheet,self::S,'row');$row->setAttribute('r',(string)$max);$data->appendChild($row);
                 foreach($values as $i=>$v)self::setCell($sheet,$row,self::column($i+1),$v,is_int($v)||is_float($v));
+                foreach($row->getElementsByTagNameNS(self::S,'c') as $cell){
+                    $i=self::col(preg_replace('/[0-9]+$/','',$cell->getAttribute('r')))-1;
+                    $field=$styleFields[$i]??null;
+                    if($field!==null&&isset($fieldStyles[$field]))$cell->setAttribute('s',$fieldStyles[$field]);
+                }
                 foreach($comment as $i=>$v)$notes[self::column($i+1).$max]=$v;
             };
             foreach(['فهرست نیروهای مازاد بر ظرفیت قالب'=>$overflow,'فهرست نیروهای بدون تطبیق سازمانی'=>$unmatched] as $title=>$ids){
+                if(!$ids)continue;
                 $reason=$title==='فهرست نیروهای مازاد بر ظرفیت قالب'?'عدم تخصیص جایگاه منطبق در چینش نهایی':'عدم وجود جایگاه منطبق با مشخصات سازمانی';
                 $append([$title]);$append(['نام','نام خانوادگی','شماره پرسنلی','منطقه','محل خدمت','سمت','جمعه‌کاری','تعطیل‌کاری','اضافه‌کاری','علت']);
-                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]]);$addTotals($r);}
+                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]],['first_name','last_name','personnel_code','region','location','role','friday','holiday','overtime']);$addTotals($r);}
             }
             $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);
             foreach($counts as $c)$append([$c[0],$c[1],$c[2],$c[3],$c[2]-$c[3]]);
             $expected=[7=>0,8=>0,9=>0];foreach($records as $r)foreach([7,8,9] as $c)$expected[$c]+=(int)round($r['cells'][$c]*1000000);
             if(count($used)!==count($records)||$expected!==$totals)throw new LogicException('Hours reconciliation failed');
-            $append(['مجموع کل ساعات',null,null,null,null,null,$totals[7]/1000000,$totals[8]/1000000,$totals[9]/1000000]);
+            $append(['مجموع کل ساعات',null,null,null,null,null,$totals[7]/1000000,$totals[8]/1000000,$totals[9]/1000000],[],[6=>'friday',7=>'holiday',8=>'overtime']);
             $dimension=$sheet->getElementsByTagNameNS(self::S,'dimension')->item(0);
             if($dimension){$ref=$dimension->getAttribute('ref');$parts=explode(':',$ref);$last=end($parts);preg_match('/^([A-Z]+)/',$last,$m);$endCol=self::column(max(10,self::col($m[1]??'A')));$dimension->setAttribute('ref',$parts[0].':'.$endCol.$max);}
             // Extend only the selected sheet's simple rectangular print area.
@@ -209,7 +224,14 @@ final class WorkReportTemplateExporter {
             }
             // Original formulas remain intact; Excel must recalculate their cached values.
             $calc=$book->getElementsByTagNameNS(self::S,'calcPr')->item(0);
-            if($calc)$calc->setAttribute('fullCalcOnLoad','1');
+            if(!$calc){
+                $calc=self::element($book,self::S,'calcPr');
+                $before=null;
+                foreach($book->documentElement->childNodes as $node)if($node instanceof DOMElement&&in_array($node->localName,['oleSize','customWorkbookViews','pivotCaches','smartTagPr','smartTagTypes','webPublishing','fileRecoveryPr','webPublishObjects','extLst'],true)){$before=$node;break;}
+                $book->documentElement->insertBefore($calc,$before);
+            }
+            $calc->setAttribute('fullCalcOnLoad','1');
+            $calc->setAttribute('forceFullCalc','1');
             self::put($zip,'xl/workbook.xml',$book);
             self::notes($zip,$sheet,$path,$replace,$notes,$types);
             self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
