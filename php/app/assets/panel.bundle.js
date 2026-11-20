@@ -14787,6 +14787,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
             g.first = s.row;
         return map;
     }, new Map()).values()).sort((a, b) => Number(a.first) - Number(b.first));
+    const match = (p, s) => !query || [p === null || p === void 0 ? void 0 : p.first_name, p === null || p === void 0 ? void 0 : p.last_name, p === null || p === void 0 ? void 0 : p.personnel_code, p === null || p === void 0 ? void 0 : p.region, p === null || p === void 0 ? void 0 : p.location, p === null || p === void 0 ? void 0 : p.role, s === null || s === void 0 ? void 0 : s.location, s === null || s === void 0 ? void 0 : s.role, s === null || s === void 0 ? void 0 : s.region].join(" ").includes(query);
     const visibleSlots = slots.filter(s => {
         const group = String(s.group_id || [s.region, s.location, s.role, s.rotation].join("|"));
         if (groupFilter !== "all" && group !== groupFilter)
@@ -14841,7 +14842,6 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         lock.current = false;
         setLoading(false);
     } };
-    const match = (p, s) => !query || [p === null || p === void 0 ? void 0 : p.first_name, p === null || p === void 0 ? void 0 : p.last_name, p === null || p === void 0 ? void 0 : p.personnel_code, p === null || p === void 0 ? void 0 : p.region, p === null || p === void 0 ? void 0 : p.location, p === null || p === void 0 ? void 0 : p.role, s === null || s === void 0 ? void 0 : s.location, s === null || s === void 0 ? void 0 : s.role, s === null || s === void 0 ? void 0 : s.region].join(" ").includes(query);
     const names = { ordinal: "شماره ردیف", region: "منطقه (اختیاری)", location: "محل خدمت", role: "سمت", first_name: "نام", last_name: "نام خانوادگی", personnel_code: "شماره پرسنلی", friday: "جمعه‌کاری", holiday: "تعطیل‌کاری", overtime: "اضافه‌کاری" };
     const overlay = { position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,36,28,.55)", display: "grid", placeItems: "center", padding: 12 };
     const modal = { background: "var(--card,#fff)", color: "var(--text,#173b32)", width: "min(1100px,100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 18, padding: 18, boxShadow: "0 16px 70px #003b3333", direction: "rtl", fontFamily: "Vazirmatn,Tahoma" };
