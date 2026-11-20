@@ -4610,6 +4610,7 @@ function _work_organization_records($u,$jy,$jm,array $options){
   }
   return ['records'=>$records,'finalized'=>(bool)$final,'forecast_remaining'=>$forecastRequested,'include_surplus'=>$includeSurplus];
 }
+require_once __DIR__.'/work_report_template_routes.php';
 route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
