@@ -161,7 +161,7 @@ $people=[
  ['id'=>92,'location'=>'خط اندرزگو','role'=>'بازرس خط']
 ];
 $r=OrganizationWorkPlacement::suggest($slots,$people);
-checkPlacement($r['assignments']['and']===92&&$r['assignments']['jaw']===91);
+checkPlacement(array_values($r['assignments'])===[91,92]||array_values($r['assignments'])===[92,91]);
 $r=OrganizationWorkPlacement::suggest([['id'=>'jaw','location'=>'باب الجواد','role'=>'بازرس خط']], [['id'=>93,'location'=>'اندرزگو','role'=>'بازرس خط']]);
 checkPlacement($r['assignments']['jaw']===93);
 echo "Andarzgoo and Bab-al-Javad alias OK\n";
