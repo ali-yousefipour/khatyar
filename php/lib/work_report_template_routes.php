@@ -40,6 +40,7 @@ function _work_template_snapshot($u,$b,$repo): array {
     try{$data=(new WorkReportSnapshot())->load((int)$u['id'],(string)($b['snapshot_token']??''));}
     catch(Throwable $e){Http::error('پیش‌نمایش منقضی یا نامعتبر است؛ گزارش را دوباره محاسبه کنید.',409);}
     $context=$data['context'];
+    if(!empty($context['batch_pending']))Http::error('محاسبات پیش‌نمایش هنوز کامل نشده است.',409);
     if((bool)_final_work_month($context['year'],$context['month'])!==$context['finalized'])Http::error('وضعیت نهایی ماه تغییر کرده است؛ گزارش را دوباره محاسبه کنید.',409);
     $template=$repo->get($context['template_id'],$context['template_version'],true);
     if(!hash_equals($context['template_sha256'],$template['sha256']))Http::error('نسخه قالب تغییر کرده است',409);
@@ -99,6 +100,12 @@ route('POST','/api/admin/shift-report/templates/preview',function($p,$b,$u){
         _work_progress_start($u,'template-preview');
         $id=_work_template_id($b['template_id']??null);
         $template=$repo->get($id,isset($b['template_version'])?_work_template_id($b['template_version']):null,true);
+        if(!empty($b['batched'])){
+            $ids=array_map('intval',array_column(Db::all('SELECT id FROM users WHERE is_active=1 ORDER BY id'),'id'));
+            $context=['year'=>$year,'month'=>$month,'finalized'=>(bool)_final_work_month($year,$month),'forecast_remaining'=>$forecast,'include_surplus'=>$surplus,'template_id'=>$id,'template_version'=>(int)$template['id'],'template_sha256'=>$template['sha256'],'policy_version'=>2,'batch_pending'=>true,'batch_ids'=>$ids,'batch_offset'=>0,'batch_period'=>_work_organization_period($year,$month)];
+            $store=new WorkReportSnapshot();
+            return ['pending'=>true,'batch_token'=>$store->save((int)$u['id'],$context,[]),'done'=>0,'total'=>count($ids)];
+        }
         $data=_work_organization_records($u,$year,$month,['forecast_remaining'=>$forecast?'1':'0','include_surplus'=>$surplus?'1':'0','reuse_token'=>$b['reuse_token']??null]);
         $context=['year'=>$year,'month'=>$month,'finalized'=>$data['finalized'],'forecast_remaining'=>$forecast,'include_surplus'=>$surplus,'template_id'=>$id,'template_version'=>(int)$template['id'],'template_sha256'=>$template['sha256'],'policy_version'=>2];
         $store=new WorkReportSnapshot();
@@ -113,6 +120,44 @@ route('POST','/api/admin/shift-report/templates/preview',function($p,$b,$u){
         return ['ok'=>true,'snapshot_token'=>$token,'expires_at'=>$snapshot['expires'],'template'=>['id'=>$id,'version'=>(int)$template['id'],'title'=>$template['title']],'people'=>$people,'slots'=>$slots,'groups'=>$template['structure']['groups']]+_work_template_preview_response($slots,$people,$result);
     });
 },false,ADMIN);
+route('POST','/api/admin/shift-report/templates/preview-batch',function($p,$b,$u){
+    $repo=_work_template_repo($u);
+    return _work_template_safe(function()use($repo,$b,$u){
+        $store=new WorkReportSnapshot();
+        try{$saved=$store->load((int)$u['id'],(string)($b['batch_token']??''));}
+        catch(Throwable $e){Http::error('محاسبات منقضی شده؛ دوباره پیش‌نمایش را آغاز کنید.',409);}
+        $c=$saved['context'];
+        if(empty($c['batch_pending']))Http::error('شناسه مرحله نامعتبر است.',409);
+        if((bool)_final_work_month($c['year'],$c['month'])!==$c['finalized']||_work_organization_period($c['year'],$c['month'])!==$c['batch_period'])Http::error('بازه یا وضعیت گزارش تغییر کرده است؛ دوباره محاسبه کنید.',409);
+        $template=$repo->get($c['template_id'],$c['template_version'],true);
+        if(!hash_equals($c['template_sha256'],$template['sha256']))Http::error('نسخه قالب تغییر کرده است.',409);
+        $ids=$c['batch_ids'];$offset=$c['batch_offset'];$total=count($ids);
+        $chunk=array_slice($ids,$offset,2);
+        _work_progress_start($u,'template-preview');
+        if(isset($GLOBALS['kh_work_progress']))$GLOBALS['kh_work_progress']['batch']=[$offset,count($chunk),$total];
+        $records=$saved['records'];
+        if($chunk){
+            $data=_work_organization_records($u,$c['year'],$c['month'],['forecast_remaining'=>$c['forecast_remaining']?'1':'0','include_surplus'=>$c['include_surplus']?'1':'0'],array_fill_keys($chunk,true));
+            $records=array_merge($records,$data['records']);
+        }
+        $offset+=count($chunk);$c['batch_offset']=$offset;
+        if(isset($GLOBALS['kh_work_progress']))unset($GLOBALS['kh_work_progress']['batch']);
+        if($offset<$total){
+            $token=$store->save((int)$u['id'],$c,$records);
+            _work_progress_tick(min(95,5+(int)floor(90*$offset/max(1,$total))),'محاسبه مرحله‌ای کارکرد',$offset,$total);
+            return ['pending'=>true,'batch_token'=>$token,'done'=>$offset,'total'=>$total];
+        }
+        unset($c['batch_pending'],$c['batch_ids'],$c['batch_offset'],$c['batch_period']);
+        $token=$store->save((int)$u['id'],$c,$records);$snapshot=$store->load((int)$u['id'],$token);
+        $slots=$template['structure']['slots'];$people=_work_template_people($records);
+        _work_progress_tick(98,'جانمایی نیروها',$total,$total);
+        $result=OrganizationWorkPlacement::suggest($slots,$people);
+        _work_progress_tick(100,'پیش‌نمایش آماده است',$total,$total);
+        header('Cache-Control: no-store');
+        return ['ok'=>true,'snapshot_token'=>$token,'expires_at'=>$snapshot['expires'],'template'=>['id'=>$c['template_id'],'version'=>$c['template_version'],'title'=>$template['title']],'people'=>$people,'slots'=>$slots,'groups'=>$template['structure']['groups']]+_work_template_preview_response($slots,$people,$result);
+    });
+},false,ADMIN);
+
 route('POST','/api/admin/shift-report/templates/validate-placement',function($p,$b,$u){
     $repo=_work_template_repo($u);
     return _work_template_safe(function()use($repo,$b,$u){

@@ -11,7 +11,7 @@ source = raw.decode("utf-8")
 # Decode escaped Unicode only for textual assertions, never modify the bundle.
 decoded = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m[1], 16)), source)
 for marker in ("WorkTemplateControls", "/admin/shift-report/templates",
-               "مدیریت قالب‌ها", "قالب گزارش کارکرد", "پیش‌نمایش جانمایی"):
+               "مدیریت قالب‌ها", "قالب گزارش کارکرد", "پیش‌نمایش جانمایی", "/preview-batch", "data-kh-slot", "onPointerMove"):
     if marker not in decoded:
         raise SystemExit(f"Missing compiled feature marker: {marker}")
     print(f"Verified compiled marker: {marker}")

@@ -3314,6 +3314,9 @@ function _attendance_day_bounds($jdate){
 }
 /** Single indexed query for entry-owned report rows; no telemetry or writes. */
 function _work_report_attendance_batch($userId,$fromJ,$toJ): array {
+  return WorkReportReadScope::remember('attendance-batch:'.(int)$userId.':'.$fromJ.':'.$toJ,static fn()=>_work_report_attendance_batch_uncached($userId,$fromJ,$toJ));
+}
+function _work_report_attendance_batch_uncached($userId,$fromJ,$toJ): array {
   [$start]=_attendance_day_bounds($fromJ);
   [,$end]=_attendance_day_bounds($toJ);
   if(!$start||!$end||$start>=$end)return [];
@@ -3531,7 +3534,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
   $out = [];
   $reportedUsers=[];
   $progressUsers=count(array_unique(array_column($assigns,'user_id')));
-  $progressMax=(($GLOBALS['kh_work_progress']['mode']??'')==='organization')?55:96;
+  $progressMax=in_array($GLOBALS['kh_work_progress']['mode']??'',['organization','template-preview'],true)?55:96;
   $employmentWindows=_work_employment_windows();
   foreach ($assigns as $a) {
     // Several shift assignments can overlap one month; calculate each user only once.
@@ -3886,7 +3889,9 @@ function _work_progress_start($u,$mode){
 }
 function _work_progress_tick($percent,$stage,$done=null,$total=null){
   $ctx=$GLOBALS['kh_work_progress']??null;if(!$ctx)return;
-  $path=$ctx['path'];$data=['percent'=>(int)$percent,'stage'=>$stage,'done'=>$done,'total'=>$total];
+  $path=$ctx['path'];
+  if(isset($ctx['batch'])){[$offset,$size,$all]=$ctx['batch'];$percent=min(95,5+(int)floor(90*($offset+$size*max(0,min(100,$percent))/100)/max(1,$all)));$done=$offset;$total=$all;}
+  $data=['percent'=>(int)$percent,'stage'=>$stage,'done'=>$done,'total'=>$total];
   $tmp=@tempnam(dirname($path),'khwp-');if(!$tmp)return;
   @chmod($tmp,0600);
   if(@file_put_contents($tmp,json_encode($data,JSON_UNESCAPED_UNICODE))!==false)@rename($tmp,$path);
@@ -4642,12 +4647,16 @@ function _work_monthly_display_rows($jy,$jm,bool $forecastRequested): array {
   }
   unset($r);return $rows;
 }
-function _work_organization_records($u,$jy,$jm,array $options){
+function _work_organization_records($u,$jy,$jm,array $options,?array $allowedUserIds=null){
+  return WorkReportReadScope::run(static fn()=>_work_organization_records_impl($u,$jy,$jm,$options,$allowedUserIds));
+}
+function _work_organization_records_impl($u,$jy,$jm,array $options,?array $allowedUserIds=null){
   $final=_final_work_month($jy,$jm);
   $period=_work_organization_period($jy,$jm);
   // Organization actuals are always calculated through the explicit completed-day cutoff.
   // Do not reuse a generic monthly snapshot with an unverified cutoff.
-  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,null,true));
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm,$period['actual_end'],null,null,$allowedUserIds,true));
+  if($allowedUserIds!==null)$rows=array_values(array_filter($rows,static fn($r)=>isset($allowedUserIds[(int)$r['user_id']])));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
