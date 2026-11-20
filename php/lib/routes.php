@@ -3766,7 +3766,7 @@ function _work_month_people(){
   // The finalization test intentionally evaluates this helper on its own.
   $windows=function_exists('_work_employment_windows')?_work_employment_windows():[];
   $byId=[];foreach($people as $person){
-    $person['employment_start_date']=$windows[(int)$person['id']]['start']??null;
+    if(isset($windows[(int)$person['id']]['start'])&&$windows[(int)$person['id']]['start']!=='')$person['employment_start_date']=$windows[(int)$person['id']]['start'];
     $byId[(int)$person['id']]=$person;
   }
   return $byId;
