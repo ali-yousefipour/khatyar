@@ -1,7 +1,7 @@
 <?php
 // Regression: mission minutes do not offset shortage in the attendance detail.
 $code = file_get_contents(__DIR__ . '/../app/api/admin-attendance-report-owned.php');
-if (strpos($code, '$expectedMin - min($inShiftMin, $expectedMin) - $approvedExempt') === false) {
+if (strpos($code, "(int)(\$w['shortage'] ?? 0) - \$approvedExempt") === false) {
   throw new RuntimeException('Shift based shortage recomputation missing');
 }
 if (strpos($code, '$annualLeave + $sickLeave + $unpaidLeave)') === false) {

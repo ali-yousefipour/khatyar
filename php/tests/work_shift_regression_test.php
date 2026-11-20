@@ -77,6 +77,9 @@ class Db {
   }
 }
 function _auto_shift_for_user($userId){return ['type'=>'auto','title'=>'automatic','id'=>0];}
+$scopeStart=strpos($source,'final class WorkReportReadScope');
+$scopeEnd=strpos($source,'function _attendance_adjusted_overtime(',$scopeStart);
+if($scopeStart!==false&&$scopeEnd!==false)eval(substr($source,$scopeStart,$scopeEnd-$scopeStart));
 $start=strpos($source,'function _active_user_shift_assignment(');
 $end=strpos($source,'function _shift_day_row(',$start);
 eval(substr($source,$start,$end-$start));
@@ -122,7 +125,8 @@ foreach(['routes.php','../app/api/daily-performance-gps-separate.php','../app/ap
 }
 
 $start=strpos($source,'function _attendance_day_bounds(');
-$end=strpos($source,'/**',$start);
+$end=strpos($source,"/**\n * Daily shortage",$start);
+if($end===false)$end=strpos($source,'/**' ,strpos($source,'function _attendance_rows_for_jdate(',$start));
 eval(substr($source,$start,$end-$start));
 function _gps_work_required(){return true;}
 function _jweekday_name($year,$month,$day){return '';}
@@ -158,7 +162,7 @@ same('night session is not counted again on checkout date',[],$result['sessions'
 $monthlyStart=strpos($source,'function _shift_month_report(');
 $monthlyEnd=strpos($source,'function _monthly_work_report_need(',$monthlyStart);
 $monthlySource=substr($source,$monthlyStart,$monthlyEnd-$monthlyStart);
-same('monthly aggregation uses complete entry-owned sessions',true,str_contains($monthlySource,'_attendance_rows_for_jdate($a[\'user_id\'], $jdate, true, false)'));
+same('monthly aggregation uses complete entry-owned sessions',true,str_contains($monthlySource,'_attendance_rows_for_jdate($a[\'user_id\'], $jdate, true, false,'));
 $nightConfig=['segments'=>[['s'=>'22:00','e'=>'07:00']],'day_config'=>['early_ok'=>0]];
 foreach ([['07:00:00',0,540],['06:30:00',30,510],['07:15:00',0,555]] as [$checkout,$early,$worked]){
   Db::$attendance=[['id'=>12,'check_in'=>$base.'22:00:00','check_out'=>$nextBase.$checkout]];
@@ -169,3 +173,18 @@ foreach ([['07:00:00',0,540],['06:30:00',30,510],['07:15:00',0,555]] as [$checko
   same('overnight full presence '.$checkout,$worked,$actual['worked']);
   same('no duplicate checkout-day session '.$checkout,[],_attendance_rows_for_jdate(1,$nextDate,true));
 }
+
+/* Fixed-time shortage regression: presence beyond duty never erases late/early gaps. */
+$fixed=['type'=>'advanced','daily_ot_cap'=>120];
+$slot=['segments'=>[['s'=>'07:30','e'=>'15:30']]];
+$session=static fn($in,$out)=>['in'=>strtotime($base.$in),'out'=>strtotime($base.$out)];
+foreach([['08:00','16:00',30],['07:00','15:00',30],['08:00','15:00',60],['07:30','15:30',0]] as [$in,$out,$want]){
+  same('fixed shortage '.$in.'-'.$out,$want,ShiftCalc::dayWork($fixed,$date,$slot,[$session($in,$out)],false)['shortage']);
+}
+same('internal gap',30,ShiftCalc::dayWork($fixed,$date,$slot,[$session('07:30','11:00'),$session('11:30','15:30')],false)['shortage']);
+same('overlapping punches cannot hide gap',30,ShiftCalc::dayWork($fixed,$date,$slot,[$session('08:00','12:00'),$session('10:00','15:30')],false)['shortage']);
+same('configured late grace',20,ShiftCalc::dayWork($fixed,$date,$slot+['day_config'=>['late_ok'=>10]],[$session('08:00','16:00')],false)['shortage']);
+same('night late despite later checkout',30,ShiftCalc::dayWork($fixed,$date,['segments'=>[['s'=>'23:00','e'=>'07:00']]], [['in'=>strtotime($base.'23:30'),'out'=>strtotime($nextBase.'07:30')]],false)['shortage']);
+same('automatic duration only',0,ShiftCalc::dayWork(['type'=>'auto','auto_expected_min'=>480],$date,null,[$session('08:00','16:00')],false)['shortage']);
+same('floating duration only',0,ShiftCalc::dayWork(['type'=>'floating','float_minutes'=>480],$date,null,[$session('08:00','16:00')],false)['shortage']);
+same('holiday no shortage',0,ShiftCalc::dayWork($fixed,$date,$slot,[$session('08:00','09:00')],true)['shortage']);

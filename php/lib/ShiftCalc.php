@@ -88,7 +88,54 @@ class ShiftCalc
             $metrics=array_fill_keys(['in_shift','expected','overtime','surplus','shortage','night','friday','holiday','friday_work','holiday_work','friday_overtime','holiday_overtime','total_overtime','holiday_friday_overtime','friday_workday','late_in','early_out'],0);
             return array_merge($metrics,['jdate'=>$jdate,'worked'=>$worked,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>true,'is_friday'=>self::isFriday($jdate),'is_holiday'=>(bool)$fallbackHoliday||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']),'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??'']);
         }
-        $isHoliday=(bool)$fallbackHoliday||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);$isFriday=self::isFriday($jdate);$type=$shift['type']??'simple';[$worked,$night,$inMin,$outMax,$now,$todayJ]=self::sessionTotals($shift,$jdate,$sessions);$cfg=self::parseJson($dayRow['day_config']??null);$expected=self::expectedMinutes($shift,$jdate,$dayRow);$segs=$type==='floating'?[]:self::daySegments($shift,$jdate,$dayRow);$inShift=0;$late=0;$early=0;$jTs=self::jdateToTs($jdate);$crossMidnightWorked=0;if($type!=='floating'&&$jTs!==null&&$segs){foreach($segs as $seg){$win=self::segmentWindow($seg,$jTs);if(!$win)continue;[$ss,$ee]=$win;foreach($sessions as $sx){if(empty($sx['in']))continue;$rawSo=!empty($sx['out'])?(int)$sx['out']:(self::normJdate($jdate)===$todayJ?$now:null);if(!$rawSo)continue;foreach(self::validSessionParts($sx,$rawSo) as $part){[$si,$so]=$part;if($so<=$si)continue;$inShift+=self::overlapMinutes($si,$so,$ss,$ee);if(date('Y-m-d',$so)!==date('Y-m-d',$si))$crossMidnightWorked+=max(0,(int)floor(($so-$si)/60));}}}if($crossMidnightWorked>0&&$expected>0){$overnightInShift=min($crossMidnightWorked,$expected);$inShift=max($inShift,$overnightInShift);} $first=self::segmentWindow($segs[0],$jTs);$last=self::segmentWindow($segs[count($segs)-1],$jTs);if($first&&$inMin)$late=max(0,(int)floor(($inMin-$first[0])/60)-max(0,(int)($cfg['late_ok']??0)));if($last&&$outMax)$early=max(0,(int)floor(($last[1]-$outMax)/60)-max(0,(int)($cfg['early_ok']??0)));}else $inShift=$worked;
+        $isHoliday=(bool)$fallbackHoliday||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
+        $isFriday=self::isFriday($jdate);
+        $type=$shift['type']??'simple';
+        [$worked,$night,$inMin,$outMax,$now,$todayJ]=self::sessionTotals($shift,$jdate,$sessions);
+        $cfg=self::parseJson($dayRow['day_config']??null);
+        $expected=self::expectedMinutes($shift,$jdate,$dayRow);
+        $durationOnly=in_array($type,['auto','floating'],true)||($type==='advanced'&&($cfg['type']??'')==='floating');
+        $segs=$durationOnly?[]:self::daySegments($shift,$jdate,$dayRow);
+        $inShift=0;$late=0;$early=0;$graceCredit=0;
+        $jTs=self::jdateToTs($jdate);
+        $windows=[];$covered=[];
+        if(!$durationOnly&&$jTs!==null&&$segs){
+            foreach($segs as $seg){
+                $win=self::segmentWindow($seg,$jTs);
+                if(!$win)continue;
+                [$ss,$ee]=$win;$windows[]=$win;
+                foreach($sessions as $sx){
+                    if(empty($sx['in']))continue;
+                    $rawSo=!empty($sx['out'])?(int)$sx['out']:(self::normJdate($jdate)===$todayJ?$now:null);
+                    if(!$rawSo)continue;
+                    foreach(self::validSessionParts($sx,$rawSo) as [$si,$so]){
+                        $left=max($si,$ss);$right=min($so,$ee);
+                        if($right>$left)$covered[]=[$left,$right];
+                    }
+                }
+            }
+            // Merge overlap, including duplicate punches, before crediting duty.
+            usort($covered,static fn($x,$y)=>$x[0]<=>$y[0]);
+            $left=null;$right=null;$seconds=0;
+            foreach($covered as [$l,$r]){
+                if($left===null){$left=$l;$right=$r;}
+                elseif($l<=$right)$right=max($right,$r);
+                else{$seconds+=$right-$left;$left=$l;$right=$r;}
+            }
+            if($left!==null)$seconds+=$right-$left;
+            $inShift=(int)floor($seconds/60);
+            if($windows&&$inMin!==null&&$outMax!==null){
+                $first=min(array_column($windows,0));$last=max(array_column($windows,1));
+                // Bound edge gaps to scheduled duration; no grace for a full absence.
+                $rawLate=max(0,(int)floor((min($inMin,$last)-$first)/60));
+                $rawEarly=max(0,(int)floor(($last-max($outMax,$first))/60));
+                $lateGrace=min($rawLate,max(0,(int)($cfg['late_ok']??$shift['late_ok']??0)));
+                $earlyGrace=min($rawEarly,max(0,(int)($cfg['early_ok']??$shift['early_ok']??0)));
+                $late=$rawLate-$lateGrace;$early=$rawEarly-$earlyGrace;
+                if($inShift>0)$graceCredit=$lateGrace+$earlyGrace;
+                else{$late=$rawLate;$early=$rawEarly;}
+            }
+        }else $inShift=$worked;
         // جمعه و تعطیلات رسمی/دستی در کل سامانه «روز غیرکاری» هستند.
         // حضور در این روزها فقط به‌عنوان جمعه‌کاری/تعطیل‌کاری ثبت می‌شود و
         // هرگز موظفی، کسری کار یا غیبت تولید نمی‌کند.
@@ -131,7 +178,10 @@ class ShiftCalc
           $windowExtra=(int)floor($windowSeconds/60);
         }
         $rawExtra=max($rawExtra,$windowExtra);
-        $overtime=$offLike?0:min($rawExtra,$dailyCap);$shortage=$offLike?0:max(0,$expected-min($worked,$expected));if(empty($shift['night_calc']))$night=0;$surplus=$offLike?0:max(0,$rawExtra-$overtime);
+        $overtime=$offLike?0:min($rawExtra,$dailyCap);
+        $shortage=$offLike?0:($durationOnly
+            ?max(0,$expected-min($worked,$expected))
+            :min($expected,max(0,$expected-min($inShift,$expected)-$graceCredit,$late+$early)));if(empty($shift['night_calc']))$night=0;$surplus=$offLike?0:max(0,$rawExtra-$overtime);
         return ['jdate'=>$jdate,'worked'=>$worked,'in_shift'=>$inShift,'expected'=>$expected,'overtime'=>$overtime,'shortage'=>$shortage,'night'=>$night,'friday'=>$fridayMin,'holiday'=>$holidayMin,'friday_work'=>$fridayMin,'holiday_work'=>$holidayMin,'friday_overtime'=>$fridayMin,'holiday_overtime'=>$holidayMin,'total_overtime'=>$overtime+$fridayMin+$holidayMin,'holiday_friday_overtime'=>$fridayMin+$holidayMin,'friday_workday'=>$fridayMin>0?1:0,'late_in'=>$late,'early_out'=>$early,'surplus'=>$surplus,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>empty($segs)&&$type!=='floating'||$offLike,'is_friday'=>$isFriday,'is_holiday'=>$isHoliday,'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??''];}
     static function autoDayWork($shift,$jdate,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,null,$sessions,$isHoliday);}
     static function dayWork($shift,$jdate,$dayRow,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,$dayRow,$sessions,$isHoliday);}

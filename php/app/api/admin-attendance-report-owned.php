@@ -204,15 +204,9 @@ function attendance_report_owned_by_entry_date_impl($userId, $from, $to, $liveOn
     $unpaidLeave = $unpaidLeave ?: $toMinutes($unpaidText);
     $missionLeave = $missionLeave ?: $toMinutes($missionText);
     $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave);
-    $expectedMin = max(0, (int)($w['expected'] ?? 0));
-    $inShiftMin = max(0, (int)($w['worked'] ?? 0));
-    // Always recompute the attendance shortfall from the *effective shift*.
-    // Previously a stale day['shortage'] of 00:00 could override a 07:33
-    // duty with only 07:03 in-shift presence (30 minutes unaccounted).
-    // Mission is independent and must not offset attendance shortage here.
-    $w['shortage'] = max(0, $expectedMin - min($inShiftMin, $expectedMin) - $approvedExempt);
-    // A late clock-in is independently recorded by ShiftCalc::dayWork.
-    // Do not confuse late_in with shortage: eligible leave may cover a gap.
+    // ShiftCalc is the single source of duty shortage, including fixed-time
+    // late/early gaps and grace. Approved leave reduces it once; mission does not.
+    $w['shortage'] = max(0, (int)($w['shortage'] ?? 0) - $approvedExempt);
 
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
