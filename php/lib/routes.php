@@ -3211,13 +3211,34 @@ function _auto_shift_for_user($userId){
     'allow_offday'=>1
   ];
 }
+final class WorkReportReadScope {
+  private static int $depth=0;
+  private static array $values=[];
+  public static function run(callable $fn){
+    self::$depth++;
+    try{return $fn();}finally{if(--self::$depth===0)self::$values=[];}
+  }
+  public static function remember(string $key,callable $fn){
+    if(!self::$depth)return $fn();
+    if(!array_key_exists($key,self::$values))self::$values[$key]=$fn();
+    return self::$values[$key];
+  }
+}
 function _attendance_adjusted_overtime($userId,$jdate){
+  return WorkReportReadScope::remember('ot:'.(int)$userId.':'.str_replace('/','-',$jdate),
+    static fn()=>_attendance_adjusted_overtime_uncached($userId,$jdate));
+}
+function _attendance_adjusted_overtime_uncached($userId,$jdate){
   static $schemaReady=false; if(!$schemaReady){ _ensure_attendance_phase1_schema(); $schemaReady=true; }
   try { $r=Db::one("SELECT minutes FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?",[(int)$userId,str_replace('/','-',$jdate)]); return (int)($r['minutes'] ?? 0); } catch (\Throwable $e) { return 0; }
 }
 function _hm_min($m){ return sprintf('%02d:%02d', intdiv(max(0,(int)$m),60), max(0,(int)$m)%60); }
 
 function _active_user_shift_assignment($userId, $jdate=null){
+  return WorkReportReadScope::remember('shift:'.(int)$userId.':'.str_replace('/','-',(string)$jdate),
+    static fn()=>_active_user_shift_assignment_uncached($userId,$jdate));
+}
+function _active_user_shift_assignment_uncached($userId, $jdate=null){
   $jdate = $jdate ? str_replace('/','-',$jdate) : null;
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
@@ -3246,9 +3267,9 @@ function _active_user_shift_assignment($userId, $jdate=null){
       }
     } catch (Throwable $e) {}
   }
-  $rows = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, s.*
+  $rows = WorkReportReadScope::remember('assignments:'.(int)$userId,static fn()=>Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, s.*
     FROM user_shifts us JOIN shifts s ON s.id=us.shift_id
-    WHERE us.user_id=? AND s.is_active=1", [(int)$userId]);
+    WHERE us.user_id=? AND s.is_active=1", [(int)$userId]));
   foreach($rows as $r){
     if($jdate){
       $from = !empty($r['from_jdate']) ? str_replace('/','-',$r['from_jdate']) : null;
@@ -3259,16 +3280,16 @@ function _active_user_shift_assignment($userId, $jdate=null){
     return $r;
   }
   // No implicit automatic shift: only an explicitly assigned shift is effective.
-  $autoRow=Db::one('SELECT from_jdate,to_jdate FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$userId]);
+  $autoRow=WorkReportReadScope::remember('auto-assignment:'.(int)$userId,static fn()=>Db::one('SELECT from_jdate,to_jdate FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$userId]));
   if($autoRow){
     $from=!empty($autoRow['from_jdate'])?str_replace('/','-',$autoRow['from_jdate']):null;
     $to=!empty($autoRow['to_jdate'])?str_replace('/','-',$autoRow['to_jdate']):null;
-    if(!$jdate||((!$from||strcmp($jdate,$from)>=0)&&(!$to||strcmp($jdate,$to)<=0)))return _auto_shift_for_user($userId);
+    if(!$jdate||((!$from||strcmp($jdate,$from)>=0)&&(!$to||strcmp($jdate,$to)<=0)))return WorkReportReadScope::remember('auto-rule:'.(int)$userId,static fn()=>_auto_shift_for_user($userId));
   }
   return null;
 }
 function _shift_day_row($shiftId, $jdate){
-  return Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=?", [(int)$shiftId, str_replace('/','-',$jdate)]);
+  return WorkReportReadScope::remember('shift-day:'.(int)$shiftId.':'.str_replace('/','-',$jdate),static fn()=>Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=?", [(int)$shiftId, str_replace('/','-',$jdate)]));
 }
 function _attendance_day_bounds($jdate){
   $jdate = str_replace('/','-', trim((string)$jdate));
@@ -3278,7 +3299,19 @@ function _attendance_day_bounds($jdate){
   $end = date('Y-m-d H:i:s', strtotime($start) + 86400);
   return [$start, $end, date('Y-m-d', strtotime($start))];
 }
-function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false,$includeTelemetry=true){
+/** Single indexed query for entry-owned report rows; no telemetry or writes. */
+function _work_report_attendance_batch($userId,$fromJ,$toJ): array {
+  [$start]=_attendance_day_bounds($fromJ);
+  [,$end]=_attendance_day_bounds($toJ);
+  if(!$start||!$end||$start>=$end)return [];
+  $grouped=[];
+  foreach(Db::all("SELECT id, check_in, check_out, method, in_lat, in_lng, out_lat, out_lng, in_station, out_station
+    FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in,id",[(int)$userId,$start,$end]) as $row){
+    $grouped[substr((string)$row['check_in'],0,10)][]=$row;
+  }
+  return $grouped;
+}
+function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false,$includeTelemetry=true,?array $preloadedRows=null){
   [$start,$end,$g] = _attendance_day_bounds($jdate);
   if (!$start || !$end) return [];
   // فاز ۷.۲: رکوردهایی که با روز هم‌پوشانی دارند انتخاب می‌شوند، نه فقط رکوردهایی که همان روز شروع شده‌اند.
@@ -3287,7 +3320,7 @@ function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false,$includeT
   $condition = $ownedByEntry
     ? 'check_in < ? AND check_in >= ?'
     : 'check_in < ? AND COALESCE(check_out, NOW()) > ?';
-  $rows = Db::all("SELECT id, check_in, check_out, method, in_lat, in_lng, out_lat, out_lng, in_station, out_station
+  $rows = ($ownedByEntry&&$preloadedRows!==null)?($preloadedRows[$g]??[]):Db::all("SELECT id, check_in, check_out, method, in_lat, in_lng, out_lat, out_lng, in_station, out_station
     FROM staff_attendance
     WHERE user_id=? AND $condition
     ORDER BY check_in", [(int)$userId,$end,$start]);
@@ -3424,6 +3457,9 @@ function _work_employment_contains(array $window,string $date): bool {
   return (empty($window['start'])||$date>=$window['start'])&&(empty($window['end'])||$date<=$window['end']);
 }
 function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null) {
+  return WorkReportReadScope::run(static fn()=>_shift_month_report_impl($jy,$jm,$throughJdate,$onlyUserId,$fromJdate,$allowedUserIds));
+}
+function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null) {
   // Restricted work review must not calculate every employee before applying filters.
   if ($allowedUserIds !== null && !$allowedUserIds) return [];
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
@@ -3538,6 +3574,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
     $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
     $metricDetails=[];
+    $batchRows=$lastDay>=$firstIncludedDay?_work_report_attendance_batch($reportUid,$fromJdate,$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT)):[];
     for ($d=$firstIncludedDay; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       if(!_work_employment_contains($employment,$jdate))continue;
@@ -3547,7 +3584,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       if (!$dayShift) continue;
       $shift = $dayShift;
       // Monthly work owns the complete session on its check-in date, including next-day checkout.
-      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate, true, false);
+      $rows = _attendance_rows_for_jdate($a['user_id'], $jdate, true, false,$batchRows);
       $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id']??$shift['id'], $jdate) : null;
       $isHol = ShiftCalc::effectiveHoliday($jdate);
       // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
@@ -3961,11 +3998,18 @@ function _jweekday_name($jy,$jm,$jd){
 }
 // گزارش تردد روزانهٔ یک پرسنل در بازهٔ جلالی
 function _attendance_report($userId,$fromJ,$toJ,$ownedByEntry=false){
+  return WorkReportReadScope::run(static fn()=>_attendance_report_impl($userId,$fromJ,$toJ,$ownedByEntry));
+}
+function _attendance_report_impl($userId,$fromJ,$toJ,$ownedByEntry=false){
   // گزارش باید همان وضعیت Auto-Close را که تایمر و ثبت تردد استفاده می‌کنند ببیند.
   try { _attendance_auto_close_stale((int)$userId); } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  static $reportUserSchemaChecked=false;
+  if(!$reportUserSchemaChecked){
+  $reportUserSchemaChecked=true;
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='personnel_code'")) Db::run("ALTER TABLE users ADD COLUMN personnel_code VARCHAR(40) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='birth_date'")) Db::run("ALTER TABLE users ADD COLUMN birth_date VARCHAR(20) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='rank_stars'")) Db::run("ALTER TABLE users ADD COLUMN rank_stars TINYINT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  }
   $u = Db::one("SELECT id, CONCAT(first_name,' ',last_name) name, COALESCE(NULLIF(personnel_code,''), id) pcode, device_model, work_policy_id FROM users WHERE id=?", [$userId]);
   if(!$u) Http::error('پرسنل یافت نشد',404);
   // شیفت کاربر در هر روز جداگانه بر اساس بازهٔ تخصیص تشخیص داده می‌شود.
@@ -4018,13 +4062,14 @@ function _attendance_report($userId,$fromJ,$toJ,$ownedByEntry=false){
     }
   } catch(Throwable $e) { error_log('attendance report approved requests: '.$e->getMessage()); }
   $days=[];
+  $batchRows=$ownedByEntry?_work_report_attendance_batch($userId,$fromJ,$toJ):null;
   for($ts=$fromTs; $ts<=$toTs; $ts+=86400){
     [$jy,$jm,$jd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
     $jdate=sprintf('%04d/%02d/%02d',$jy,$jm,$jd);
     $jdateDash=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     $g=date('Y-m-d',$ts);
     // پانچ‌های این روز
-    $rows=_attendance_rows_for_jdate($userId,$jdateDash,$ownedByEntry,false);
+    $rows=_attendance_rows_for_jdate($userId,$jdateDash,$ownedByEntry,false,$batchRows);
     $punches=[]; $sessions=[];
     foreach($rows as $r){
       // ابتدا نام ذخیره‌شده، در غیر این صورت استخراج از مختصات (برای رکوردهای قدیمی)

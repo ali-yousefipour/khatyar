@@ -37,6 +37,10 @@ function attendance_punch_provenance(int $uid,array $ids): array {
   return $result;
 }
 function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false, $includeTelemetry=true) {
+  if(!function_exists('_attendance_report'))require_once dirname(__DIR__,2).'/lib/routes.php';
+  return WorkReportReadScope::run(static fn()=>attendance_report_owned_by_entry_date_impl($userId,$from,$to,$liveOnly,$includeTelemetry));
+}
+function attendance_report_owned_by_entry_date_impl($userId, $from, $to, $liveOnly=false, $includeTelemetry=true) {
   /*
    * این helper از route قدیمی _attendance_report استفاده می‌کند، اما باید
    * مستقل از ترتیب load فایل‌ها هم قابل اجرا باشد. در index معمولاً routes.php
@@ -58,26 +62,20 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
   $metricKeys = ['worked','in_shift','expected','overtime','shortage','night','late_in','early_out','surplus','adjusted_ot','friday_work','holiday_work'];
   $employment = null;
   try {
-    $columns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+    $columns = WorkReportReadScope::remember('employment-schema',static fn()=>Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')"));
     if ((int)($columns['n'] ?? 0) === 2) $employment = Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[$userId]);
   } catch (Throwable $error) { error_log('Employment-period lookup failed: '.$error->getMessage()); }
   $employmentStart = ShiftCalc::normJdate($employment['employment_start_date']??'');
   $employmentEnd = ShiftCalc::normJdate($employment['employment_end_date']??'');
-  // Load owned attendance once for the complete report instead of one SQL query per day.
+  // The base report is entry-owned already. Reuse its exact punches rather
+  // than querying the same time range for a second time.
   $ownedByDate=[];
-  $gregorianDays=[];
   foreach($report['days'] as $entry){
-    $j=str_replace('/','-',trim((string)($entry['jdate']??'')));
-    if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$j))continue;
-    [$jy,$jm,$jd]=array_map('intval',explode('-',$j));
-    [$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
-    $gregorianDays[]=sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
-  }
-  if($gregorianDays){
-    $start=min($gregorianDays).' 00:00:00';
-    $end=date('Y-m-d',strtotime(max($gregorianDays).' +1 day')).' 00:00:00';
-    foreach(Db::all("SELECT id,check_in,check_out,method FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in ASC,id ASC",[$userId,$start,$end]) as $record){
-      $ownedByDate[substr((string)$record['check_in'],0,10)][]=$record;
+    foreach($entry['punches']??[] as $record){
+      if(empty($record['in_full']))continue;
+      $ownedByDate[substr((string)$record['in_full'],0,10)][]=[
+        'id'=>$record['id'],'check_in'=>$record['in_full'],'check_out'=>$record['out_full']??null,'method'=>$record['method']??null
+      ];
     }
   }
   require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
