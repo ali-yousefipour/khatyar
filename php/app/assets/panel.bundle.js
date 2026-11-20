@@ -15064,7 +15064,7 @@ function ShiftReport() {
         setReportError("");
         try {
             await new Promise(resolve => setTimeout(resolve, 0));
-            const response = await fetch(API_BASE + '/admin/shift-report?year=' + year + '&month=' + month + '&progress_id=' + (id === "local" ? "" : id), { headers: tok() });
+            const response = await fetch(API_BASE + '/admin/shift-report?year=' + year + '&month=' + month + '&forecast_remaining=' + (forecastRemaining ? 1 : 0) + '&progress_id=' + (id === "local" ? "" : id), { headers: tok() });
             const r = await response.json().catch(() => ({}));
             if (!response.ok)
                 throw Error(r.error || r.message || 'خطا در محاسبه کارکرد');
@@ -15088,7 +15088,7 @@ function ShiftReport() {
         }
     };
     const exportExcel = async () => { try {
-        const res = await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`, { headers: tok() });
+        const res = await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}`, { headers: tok() });
         if (!res.ok)
             throw new Error("خطا");
         const blob = await res.blob();
@@ -15109,8 +15109,7 @@ function ShiftReport() {
         setReportError('');
         try {
             await new Promise(resolve => setTimeout(resolve, 0));
-            const reuse = reuseReport.current;
-            const useReuse = !!(reuse && reuse.year === jy && reuse.month === jm && Date.now() - reuse.at < 300000 && typeof window !== "undefined" && window.confirm("از نتیجه کارکرد محاسبه‌شده در پنج دقیقه اخیر استفاده شود؟ اگر اطلاعات تردد یا درخواست‌ها تغییر کرده، لغو را بزنید تا محاسبه تازه انجام شود."));
+            const reuse = null, useReuse = false;
             const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id === "local" ? "" : id}&reuse_token=${useReuse ? reuse.token : ""}`, { headers: tok() });
             if (!res.ok) {
                 const detail = await res.json().catch(() => ({}));
@@ -15184,8 +15183,8 @@ function ShiftReport() {
                     "\u0645\u0627\u0647 ",
                     React.createElement("select", { className: "input", value: jm, disabled: finalBusy || !!workProgress, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
                 React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6 } },
-                    React.createElement("input", { type: "checkbox", checked: forecastRemaining, disabled: !!workProgress, onChange: e => setForecastRemaining(e.target.checked) }),
-                    " \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0631\u0648\u0632\u0647\u0627\u06CC \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u062A\u0627 \u0627\u0646\u062A\u0647\u0627\u06CC \u0645\u0627\u0647"),
+                    React.createElement("input", { type: "checkbox", checked: forecastRemaining, disabled: !!workProgress, onChange: e => { setForecastRemaining(e.target.checked); setRows(null); } }),
+                    " \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0645\u0627\u0647"),
                 React.createElement("label", null,
                     React.createElement("input", { type: "checkbox", checked: includeSurplusInOvertime, disabled: !!workProgress, onChange: e => setIncludeSurplusInOvertime(e.target.checked) }),
                     " \u0644\u062D\u0627\u0638 \u0645\u0627\u0632\u0627\u062F \u062D\u0636\u0648\u0631 \u062F\u0631 \u0645\u06CC\u0627\u0646\u06AF\u06CC\u0646 \u0648 \u0645\u062C\u0645\u0648\u0639 \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631"),
@@ -15197,9 +15196,12 @@ function ShiftReport() {
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
                     React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, disabled: finalBusy || !!workProgress, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                    React.createElement("input", { type: "checkbox", checked: forecastRemaining, disabled: busy || !!workProgress, onChange: e => { setForecastRemaining(e.target.checked); setRows(null); } }),
+                    "\u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0645\u0627\u0647"),
                 React.createElement("button", { className: "btn p", disabled: busy || !!workProgress, onClick: run }, busy ? "در حال محاسبه…" : "محاسبه کارکرد"),
                 rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
-                React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
+                React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u06A9\u0627\u0631\u06A9\u0631\u062F \u0642\u0637\u0639\u06CC \u062A\u0627 \u062F\u06CC\u0631\u0648\u0632\u061B \u0627\u0632 \u0627\u0645\u0631\u0648\u0632 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0645\u0627\u0647 \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0628\u062F\u0648\u0646 \u06A9\u0633\u0648\u0631\u0627\u062A\u060C \u0628\u0627 \u0644\u062D\u0627\u0638 \u0645\u0631\u062E\u0635\u06CC\u200C\u0647\u0627\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647.")),
             busy && React.createElement("div", { className: "work-report-state", role: "status", "aria-live": "polite" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u2026"),
             !busy && reportError && React.createElement("div", { className: "work-report-state", role: "alert" },
                 React.createElement("strong", null, "\u062F\u0631\u06CC\u0627\u0641\u062A \u06AF\u0632\u0627\u0631\u0634 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F."),
