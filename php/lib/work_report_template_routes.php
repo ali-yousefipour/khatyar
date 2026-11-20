@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/WorkReportTemplateRepository.php';
 require_once __DIR__.'/WorkReportSnapshot.php';
+require_once __DIR__.'/WorkReportDefaultPlacement.php';
 
 function _work_template_repo($u,bool $manage=false): WorkReportTemplateRepository {
     _monthly_work_report_need($u);
@@ -91,6 +92,59 @@ route('GET','/api/admin/shift-report/templates/{id}/download',function($p,$b,$u)
         header('Cache-Control: no-store');header('Content-Length: '.strlen($row['workbook']));echo $row['workbook'];exit;
     });
 },false,ADMIN);
+function _work_template_stored_placement(int $templateId): array {
+    $q=Db::pdo()->prepare('SELECT placement_json FROM work_report_default_placements WHERE template_id=?');
+    $q->execute([$templateId]);
+    $json=$q->fetchColumn();
+    return $json===false?[]:(json_decode($json,true,32,JSON_THROW_ON_ERROR)?:[]);
+}
+function _work_template_suggest(array $slots,array $people,int $templateId): array {
+    $auto=OrganizationWorkPlacement::suggest($slots,$people);
+    $saved=_work_template_stored_placement($templateId);
+    return $saved?WorkReportDefaultPlacement::apply($slots,$people,$auto,$saved):$auto;
+}
+route('GET','/api/admin/shift-report/templates/{id}/default-placement',function($p,$b,$u){
+    $repo=_work_template_repo($u);
+    return _work_template_safe(function()use($repo,$p){
+        $id=_work_template_id($p['id']);$repo->get($id,null,false);
+        $q=Db::pdo()->prepare('SELECT source_filename,updated_at,JSON_LENGTH(placement_json) AS count FROM work_report_default_placements WHERE template_id=?');
+        $q->execute([$id]);
+        return ['ok'=>true,'placement'=>$q->fetch(PDO::FETCH_ASSOC)?:null];
+    });
+},false,ADMIN);
+route('POST','/api/admin/shift-report/templates/{id}/default-placement',function($p,$b,$u){
+    $repo=_work_template_repo($u,true);
+    return _work_template_safe(function()use($repo,$p,$u){
+        $id=_work_template_id($p['id']);
+        $template=$repo->get($id,null,true);
+        $file=$_FILES['file']??null;
+        if(!is_array($file)||($file['error']??1)!==UPLOAD_ERR_OK||
+           !is_uploaded_file($file['tmp_name']??'')||
+           ($file['size']??0)<1||($file['size']??0)>WorkReportTemplateArchive::MAX_BYTES)
+            Http::error('فایل اکسل قبلی نامعتبر یا بیش از حد مجاز است',422);
+        $name=basename((string)($file['name']??'work-report.xlsx'));
+        if(!preg_match('/\.xlsx$/iu',$name))Http::error('فقط فایل xlsx قابل پذیرش است',422);
+        $rows=WorkReportDefaultPlacement::read($file['tmp_name'],$template['structure']);
+        if(!$rows)Http::error('هیچ نیروی قابل شناسایی در فایل کارکرد پیدا نشد',422);
+        $q=Db::pdo()->prepare('INSERT INTO work_report_default_placements
+            (template_id,placement_json,source_sha256,source_filename,updated_by)
+            VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            placement_json=VALUES(placement_json),source_sha256=VALUES(source_sha256),
+            source_filename=VALUES(source_filename),updated_by=VALUES(updated_by),updated_at=CURRENT_TIMESTAMP');
+        $q->execute([$id,json_encode($rows,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+            hash_file('sha256',$file['tmp_name']),mb_substr($name,0,255),(int)$u['id']]);
+        return ['ok'=>true,'template_id'=>$id,'saved_count'=>count($rows),'message'=>'جایگذاری پیش‌فرض ذخیره شد'];
+    });
+},false,ADMIN);
+route('DELETE','/api/admin/shift-report/templates/{id}/default-placement',function($p,$b,$u){
+    $repo=_work_template_repo($u,true);
+    return _work_template_safe(function()use($repo,$p){
+        $id=_work_template_id($p['id']);$repo->get($id,null,false);
+        $q=Db::pdo()->prepare('DELETE FROM work_report_default_placements WHERE template_id=?');
+        $q->execute([$id]);return ['ok'=>true];
+    });
+},false,ADMIN);
+
 route('POST','/api/admin/shift-report/templates/preview',function($p,$b,$u){
     $repo=_work_template_repo($u);
     return _work_template_safe(function()use($repo,$b,$u){
@@ -115,7 +169,7 @@ route('POST','/api/admin/shift-report/templates/preview',function($p,$b,$u){
         $snapshot=$store->load((int)$u['id'],$token);
         $slots=$template['structure']['slots'];$people=_work_template_people($data['records']);
         _work_progress_tick(98,'جانمایی نیروها');
-        $result=OrganizationWorkPlacement::suggest($slots,$people);
+        $result=_work_template_suggest($slots,$people,$id);
         _work_progress_tick(100,'پیش‌نمایش آماده است');
         header('Cache-Control: no-store');
         return ['ok'=>true,'snapshot_token'=>$token,'expires_at'=>$snapshot['expires'],'template'=>['id'=>$id,'version'=>(int)$template['id'],'title'=>$template['title']],'people'=>$people,'slots'=>$slots,'groups'=>$template['structure']['groups']]+_work_template_preview_response($slots,$people,$result);
@@ -152,7 +206,7 @@ route('POST','/api/admin/shift-report/templates/preview-batch',function($p,$b,$u
         $token=$store->save((int)$u['id'],$c,$records);$snapshot=$store->load((int)$u['id'],$token);
         $slots=$template['structure']['slots'];$people=_work_template_people($records);
         _work_progress_tick(98,'جانمایی نیروها',$total,$total);
-        $result=OrganizationWorkPlacement::suggest($slots,$people);
+        $result=_work_template_suggest($slots,$people,$id);
         _work_progress_tick(100,'پیش‌نمایش آماده است',$total,$total);
         header('Cache-Control: no-store');
         return ['ok'=>true,'snapshot_token'=>$token,'expires_at'=>$snapshot['expires'],'template'=>['id'=>$c['template_id'],'version'=>$c['template_version'],'title'=>$template['title']],'people'=>$people,'slots'=>$slots,'groups'=>$template['structure']['groups']]+_work_template_preview_response($slots,$people,$result);
