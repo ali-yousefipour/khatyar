@@ -3617,7 +3617,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
     }
     // Preserve daily shortages until export; absence remains a separate bucket.
     $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
-    if(work_deduction_security_exempt($reportUid))$tot['device_off_union_minutes']=0;
+    if($lastDay<$firstIncludedDay || work_deduction_security_exempt($reportUid))$tot['device_off_union_minutes']=0;
     $tot['settlement_policy_version']=2;
     unset($tot['credited_exemption'],$tot['presence_for_shortage']);
     // Keep regular overtime and Friday/holiday work as disjoint minute buckets.
@@ -4453,7 +4453,8 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
     $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0,'sample_days'=>0];
     $settlement=_work_organization_settlement($r,$forecast,$includeSurplus);
-    extract($settlement,EXTR_SKIP);
+    ['o'=>$o,'mission'=>$mission,'short'=>$short,'absence'=>$absence,'device'=>$device,
+      'surplusIncluded'=>$surplusIncluded,'forecastOt'=>$forecastOt,'net'=>$net]=$settlement;
     $hol+=(int)$forecast['holiday'];
     $fri+=(int)($forecast['friday']??0);
     $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
