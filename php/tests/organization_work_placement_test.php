@@ -167,12 +167,12 @@ checkPlacement($r['assignments']['jaw']===93);
 echo "Andarzgoo and Bab-al-Javad alias OK\n";
 
 $slots=[
- ['id'=>'preferred','location'=>'فرودگاه','role'=>'اپراتور'],
- ['id'=>'alternative','location'=>'مرکز','role'=>'اپراتور']
+ ['id'=>'preferred','location'=>'فرودگاه','role'=>'بازرس خط'],
+ ['id'=>'alternative','location'=>'مرکز','role'=>'بازرس خط']
 ];
 $people=[
- ['id'=>201,'region'=>'فرودگاه','location'=>'مرکز','role'=>'اپراتور','last_name'=>'احمدی'],
- ['id'=>202,'region'=>'فرودگاه','role'=>'اپراتور','last_name'=>'زارعی'],
+ ['id'=>201,'region'=>'فرودگاه','location'=>'مرکز','role'=>'بازرس خط','last_name'=>'احمدی'],
+ ['id'=>202,'region'=>'فرودگاه','role'=>'بازرس خط','last_name'=>'زارعی'],
 ];
 $r=OrganizationWorkPlacement::suggest($slots,$people);
 checkPlacement($r['assignments']===['preferred'=>202,'alternative'=>201]);

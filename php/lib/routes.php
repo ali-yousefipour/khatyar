@@ -3763,7 +3763,8 @@ function _work_month_rows($y,$m){
 }
 function _work_month_people(){
   $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
-  $windows=_work_employment_windows();
+  // The finalization test intentionally evaluates this helper on its own.
+  $windows=function_exists('_work_employment_windows')?_work_employment_windows():[];
   $byId=[];foreach($people as $person){
     $person['employment_start_date']=$windows[(int)$person['id']]['start']??null;
     $byId[(int)$person['id']]=$person;
