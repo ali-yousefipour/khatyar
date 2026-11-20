@@ -2,6 +2,22 @@
 (function () {
   'use strict';
   const ENDPOINT='/api/admin/shift-report/templates/';
+  // The panel uses a Bearer token, not a PHP cookie session.
+  // Read the token at request time so subsequent login/refresh is respected.
+  function authOptions(options={}) {
+    const token=window.localStorage.getItem('token');
+    if(!token)throw new Error('نشست ورود معتبر پیدا نشد؛ لطفاً دوباره وارد سامانه شوید.');
+    const headers=new Headers(options.headers||{});
+    headers.set('Authorization','Bearer '+token);
+    return {...options,credentials:'same-origin',headers};
+  }
+  async function authorizedFetch(url,options={}) {
+    const response=await fetch(url,authOptions(options));
+    if(response.status===401)throw new Error('نشست ورود شما منقضی شده است؛ لطفاً دوباره وارد سامانه شوید.');
+    if(response.status===403)throw new Error('برای مدیریت جایگذاری پیش‌فرض دسترسی مدیر کل لازم است.');
+    return response;
+  }
+
   let active=false;
   function text(el){return (el?.textContent||'').replace(/\s+/g,' ').trim();}
   function findButton(){
@@ -23,7 +39,7 @@
   }
   async function chooseTemplate(area){
     const selected=getSelect(area)?.value;
-    const res=await fetch('/api/admin/shift-report/templates',{credentials:'same-origin',cache:'no-store'});
+    const res=await authorizedFetch('/api/admin/shift-report/templates',{cache:'no-store'});
     if(!res.ok)throw Error('فهرست قالب‌ها قابل دریافت نیست ('+res.status+')');
     const body=await res.json();
     const templates=body.templates||[];
@@ -62,7 +78,7 @@
       try{
         template=await chooseTemplate(area);
         heading.textContent='ذخیره جایگذاری پیش‌فرض — '+template.title;
-        const response=await fetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{credentials:'same-origin',cache:'no-store'});
+        const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{cache:'no-store'});
         if(!response.ok)throw Error('خطا در دریافت وضعیت ذخیره‌سازی');
         const data=await response.json();
         state.textContent=data.placement?'چیدمان فعلی: '+data.placement.source_filename+' | '+data.placement.count+' نیرو':'چیدمان پیش‌فرض قبلاً ذخیره نشده است.';
@@ -74,7 +90,7 @@
       if(!/\.xlsx$/i.test(file.files[0].name)){state.textContent='فقط فایل xlsx پذیرفته می‌شود';return;}
       const data=new FormData();data.append('file',file.files[0]);save.disabled=true;remove.disabled=true;state.textContent='در حال بررسی و ذخیره فایل…';state.style.color='#173c34';
       try{
-        const response=await fetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',credentials:'same-origin',body:data});
+        const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',body:data});
         const result=await response.json();if(!response.ok)throw Error(result.error||result.message||'خطا در ذخیره: '+response.status);
         state.textContent='جایگذاری '+result.saved_count+' نیرو ذخیره شد. در پیش‌نمایش بعدی اعمال می‌شود.';
         remove.disabled=false;
@@ -84,7 +100,7 @@
       if(!window.confirm('چیدمان پیش‌فرض حذف شود؟'))return;
       remove.disabled=true;
       try{
-        const response=await fetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'DELETE',credentials:'same-origin'});
+        const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'DELETE'});
         if(!response.ok)throw Error('حذف چیدمان انجام نشد');
         state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';
       }catch(err){errorMessage(err);remove.disabled=false;}
