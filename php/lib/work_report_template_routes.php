@@ -117,16 +117,44 @@ route('POST','/api/admin/shift-report/templates/validate-placement',function($p,
     return _work_template_safe(function()use($repo,$b,$u){
         [$data,$template]=_work_template_snapshot($u,$b,$repo);
         $slots=$template['structure']['slots'];$people=_work_template_people($data['records']);
-        $assign=[];$items=$b['assignments']??null;
-        if(!is_array($items)||count($items)>count($slots))throw new InvalidArgumentException('Invalid assignments');
-        foreach($items as $item){
-            if(!is_array($item)||!is_string($item['slot_id']??null)||array_key_exists($item['slot_id'],$assign))throw new InvalidArgumentException('Invalid or duplicate slot');
-            $assign[$item['slot_id']]=$item['user_id']??null;
-        }
-        $fixed=OrganizationWorkPlacement::validate($slots,$people,$assign);
-        $auto=OrganizationWorkPlacement::suggest($slots,$people);
-        $fixed['unmatched']=array_values(array_intersect($fixed['unassigned'],$auto['unmatched']));
-        $fixed['overflow']=array_values(array_diff($fixed['unassigned'],$fixed['unmatched']));
+        $fixed=_work_template_validate_assignments($slots,$people,$b['assignments']??null);
         return ['ok'=>true]+_work_template_preview_response($slots,$people,$fixed);
+    });
+},false,ADMIN);
+
+function _work_template_validate_assignments(array $slots,array $people,$items): array {
+    $assign=[];
+    if(!is_array($items)||count($items)>count($slots))throw new InvalidArgumentException('Invalid assignments');
+    foreach($items as $item){
+        if(!is_array($item)||!is_string($item['slot_id']??null)||array_key_exists($item['slot_id'],$assign))throw new InvalidArgumentException('Invalid or duplicate slot');
+        $assign[$item['slot_id']]=$item['user_id']??null;
+    }
+    $fixed=OrganizationWorkPlacement::validate($slots,$people,$assign);
+    $auto=OrganizationWorkPlacement::suggest($slots,$people);
+    $fixed['unmatched']=array_values(array_intersect($fixed['unassigned'],$auto['unmatched']));
+    $fixed['overflow']=array_values(array_diff($fixed['unassigned'],$fixed['unmatched']));
+    return $fixed;
+}
+route('POST','/api/admin/shift-report/templates/export',function($p,$b,$u){
+    $repo=_work_template_repo($u);
+    return _work_template_safe(function()use($repo,$b,$u){
+        require_once __DIR__.'/WorkReportTemplateExporter.php';
+        _work_progress_start($u,'template-export');
+        [$data,$template]=_work_template_snapshot($u,$b,$repo);
+        _work_progress_tick(15,'اعتبارسنجی چینش');
+        $fixed=_work_template_validate_assignments($template['structure']['slots'],_work_template_people($data['records']),$b['assignments']??null);
+        $input=tempnam(sys_get_temp_dir(),'kh-work-template-');$out=null;
+        if($input===false)throw new RuntimeException('Temporary template unavailable');
+        try{
+            if(!chmod($input,0600)||file_put_contents($input,$template['workbook'])!==strlen($template['workbook']))throw new RuntimeException('Cannot write template');
+            _work_progress_tick(25,'تولید اکسل و انتقال کامنت‌ها');
+            $out=WorkReportTemplateExporter::export($input,$template['structure'],$data['records'],$fixed,$data['context']);
+            _work_progress_tick(95,'فایل معتبر و آماده دانلود');
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="organization-work-'.(int)$data['context']['year'].'-'.(int)$data['context']['month'].'.xlsx"');
+            header('Cache-Control: no-store');header('Content-Length: '.filesize($out));
+            readfile($out);_work_progress_tick(100,'دانلود تکمیل شد');
+        }finally{@unlink($input);if($out!==null)@unlink($out);}
+        exit;
     });
 },false,ADMIN);
