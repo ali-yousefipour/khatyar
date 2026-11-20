@@ -12,23 +12,56 @@ final class OrganizationWorkPlacement {
         }
         return $key;
     }
+    private static function area($v,array $aliases=[]): string {
+        $v=self::equivalent($v,$aliases);
+        $v=preg_replace('/^(?:منطقه|محدوده|مبدا|مبدأ)\s+/u','',$v)??$v;
+        $map=['فرودگاه شهید هاشمی نژاد'=>'فرودگاه','فرودگاه شهید هاشمی‌نژاد'=>'فرودگاه','ایستگاه راه آهن'=>'راه آهن','پایانه امام رضا'=>'پایانه مسافربری','پایانه مسافربری امام رضا'=>'پایانه مسافربری','باب‌الجواد'=>'باب الجواد','بابالجواد'=>'باب الجواد'];
+        return $map[$v]??$v;
+    }
+    private static function role($v,array $aliases=[]): string {
+        $v=self::equivalent($v,$aliases);
+        $v=preg_replace('/\s*نوبت کاری\s*\d+\s*$/u','',$v)??$v;
+        if(preg_match('/^اپراتور(?: فاکتور سفر)?(?: |$)/u',$v))return 'اپراتور';
+        if(in_array($v,['ناظر خط مبادی','ناظر خط ثامن'],true))return 'ناظر خط';
+        if(preg_match('/^ناظر خط(?: داخلی| خارجی| شیرازی| باب الجواد| طبرسی| نواب صفوی)?$/u',$v))return 'ناظر خط';
+        if(preg_match('/^بازرس خط(?: |$)/u',$v))return 'بازرس خط';
+        return $v;
+    }
+    private static function rotation($value): string {
+        return preg_replace('/[^0-9]/','',self::normalize($value))??'';
+    }
     private static function score(array $slot,array $person,array $aliases): ?int {
-        $score=0;
-        foreach(['location'=>40,'role'=>40,'region'=>20,'rotation'=>10] as $field=>$weight){
-            $expected=self::equivalent($slot[$field]??'', $aliases[$field]??[]);
-            $actual=self::equivalent($person[$field]??'', $aliases[$field]??[]);
-            if($expected===''){
-                if(($field==='location'||$field==='role')&&empty($slot['combined']))return null;
-                continue;
-            }
-            if($expected!==$actual)return null;
-            $score+=$weight;
-        }
+        $region=self::area($person['region']??'', $aliases['region']??[]);
+        $location=self::area($person['location']??'', $aliases['location']??[]);
+        $expected=self::area($slot['location']??'', $aliases['location']??[]);
+        $requiredRegion=self::area($slot['region']??'', $aliases['region']??[]);
+        if($requiredRegion!==''&&$requiredRegion!==$region)return null;
+        $actualRole=self::role($person['role']??'', $aliases['role']??[]);
+        if($actualRole==='')return null;
+        $wantRotation=self::rotation($slot['rotation']??'');
+        if($wantRotation!==''&&$wantRotation!==self::rotation($person['rotation']??''))return null;
         if(!empty($slot['combined'])){
-            $location=self::equivalent($slot['location']??'', $aliases['location']??[]);
-            if($location==='')return null;
+            // Combined headings describe a duty category rather than a geographical location.
+            $group=self::role($slot['location']??'', $aliases['role']??[]);
+            $combinedRoles=[
+                'ناظر خطوط ثابت'=>['ناظر خطوط ثابت','ناظر خط ثابت','ناظر ثابت'],
+                'ناظر خطوط گردشی'=>['ناظر خطوط گردشی','ناظر خط گردشی','ناظر گردشی'],
+                'بازرس مناطق تاکسیرانی'=>['بازرس مناطق تاکسیرانی','بازرس منطقه','بازرس'],
+                'نظارت تصویری'=>['نظارت تصویری'],
+            ];
+            if(!in_array($actualRole,$combinedRoles[$group]??[$group],true))return null;
+            return 40+($requiredRegion!==''?20:0)+($wantRotation!==''?10:0);
         }
-        return $score>0?$score:null;
+        if($expected===''||($expected!==$region&&$expected!==$location))return null;
+        $rawExpected=self::equivalent($slot['role']??'', $aliases['role']??[]);
+        $rawActual=self::equivalent($person['role']??'', $aliases['role']??[]);
+        $role=self::role($rawExpected);
+        if($role===''||$role!==$actualRole)return null;
+        // Explicit contradictory sublocations must never be matched.
+        foreach(['داخلی','خارجی','داخل سالن'] as $qualifier){
+            if(str_contains($rawActual,$qualifier)&&!str_contains($rawExpected,$qualifier))return null;
+        }
+        return 80+($requiredRegion!==''?20:0)+($wantRotation!==''?10:0)+($rawExpected===$rawActual?5:0)+($expected===$region?2:0);
     }
     public static function suggest(array $slots,array $people,array $aliases=[]): array {
         $result=self::validate($slots,$people,[]);
