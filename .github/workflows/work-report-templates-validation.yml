@@ -5,6 +5,11 @@ on:
   pull_request:
     paths:
       - 'php/lib/OrganizationWorkPlacement.php'
+      - 'php/lib/work_report_template_routes.php'
+      - 'php/lib/routes.php'
+      - 'php/tools/panel_source.jsx'
+      - 'php/tools/build_panel_bundle.sh'
+      - '.github/workflows/work-report-templates-validation.yml'
       - 'php/lib/WorkReportTemplate*.php'
       - 'php/tests/organization_work_placement_test.php'
       - 'php/tests/work_report_template*.php'
@@ -57,4 +62,68 @@ jobs:
         with:
           name: work-report-template-export-sample
           path: ${{ runner.temp }}/work-report-sample/sample.xlsx
+          if-no-files-found: error
+  mysql-integration:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: work_report_test
+          MYSQL_USER: work_test
+          MYSQL_PASSWORD: test-only
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: zip, dom, simplexml, xml, mbstring, pdo_mysql
+          coverage: none
+      - name: Repository and migrations
+        env:
+          WORK_REPORT_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=work_report_test;charset=utf8mb4
+          WORK_REPORT_TEST_USER: work_test
+          WORK_REPORT_TEST_PASSWORD: test-only
+        run: php php/tests/work_report_template_repository_test.php
+  panel-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and verify exact source
+        run: |
+          npm install --no-save typescript@5.6.3
+          bash php/tools/build_panel_bundle.sh
+          node --check php/app/assets/panel.bundle.js
+          grep -Fq 'WorkTemplateControls' php/app/assets/panel.bundle.js
+          grep -Fq 'مدیریت قالب‌ها' php/app/assets/panel.bundle.js
+          grep -Fq 'قالب گزارش کارکرد' php/app/assets/panel.bundle.js
+          python - <<'PY'
+          import hashlib,json,os,datetime,re
+          from pathlib import Path
+          b=Path('php/app/assets/panel.bundle.js')
+          digest=hashlib.sha256(b.read_bytes()).hexdigest()
+          html=Path('php/app/panel.html')
+          text=html.read_text()
+          text,n=re.subn(r'(panel\.bundle\.js)(?:\?v=[^"'\s<>]+)?',lambda m:m.group(1)+'?v='+digest[:16],text)
+          assert n>0,'bundle reference not found'
+          html.write_text(text)
+          Path('build-manifest.json').write_text(json.dumps(dict(source_sha=os.environ['GITHUB_SHA'],bundle_sha256=digest,built_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),asset_version=digest[:16],syntax_validation='passed'),indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: work-report-panel-build
+          path: |
+            php/app/assets/panel.bundle.js
+            php/app/panel.html
+            build-manifest.json
           if-no-files-found: error
