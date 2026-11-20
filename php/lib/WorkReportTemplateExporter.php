@@ -165,8 +165,9 @@ final class WorkReportTemplateExporter {
                 foreach($comment as $i=>$v)$notes[self::column($i+1).$max]=$v;
             };
             foreach(['فهرست نیروهای مازاد بر ظرفیت قالب'=>$overflow,'فهرست نیروهای بدون تطبیق سازمانی'=>$unmatched] as $title=>$ids){
+                $reason=$title==='فهرست نیروهای مازاد بر ظرفیت قالب'?'عدم تخصیص جایگاه منطبق در چینش نهایی':'عدم وجود جایگاه منطبق با مشخصات سازمانی';
                 $append([$title]);$append(['نام','نام خانوادگی','شماره پرسنلی','منطقه','محل خدمت','سمت','جمعه‌کاری','تعطیل‌کاری','اضافه‌کاری','علت']);
-                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$title],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]]);$addTotals($r);}
+                foreach($ids as $id){$r=$byId[$id];$p=$r['placement']??[];$append([$r['cells'][4],$r['cells'][5],(string)$r['cells'][6],$p['region']??'',$p['location']??'',$p['role']??'',(float)$r['cells'][7],(float)$r['cells'][8],(float)$r['cells'][9],$reason],[6=>$r['comments'][7],7=>$r['comments'][8],8=>$r['comments'][9]]);$addTotals($r);}
             }
             $append(['گزارش کسری ظرفیت']);$append(['محل خدمت','سمت','ظرفیت','تخصیص‌یافته','خالی']);
             foreach($counts as $c)$append([$c[0],$c[1],$c[2],$c[3],$c[2]-$c[3]]);

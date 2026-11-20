@@ -36,19 +36,30 @@ try{
     verifyExport($notes['G2']===$bn,'serialized comment parity');
     $titles=[];
     foreach($xp->query('//s:row/s:c[@t="inlineStr"]/s:is/s:t') as $node){
-        $titles[$node->textContent][]=$node->parentNode->parentNode->getAttribute('r');
+        $cell=$node->parentNode->parentNode;
+        if(preg_match('/^A[0-9]+$/D',$cell->getAttribute('r'))&&$cell->parentNode->getElementsByTagNameNS($s,'c')->length===1)$titles[$node->textContent][]=$cell->getAttribute('r');
     }
     foreach(['فهرست نیروهای مازاد بر ظرفیت قالب'=>3,'فهرست نیروهای بدون تطبیق سازمانی'=>4] as $title=>$id){
         $refs=$titles[$title]??[];
         verifyExport(count($refs)===1,'missing or repeated table title: '.$title.' actual cells: '.json_encode($titles,JSON_UNESCAPED_UNICODE));
         verifyExport(preg_match('/^A(\d+)$/D',$refs[0],$m)===1,'table title column');
         $row=(int)$m[1]+2;
+        foreach(['A'=>'نام','B'=>'نام خانوادگی','C'=>'شماره پرسنلی','D'=>'منطقه','E'=>'محل خدمت','F'=>'سمت','G'=>'جمعه‌کاری','H'=>'تعطیل‌کاری','I'=>'اضافه‌کاری','J'=>'علت'] as $col=>$header){
+            verifyExport($xp->evaluate('string(//s:c[@r="'.$col.($row-1).'"]/s:is/s:t)')===$header,'supplement header '.$col);
+        }
+        $reason=$xp->evaluate('string(//s:c[@r="J'.$row.'"]/s:is/s:t)');
+        verifyExport($reason===($id===3?'عدم تخصیص جایگاه منطبق در چینش نهایی':'عدم وجود جایگاه منطبق با مشخصات سازمانی'),'supplement reason');
+
         verifyExport($xp->evaluate('string(//s:c[@r="A'.$row.'"]/s:is/s:t)')===$records[$id-1]['cells'][4],'supplement personnel');
         verifyExport($xp->evaluate('string(//s:c[@r="C'.$row.'"]/s:is/s:t)')===$records[$id-1]['cells'][6],'supplement code');
         foreach(['G'=>7,'H'=>8,'I'=>9] as $col=>$index){
             verifyExport((float)$xp->evaluate('string(//s:c[@r="'.$col.$row.'"]/s:v)')===(float)$records[$id-1]['cells'][$index],'supplement hours');
             verifyExport(($notes[$col.$row]??null)===strtr($records[$id-1]['comments'][$index],['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']),'supplement note');
         }
+    }
+    foreach($records as $record){
+        $occurrences=0;foreach($xp->query('//s:c[@t="inlineStr"]/s:is/s:t') as $n)if($n->textContent===$record['cells'][6])$occurrences++;
+        verifyExport($occurrences===1,'personnel occurs exactly once');
     }
     foreach(['G'=>7,'H'=>8,'I'=>9] as $col=>$index){
         $sum=0;foreach([2,3,8,11] as $row)$sum+=(int)round((float)$xp->evaluate('string(//s:c[@r="'.$col.$row.'"]/s:v)')*1000000);
