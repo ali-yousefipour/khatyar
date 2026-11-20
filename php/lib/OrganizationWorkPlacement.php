@@ -38,6 +38,12 @@ final class OrganizationWorkPlacement {
         if($requiredRegion!==''&&$requiredRegion!==$region)return null;
         $actualRole=self::role($person['role']??'', $aliases['role']??[]);
         if($actualRole==='')return null;
+        // Explicit organization reporting rule: resident administrative staff belong
+        // to the line-user group, regardless of their personal zone.
+        if($actualRole==='نیروی اداری مقیم سازمان'){
+            $groupRole=self::equivalent(!empty($slot['combined'])?($slot['location']??''):($slot['role']??''),$aliases['role']??[]);
+            return $groupRole==='کاربر خطوط'?150:null;
+        }
         $wantRotation=self::rotation($slot['rotation']??'');
         if($wantRotation!==''&&$wantRotation!==self::rotation($person['rotation']??''))return null;
         if(!empty($slot['combined'])){
