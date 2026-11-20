@@ -8361,11 +8361,14 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
   const [file,setFile]=useState(null),[target,setTarget]=useState(""),[title,setTitle]=useState(""),[description,setDescription]=useState(""),[sheet,setSheet]=useState("Sheet1"),[first,setFirst]=useState(3),[last,setLast]=useState(109),[headingCell,setHeadingCell]=useState(""),[headingFormat,setHeadingFormat]=useState("");
   const [columns,setColumns]=useState({ordinal:"A",location:"B",role:"C",first_name:"E",last_name:"F",personnel_code:"G",friday:"H",holiday:"I",overtime:"J",region:""});
   const [versions,setVersions]=useState({}),[clock,setClock]=useState(Date.now());
-  const lock=useRef(false),initialized=useRef(false),touchDrag=useRef(null);
+  const lock=useRef(false),initialized=useRef(false),touchDrag=useRef(null),batchResume=useRef(null);
+  const [resumeAvailable,setResumeAvailable]=useState(false);
+  const previewKey=JSON.stringify([selected,year,month,forecast,surplus]);
+  useEffect(()=>{batchResume.current=null;setResumeAvailable(false)},[previewKey]);
   const request=async(path="",method="GET",body=null,binary=false)=>{
     const headers={...tok()};if(body instanceof FormData){Object.keys(headers).forEach(k=>{if(k.toLowerCase()==="content-type")delete headers[k]});}else if(body!==null)headers["Content-Type"]="application/json";
     const response=await fetch(base+path,{method,headers,body:body===null?undefined:body instanceof FormData?body:JSON.stringify(body)});
-    if(!response.ok){const d=await response.json().catch(()=>({}));throw Error(d.error||d.message||("خطا در درخواست (HTTP "+response.status+")"))}
+    if(!response.ok){const d=await response.json().catch(()=>({}));const err=Error(d.error||d.message||("خطا در درخواست (HTTP "+response.status+")"));err.status=response.status;throw err}
     if(binary){const b=await response.blob();if(b.size<4||new Uint8Array(await b.slice(0,4).arrayBuffer()).join(",")!=="80,75,3,4")throw Error("فایل اکسل معتبر نیست");return b}
     return response.json();
   };
@@ -8377,7 +8380,36 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
   const submit=()=>action(async()=>{if(!file)throw Error("فایل XLSX را انتخاب کنید");if(!target&&!title.trim())throw Error("نام قالب الزامی است");const mapping={sheet,first_row:Number(first),last_row:Number(last),columns:Object.fromEntries(Object.entries(columns).filter(([,v])=>v.trim()).map(([k,v])=>[k,v.trim().toUpperCase()]))};if(headingCell.trim())mapping.heading={cell:headingCell.trim().toUpperCase(),format:headingFormat};const form=new FormData();form.append("file",file);form.append("mapping",JSON.stringify(mapping));form.append("title",title);form.append("description",description);await request(target?"/"+target+"/versions":"","POST",form);setFile(null);await refresh();});
   const patch=(t,change)=>action(async()=>{await request("/"+t.id,"PUT",{title:t.title,description:t.description||"",enabled:Number(t.enabled)===1,version_id:Number(t.active_version_id),...change});await refresh()});
   const makeDefault=id=>action(async()=>{await request("/default","POST",{template_id:id});await refresh();setSelected(id==null?"":String(id))});
-  const startPreview=async()=>{if(lock.current||working||!selected)return;const id=beginWork("محاسبه و پیش‌نمایش جانمایی نیروها");if(!id)return;lock.current=true;setLoading(true);setError("");try{await new Promise(r=>setTimeout(r,0));let data=await request("/preview?progress_id="+(id==="local"?"":id),"POST",{template_id:Number(selected),year,month,forecast_remaining:forecast,include_surplus:surplus,batched:true});while(data.pending){const token=data.batch_token;try{data=await request("/preview-batch?progress_id="+(id==="local"?"":id),"POST",{batch_token:token})}catch(e){throw Error("خطا در مرحله محاسبه "+faPlain(data.done??0)+" از "+faPlain(data.total??0)+" نیرو: "+e.message)}}setPreview(data);setAssignment({...data.assignments});setClock(Date.now());setPicked("");setQuery("");endWork(true)}catch(e){setError(e.message);endWork()}finally{lock.current=false;setLoading(false)}};
+  const retryPreviewBatch=async(token,id)=>{
+    const delays=[1000,2500,5000,10000];
+    for(let attempt=0;;attempt++){
+      try{return await request("/preview-batch?progress_id="+(id==="local"?"":id),"POST",{batch_token:token})}
+      catch(e){
+        const retryable=e instanceof TypeError||[408,429,500,502,503,504].includes(e.status);
+        if(!retryable||attempt>=delays.length)throw e;
+        await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
+      }
+    }
+  };
+  const startPreview=async()=>{if(lock.current||working||!selected)return;const id=beginWork("محاسبه و پیش‌نمایش جانمایی نیروها");if(!id)return;lock.current=true;setLoading(true);setError("");
+    try{
+      await new Promise(r=>setTimeout(r,0));
+      let data=batchResume.current?.key===previewKey?batchResume.current.data:null;
+      if(!data)data=await request("/preview?progress_id="+(id==="local"?"":id),"POST",{template_id:Number(selected),year,month,forecast_remaining:forecast,include_surplus:surplus,batched:true});
+      while(data.pending){
+        batchResume.current={key:previewKey,data};setResumeAvailable(true);
+        try{data=await retryPreviewBatch(data.batch_token,id)}
+        catch(e){
+          if([400,401,403,409,422].includes(e.status)){batchResume.current=null;setResumeAvailable(false)}
+          const message=e instanceof TypeError?"ارتباط با سرور قطع شد. پس از برقراری ارتباط، ادامه محاسبه را بزنید.":e.message;
+          throw Error("خطا در مرحله محاسبه "+faPlain(data.done??0)+" از "+faPlain(data.total??0)+" نیرو: "+message);
+        }
+      }
+      if(!data.ok||!data.snapshot_token)throw Error("پاسخ پیش‌نمایش معتبر نیست");
+      batchResume.current=null;setResumeAvailable(false);
+      setPreview(data);setAssignment({...data.assignments});setClock(Date.now());setPicked("");setQuery("");endWork(true)
+    }catch(e){setError(e.message);endWork()}finally{lock.current=false;setLoading(false)}
+  };
   const people=preview?.people||[],slots=preview?.slots||[];
   const personById=new Map(people.map(p=>[String(p.id),p]));
   const assigned=new Set(Object.values(assignment).filter(v=>v!=null).map(String));
@@ -8398,8 +8430,8 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
   const dragHandle=person=><button type="button" className="btn g kh-template-handle" disabled={loading} aria-label="گرفتن و جابه‌جایی نیرو" draggable={!loading} onDragStart={e=>e.dataTransfer.setData("text/plain",String(person))} onPointerDown={e=>touchStart(e,person)} onPointerMove={touchMove} onPointerUp={e=>touchEnd(e)} onPointerCancel={e=>touchEnd(e,true)} onClick={()=>setPicked(String(person))}>↕</button>;
   return <div dir="rtl" style={{width:"100%",marginTop:12,borderTop:"1px solid var(--line,#dce8df)",paddingTop:12}}>
     <style>{".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}.kh-template-handle{touch-action:none;cursor:grab;user-select:none;min-width:36px}.kh-template-target{outline:2px solid #00856b;outline-offset:-2px;background:#dcefe8!important}"}</style>
-    <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"end"}}><label>قالب گزارش کارکرد<select className="input" value={selected} disabled={loading||working} onChange={e=>setSelected(e.target.value)}><option value="">قالب داخلی خطیار</option>{catalog.filter(t=>Number(t.enabled)===1).map(t=><option key={t.id} value={String(t.id)}>{t.title}</option>)}</select></label>{canManage&&<button className="btn g" disabled={working||loading} onClick={()=>{setError("");setManage(true)}}>مدیریت قالب‌ها</button>}<button className="btn p" disabled={working||loading} onClick={selected?startPreview:legacyExport}>{selected?"محاسبه و پیش‌نمایش جانمایی نیروها":"تولید فایل اکسل سازمان"}</button></div>
-    {!manage&&!preview&&error&&<p role="alert">{error}</p>}
+    <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"end"}}><label>قالب گزارش کارکرد<select className="input" value={selected} disabled={loading||working} onChange={e=>setSelected(e.target.value)}><option value="">قالب داخلی خطیار</option>{catalog.filter(t=>Number(t.enabled)===1).map(t=><option key={t.id} value={String(t.id)}>{t.title}</option>)}</select></label>{canManage&&<button className="btn g" disabled={working||loading} onClick={()=>{setError("");setManage(true)}}>مدیریت قالب‌ها</button>}<button className="btn p" disabled={working||loading} onClick={selected?startPreview:legacyExport}>{selected?(resumeAvailable?"ادامه محاسبه و پیش‌نمایش":"محاسبه و پیش‌نمایش جانمایی نیروها"):"تولید فایل اکسل سازمان"}</button></div>
+    {!manage&&!preview&&error&&<p role="alert">{error}</p>}{!manage&&!preview&&resumeAvailable&&!loading&&!working&&<button type="button" className="btn g" onClick={()=>{batchResume.current=null;setResumeAvailable(false);setError("")}}>شروع محاسبه از ابتدا</button>}
     {manage&&<div style={overlay}><section role="dialog" aria-modal="true" aria-label="مدیریت قالب‌ها" style={modal}><div className="row" style={{justifyContent:"space-between"}}><h3>مدیریت قالب‌ها</h3><button className="btn g" disabled={loading} onClick={()=>setManage(false)}>بستن</button></div>{error&&<p role="alert">{error}</p>}<button className="btn g" disabled={loading} onClick={()=>makeDefault(null)}>قالب داخلی خطیار به‌عنوان پیش‌فرض</button><div style={{overflow:"auto",maxHeight:300}}><table className="kh-template-table"><thead><tr><th>عنوان</th><th>نسخه</th><th>ظرفیت / گروه</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{catalog.map(t=><tr key={t.id}><td>{t.title}{String(defaultId)===String(t.id)?" (پیش‌فرض)":""}</td><td>{faPlain(t.version_no)}</td><td>{faPlain(t.slot_count??0)} / {faPlain(t.group_count??0)}</td><td>{Number(t.enabled)===1?"فعال":"غیرفعال"}</td><td><div className="row" style={{flexWrap:"wrap",gap:4}}><button className="btn g" disabled={loading||Number(t.enabled)!==1} onClick={()=>makeDefault(Number(t.id))}>پیش‌فرض</button><button className="btn g" disabled={loading} onClick={()=>patch(t,{enabled:Number(t.enabled)!==1})}>{Number(t.enabled)===1?"غیرفعال":"فعال"}</button><button className="btn g" disabled={loading} onClick={()=>action(async()=>{const v=await request("/"+t.id+"/versions");setVersions(old=>({...old,[t.id]:v.versions||[]}))})}>نسخه‌ها</button><button className="btn g" disabled={loading} onClick={()=>action(async()=>download(await request("/"+t.id+"/download","GET",null,true),"قالب-"+t.id+".xlsx"))}>دانلود اصل</button></div>{versions[t.id]&&<select className="input" value={String(t.active_version_id)} disabled={loading} onChange={e=>patch(t,{version_id:Number(e.target.value)})}>{versions[t.id].map(v=><option key={v.id} value={v.id}>نسخه {faPlain(v.version_no)}</option>)}</select>}</td></tr>)}</tbody></table></div>
     <h4>ثبت قالب یا نسخه جدید</h4><div className="kh-template-grid"><label>نوع ثبت<select className="input" value={target} onChange={e=>setTarget(e.target.value)}><option value="">قالب جدید</option>{catalog.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select></label>{!target&&<><label>نام قالب<input className="input" value={title} onChange={e=>setTitle(e.target.value)}/></label><label>توضیحات<input className="input" value={description} onChange={e=>setDescription(e.target.value)}/></label></>}<label>نام شیت<input className="input" value={sheet} onChange={e=>setSheet(e.target.value)}/></label><label>اولین ردیف<input className="input" type="number" value={first} onChange={e=>setFirst(e.target.value)}/></label><label>آخرین ردیف<input className="input" type="number" value={last} onChange={e=>setLast(e.target.value)}/></label>{Object.entries(names).map(([key,label])=><label key={key}>{label}<input className="input" dir="ltr" maxLength={3} value={columns[key]} onChange={e=>setColumns(old=>({...old,[key]:e.target.value.toUpperCase()}))}/></label>)}<label>سلول سربرگ (اختیاری)<input className="input" dir="ltr" value={headingCell} onChange={e=>setHeadingCell(e.target.value)}/></label><label>فرمت سربرگ<input className="input" value={headingFormat} placeholder="{title} - {month_name} {year}" onChange={e=>setHeadingFormat(e.target.value)}/></label></div>
     <div className="kh-template-drop" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();setFile(e.dataTransfer.files[0]||null)}}><label>فایل XLSX را انتخاب کنید یا اینجا رها کنید<input type="file" accept=".xlsx" onChange={e=>setFile(e.target.files[0]||null)}/></label>{file&&<p>{file.name}</p>}</div><button className="btn p" disabled={loading||!file} onClick={submit}>{loading?"در حال پردازش…":"ذخیره قالب"}</button></section></div>}
