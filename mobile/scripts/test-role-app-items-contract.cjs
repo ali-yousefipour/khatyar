@@ -7,6 +7,7 @@ const route = read('php/lib/routes.php');
 const unified = read('php/app/api/unified-role-app-items.php');
 const rewrites = read('php/app/.htaccess');
 const app = read('mobile/App.js');
+const permissions = read('mobile/src/appItemPermissions.js');
 const drawer = read('mobile/src/DrawerMenuScreen.js');
 const dashboard = read('mobile/src/screens/DashboardScreen.js');
 
@@ -25,7 +26,8 @@ for (const key of ['Dashboard', 'Radio', 'CheckIn', 'StationCapture', 'MyStation
 }
 assert.match(app, /if\(pending\)return <View/, 'Restricted pages must wait for authorization');
 assert.match(app, /if\(!access\?\.includes\(routeName\)\)/, 'Page access must be denied when permission is absent');
-assert.match(app, /forceNetwork:true,queueIfOffline:false/, 'Page permissions must be retrieved from the current server state');
+assert.match(app, /refreshAppItems\(user.id\)/);
+assert.match(permissions, /forceNetwork:\s*true,\s*queueIfOffline:\s*false/, 'Page permissions must be retrieved from the current server state');
 assert.match(drawer, /roleAppAccess\.includes\(route\)/, 'Drawer routes must fail closed');
 assert.match(dashboard, /destinationFor\(m\.r\)/, 'Legacy line location permission must navigate to its allowed route');
 assert.match(dashboard, /m\.r === 'StationCapture' && allowed\.includes\('LineLocation'\)/, 'Legacy alias must not grant MyStations access');

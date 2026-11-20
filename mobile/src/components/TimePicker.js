@@ -49,11 +49,13 @@ export default function TimePicker({ visible, onClose, onSelect, initial, label 
   const [customMinute, setCustomMinute] = useState('00');
   const [editingMinute, setEditingMinute] = useState(false);
   const [error, setError] = useState(false);
+  const [showHours, setShowHours] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     const [h, m] = parseTime(initial || '08:00') || [8, 0];
     setHour(h);
+    setShowHours(false);
     setMinute(m);
     setCustomMinute(two(m));
     setEditingMinute(false);
@@ -110,6 +112,9 @@ export default function TimePicker({ visible, onClose, onSelect, initial, label 
               <SpinnerColumn label="دقیقه" icon="timer-outline" value={minute} length={60} onChange={chooseMinute} />
               <SpinnerColumn label="ساعت" icon="clock-time-four-outline" value={hour} length={24} onChange={setHour} />
             </View>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:showHours}} onPress={()=>setShowHours(v=>!v)} style={styles.hourToggle}><Text style={styles.quickText}>انتخاب مستقیم ساعت (۰۰ تا ۲۳)</Text></TouchableOpacity>
+            {showHours && <View style={styles.hourGrid}>{Array.from({ length: 24 }, (_,h)=><TouchableOpacity key={h} accessibilityRole="radio" accessibilityState={{checked:hour===h}} accessibilityLabel={fa(two(h))} onPress={()=>{setHour(h);setShowHours(false);}} style={[styles.hourCell,hour===h&&styles.quickSelected]}><Text style={styles.quickText}>{fa(two(h))}</Text></TouchableOpacity>)}</View>}
+            <View style={styles.hourGrid}>{Array.from({length:12},(_,i)=>i*5).map(m=><TouchableOpacity key={m} accessibilityRole="button" accessibilityLabel={'دقیقه '+fa(two(m))} onPress={()=>chooseMinute(m)} style={[styles.hourCell,minute===m&&styles.quickSelected]}><Text style={styles.quickText}>{fa(two(m))}</Text></TouchableOpacity>)}</View>
             <View style={styles.minuteRow}>
               <Text style={styles.minuteHelp} allowFontScaling={false}>دقیقه دلخواه (۰۰ تا ۵۹)</Text>
               <TextInput accessibilityLabel="دقیقه دلخواه" style={[styles.minuteInput, error && styles.invalid]} value={fa(customMinute)}
@@ -170,6 +175,9 @@ const styles = StyleSheet.create({
   neighborText: { fontFamily: FONT.regular, fontSize: 18, color: '#637184' },
   current: { minHeight: 52, borderRadius: 13, backgroundColor: '#ccefe1', alignItems: 'center', justifyContent: 'center' },
   currentText: { fontFamily: FONT.bold, color: C.brand, fontSize: 28 },
+  hourToggle: {minHeight:44,alignItems:'center',justifyContent:'center'},
+  hourGrid: {flexDirection:'row-reverse',flexWrap:'wrap',gap:6,marginVertical:5},
+  hourCell: {minWidth:44,minHeight:44,flexGrow:1,borderRadius:10,borderWidth:1,borderColor:'#e1e7ef',alignItems:'center',justifyContent:'center'},
   minuteRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 12 },
   minuteHelp: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', flex: 1 },
   minuteInput: { width: 69, height: 43, borderRadius: 12, borderWidth: 1, borderColor: C.brand, fontFamily: FONT.bold, fontSize: 17, color: C.ink, backgroundColor: '#fff' },

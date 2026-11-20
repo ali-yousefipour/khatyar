@@ -6,22 +6,24 @@ const driver = fs.readFileSync(path.resolve(__dirname, '../src/screens/DriverScr
 const routes = fs.readFileSync(path.resolve(__dirname, '../../php/lib/routes.php'), 'utf8');
 const panel = fs.readFileSync(path.resolve(__dirname, '../../php/tools/panel_source.jsx'), 'utf8');
 
+const camera = fs.readFileSync(path.resolve(__dirname, '../src/cameraLock.js'), 'utf8');
+assert.match(camera, /safeLaunch\('launchCameraAsync', options\)/);
+assert.match(camera, /requestCameraPermissionsAsync\(/);
+assert.match(camera, /finally\s*\{[\s\S]*?endSuppress\(/);
 for (const pattern of [
-  /CameraView/, /useCameraPermissions\(/, /takePictureAsync\(/, /onCameraReady=/, /compressToDataUri\(/,
+  /requestCameraAccess\(/, /launchCamera\(/, /capture.canceled\|\|!result\?\.uri/, /compressToDataUri\(/,
   /maxW: width, maxH: 640, quality/, /portraitConsent/, /تأیید و ثبت تصویر/,
   /queueIfOffline: false/, /action\.t === 'ثبت تذکر'/,
   /if \(!portrait \|\| portraitBusy \|\| portraitDraft\) return photoGate\(\)/,
   /onPress=\{\(\) => runDriverAction\(a\)\}/,
-  /useState\('back'\)/, /setPortraitCameraFacing\('back'\)/,
-  /portraitFrameWidth,aspectRatio:3\/4/,
-  /setCropSource\(\{uri:result\.uri,width:originalWidth,height:originalHeight\}\)/,
+  /setCropSource\(\{uri:result\.uri,width:result.width,height:result.height\}\)/,
   /const applyPortraitCrop = async \(\) =>/,
   /ImageManipulator\.manipulateAsync\(uri,\[\{crop:\{originX,originY,width:cropWidth,height:cropHeight\}\}\]/,
   /const cropHeight=cropWidth\*4\/3/,
 ]) assert.match(driver, pattern);
 assert.doesNotMatch(driver, /portraitRequired\s*&&/);
 assert.doesNotMatch(driver, /launchLibrary\(/);
-assert.doesNotMatch(driver, /launchCameraAsync|launchCamera\(|expo-image-picker/);
+assert.doesNotMatch(driver, /launchCameraAsync|expo-image-picker/);
 for (const pattern of [
   /CREATE TABLE IF NOT EXISTS driver_profile_photos/,
   /route\('POST','\/api\/driver-photos\/\{id\}'/,
@@ -33,4 +35,4 @@ for (const pattern of [
 assert.doesNotMatch(routes.match(/route\('POST', '\/api\/notices'[\s\S]*?route\('/)?.[0] || '', /_driver_photo_guard\(/);
 assert.match(panel, /driver_profile_photo_required/);
 assert.match(panel, /uploadPortrait\(full\.id/);
-console.log('PASS taxi driver photo: in-app camera, local compression, explicit consent, server photo gates and replacement');
+console.log('PASS taxi driver photo: system camera, local compression, explicit consent, server photo gates and replacement');

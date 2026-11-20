@@ -70,7 +70,7 @@ export default function DriverScreen({ route, navigation }) {
       const capture=await launchCamera({mediaTypes:['images'],quality:0.75,exif:false});
       const result=capture.assets?.[0];
       if(capture.canceled||!result?.uri)return;
-      if(!result.width||!result.height)throw new Error('ابعاد تصویر مشخص نیست؛ دوباره عکس بگیرید.');
+      if(!Number.isFinite(result.width)||!Number.isFinite(result.height)||result.width<3||result.height<4)throw new Error('ابعاد تصویر مشخص نیست؛ دوباره عکس بگیرید.');
       setCropSource({uri:result.uri,width:result.width,height:result.height});
       setCropX(0);setCropY(0);setCropZoom(1);
     }catch(error){Alert.alert('دوربین',error?.message||'ثبت تصویر انجام نشد.');}
