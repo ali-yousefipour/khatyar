@@ -2,6 +2,38 @@ const KH_COMPLAINTS_BUILD="2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-14-v1
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const {useState,useEffect,useRef,useMemo} = React;
+
+let khChartLoadPromise=null;
+function khLoadChart(){
+  if(typeof window.Chart==='function')return Promise.resolve(window.Chart);
+  if(!khChartLoadPromise){
+    khChartLoadPromise=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='vendor/chartjs/chart.umd.min.js';
+      script.onload=()=>{if(typeof window.Chart==='function')resolve(window.Chart);else{script.remove();reject(new Error('Chart.js unavailable'));}};
+      script.onerror=()=>{script.remove();reject(new Error('Chart.js load failed'));};
+      document.head.appendChild(script);
+    }).catch(error=>{khChartLoadPromise=null;throw error;});
+  }
+  return khChartLoadPromise;
+}
+function khMountChart(args){
+  let active=true,chart=null;
+  khLoadChart().then(ChartClass=>{
+    if(!active)return;
+    const [canvas,options]=args();
+    if(!canvas||!canvas.isConnected)return;
+    canvas.removeAttribute('data-chart-error');
+    chart=new ChartClass(canvas,options);
+  }).catch(error=>{
+    if(!active)return;
+    const [canvas]=args();
+    if(canvas){canvas.setAttribute('data-chart-error','true');canvas.setAttribute('aria-label','بارگذاری نمودار ناموفق بود؛ صفحه را دوباره باز کنید.');}
+    console.warn('Chart rendering failed',error);
+  });
+  return()=>{active=false;if(chart)chart.destroy();};
+}
+
 // Navigation icons share the Android dashboard's clean outlined-vector language.
 // Unlike the former 3D PNGs, these are themeable, crisp at every zoom and never fail to load.
 const I8=(name)=>{
@@ -3158,7 +3190,7 @@ function MissionTrendChart({userId,title,days}){
   useEffect(()=>{ GET(`/admin/mission-trend?days=${days||30}`+(userId?`&user_id=${userId}`:"")).then(setData).catch(()=>setData(null)); },[userId,days]);
   useEffect(()=>{
     if(!data||!ref.current) return;
-    const c=new Chart(ref.current,{type:"line",
+    return khMountChart(()=>[ref.current,{type:"line",
       data:{labels:data.items.map(x=>x.jdate),
         datasets:[
           {label:"درصد تحقق",data:data.items.map(x=>x.achievement),borderColor:"#0d7a5f",backgroundColor:"rgba(13,122,95,.12)",fill:true,tension:.3,yAxisID:"y"},
@@ -3169,8 +3201,7 @@ function MissionTrendChart({userId,title,days}){
           x:{ticks:{font:{family:"Vazirmatn"},maxRotation:0}},
           y:{position:"left",title:{display:true,text:"٪ تحقق",font:{family:"Vazirmatn"}},min:0,max:100,ticks:{font:{family:"Vazirmatn"}}},
           y1:{position:"right",title:{display:true,text:"امتیاز",font:{family:"Vazirmatn"}},grid:{drawOnChartArea:false},ticks:{font:{family:"Vazirmatn"}}},
-        }}});
-    return()=>c.destroy();
+        }}}]);
   },[data]);
   return(<div><h4 style={{marginBottom:8,fontSize:14}}>📈 {title||"روند ۳۰ روز گذشته"}</h4>
     {!data?<p style={{color:"var(--muted)"}}>در حال بارگذاری…</p>:<canvas ref={ref} height="90"></canvas>}
@@ -5294,10 +5325,9 @@ function Officials(){
   const filteredPeople=role?people.filter(p=>p.role_title===role):people;
   useEffect(()=>{
     if(!chartRef.current)return;
-    const c=new Chart(chartRef.current,{type:"bar",data:{labels:chart.labels,
+    return khMountChart(()=>[chartRef.current,{type:"bar",data:{labels:chart.labels,
       datasets:[{label:"تعداد حضور",data:chart.data,backgroundColor:"#0d7a5f",borderRadius:6}]},
-      options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:"Vazirmatn"}}},y:{ticks:{font:{family:"Vazirmatn"}}}}}});
-    return()=>c.destroy();
+      options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:"Vazirmatn"}}},y:{ticks:{font:{family:"Vazirmatn"}}}}}}]);
   },[chart]);
   const exportExcel=()=>{ const aoa=[["تاریخ","مسئول","سمت","خط","ثبت‌کننده","توضیحات"],
     ...rows.map(r=>[fj(r.created_at),r.official,r.official_role,r.line||"",r.recorded_by,r.note||""])];
@@ -8588,18 +8618,16 @@ function OutageReport(){
     if(!data||!barRef.current) return;
     const labels=Object.keys(data.by_line||{}); const vals=labels.map(k=>Math.round((data.by_line[k]/60)*10)/10);
     if(!labels.length) return;
-    const c=new Chart(barRef.current,{type:"bar",data:{labels,datasets:[{label:"ساعت قطعی در بازه",data:vals,backgroundColor:"#d63b54",borderRadius:6}]},
-      options:{plugins:{legend:{labels:{font:{family:"Vazirmatn"}}}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"}}}}}});
-    return()=>c.destroy();
+    return khMountChart(()=>[barRef.current,{type:"bar",data:{labels,datasets:[{label:"ساعت قطعی در بازه",data:vals,backgroundColor:"#d63b54",borderRadius:6}]},
+      options:{plugins:{legend:{labels:{font:{family:"Vazirmatn"}}}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"}}}}}}]);
   },[data]);
   // نمودار بیشترین تعداد قطعی هر خط
   useEffect(()=>{
     if(!data||!cntRef.current) return;
     const top=(data.top_by_count||[]).slice(0,10);
     if(!top.length) return;
-    const c=new Chart(cntRef.current,{type:"bar",data:{labels:top.map(x=>"خط "+x.line),datasets:[{label:"تعداد دفعات قطعی",data:top.map(x=>x.count),backgroundColor:"#f6c324",borderRadius:6}]},
-      options:{indexAxis:"y",plugins:{legend:{labels:{font:{family:"Vazirmatn"}}}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"},precision:0}}}}});
-    return()=>c.destroy();
+    return khMountChart(()=>[cntRef.current,{type:"bar",data:{labels:top.map(x=>"خط "+x.line),datasets:[{label:"تعداد دفعات قطعی",data:top.map(x=>x.count),backgroundColor:"#f6c324",borderRadius:6}]},
+      options:{indexAxis:"y",plugins:{legend:{labels:{font:{family:"Vazirmatn"}}}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"},precision:0}}}}}]);
   },[data]);
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
   const exportExcel=async()=>{ try{ const res=await fetch(db.outagesExportUrl(qs()),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="قطعی_سیستم.csv"; a.click(); }catch(e){alert(e.message);} };
@@ -9825,10 +9853,9 @@ function PresentStats(){
   useEffect(()=>{
     if(!chartRef.current||!present1.length) return;
     const top=present1.slice(0,15);
-    const c=new Chart(chartRef.current,{type:"bar",data:{labels:top.map(l=>"خط "+(l.code||l.line_id)),
+    return khMountChart(()=>[chartRef.current,{type:"bar",data:{labels:top.map(l=>"خط "+(l.code||l.line_id)),
       datasets:[{label:"تعداد حاضر",data:top.map(l=>l.present),backgroundColor:"#0d7a5f",borderRadius:6}]},
-      options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:"Vazirmatn"},precision:0}},y:{ticks:{font:{family:"Vazirmatn"}}}}}});
-    return()=>c.destroy();
+      options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:"Vazirmatn"},precision:0}},y:{ticks:{font:{family:"Vazirmatn"}}}}}}]);
   },[present1]);
   if(!data) return <div className="panel"><h3>آمار لحظه‌ای حاضرین در خطوط</h3><p className="muted">در حال بارگذاری…</p></div>;
   const term=q.trim();
