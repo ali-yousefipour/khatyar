@@ -3249,7 +3249,14 @@ function _active_user_shift_assignment_uncached($userId, $jdate=null){
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
     try {
-      $sa = Db::one("SELECT sa.absent_user_id,sa.request_id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
+      $sa=null;
+      if(WorkReportReadScope::active()&&preg_match('/^\d{4}-\d{2}-\d{2}$/D',$jdate)){
+        $month=substr($jdate,0,7);
+        $subRows=WorkReportReadScope::remember('substitutes:'.(int)$userId.':'.$month,static fn()=>Db::all("SELECT sa.absent_user_id,sa.request_id,sa.from_date,sa.to_date FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC",[(int)$userId,$month.'-31',$month.'-01']));
+        foreach($subRows as $candidate){if($candidate['from_date']<=$jdate&&$candidate['to_date']>=$jdate){$sa=$candidate;break;}}
+      }else{
+        $sa = Db::one("SELECT sa.absent_user_id,sa.request_id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
+      }
       if ($sa) {
         $arows = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, s.* FROM user_shifts us JOIN shifts s ON s.id=us.shift_id WHERE us.user_id=? AND s.is_active=1",[(int)$sa['absent_user_id']]);
         foreach($arows as $r){
@@ -3650,7 +3657,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
       try {
         require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
         $monthlyTo=$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT);
-        $dailyReport=attendance_report_owned_by_entry_date($reportUid,$fromJdate,$monthlyTo,true);
+        $dailyReport=WorkReportReadScope::totals(static fn()=>attendance_report_owned_by_entry_date($reportUid,$fromJdate,$monthlyTo,true));
         $dailyTotals=_work_month_daily_attendance_totals($dailyReport,max(0,$lastDay-$firstIncludedDay+1));
         if ($dailyTotals !== null) {
           foreach ($dailyTotals as $field=>$minutes) $tot[$field]=$minutes;
@@ -4114,8 +4121,8 @@ function _attendance_report_impl($userId,$fromJ,$toJ,$ownedByEntry=false){
     $punches=[]; $sessions=[];
     foreach($rows as $r){
       // ابتدا نام ذخیره‌شده، در غیر این صورت استخراج از مختصات (برای رکوردهای قدیمی)
-      $inName = ($r['in_station']??'') !== '' ? $r['in_station'] : _station_name_at($r['in_lat']??null,$r['in_lng']??null);
-      $outName = ($r['out_station']??'') !== '' ? $r['out_station'] : _station_name_at($r['out_lat']??null,$r['out_lng']??null);
+      $inName = ($r['in_station']??'') !== '' ? $r['in_station'] : (WorkReportReadScope::totalsOnly()?'':_station_name_at($r['in_lat']??null,$r['in_lng']??null));
+      $outName = ($r['out_station']??'') !== '' ? $r['out_station'] : (WorkReportReadScope::totalsOnly()?'':_station_name_at($r['out_lat']??null,$r['out_lng']??null));
       $punches[]=[
         'id'=>$r['id'],
         'in'=>$r['check_in']?date('H:i',strtotime($r['check_in'])):null,
@@ -4474,9 +4481,10 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
       }
       $forecastDone=0;
       foreach($rows as $r){
+        WorkReportReadScope::run(static function()use($r,&$forecastByUser,$employmentWindows,$leaveByUser,$monthStartTs,$todayTs,$monthEndTs,$firstJ,$endJ,$includeSurplus,&$forecastDone,$rows){
         _work_progress_tick(56+(int)floor(23*$forecastDone/max(1,count($rows))),'محاسبه پیش‌بینی', $forecastDone++,count($rows));
         $uid=(int)($r['user_id']??0);
-        if($uid<=0)continue;
+        if($uid<=0)return;
         // Build the employee-specific average from actual completed prior workdays,
         // not from a calendar-day denominator or monthly totals containing holiday overtime.
         $priorOvertime=0;$workedDays=0;
@@ -4519,6 +4527,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
           elseif(($dayShift['type']??'')==='auto'||ShiftCalc::expectedMinutes($dayShift,$j,$dr)>0){$futureOt+=$dailyOt;$futureWorkCount++;}
         }
         $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>$futureHoliday,'friday'=>$futureFriday,'friday_days'=>$futureFridayCount,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt),'sample_days'=>$workedDays];
+        });
       }
     }
   }
@@ -4555,7 +4564,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
         $yesterday=ShiftCalc::normJdate(_app_jdate_from_time(date('Y-m-d H:i:s',strtotime('yesterday noon'))));
         $last=min($last,$yesterday);
         $count=$last<$first?0:(int)substr($last,8,2);
-        $retry=$count?attendance_report_owned_by_entry_date((int)$r['user_id'],$first,$last,true,true):['days'=>[]];
+        $retry=$count?WorkReportReadScope::totals(static fn()=>attendance_report_owned_by_entry_date((int)$r['user_id'],$first,$last,true,true)):['days'=>[]];
       }
       $verified=_work_month_daily_attendance_totals($retry,$count);
       if($verified===null){
