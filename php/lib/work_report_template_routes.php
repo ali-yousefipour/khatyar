@@ -93,6 +93,7 @@ route('GET','/api/admin/shift-report/templates/{id}/download',function($p,$b,$u)
     });
 },false,ADMIN);
 function _work_template_stored_placement(int $templateId): array {
+    WorkReportDefaultPlacement::ensureSchema(Db::pdo());
     $q=Db::pdo()->prepare('SELECT placement_json FROM work_report_default_placements WHERE template_id=?');
     $q->execute([$templateId]);
     $json=$q->fetchColumn();
@@ -107,6 +108,7 @@ route('GET','/api/admin/shift-report/templates/{id}/default-placement',function(
     $repo=_work_template_repo($u);
     return _work_template_safe(function()use($repo,$p){
         $id=_work_template_id($p['id']);$repo->get($id,null,false);
+        WorkReportDefaultPlacement::ensureSchema(Db::pdo());
         $q=Db::pdo()->prepare('SELECT source_filename,updated_at,JSON_LENGTH(placement_json) AS count FROM work_report_default_placements WHERE template_id=?');
         $q->execute([$id]);
         return ['ok'=>true,'placement'=>$q->fetch(PDO::FETCH_ASSOC)?:null];
@@ -124,6 +126,7 @@ route('POST','/api/admin/shift-report/templates/{id}/default-placement',function
             Http::error('فایل اکسل قبلی نامعتبر یا بیش از حد مجاز است',422);
         $name=basename((string)($file['name']??'work-report.xlsx'));
         if(!preg_match('/\.xlsx$/iu',$name))Http::error('فقط فایل xlsx قابل پذیرش است',422);
+        WorkReportDefaultPlacement::ensureSchema(Db::pdo());
         $rows=WorkReportDefaultPlacement::read($file['tmp_name'],$template['structure']);
         if(!$rows)Http::error('هیچ نیروی قابل شناسایی در فایل کارکرد پیدا نشد',422);
         $q=Db::pdo()->prepare('INSERT INTO work_report_default_placements
@@ -140,6 +143,7 @@ route('DELETE','/api/admin/shift-report/templates/{id}/default-placement',functi
     $repo=_work_template_repo($u,true);
     return _work_template_safe(function()use($repo,$p){
         $id=_work_template_id($p['id']);$repo->get($id,null,false);
+        WorkReportDefaultPlacement::ensureSchema(Db::pdo());
         $q=Db::pdo()->prepare('DELETE FROM work_report_default_placements WHERE template_id=?');
         $q->execute([$id]);return ['ok'=>true];
     });
