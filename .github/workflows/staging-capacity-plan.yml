@@ -1,0 +1,22 @@
+name: Isolated calculation capacity benchmark
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-capacity-plan.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Benchmark calculation and spreadsheet workloads without production traffic
+        run: |
+          set -euo pipefail
+          php php/tests/work_calculation_benchmark.php
+          for rows in 10000 30000 60000; do
+            php php/tests/xlsx_stream_benchmark.php php/lib/XlsxWriter.php "$rows"
+          done
