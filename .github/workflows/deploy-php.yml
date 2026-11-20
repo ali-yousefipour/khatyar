@@ -130,6 +130,7 @@ jobs:
           node --check app/assets/panel.bundle.js
           grep -Eiq 'gps' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver button not included after resetting main'; exit 1; }
           cd ..
+          GITHUB_SHA="$(git rev-parse HEAD)" python3 php/tools/verify_work_template_bundle.py
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
 
@@ -213,7 +214,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql migrations/2026_11_19_dashboard_discipline_cache.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/WorkReportReadScope.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php app/robots.txt app/sitemap.xml app/.htaccess app/app.html app/line-location.html app/public-form.html app/vendor/fetch.php; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql migrations/2026_11_19_dashboard_discipline_cache.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/WorkReportReadScope.php lib/OrganizationWorkPlacement.php lib/WorkReportSnapshot.php lib/WorkReportTemplateArchive.php lib/WorkReportTemplateParser.php lib/WorkReportTemplateExporter.php lib/WorkReportTemplateRepository.php lib/work_report_template_routes.php migrations/20261120_work_report_templates.sql lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php app/robots.txt app/sitemap.xml app/.htaccess app/app.html app/line-location.html app/public-form.html app/vendor/fetch.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -592,6 +593,12 @@ jobs:
                   $config['db_user'], $config['db_pass'],
                   [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]
               );
+              // Additive, idempotent work template schema; no attendance or user data is modified.
+              require_once dirname(__DIR__,2).'/lib/WorkReportTemplateRepository.php';
+              (new WorkReportTemplateRepository($pdo))->ensureSchema();
+              $templateTables=$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('work_report_templates','work_report_template_versions','work_report_template_state','work_report_template_default')")->fetchColumn();
+              if((int)$templateTables!==4)throw new RuntimeException('Work report template schema verification failed');
+              (new WorkReportTemplateRepository($pdo))->all();
               // The cache is provisioned and verified before the dashboard is used.
               $cacheMigration=dirname(__DIR__,2).'/migrations/2026_11_19_dashboard_discipline_cache.sql';
               if(!is_file($cacheMigration))throw new RuntimeException('Discipline cache migration missing');
@@ -726,7 +733,7 @@ jobs:
                   (user_id, check_out, check_in)");
               }
               @unlink(__FILE__);
-              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true,'discipline_cache_reader'=>true]);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true,'discipline_cache_reader'=>true,'work_report_template_schema'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
               error_log('Employment schema deployment: '.$error->getMessage());
@@ -753,7 +760,8 @@ jobs:
           echo "${response}" | grep -q '"school_complaints_schema":true'
           echo "${response}" | grep -q '"discipline_cache_schema":true'
           echo "${response}" | grep -q '"discipline_cache_reader":true'
-          echo "Employment and school complaints schema verified on production database."
+          echo "${response}" | grep -q '"work_report_template_schema":true'
+          echo "Employment, school complaints and work report template schema verified on production database."
 
       - name: Verify public homepage, login and deployed assets against committed payload
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
