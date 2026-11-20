@@ -56,3 +56,25 @@ $slots=[['id'=>'a','location'=>'شرکت','role'=>'کاربر خطوط'],['id'=>
 $people=[['id'=>31,'region'=>'منطقه ۲','role'=>'نیروی اداری مقیم سازمان'],['id'=>32,'region'=>'','role'=>'نیروی اداری مقیم سازمان'],['id'=>33,'region'=>'فرودگاه','role'=>'نیروی اداری مقیم سازمان'],['id'=>34,'region'=>'شرکت','role'=>'نیروی اداری']];
 $r=OrganizationWorkPlacement::suggest($slots,$people);
 checkPlacement($r['assignments']===['a'=>31,'b'=>32,'c'=>34,'d'=>null]&&$r['overflow']===[33]);
+
+$slots=[
+ ['id'=>'fixed1','location'=>'ناظر خطوط ثابت','role'=>'','combined'=>true],
+ ['id'=>'fixed2','location'=>'ناظر خطوط ثابت','role'=>'','combined'=>true],
+ ['id'=>'fixed3','location'=>'ناظر خطوط ثابت','role'=>'','combined'=>true],
+ ['id'=>'mobile','location'=>'ناظر خطوط گردشی','role'=>'','combined'=>true],
+ ['id'=>'airport','location'=>'فرودگاه','role'=>'ناظر خط'],
+];
+$people=[
+ ['id'=>41,'region'=>'منطقه شرق','role'=>'ناظر خط'],
+ ['id'=>42,'region'=>'غرب','role'=>'ناظر خط'],
+ ['id'=>43,'region'=>'منطقه مرکزی','role'=>'ناظر خط'],
+ ['id'=>44,'region'=>'شرق','role'=>'گشت موتوری'],
+ ['id'=>45,'region'=>'فرودگاه','role'=>'ناظر خط مبادی'],
+ ['id'=>46,'region'=>'غرب','role'=>'گشت موتوری'],
+ ['id'=>47,'region'=>'مرکزی','role'=>'گشت خودرویی'],
+ ['id'=>48,'region'=>'نامشخص','role'=>'ناظر خط'],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['fixed1'=>41,'fixed2'=>42,'fixed3'=>43,'mobile'=>44,'airport'=>45]);
+checkPlacement($r['overflow']===[46]&&$r['unmatched']===[47,48]);
+echo "Regional fixed and motorcycle mobile placement OK\n";

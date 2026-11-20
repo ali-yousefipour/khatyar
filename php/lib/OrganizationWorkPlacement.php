@@ -44,6 +44,19 @@ final class OrganizationWorkPlacement {
             $groupRole=self::equivalent(!empty($slot['combined'])?($slot['location']??''):($slot['role']??''),$aliases['role']??[]);
             return $groupRole==='کاربر خطوط'?150:null;
         }
+        // Explicit organization mapping takes precedence over geographical slots.
+        $targetGroup=null;
+        $rawRole=self::equivalent($person['role']??'', $aliases['role']??[]);
+        if(in_array($rawRole,['گشت موتوری','گشت های موتوری','گشت موتور سوار','گشت موتورسوار'],true)){
+            $targetGroup='ناظر خطوط گردشی';
+        }elseif(in_array($rawRole,['ناظر خط','ناظر خطوط','ناظر خط ثابت','ناظر خطوط ثابت'],true)
+            &&in_array($region,['شرق','غرب','مرکزی','مرکز'],true)){
+            $targetGroup='ناظر خطوط ثابت';
+        }
+        if($targetGroup!==null){
+            $group=self::normalize(!empty($slot['combined'])?($slot['location']??''):($slot['role']??''));
+            return $group===$targetGroup?150:null;
+        }
         $wantRotation=self::rotation($slot['rotation']??'');
         if($wantRotation!==''&&$wantRotation!==self::rotation($person['rotation']??''))return null;
         if(!empty($slot['combined'])){
