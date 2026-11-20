@@ -23,7 +23,8 @@ assert "script.src='vendor/chartjs/chart.umd.min.js'" in source
 assert source.count('return khMountChart(()=>[')==5
 assert 'if(!active)return;' in source
 assert 'if(chart)chart.destroy()' in source
-assert (root/'vendor/chartjs/chart.umd.min.js').is_file()
+builder=Path('.github/scripts/build-local-vendor.py').read_text(encoding='utf-8')
+assert 'chart.umd.min.js' in builder, 'Chart.js must be provisioned by the vendor build'
 assert all(re.search(r'\bdefer\b',tag) and not re.search(r'\basync\b',tag) for tag in vendor)
 assert panel.index('leaflet/leaflet.js')<panel.index('leaflet-draw/leaflet.draw.js')<panel.index('assets/panel.bundle.js')
 print('PASS deferred vendor order')
