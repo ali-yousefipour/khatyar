@@ -8357,7 +8357,7 @@ function WorkTemplateControls({year,month,forecast,surplus,beginWork,endWork,wor
     return response.json();
   };
   const download=(blob,name)=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000)};
-  const refresh=async()=>{const data=await request();const list=data.templates||[];setCatalog(list);setCanManage(!!data.can_manage);setDefaultId(data.default_template_id??null);setSelected(old=>{const next=!initialized.current?String(data.default_template_id??""):old;return list.some(t=>String(t.id)===next&&Number(t.enabled)===1)?next:""});initialized.current=true;};
+  const refresh=async()=>{const data=await request();const list=data.templates||[];setCatalog(list);setCanManage(!!data.can_manage);setDefaultId(data.default_template_id??null);const initial=!initialized.current;initialized.current=true;setSelected(old=>{const next=initial?String(data.default_template_id??""):old;return list.some(t=>String(t.id)===next&&Number(t.enabled)===1)?next:""});};
   useEffect(()=>{refresh().catch(()=>setError("دریافت قالب‌ها ناموفق بود؛ خروجی داخلی خطیار همچنان قابل استفاده است."))},[]);
   useEffect(()=>{if(!preview)return;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer)},[preview]);
   const action=async(fn)=>{if(lock.current||working)return;lock.current=true;setLoading(true);setError("");try{await fn()}catch(e){setError(e.message||"عملیات ناموفق بود")}finally{lock.current=false;setLoading(false)}};

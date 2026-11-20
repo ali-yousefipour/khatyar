@@ -1,3 +1,4 @@
+from copy import copy
 import sys, zipfile, io
 from pathlib import Path
 from openpyxl import Workbook, load_workbook
@@ -47,13 +48,13 @@ elif mode == "verify":
     s=b["سازمان"]
     assert b.sheetnames == a.sheetnames
     assert s["A1"].value == "گزارش آزمایشی - آبان ۱۴۰۵"
-    assert s["A1"].font == a["سازمان"]["A1"].font
+    assert copy(s["A1"].font) == copy(a["سازمان"]["A1"].font)
     assert s["A2"].comment.text == "fixed"
     assert s["H3"].comment.text == "جمعه ۱۲"
     assert s["H5"].comment is None and s["E5"].value is None
     assert s["H3"].value == 2.25 and s["H4"].value == 1.25
     assert s["H6"].value == "=SUM(H3:H5)"
-    assert s["H3"].fill == a["سازمان"]["H3"].fill
+    assert copy(s["H3"].fill) == copy(a["سازمان"]["H3"].fill)
     assert str(s.merged_cells) == str(a["سازمان"].merged_cells)
     assert s.page_setup.orientation == "portrait"
     assert s.column_dimensions["E"].width == 24
