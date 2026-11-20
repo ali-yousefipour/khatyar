@@ -45,7 +45,7 @@ jobs:
                 await page.waitForFunction(()=>{const loader=document.getElementById('kh-initial-loader');return !loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).display==='none'||getComputedStyle(loader).visibility==='hidden';},{},{timeout:45000});
                 assert.equal(errors.length,0,errors.join('\n'));
                 assert.equal(blocked.length,0,'External runtime requests: '+blocked.join(','));
-                console.log('PASS rendered login',viewport,await page.evaluate(()=>({react:React.version,domReady:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd})));
+                console.log('PASS rendered login',viewport,await page.evaluate(()=>({react:window.React?.version ?? null,domReady:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd})));
                 await page.close();
               }
             } finally {await browser.close();}

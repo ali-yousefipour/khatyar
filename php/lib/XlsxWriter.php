@@ -135,6 +135,7 @@ class XlsxWriter {
     $zip->addFromString('xl/styles.xml',
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.
+      ($this->organizationNoteStyle ? '<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-fa-IR,300]0.00"/></numFmts>' : '').
       '<fonts count="4"><font><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="'.self::xmlEsc($this->fontName).'"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="'.self::xmlEsc($this->fontName).'"/></font></fonts>'.
       '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF087F5B"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F8F4"/><bgColor indexed="64"/></patternFill></fill></fills>'.
       '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD7E5DE"/></left><right style="thin"><color rgb="FFD7E5DE"/></right><top style="thin"><color rgb="FFD7E5DE"/></top><bottom style="thin"><color rgb="FFD7E5DE"/></bottom><diagonal/></border></borders>'.
@@ -149,8 +150,8 @@ class XlsxWriter {
       '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1" readingOrder="2"/></xf>'.
       '<xf numFmtId="3" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>'.
       '<xf numFmtId="3" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>'.
-      '<xf numFmtId="2" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
-      '<xf numFmtId="2" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
+      '<xf numFmtId="'.($this->organizationNoteStyle?'164':'2').'" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
+      '<xf numFmtId="'.($this->organizationNoteStyle?'164':'2').'" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
       '</cellXfs>'.
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'.
       '</styleSheet>');
