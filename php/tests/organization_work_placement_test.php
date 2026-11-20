@@ -17,4 +17,12 @@ checkPlacement(OrganizationWorkPlacement::normalize('كود ١٢')==='کود 12'
 $r=OrganizationWorkPlacement::suggest([['id'=>'a','location'=>'فرودگاه','role'=>'ناظر خط']], [['id'=>5,'location'=>'فرودگاه شهید هاشمی نژاد','role'=>'ناظر خط']], ['location'=>['فرودگاه شهید هاشمی نژاد'=>'فرودگاه']]);
 checkPlacement($r['assignments']['a']===5);
 try{OrganizationWorkPlacement::validate($slots,$people,['bad'=>1]);throw new RuntimeException('Unknown slot accepted');}catch(InvalidArgumentException $e){}
+
+$slots=[['id'=>'x','location'=>'شرکت','role'=>'بازرس','region'=>'۱'],['id'=>'y','location'=>'شرکت','role'=>'بازرس','region'=>'۲']];
+$people=[['id'=>9,'location'=>'شرکت','role'=>'بازرس','region'=>'۲'],['id'=>7,'location'=>'شرکت','role'=>'بازرس','region'=>'۱'],['id'=>8,'location'=>'شرکت','role'=>'بازرس']];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['x'=>7,'y'=>9]&&$r['unmatched']===[8]);
+$r=OrganizationWorkPlacement::suggest($slots,[]);
+checkPlacement($r['assignments']===['x'=>null,'y'=>null]&&$r['unassigned']===[]);
+try{OrganizationWorkPlacement::suggest($slots,[$people[0],$people[0]]);throw new RuntimeException('Duplicate person accepted');}catch(InvalidArgumentException $e){}
 echo "OK\n";

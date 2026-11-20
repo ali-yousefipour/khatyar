@@ -48,6 +48,12 @@ final class OrganizationWorkPlacement {
         usort($candidates,static fn($a,$b)=>count($a['slots'])<=>count($b['slots']) ?: $b['score']<=>$a['score'] ?: $a['id']<=>$b['id']);
         $occupied=[];$byPerson=[];
         $augment=function($id,$options,&$visited)use(&$augment,&$occupied,&$assign,&$byPerson){
+            // Prefer a free slot; displace an earlier assignment only to increase coverage.
+            foreach($options as $key){
+                if(!isset($visited[$key])&&!isset($occupied[$key])){
+                    $visited[$key]=true;$occupied[$key]=$id;$assign[$key]=$id;return true;
+                }
+            }
             foreach($options as $key){
                 if(isset($visited[$key]))continue;
                 $visited[$key]=true;
