@@ -114,3 +114,58 @@ jobs:
             php/app/panel.html
             build-manifest.json
           if-no-files-found: error
+  publish-panel-bundle:
+    needs: [validate, mysql-integration, panel-build]
+    if: github.repository == 'ali-yousefipour/khatyar' && github.ref == 'refs/heads/feature/work-report-templates-v2' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: work-report-panel-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: work-report-panel-build
+          path: verified-build
+      - name: Verify artifact and publish exact tested assets
+        env:
+          TARGET_BRANCH: feature/work-report-templates-v2
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" || { echo "::error::Branch advanced; refusing stale publication"; exit 1; }
+          python - <<'PY'
+          import hashlib, json, os, re, shutil
+          from pathlib import Path
+          root = Path('verified-build')
+          manifest = json.loads((root/'build-manifest.json').read_text())
+          assert manifest['source_sha'] == os.environ['GITHUB_SHA']
+          assert manifest['syntax_validation'] == 'passed'
+          b = root/'php/app/assets/panel.bundle.js'
+          h = root/'php/app/panel.html'
+          digest = hashlib.sha256(b.read_bytes()).hexdigest()
+          assert digest == manifest['bundle_sha256']
+          assert digest[:16] == manifest['asset_version']
+          assert re.search(r'panel\.bundle\.js\?v='+digest[:16]+r'''(?=["'])''',h.read_text(encoding='utf-8'))
+          for p in (b,h):
+              shutil.copyfile(p, p.relative_to(root))
+          print('Verified SHA-256:', digest)
+          PY
+          node --check php/app/assets/panel.bundle.js
+          python php/tools/verify_work_template_bundle.py
+          git add -- php/app/assets/panel.bundle.js php/app/panel.html
+          if git diff --cached --quiet; then
+            echo "Generated panel assets already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(panel): publish verified work report template bundle"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$(git rev-parse HEAD)"
+          echo "Published generated assets at $(git rev-parse HEAD)"
