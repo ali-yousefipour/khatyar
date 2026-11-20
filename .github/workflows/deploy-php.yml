@@ -10,23 +10,7 @@ on:
       - '.github/workflows/deploy-php.yml'
       - '.github/scripts/publish-local-vendor.sh'
       - '.github/scripts/build-local-vendor.py'
-      # Public brochure files are deployed by the dedicated lightweight, serialized workflow.
-      - '!php/app/landing.html'
-      - '!php/app/index.php'
-      - '!php/app/robots.txt'
-      - '!php/app/sitemap.xml'
-      - '!php/app/contact-submit.php'
-      - '!php/app/public-stats.php'
-      - '!php/app/.htaccess'
-      - '!php/app/panel.html'
-      - '!php/app/assets/organizational-public.css'
-      - '!php/app/assets/public-accurate.css'
-      - '!php/app/assets/organizational-login.css'
-      - '!php/app/assets/login-accurate.css'
-      - '!php/app/assets/login-premium.js'
-      - '!php/app/assets/khatyar-hero-emerald-v3.webp'
-      - '!php/app/assets/khatyar-footer-emerald-v3.webp'
-      - '!php/app/assets/khatyar-login-emerald-v3.webp'
+      - '.github/workflows/deploy-public-design.yml'
   workflow_dispatch:
 
 permissions:
@@ -229,7 +213,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql migrations/2026_11_19_dashboard_discipline_cache.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/WorkReportReadScope.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
+          for rel in app/robots.txt app/sitemap.xml app/.htaccess app/app.html app/line-location.html app/public-form.html app/vendor/fetch.php app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/Db.php lib/Jwt.php lib/Http.php lib/ShiftCalc.php lib/DeliveryQueue.php lib/Xlsx.php lib/XlsxWriter.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_complaints_routes.php migrations/2026_11_18_school_complaints.sql migrations/2026_11_19_dashboard_discipline_cache.sql lib/school_service_sepand.php lib/RadioShiftGate.php lib/DashboardDiscipline.php lib/WorkReportReadScope.php lib/routes.php lib/OrgChart.php lib/Push.php lib/ZoneWorkflow.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-complaints-admin.js app/assets/school-complaints-admin.css app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/zone-workflow.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/assets/khatyar-hero-emerald-v3.webp app/assets/khatyar-footer-emerald-v3.webp app/assets/khatyar-login-emerald-v3.webp app/contact-submit.php app/public-stats.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
