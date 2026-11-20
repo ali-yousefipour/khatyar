@@ -42,3 +42,14 @@ verifyPeriod(_work_leave_daily_duty(['type'=>'auto','auto_expected_min'=>453],$w
 verifyPeriod(_work_forecast_fraction(360,120),1-120/360);
 verifyPeriod(_work_forecast_fraction(300,300),0.0);
 echo "PASS shift-specific daily leave duty and hourly forecast\n";
+
+$cycle=['type'=>'rotating','advanced'=>['rotation'=>['cycle_start_jdate'=>'1405-08-01']]];
+verifyPeriod(_work_operator_rotation_percentage(_work_operator_cycle_kinds($cycle)),'15');
+$cycle['advanced']['rotation']['cycle']=[
+ ['days'=>7,'segments'=>[['s'=>'07:00','e'=>'15:00']]],
+ ['days'=>7,'segments'=>[['s'=>'15:00','e'=>'23:00']]],
+];
+verifyPeriod(_work_operator_rotation_percentage(_work_operator_cycle_kinds($cycle)),'10');
+verifyPeriod(_work_operator_rotation_percentage(_work_operator_shift_kinds([['s'=>'07:00','e'=>'15:00'],['s'=>'15:00','e'=>'23:00']])),'10');
+verifyPeriod(_work_operator_rotation_percentage(_work_operator_shift_kinds([['s'=>'07:00','e'=>'15:00']])),'');
+verifyPeriod(_work_operator_rotation_percentage(['morning'=>true,'afternoon'=>true,'unknown'=>true]),'');

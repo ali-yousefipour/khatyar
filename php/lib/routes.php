@@ -3827,7 +3827,10 @@ function _finalize_work_month($year,$month,$userId){
     require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
     $rows=_shift_month_report($year,$month);
     $people=_work_month_people();
-    foreach($rows as &$row)$row['organization_person']=$people[(int)$row['user_id']]??[];
+    foreach($rows as &$row){
+      $row['organization_person']=$people[(int)$row['user_id']]??[];
+      if(preg_match('/^اپراتور(?:\s|$)/u',trim((string)($row['role']??''))))$row['organization_rotation']=_work_operator_month_rotation((int)$row['user_id'],_work_organization_period($year,$month));
+    }
     unset($row);
     $daily=[];
     foreach($people as $uid=>$person){
@@ -4510,6 +4513,63 @@ function _work_leave_daily_duty($shift,$jdate,$dayRow=null): int {
 function _work_forecast_fraction($baseline,$leaveMinutes): float {
   return max(0.0,min(1.0,1-max(0,(int)$leaveMinutes)/max(1,(float)$baseline)));
 }
+function _work_operator_shift_kinds(array $segments): array {
+  $kinds=[];
+  foreach($segments as $seg){
+    if(!is_array($seg))return ['unknown'=>true];
+    $start=ShiftCalc::hm($seg['s']??'');$end=ShiftCalc::hm($seg['e']??'');
+    if($start===null||$end===null||$start>=1440||$start===$end)return ['unknown'=>true];
+    $kind=$start>=300&&$start<=660?'morning':($start>=720&&$start<=1080?'afternoon':($start>=1260||$start<300?'night':'unknown'));
+    $kinds[$kind]=true;
+  }
+  return $kinds;
+}
+function _work_operator_rotation_percentage(array $kinds): string {
+  if(isset($kinds['unknown']))return '';
+  if(isset($kinds['morning'],$kinds['afternoon'],$kinds['night']))return '15';
+  if(isset($kinds['morning'],$kinds['afternoon'])&&!isset($kinds['night']))return '10';
+  return '';
+}
+function _work_operator_cycle_kinds(array $shift): array {
+  $adv=ShiftCalc::parseJson($shift['advanced']??null);$rot=$adv['rotation']??$adv;
+  if(!is_array($rot)||!ShiftCalc::normJdate($rot['cycle_start_jdate']??$rot['start_jdate']??''))return ['unknown'=>true];
+  $cycle=$rot['cycle']??null;
+  if(!is_array($cycle)||!$cycle)$cycle=[
+    ['days'=>7,'segments'=>[['s'=>'07:00','e'=>'15:00']]],
+    ['days'=>7,'segments'=>[['s'=>'15:00','e'=>'23:00']]],
+    ['days'=>7,'segments'=>[['s'=>'23:00','e'=>'07:00']]],
+  ];
+  $kinds=[];
+  foreach($cycle as $block){
+    if(!is_array($block)||!is_array($block['segments']??null))return ['unknown'=>true];
+    $kinds+=_work_operator_shift_kinds($block['segments']);
+  }
+  return $kinds;
+}
+function _work_operator_month_rotation(int $uid,array $period): string {
+  return WorkReportReadScope::run(static function()use($uid,$period){
+    $profiles=[];$scheduled=[];$unknown=false;
+    for($ts=ShiftCalc::jdateToTs($period['first']),$end=ShiftCalc::jdateToTs($period['end']);$ts!==null&&$end!==null&&$ts<=$end;$ts+=86400){
+      [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+      $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+      $shift=_active_user_shift_assignment($uid,$j);
+      if(!$shift||!empty($shift['is_substitute_shift']))continue;
+      $type=$shift['type']??'';
+      if($type==='rotating'){
+        $class=_work_operator_rotation_percentage(_work_operator_cycle_kinds($shift));
+        if($class==='')$unknown=true;else $profiles[$class]=true;
+      }elseif(in_array($type,['simple','advanced'],true)){
+        $dr=$type==='advanced'?_shift_day_row($shift['shift_id']??$shift['id'],$j):null;
+        $scheduled+=_work_operator_shift_kinds(ShiftCalc::daySegments($shift,$j,$dr));
+      }else $unknown=true;
+    }
+    if($scheduled){
+      $class=_work_operator_rotation_percentage($scheduled);
+      if($class==='')$unknown=true;else $profiles[$class]=true;
+    }
+    return !$unknown&&count($profiles)===1?(string)array_key_first($profiles):'';
+  });
+}
 function _work_forecast_rows($rows,array $period,bool $forecastRequested,bool $includeSurplus=false): array {
   $forecastByUser=[];
   _work_progress_tick(56,'آماده‌سازی پیش‌بینی');
@@ -4713,7 +4773,9 @@ function _work_organization_records_impl($u,$jy,$jm,array $options,?array $allow
       8=>'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.',
       9=>'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی (صرفاً اطلاع‌رسانی؛ بدون اثر مالی):'."\n".'خاموشی اینترنت: '.(isset($r['internet_inactive_minutes'])?$hm($r['internet_inactive_minutes']).' ساعت':'نامشخص')."\n".'خاموشی GPS: '.(isset($r['gps_inactive_minutes'])?$hm($r['gps_inactive_minutes']).' ساعت':'نامشخص')."\n".'بسته بودن برنامه: '.(isset($r['app_inactive_minutes'])?$hm($r['app_inactive_minutes']).' ساعت':'فاقد آمار مستقل ثبت‌شده')."\n".'مجموع بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت'
     ]];
-    $record['placement']=['id'=>$record['user_id'],'region'=>(string)($person['zone_name']??''),'location'=>(string)($person['location_name']??''),'role'=>(string)($r['role']??''),'rotation'=>(string)($person['shift_percentage']??'')];
+    $rotation=(string)($r['organization_rotation']??$person['shift_percentage']??'');
+    if(!$final&&preg_match('/^اپراتور(?:\s|$)/u',trim((string)($r['role']??''))))$rotation=_work_operator_month_rotation((int)$r['user_id'],$period);
+    $record['placement']=['id'=>$record['user_id'],'region'=>(string)($person['zone_name']??''),'location'=>(string)($person['location_name']??''),'role'=>(string)($r['role']??''),'rotation'=>$rotation];
     $records[]=$record;
   }
   return ['records'=>$records,'finalized'=>(bool)$final,'forecast_remaining'=>$forecastRequested,'include_surplus'=>$includeSurplus];
