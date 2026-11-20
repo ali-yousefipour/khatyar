@@ -1,7 +1,11 @@
 name: XLSX stream regression
 on:
   push:
-    branches: [perf/xlsx-stream-validation]
+    branches: [main, perf/xlsx-stream-validation]
+    paths:
+      - 'php/lib/XlsxWriter.php'
+      - 'php/tests/xlsx_stream*.php'
+      - '.github/workflows/xlsx-stream-validation.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,3 +23,15 @@ jobs:
           php -l php/tests/xlsx_stream_regression_test.php
           git show 27d7d9c30531392a26978f89cd245bc1705212bf:php/lib/XlsxWriter.php > "$RUNNER_TEMP/xlsx-baseline.php"
           XLSX_BASELINE="$RUNNER_TEMP/xlsx-baseline.php" php php/tests/xlsx_stream_regression_test.php
+      - name: Benchmark isolated writers and compare worksheet digest
+        run: |
+          set -euo pipefail
+          php php/tests/xlsx_stream_benchmark.php "$RUNNER_TEMP/xlsx-baseline.php" 30000 > "$RUNNER_TEMP/baseline.json"
+          php php/tests/xlsx_stream_benchmark.php php/lib/XlsxWriter.php 30000 > "$RUNNER_TEMP/current.json"
+          python3 - "$RUNNER_TEMP/baseline.json" "$RUNNER_TEMP/current.json" <<'PY'
+          import json,sys
+          old,new=[json.load(open(path)) for path in sys.argv[1:]]
+          assert old['worksheet_sha256']==new['worksheet_sha256'], 'Worksheet content changed'
+          for name,data in [('baseline',old),('current',new)]: print(name,json.dumps(data))
+          print('Peak allocation saved (bytes):',old['peak_bytes']-new['peak_bytes'])
+          PY
