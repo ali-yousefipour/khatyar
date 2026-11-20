@@ -35,3 +35,14 @@ CREATE TABLE IF NOT EXISTS work_report_template_default (
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS work_report_default_placements (
+ template_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+ placement_json JSON NOT NULL,
+ source_sha256 CHAR(64) NOT NULL,
+ source_filename VARCHAR(255) NOT NULL,
+ updated_by BIGINT UNSIGNED NOT NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY (template_id) REFERENCES work_report_templates(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
