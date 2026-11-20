@@ -14552,6 +14552,7 @@ function MonthlyMetricDetails({ detail, onClose }) {
                         React.createElement("td", { style: { fontWeight: 800 }, dir: "ltr" }, fmt(d.metrics[metric])))))))));
 }
 function ShiftReport() {
+    var _a, _b;
     const [metricDetail, setMetricDetail] = useState(null);
     const [attendanceModal, setAttendanceModal] = useState(null);
     const [reportTab, setReportTab] = useState("monthly");
@@ -14564,60 +14565,105 @@ function ShiftReport() {
     const [jm, setJm] = useState(tj[1]);
     const [rows, setRows] = useState(null);
     const [busy, setBusy] = useState(false);
-    const [workProgress,setWorkProgress]=useState(null);
-    const workLock=useRef(false);
-    const progressTimer=useRef(null);
-    const progressOp=useRef(null);
-    const reuseReport=useRef(null);
-    const paintWork=(data)=>{
-        if(typeof document==="undefined")return;
-        const host=document.getElementById("kh-work-progress");
-        if(!host)return;
-        if(!data){if(host.open)host.close();host.hidden=true;return;}
-        host.hidden=false;
-        host.querySelector("[data-work-title]").textContent=data.title;
-        host.querySelector("[data-work-percent]").textContent=data.percent==null?"—":String(data.percent).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])+"٪";
-        const bar=host.querySelector("progress");
-        if(data.percent==null)bar.removeAttribute("value");else bar.value=data.percent;
-        host.querySelector("[data-work-stage]").textContent=data.stage;
-        host.querySelector("[data-work-count]").textContent=data.total==null?"":(String(data.done??0)+" از "+String(data.total)+" نفر").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
-        if(!host.open){try{host.showModal();}catch(_){host.setAttribute("open","");}}
-    };
-    const progressData=useRef(null);
-    const publishWork=(data)=>{progressData.current=data;paintWork(data);setWorkProgress(data);};
-    const beginWork=(title)=>{
-        if(workLock.current)return null;
-        workLock.current=true;
-        publishWork({title,percent:null,stage:"در حال دریافت و محاسبه اطلاعات…"});
-        let id="";
-        try{id=Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");}catch(_){}
-        const op=id||"local";
-        progressOp.current=op;
-        let polling=false;
-        const poll=async()=>{if(polling||progressOp.current!==op)return;polling=true;try{
-            const r=await fetch(API_BASE+"/admin/shift-report/progress?progress_id="+id,{headers:tok(),cache:"no-store"});
-            if(!r.ok)throw Error("progress unavailable");
-            const v=await r.json();
-            if(progressOp.current===op&&progressData.current){
-                const old=progressData.current;
-                publishWork({...old,...v,percent:Math.max(old.percent??0,Math.min(99,Number(v.percent)||0))});
+    const [workProgress, setWorkProgress] = useState(null);
+    const workLock = useRef(false);
+    const progressTimer = useRef(null);
+    const progressOp = useRef(null);
+    const reuseReport = useRef(null);
+    const paintWork = (data) => {
+        var _a;
+        if (typeof document === "undefined")
+            return;
+        const host = document.getElementById("kh-work-progress");
+        if (!host)
+            return;
+        if (!data) {
+            if (host.open)
+                host.close();
+            host.hidden = true;
+            return;
+        }
+        host.hidden = false;
+        host.querySelector("[data-work-title]").textContent = data.title;
+        host.querySelector("[data-work-percent]").textContent = data.percent == null ? "—" : String(data.percent).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]) + "٪";
+        const bar = host.querySelector("progress");
+        if (data.percent == null)
+            bar.removeAttribute("value");
+        else
+            bar.value = data.percent;
+        host.querySelector("[data-work-stage]").textContent = data.stage;
+        host.querySelector("[data-work-count]").textContent = data.total == null ? "" : (String((_a = data.done) !== null && _a !== void 0 ? _a : 0) + " از " + String(data.total) + " نفر").replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
+        if (!host.open) {
+            try {
+                host.showModal();
             }
-        }catch(_){if(progressOp.current===op&&progressData.current)publishWork({...progressData.current,stage:"ارتباط با وضعیت پیشرفت برقرار نیست؛ پردازش اصلی ادامه دارد…"});}
-        finally{polling=false;}};
-        if(id)progressTimer.current=setInterval(poll,1000);
-        else publishWork({...progressData.current,stage:"در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست"});
+            catch (_) {
+                host.setAttribute("open", "");
+            }
+        }
+    };
+    const progressData = useRef(null);
+    const publishWork = (data) => { progressData.current = data; paintWork(data); setWorkProgress(data); };
+    const beginWork = (title) => {
+        if (workLock.current)
+            return null;
+        workLock.current = true;
+        publishWork({ title, percent: null, stage: "در حال دریافت و محاسبه اطلاعات…" });
+        let id = "";
+        try {
+            id = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), v => v.toString(16).padStart(2, "0")).join("");
+        }
+        catch (_) { }
+        const op = id || "local";
+        progressOp.current = op;
+        let polling = false;
+        const poll = async () => {
+            var _a;
+            if (polling || progressOp.current !== op)
+                return;
+            polling = true;
+            try {
+                const r = await fetch(API_BASE + "/admin/shift-report/progress?progress_id=" + id, { headers: tok(), cache: "no-store" });
+                if (!r.ok)
+                    throw Error("progress unavailable");
+                const v = await r.json();
+                if (progressOp.current === op && progressData.current) {
+                    const old = progressData.current;
+                    publishWork({ ...old, ...v, percent: Math.max((_a = old.percent) !== null && _a !== void 0 ? _a : 0, Math.min(99, Number(v.percent) || 0)) });
+                }
+            }
+            catch (_) {
+                if (progressOp.current === op && progressData.current)
+                    publishWork({ ...progressData.current, stage: "ارتباط با وضعیت پیشرفت برقرار نیست؛ پردازش اصلی ادامه دارد…" });
+            }
+            finally {
+                polling = false;
+            }
+        };
+        if (id)
+            progressTimer.current = setInterval(poll, 1000);
+        else
+            publishWork({ ...progressData.current, stage: "در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست" });
         return op;
     };
-    const endWork=(success=false)=>{
+    const endWork = (success = false) => {
         clearInterval(progressTimer.current);
-        const id=progressOp.current;
-        progressOp.current=null;
-        if(!id)return;
-        if(!success){workLock.current=false;publishWork(null);return;}
-        publishWork({...progressData.current,percent:100,stage:"عملیات تکمیل شد"});
-        setTimeout(()=>{if(workLock.current&&!progressOp.current){workLock.current=false;publishWork(null);}},750);
+        const id = progressOp.current;
+        progressOp.current = null;
+        if (!id)
+            return;
+        if (!success) {
+            workLock.current = false;
+            publishWork(null);
+            return;
+        }
+        publishWork({ ...progressData.current, percent: 100, stage: "عملیات تکمیل شد" });
+        setTimeout(() => { if (workLock.current && !progressOp.current) {
+            workLock.current = false;
+            publishWork(null);
+        } }, 750);
     };
-    useEffect(()=>()=>{clearInterval(progressTimer.current);progressOp.current=null;workLock.current=false;paintWork(null);},[]);
+    useEffect(() => () => { clearInterval(progressTimer.current); progressOp.current = null; workLock.current = false; paintWork(null); }, []);
     const finalRequest = useRef(0), finalScope = useRef(""), finalLock = useRef(false);
     const monthlyRequest = useRef(0);
     const periodKey = String(jy) + "-" + jm;
@@ -14676,28 +14722,39 @@ function ShiftReport() {
     };
     const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
     const metricCell = (r, key, value) => React.createElement("button", { type: "button", className: "btn g", style: { font: "inherit", fontWeight: 700, color: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: "3px 6px" }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0628\u0646\u0627 \u0648 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647", onClick: () => setMetricDetail({ row: r, metric: key, year: jy, month: jm }) }, faPlain(hm(value)));
-    const run = async () => { const id=beginWork('در حال محاسبه کارکرد نیروها'); if(!id)return; const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
-        await new Promise(resolve=>setTimeout(resolve,0));
-        const response=await fetch(API_BASE+'/admin/shift-report?year='+year+'&month='+month+'&progress_id='+(id==="local"?"":id),{headers:tok()});
-        const r=await response.json().catch(()=>({}));
-        if(!response.ok)throw Error(r.error||r.message||'خطا در محاسبه کارکرد');
-        if(!Array.isArray(r.rows))throw Error('پاسخ گزارش کارکرد معتبر نیست');
-        if (generation === monthlyRequest.current)
-            setRows(r.rows);
-        reuseReport.current=r.reuse_token?{token:r.reuse_token,year,month,at:Date.now()}:null;
-        endWork(true);
-    }
-    catch (e) {
-        if (generation === monthlyRequest.current) {
-            setRows(null);
-            setReportError(e.message || "دریافت گزارش کارکرد ناموفق بود.");
-            endWork();
+    const run = async () => {
+        const id = beginWork('در حال محاسبه کارکرد نیروها');
+        if (!id)
+            return;
+        const generation = ++monthlyRequest.current;
+        const year = jy, month = jm;
+        setBusy(true);
+        setReportError("");
+        try {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const response = await fetch(API_BASE + '/admin/shift-report?year=' + year + '&month=' + month + '&progress_id=' + (id === "local" ? "" : id), { headers: tok() });
+            const r = await response.json().catch(() => ({}));
+            if (!response.ok)
+                throw Error(r.error || r.message || 'خطا در محاسبه کارکرد');
+            if (!Array.isArray(r.rows))
+                throw Error('پاسخ گزارش کارکرد معتبر نیست');
+            if (generation === monthlyRequest.current)
+                setRows(r.rows);
+            reuseReport.current = r.reuse_token ? { token: r.reuse_token, year, month, at: Date.now() } : null;
+            endWork(true);
         }
-    }
-    finally {
-        if (generation === monthlyRequest.current)
-            setBusy(false);
-    } };
+        catch (e) {
+            if (generation === monthlyRequest.current) {
+                setRows(null);
+                setReportError(e.message || "دریافت گزارش کارکرد ناموفق بود.");
+                endWork();
+            }
+        }
+        finally {
+            if (generation === monthlyRequest.current)
+                setBusy(false);
+        }
+    };
     const exportExcel = async () => { try {
         const res = await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`, { headers: tok() });
         if (!res.ok)
@@ -14713,35 +14770,49 @@ function ShiftReport() {
     } };
     const [forecastRemaining, setForecastRemaining] = useState(true);
     const [includeSurplusInOvertime, setIncludeSurplusInOvertime] = useState(false);
-    const exportOrganization = async () => { const id=beginWork('در حال ساخت فایل اکسل سازمان'); if(!id)return; setReportError(''); try {
-        await new Promise(resolve=>setTimeout(resolve,0));
-        const reuse=reuseReport.current;
-        const useReuse=!!(reuse&&reuse.year===jy&&reuse.month===jm&&Date.now()-reuse.at<300000&&typeof window!=="undefined"&&window.confirm("از نتیجه کارکرد محاسبه‌شده در پنج دقیقه اخیر استفاده شود؟ اگر اطلاعات تردد یا درخواست‌ها تغییر کرده، لغو را بزنید تا محاسبه تازه انجام شود."));
-        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id==="local"?"":id}&reuse_token=${useReuse?reuse.token:""}`, { headers: tok() });
-        if (!res.ok) {
-            const detail=await res.json().catch(()=>({}));
-            throw Error(detail.error||detail.message||(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان (HTTP "+res.status+")"));
+    const exportOrganization = async () => {
+        const id = beginWork('در حال ساخت فایل اکسل سازمان');
+        if (!id)
+            return;
+        setReportError('');
+        try {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const reuse = reuseReport.current;
+            const useReuse = !!(reuse && reuse.year === jy && reuse.month === jm && Date.now() - reuse.at < 300000 && typeof window !== "undefined" && window.confirm("از نتیجه کارکرد محاسبه‌شده در پنج دقیقه اخیر استفاده شود؟ اگر اطلاعات تردد یا درخواست‌ها تغییر کرده، لغو را بزنید تا محاسبه تازه انجام شود."));
+            const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id === "local" ? "" : id}&reuse_token=${useReuse ? reuse.token : ""}`, { headers: tok() });
+            if (!res.ok) {
+                const detail = await res.json().catch(() => ({}));
+                throw Error(detail.error || detail.message || (res.status === 403 ? "دسترسی مجاز نیست" : "خطا در تولید فایل سازمان (HTTP " + res.status + ")"));
+            }
+            const blob = await res.blob();
+            if (blob.size < 4 || new Uint8Array(await blob.slice(0, 4).arrayBuffer()).join(",") !== "80,75,3,4")
+                throw Error("فایل دریافت‌شده اکسل معتبر نیست");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `کارکرد-سازمان-${jy}-${jm}.xlsx`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+            endWork(true);
         }
-        const blob = await res.blob();
-        if(blob.size<4 || new Uint8Array(await blob.slice(0,4).arrayBuffer()).join(",")!=="80,75,3,4")throw Error("فایل دریافت‌شده اکسل معتبر نیست");
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `کارکرد-سازمان-${jy}-${jm}.xlsx`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-        endWork(true);
-    }
-    catch (e) {
-        if(progressOp.current===id){setReportError(e.message || "خطا در تولید فایل سازمان");endWork();}
-    } };
+        catch (e) {
+            if (progressOp.current === id) {
+                setReportError(e.message || "خطا در تولید فایل سازمان");
+                endWork();
+            }
+        }
+    };
     return (React.createElement("div", { className: "admin-workspace-page monthly-work-report-page" },
-        workProgress && (typeof document==="undefined" || !document.getElementById("kh-work-progress")) && React.createElement("div",{role:"dialog","aria-modal":true,"aria-label":workProgress.title,style:{position:"fixed",inset:0,zIndex:2147483640,background:"rgba(0,0,0,.55)",display:"grid",placeItems:"center",padding:16}},
-          React.createElement("div",{style:{width:"min(420px,100%)",background:"var(--card,#fff)",color:"var(--text,#172033)",borderRadius:20,padding:24,textAlign:"center",fontFamily:"Vazirmatn,Tahoma",boxShadow:"0 18px 60px #0005"}},
-            React.createElement("h3",null,workProgress.title),
-            React.createElement("strong",{style:{fontSize:34,color:"#0d9272"}},workProgress.percent==null?"—":faPlain(workProgress.percent)+"٪"),
-            React.createElement("progress",{max:100,value:workProgress.percent??undefined,style:{width:"100%",height:18,accentColor:"#0d9272"}}),
-            React.createElement("p",{"aria-live":"polite"},workProgress.stage),
-            workProgress.total!=null&&React.createElement("p",null,faPlain(workProgress.done)+" از "+faPlain(workProgress.total)+" نفر"))),
+        workProgress && (typeof document === "undefined" || !document.getElementById("kh-work-progress")) && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": workProgress.title, style: { position: "fixed", inset: 0, zIndex: 2147483640, background: "rgba(0,0,0,.55)", display: "grid", placeItems: "center", padding: 16 } },
+            React.createElement("div", { style: { width: "min(420px,100%)", background: "var(--card,#fff)", color: "var(--text,#172033)", borderRadius: 20, padding: 24, textAlign: "center", fontFamily: "Vazirmatn,Tahoma" } },
+                React.createElement("h3", null, workProgress.title),
+                React.createElement("strong", { style: { fontSize: 34, color: "#087f5b" } }, workProgress.percent == null ? "—" : faPlain(workProgress.percent) + "٪"),
+                React.createElement("progress", { max: 100, value: (_a = workProgress.percent) !== null && _a !== void 0 ? _a : undefined, style: { width: "100%", accentColor: "#087f5b" } }),
+                React.createElement("p", { role: "status" }, workProgress.stage),
+                workProgress.total != null && React.createElement("p", null,
+                    faPlain((_b = workProgress.done) !== null && _b !== void 0 ? _b : 0),
+                    " \u0627\u0632 ",
+                    faPlain(workProgress.total),
+                    " \u0646\u0641\u0631"))),
         React.createElement("style", null, `.monthly-work-report-page .work-report-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.monthly-work-report-page .work-report-heading h3{margin:0}.monthly-work-report-page .work-report-state{padding:22px;border:1px dashed var(--line);border-radius:14px;text-align:center;background:var(--card,#fff);line-height:1.9;margin-top:12px}.monthly-work-report-page .work-report-state[role=alert]{border:1px solid #e2b7b7;background:#fff5f4;color:#9e2727}.monthly-work-report-page .work-report-table-wrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:12px}.monthly-work-report-page .work-report-table-wrap:focus-visible{outline:3px solid #0d7a5f;outline-offset:2px}.monthly-work-report-page .work-report-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:1580px;width:100%}.monthly-work-report-page .work-report-table th{position:sticky;top:0;z-index:2;background:#edf6f1;white-space:normal;line-height:1.6;border-bottom:2px solid #0d7a5f}.monthly-work-report-page .work-report-table td{white-space:nowrap}.monthly-work-report-page .work-report-table tbody tr:nth-child(even){background:rgba(13,122,95,.035)}.monthly-work-report-page .work-report-table tbody tr:hover{background:rgba(13,122,95,.09)}.monthly-work-report-page .work-report-table th:first-child,.monthly-work-report-page .work-report-table td:first-child{position:sticky;right:0;z-index:1;background:var(--card,#fff);min-width:175px}.monthly-work-report-page .work-report-table th:first-child{z-index:3;background:#edf6f1}.monthly-work-report-page .tabbar{display:flex;overflow-x:auto;gap:6px;padding-bottom:7px;scrollbar-width:thin}.monthly-work-report-page .tabbtn{white-space:nowrap;flex-shrink:0}`),
         React.createElement("div", { className: "work-report-heading" },
             React.createElement("div", null,
@@ -14755,7 +14826,7 @@ function ShiftReport() {
                 fa(jy))),
         React.createElement("div", { className: "tabbar", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F", style: { marginBottom: 12 } }, [["monthly", "گزارش کارکرد ماهانه"], ["organization", "تولید گزارش کارکرد برای ارسال به سازمان"], ["company-final", "فایل نهایی شرکت"], ["organization-reconcile", "یکسان‌سازی کارکرد با دریافتی سازمان"], ["rotation", "محاسبه چرخش شیفت نیروها"], ["finalize", "نهایی کردن کارکرد نیروها"]].map(([key, label]) => React.createElement("button", { key: key, type: "button", role: "tab", "aria-selected": reportTab === key, className: "tabbtn" + (reportTab === key ? " on" : ""), disabled: finalBusy || !!workProgress, onClick: () => { setReportTab(key); if (key === "finalize")
                 setFinalStatus(null); } }, label))),
-        reportTab === "organization-reconcile" ? React.createElement(OrganizationWorkReconciliation, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "company-final" ? React.createElement(CompanyWorkReport, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
+        reportTab === "organization-reconcile" ? React.createElement(OrganizationWorkReconciliation, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "company-final" ? React.createElement(CompanyWorkReport, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy || !!workProgress }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
@@ -14768,7 +14839,9 @@ function ShiftReport() {
                 React.createElement("button", { className: "btn g", disabled: statusBusy || finalBusy, onClick: () => loadFinalStatus() }, "\u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A"),
                 React.createElement("button", { className: "btn p", disabled: finalBusy || statusBusy || ((finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.period) === periodKey && (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.finalized)), onClick: finalizeMonth }, finalBusy ? "در حال ثبت…" : "نهایی کردن کارکرد")),
             (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.period) === periodKey && React.createElement("p", null, finalStatus.finalized ? "این ماه نهایی شده است. تاریخ: " + finalStatus.finalized_at : "این ماه هنوز نهایی نشده است.")) : reportTab === "organization" ? React.createElement("div", { className: "panel" },
-            reportError && React.createElement("div",{role:"alert",className:"work-report-state"},reportError),
+            reportError && React.createElement("div", { role: "alert", className: "work-report-state" },
+                reportError,
+                React.createElement("button", { className: "btn p", onClick: exportOrganization }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
             React.createElement("h4", null, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
             React.createElement("p", { className: "muted" }, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631\u06CC = \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 + \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u2212 \u06A9\u0633\u0631 \u06A9\u0627\u0631\u061B \u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC \u0648 \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u0627\u0632 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0647\u0645\u0627\u0646 \u0645\u0627\u0647 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u062F\u0631 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0644\u0648\u0644\u200C\u0647\u0627\u06CC \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
