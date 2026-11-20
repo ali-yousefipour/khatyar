@@ -1,0 +1,43 @@
+name: Production performance smoke (read only)
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/production-performance-smoke.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-performance-smoke
+  cancel-in-progress: true
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Measure sequential public read-only requests
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess, statistics, time, json
+          base='https://khat-yar.ir'
+          targets={'/':200,'/api/health':200,'/api/session/app-login-config':200,'/api/session/web-login-config':200,'/api/auth/me':401,'/api/admin/attendance-report':401}
+          failed=False
+          print('| Endpoint | Status | Median TTFB (ms) | Median total (ms) | Max total (ms) |')
+          print('|---|---:|---:|---:|---:|')
+          for path,expected in targets.items():
+              samples=[]
+              for i in range(3):
+                  r=subprocess.run(['curl','--silent','--show-error','--max-time','15','--output','/dev/null','--write-out','%{http_code} %{time_starttransfer} %{time_total}',base+path],capture_output=True,text=True)
+                  try:
+                      code,ttfb,total=r.stdout.split()
+                      if r.returncode or int(code)!=expected: failed=True
+                      samples.append((int(code),float(ttfb)*1000,float(total)*1000))
+                  except ValueError:
+                      failed=True
+                  time.sleep(1)
+              if samples:
+                  print(f'| {path} | {",".join(str(x[0]) for x in samples)} | {statistics.median(x[1] for x in samples):.0f} | {statistics.median(x[2] for x in samples):.0f} | {max(x[2] for x in samples):.0f} |')
+              else:
+                  print(f'| {path} | ERROR | - | - | - |')
+          if failed: raise SystemExit('Unexpected HTTP response or timeout')
+          PY
