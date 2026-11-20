@@ -57,7 +57,7 @@ route('GET','/api/admin/shift-report/templates',function($p,$b,$u){
     return _work_template_safe(function()use($repo,$u){
         $rows=$repo->all();
         if(empty($u['is_admin'])||(int)($u['level']??99)!==1)$rows=array_values(array_filter($rows,static fn($r)=>(bool)$r['enabled']));
-        return ['templates'=>$rows];
+        return ['templates'=>$rows,'default_template_id'=>$repo->defaultId(),'can_manage'=>!empty($u['is_admin'])&&(int)($u['level']??99)===1];
     });
 },false,ADMIN);
 route('POST','/api/admin/shift-report/templates',function($p,$b,$u){
@@ -156,5 +156,15 @@ route('POST','/api/admin/shift-report/templates/export',function($p,$b,$u){
             readfile($out);_work_progress_tick(100,'دانلود تکمیل شد');
         }finally{@unlink($input);if($out!==null)@unlink($out);}
         exit;
+    });
+},false,ADMIN);
+
+route('POST','/api/admin/shift-report/templates/default',function($p,$b,$u){
+    $repo=_work_template_repo($u,true);
+    return _work_template_safe(function()use($repo,$b,$u){
+        if(!array_key_exists('template_id',$b))throw new InvalidArgumentException('Template selection required');
+        $id=$b['template_id']===null?null:_work_template_id($b['template_id']);
+        $repo->setDefault($id,(int)$u['id']);
+        return ['ok'=>true,'default_template_id'=>$repo->defaultId()];
     });
 },false,ADMIN);
