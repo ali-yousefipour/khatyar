@@ -25,4 +25,28 @@ checkPlacement($r['assignments']===['x'=>7,'y'=>9]&&$r['unmatched']===[8]);
 $r=OrganizationWorkPlacement::suggest($slots,[]);
 checkPlacement($r['assignments']===['x'=>null,'y'=>null]&&$r['unassigned']===[]);
 try{OrganizationWorkPlacement::suggest($slots,[$people[0],$people[0]]);throw new RuntimeException('Duplicate person accepted');}catch(InvalidArgumentException $e){}
+
+$slots=[
+ ['id'=>'a','location'=>'فرودگاه شهید هاشمی نژاد','role'=>'ناظر خط داخلی'],
+ ['id'=>'b','location'=>'راه آهن','role'=>'اپراتور فاکتور سفر'],
+ ['id'=>'c','location'=>'نظارت تصویری','role'=>'','combined'=>true],
+ ['id'=>'d','location'=>'بازرس مناطق تاکسیرانی','role'=>'','combined'=>true],
+ ['id'=>'e','location'=>'ناظر خطوط ثابت','role'=>'','combined'=>true],
+ ['id'=>'f','location'=>'ناظر خطوط گردشی','role'=>'','combined'=>true],
+ ['id'=>'g','location'=>'شیرازی','role'=>'ناظر خط (شیرازی)'],
+];
+$people=[
+ ['id'=>11,'region'=>'منطقه فرودگاه','role'=>'ناظر خط مبادی','location'=>''],
+ ['id'=>12,'region'=>'راه‌آهن','role'=>'اپراتور'],
+ ['id'=>13,'region'=>'شرکت','role'=>'نظارت تصویری'],
+ ['id'=>14,'region'=>'منطقه ۲','role'=>'بازرس'],
+ ['id'=>15,'region'=>'منطقه ۳','role'=>'ناظر خط ثابت'],
+ ['id'=>16,'region'=>'منطقه ۴','role'=>'ناظر خط گردشی'],
+ ['id'=>17,'region'=>'شیرازی','role'=>'ناظر خط ثامن'],
+ ['id'=>18,'region'=>'نامشخص','role'=>'ناظر خط'],
+];
+$r=OrganizationWorkPlacement::suggest($slots,$people);
+checkPlacement($r['assignments']===['a'=>11,'b'=>12,'c'=>13,'d'=>14,'e'=>15,'f'=>16,'g'=>17]);
+checkPlacement($r['unmatched']===[18]);
+
 echo "OK\n";
