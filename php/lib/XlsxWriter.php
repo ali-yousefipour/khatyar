@@ -153,6 +153,20 @@ class XlsxWriter {
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'.
       '</styleSheet>');
 
+    // Worksheet spool stays in memory for small exports and spills to disk for large ones.
+    $sheetStream = fopen('php://temp/maxmemory:1048576', 'w+b');
+    if ($sheetStream === false) { $zip->close(); @unlink($tmp); throw new RuntimeException('Cannot open worksheet stream'); }
+    $sheetPath = null;
+    try {
+    $flushSheet = static function (&$buffer) use ($sheetStream) {
+      $length = strlen($buffer);
+      for ($offset = 0; $offset < $length;) {
+        $written = fwrite($sheetStream, substr($buffer, $offset));
+        if ($written === false || $written === 0) throw new RuntimeException('Cannot write worksheet');
+        $offset += $written;
+      }
+      $buffer = '';
+    };
     // ---------- worksheet ----------
     $cols = '<cols>';
     $maxCol = count($this->headers);
@@ -203,6 +217,7 @@ class XlsxWriter {
         }
       }
       $sheetXml .= '</row>';
+      if (strlen($sheetXml) >= 262144) $flushSheet($sheetXml);
     }
     $sheetXml .= '</sheetData>';
     if ($this->professionalStyle && $maxCol > 0 && count($this->rows) > 0) $sheetXml .= '<autoFilter ref="A'.$headerRow.':'.self::colLetter($maxCol-1).(count($this->rows)+$headerRow).'"/>';
@@ -218,7 +233,19 @@ class XlsxWriter {
     if ($this->images) $sheetXml .= '<drawing r:id="rIdDrawing1"/>';
     if ($this->comments) $sheetXml .= '<legacyDrawing r:id="rIdComments"/>';
     $sheetXml .= '</worksheet>';
-    $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+    $flushSheet($sheetXml);
+    if (!rewind($sheetStream)) throw new RuntimeException('Cannot rewind worksheet');
+    $sheetPath = tempnam(sys_get_temp_dir(), 'xlsx_sheet_');
+    if ($sheetPath === false) throw new RuntimeException('Cannot create worksheet file');
+    $sheetFile = fopen($sheetPath, 'wb');
+    if ($sheetFile === false) throw new RuntimeException('Cannot open worksheet file');
+    try {
+      $expected = fstat($sheetStream)['size'];
+      if (stream_copy_to_stream($sheetStream, $sheetFile) !== $expected) throw new RuntimeException('Cannot copy worksheet');
+    } finally { fclose($sheetFile); }
+    if (!$zip->addFile($sheetPath, 'xl/worksheets/sheet1.xml')) throw new RuntimeException('Cannot add worksheet to archive');
+    fclose($sheetStream);
+    $sheetStream = null;
 
     if ($this->comments) {
       $notes=''; $vml=''; $shape=1024;
@@ -278,7 +305,15 @@ class XlsxWriter {
         '</Relationships>');
     }
 
-    if(!$zip->close()){ @unlink($tmp); throw new RuntimeException('Cannot finalize XLSX archive'); }
+    if(!$zip->close()) throw new RuntimeException('Cannot finalize XLSX archive');
+    } catch (Throwable $e) {
+      try { @$zip->close(); } catch (Throwable $ignored) {}
+      @unlink($tmp);
+      throw $e;
+    } finally {
+      if (is_resource($sheetStream)) fclose($sheetStream);
+      if (is_string($sheetPath)) @unlink($sheetPath);
+    }
     if ($returnFile) return $tmp;
 
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
