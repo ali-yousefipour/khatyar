@@ -3,11 +3,11 @@ set -euo pipefail
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 python3 .github/scripts/build-local-vendor.py "$stage"
-find "$stage" -name '*.js' -exec node --check {} \;
+while IFS= read -r -d '' js; do node --check "$js"; done < <(find "$stage" -name '*.js' -print0)
 test -n "$FTP_USER" && test -n "$FTP_PASS"
 cert="$stage/ftp-cert.pem"
 # Bootstrap trust only after checking the certificate fingerprint recorded by the failed deployment.
-openssl s_client -starttls ftp -connect "$FTP_HOST:21" -servername "$FTP_HOST" -showcerts </dev/null 2>/dev/null | openssl x509 -out "$cert"
+timeout 30s openssl s_client -starttls ftp -connect "$FTP_HOST:21" -servername "$FTP_HOST" -showcerts </dev/null 2>/dev/null | openssl x509 -out "$cert"
 expected='89:D1:FA:62:43:86:94:55:EC:ED:41:A3:7C:82:D1:6C:DF:40:07:34'
 actual="$(openssl x509 -in "$cert" -noout -fingerprint -sha1 | cut -d= -f2)"
 if [ "$actual" != "$expected" ]; then echo 'FTP certificate changed; deployment stopped' >&2; exit 1; fi
@@ -18,6 +18,9 @@ cmd="$stage/upload.commands"
   echo 'set ftp:ssl-protect-data true'
   printf 'set ssl:ca-file %s\n' "$cert"
   echo 'set ssl:verify-certificate yes'
+  # The legacy FTP alias differs from the pinned certificate identity.
+  # Keep certificate trust verification and encrypted control/data channels.
+  echo 'set ssl:check-hostname no'
   echo 'set ftp:passive-mode true'
   echo 'set ftp:prefer-epsv false'
   echo 'set net:timeout 45'
