@@ -14645,7 +14645,7 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
     const [file, setFile] = useState(null), [target, setTarget] = useState(""), [title, setTitle] = useState(""), [description, setDescription] = useState(""), [sheet, setSheet] = useState("Sheet1"), [first, setFirst] = useState(3), [last, setLast] = useState(109), [headingCell, setHeadingCell] = useState(""), [headingFormat, setHeadingFormat] = useState("");
     const [columns, setColumns] = useState({ ordinal: "A", location: "B", role: "C", first_name: "E", last_name: "F", personnel_code: "G", friday: "H", holiday: "I", overtime: "J", region: "" });
     const [versions, setVersions] = useState({}), [clock, setClock] = useState(Date.now());
-    const lock = useRef(false), initialized = useRef(false);
+    const lock = useRef(false), initialized = useRef(false), touchDrag = useRef(null);
     const request = async (path = "", method = "GET", body = null, binary = false) => {
         const headers = { ...tok() };
         if (body instanceof FormData) {
@@ -14689,11 +14689,20 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
         mapping.heading = { cell: headingCell.trim().toUpperCase(), format: headingFormat }; const form = new FormData(); form.append("file", file); form.append("mapping", JSON.stringify(mapping)); form.append("title", title); form.append("description", description); await request(target ? "/" + target + "/versions" : "", "POST", form); setFile(null); await refresh(); });
     const patch = (t, change) => action(async () => { await request("/" + t.id, "PUT", { title: t.title, description: t.description || "", enabled: Number(t.enabled) === 1, version_id: Number(t.active_version_id), ...change }); await refresh(); });
     const makeDefault = id => action(async () => { await request("/default", "POST", { template_id: id }); await refresh(); setSelected(id == null ? "" : String(id)); });
-    const startPreview = async () => { if (lock.current || working || !selected)
+    const startPreview = async () => { var _a, _b; if (lock.current || working || !selected)
         return; const id = beginWork("محاسبه و پیش‌نمایش جانمایی نیروها"); if (!id)
         return; lock.current = true; setLoading(true); setError(""); try {
         await new Promise(r => setTimeout(r, 0));
-        const data = await request("/preview?progress_id=" + (id === "local" ? "" : id), "POST", { template_id: Number(selected), year, month, forecast_remaining: forecast, include_surplus: surplus });
+        let data = await request("/preview?progress_id=" + (id === "local" ? "" : id), "POST", { template_id: Number(selected), year, month, forecast_remaining: forecast, include_surplus: surplus, batched: true });
+        while (data.pending) {
+            const token = data.batch_token;
+            try {
+                data = await request("/preview-batch?progress_id=" + (id === "local" ? "" : id), "POST", { batch_token: token });
+            }
+            catch (e) {
+                throw Error("خطا در مرحله محاسبه " + faPlain((_a = data.done) !== null && _a !== void 0 ? _a : 0) + " از " + faPlain((_b = data.total) !== null && _b !== void 0 ? _b : 0) + " نیرو: " + e.message);
+            }
+        }
         setPreview(data);
         setAssignment({ ...data.assignments });
         setClock(Date.now());
@@ -14744,9 +14753,28 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
     const overlay = { position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,36,28,.55)", display: "grid", placeItems: "center", padding: 12 };
     const modal = { background: "var(--card,#fff)", color: "var(--text,#173b32)", width: "min(1100px,100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 18, padding: 18, boxShadow: "0 16px 70px #003b3333", direction: "rtl", fontFamily: "Vazirmatn,Tahoma" };
     const personLabel = p => p ? (p.first_name + " " + p.last_name + " · " + p.personnel_code) : "جایگاه خالی";
-    const drop = (ev, dest) => { ev.preventDefault(); move(ev.dataTransfer.getData("text/plain"), dest); };
+    const drop = (ev, dest) => { ev.preventDefault(); if (!loading)
+        move(ev.dataTransfer.getData("text/plain"), dest); };
+    const touchStart = (ev, person) => { if (loading || ev.pointerType === "mouse")
+        return; ev.preventDefault(); ev.currentTarget.setPointerCapture(ev.pointerId); touchDrag.current = { person: String(person), pointer: ev.pointerId, target: null }; setPicked(String(person)); };
+    const touchMove = ev => { var _a; const d = touchDrag.current; if (!d || d.pointer !== ev.pointerId)
+        return; const at = document.elementFromPoint(ev.clientX, ev.clientY); const target = at === null || at === void 0 ? void 0 : at.closest("[data-kh-slot]"); if (d.target !== target) {
+        (_a = d.target) === null || _a === void 0 ? void 0 : _a.classList.remove("kh-template-target");
+        target === null || target === void 0 ? void 0 : target.classList.add("kh-template-target");
+        d.target = target;
+    } const scroll = at === null || at === void 0 ? void 0 : at.closest("[data-kh-scroll]"); if (scroll) {
+        const bounds = scroll.getBoundingClientRect();
+        if (ev.clientY < bounds.top + 35)
+            scroll.scrollTop -= 18;
+        else if (ev.clientY > bounds.bottom - 35)
+            scroll.scrollTop += 18;
+    } };
+    const touchEnd = (ev, cancel = false) => { var _a, _b, _c; const d = touchDrag.current; if (!d || d.pointer !== ev.pointerId)
+        return; const target = (_a = document.elementFromPoint(ev.clientX, ev.clientY)) === null || _a === void 0 ? void 0 : _a.closest("[data-kh-slot]"); (_b = d.target) === null || _b === void 0 ? void 0 : _b.classList.remove("kh-template-target"); touchDrag.current = null; if (!cancel && target && !loading)
+        move(d.person, (_c = target.dataset.khSlot) !== null && _c !== void 0 ? _c : ""); };
+    const dragHandle = person => React.createElement("button", { type: "button", className: "btn g kh-template-handle", disabled: loading, "aria-label": "\u06AF\u0631\u0641\u062A\u0646 \u0648 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648", draggable: !loading, onDragStart: e => e.dataTransfer.setData("text/plain", String(person)), onPointerDown: e => touchStart(e, person), onPointerMove: touchMove, onPointerUp: e => touchEnd(e), onPointerCancel: e => touchEnd(e, true), onClick: () => setPicked(String(person)) }, "\u2195");
     return React.createElement("div", { dir: "rtl", style: { width: "100%", marginTop: 12, borderTop: "1px solid var(--line,#dce8df)", paddingTop: 12 } },
-        React.createElement("style", null, ".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}"),
+        React.createElement("style", null, ".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}.kh-template-handle{touch-action:none;cursor:grab;user-select:none;min-width:36px}.kh-template-target{outline:2px solid #00856b;outline-offset:-2px;background:#dcefe8!important}"),
         React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "end" } },
             React.createElement("label", null,
                 "\u0642\u0627\u0644\u0628 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F",
@@ -14855,19 +14883,20 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                             s.location,
                             " \u00B7 ",
                             s.role)))),
-                React.createElement("div", { style: { maxHeight: "42vh", overflow: "auto" } },
+                React.createElement("div", { "data-kh-scroll": "1", style: { maxHeight: "42vh", overflow: "auto" } },
                     React.createElement("table", { className: "kh-template-table" },
                         React.createElement("thead", null,
                             React.createElement("tr", null, ["جایگاه", "محل و سمت سازمانی", "نیرو / شماره پرسنلی", "منطقه و سمت نیرو", "جمعه", "تعطیل", "اضافه", "عملیات"].map(v => React.createElement("th", { key: v }, v)))),
-                        React.createElement("tbody", null, slots.filter(s => match(personById.get(String(assignment[s.id])), s)).map(s => { const p = personById.get(String(assignment[s.id])); return React.createElement("tr", { key: s.id, onDragOver: e => e.preventDefault(), onDrop: e => drop(e, String(s.id)) },
+                        React.createElement("tbody", null, slots.filter(s => match(personById.get(String(assignment[s.id])), s)).map(s => { const p = personById.get(String(assignment[s.id])); return React.createElement("tr", { key: s.id, "data-kh-slot": String(s.id), onDragOver: e => e.preventDefault(), onDrop: e => drop(e, String(s.id)) },
                             React.createElement("td", null, faPlain(s.row)),
                             React.createElement("td", null,
                                 s.location,
                                 " \u00B7 ",
                                 s.role),
-                            React.createElement("td", { draggable: !!p && !loading, onDragStart: e => p && e.dataTransfer.setData("text/plain", String(p.id)) },
-                                p ? "↕ " : "",
-                                personLabel(p)),
+                            React.createElement("td", null,
+                                p && dragHandle(p.id),
+                                " ",
+                                React.createElement("button", { type: "button", className: "btn g", disabled: !p || loading, onClick: () => p && setPicked(String(p.id)) }, personLabel(p))),
                             React.createElement("td", null, p && [p.region, p.location, p.role].filter(Boolean).join(" · ")),
                             React.createElement("td", null, p && faPlain(p.friday)),
                             React.createElement("td", null, p && faPlain(p.holiday)),
@@ -14875,9 +14904,11 @@ function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWo
                             React.createElement("td", null,
                                 p && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(p.id, "") }, "\u062D\u0630\u0641 \u062A\u062E\u0635\u06CC\u0635"),
                                 picked && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(picked, String(s.id)) }, "\u062A\u062E\u0635\u06CC\u0635"))); })))),
-                [["نیروهای مازاد", false], ["نیروهای بدون تطبیق", true]].map(([label, flag]) => React.createElement("div", { key: label, className: "kh-template-drop", onDragOver: e => e.preventDefault(), onDrop: e => drop(e, "") },
+                [["نیروهای مازاد", false], ["نیروهای بدون تطبیق", true]].map(([label, flag]) => React.createElement("div", { key: label, "data-kh-slot": "", className: "kh-template-drop", onDragOver: e => e.preventDefault(), onDrop: e => drop(e, "") },
                     React.createElement("strong", null, label),
-                    React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } }, unassigned.filter(p => unmatched.has(String(p.id)) === flag && match(p)).map(p => React.createElement("button", { key: p.id, className: "btn g", draggable: !loading, onDragStart: e => e.dataTransfer.setData("text/plain", String(p.id)), onClick: () => setPicked(String(p.id)) }, personLabel(p)))))),
+                    React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } }, unassigned.filter(p => unmatched.has(String(p.id)) === flag && match(p)).map(p => React.createElement("div", { key: p.id, className: "row", style: { gap: 4 } },
+                        dragHandle(p.id),
+                        React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setPicked(String(p.id)) }, personLabel(p))))))),
                 React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
                     React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setAssignment({ ...preview.assignments }) }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
                     React.createElement("button", { className: "btn p", disabled: loading || working || expires <= 0, onClick: exportFinal }, "\u062A\u0623\u06CC\u06CC\u062F \u0686\u06CC\u0646\u0634 \u0648 \u062F\u0627\u0646\u0644\u0648\u062F Excel"),
