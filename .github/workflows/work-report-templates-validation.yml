@@ -186,6 +186,11 @@ jobs:
           python php/tests/work_report_workbook_compatibility.py fixture workbook-artifacts/fixture.xlsx -
           php php/tests/work_report_template_multisheet_test.php workbook-artifacts/fixture.xlsx workbook-artifacts/export.xlsx
           python php/tests/work_report_workbook_compatibility.py verify workbook-artifacts/fixture.xlsx workbook-artifacts/export.xlsx
+      - name: Test organization template structure
+        run: |
+          python php/tests/work_report_organization_fixture.py fixture workbook-artifacts/organization-fixture.xlsx -
+          php php/tests/work_report_organization_template_test.php workbook-artifacts/organization-fixture.xlsx workbook-artifacts/organization-export.xlsx
+          python php/tests/work_report_organization_fixture.py verify workbook-artifacts/organization-fixture.xlsx workbook-artifacts/organization-export.xlsx
       - uses: actions/upload-artifact@v4
         with:
           name: workbook-compatibility

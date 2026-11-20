@@ -196,7 +196,21 @@ final class WorkReportTemplateExporter {
                 $node->textContent=sprintf('%s$%s$%d:$%s$%d',$m[1],$m[2],(int)$m[3],self::column(max(10,self::col($m[4]))),max($max,(int)$m[5]));
                 $changed=true;
             }
-            if($changed)self::put($zip,'xl/workbook.xml',$book);
+            if(!$changed){
+                $names=$book->getElementsByTagNameNS(self::S,'definedNames')->item(0);
+                if(!$names){
+                    $names=self::element($book,self::S,'definedNames');
+                    $before=null;
+                    foreach($book->documentElement->childNodes as $n)if($n instanceof DOMElement&&in_array($n->localName,['calcPr','oleSize','customWorkbookViews','pivotCaches','smartTagPr','smartTagTypes','webPublishing','fileRecoveryPr','webPublishObjects','extLst'],true)){$before=$n;break;}
+                    $book->documentElement->insertBefore($names,$before);
+                }
+                $name=self::element($book,self::S,'definedName',sprintf("'%s'!\$A\$1:\$%s\$%d",str_replace("'","''",$structure['sheet']),$endCol??'J',$max));
+                $name->setAttribute('name','_xlnm.Print_Area');$name->setAttribute('localSheetId',(string)$sheetIndex);$names->appendChild($name);
+            }
+            // Original formulas remain intact; Excel must recalculate their cached values.
+            $calc=$book->getElementsByTagNameNS(self::S,'calcPr')->item(0);
+            if($calc)$calc->setAttribute('fullCalcOnLoad','1');
+            self::put($zip,'xl/workbook.xml',$book);
             self::notes($zip,$sheet,$path,$replace,$notes,$types);
             self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
             if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;

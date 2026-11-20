@@ -61,11 +61,19 @@ final class WorkReportTemplateParser {
                 foreach(['first_name','last_name','personnel_code','friday','holiday','overtime'] as $key)if(isset($formulas[$columns[$key].$row]))throw new InvalidArgumentException('Formula in personnel slot');
                 $location=$read($columns['location'],$row);$role=$read($columns['role'],$row);
                 if($location===''||$role==='')throw new InvalidArgumentException('Missing group information at row '.$row);
+                $combined=false;
+                foreach($merges as $range){
+                    $left=$columns['location'];$right=$columns['role'];
+                    if(preg_match('/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/D',$range,$cm)&&$cm[1]===$left&&$cm[3]===$right&&$row>=(int)$cm[2]&&$row<=(int)$cm[4]){$combined=true;break;}
+                }
+                // A shared organizational heading is not an independent location and role.
+                // Require manual placement unless explicit metadata can match the group.
+                if($combined)$role='';
                 $rotation='';
                 if(preg_match('/(?:نوبت[\s‌-]*کاری).*?([0-9۰-۹٠-٩]+)\s*[%٪]/u',$role,$match))$rotation=OrganizationWorkPlacement::normalize($match[1]);
                 $region=isset($columns['region'])?$read($columns['region'],$row):'';
                 $group=hash('sha256',json_encode([$region,$location,$role,$rotation],JSON_THROW_ON_ERROR));
-                $slots[]=['id'=>(string)$row,'row'=>$row,'location'=>$location,'role'=>$role,'region'=>$region,'rotation'=>$rotation,'group_id'=>$group];
+                $slots[]=['id'=>(string)$row,'row'=>$row,'location'=>$location,'role'=>$role,'region'=>$region,'rotation'=>$rotation,'combined'=>$combined,'group_id'=>$group];
                 if(!isset($groups[$group]))$groups[$group]=['location'=>$location,'role'=>$role,'region'=>$region,'capacity'=>0];
                 $groups[$group]['capacity']++;
             }
@@ -83,7 +91,9 @@ final class WorkReportTemplateParser {
                     if((int)$hm[2]>=(int)$m[2]&&(int)$hm[2]<=(int)$m[4]&&$ci>=$idx($m[1])&&$ci<=$idx($m[3])&&$heading['cell']!==$m[1].$m[2])throw new InvalidArgumentException('Heading must be merge anchor');
                 }
                 if(!str_contains($heading['format'],'{month_name}')||!str_contains($heading['format'],'{year}'))throw new InvalidArgumentException('Heading requires month and year');
-                $heading=['cell'=>$heading['cell'],'format'=>$heading['format'],'title'=>(string)($heading['title']??$values[$heading['cell']])];
+                $title=(string)($heading['title']??$values[$heading['cell']]);
+                if(!isset($heading['title']))$title=preg_replace('/\s*\(\s*(?:فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند)\s+[0-9۰-۹٠-٩]{4}\s*\)\s*$/u','',$title)??$title;
+                $heading=['cell'=>$heading['cell'],'format'=>$heading['format'],'title'=>$title];
             }
             return ['heading'=>$heading,'sheet'=>$name,'sheet_path'=>$path,'sheet_names'=>$info['sheet_names'],'sha256'=>$info['sha256'],'columns'=>$columns,'slots'=>$slots,'groups'=>array_values($groups),'merges'=>$merges,'formulas'=>$formulas,'defined_names'=>$defined,'print'=>$page];
         }finally{$zip->close();}
