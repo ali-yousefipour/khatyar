@@ -14618,6 +14618,251 @@ function MonthlyMetricDetails({ detail, onClose }) {
                         React.createElement("td", null, metric === "late_in" ? "مهلت: " + fmt(d.late_ok) : metric === "early_out" ? "مهلت: " + fmt(d.early_ok) : metric === "night" ? faPlain(d.night_start + " – " + d.night_end) : "تبدیل مازاد: " + fmt(d.adjusted_ot)),
                         React.createElement("td", { style: { fontWeight: 800 }, dir: "ltr" }, fmt(d.metrics[metric])))))))));
 }
+function WorkTemplateControls({ year, month, forecast, surplus, beginWork, endWork, working, legacyExport }) {
+    const base = API_BASE + "/admin/shift-report/templates";
+    const [catalog, setCatalog] = useState([]), [selected, setSelected] = useState(""), [canManage, setCanManage] = useState(false), [defaultId, setDefaultId] = useState(null);
+    const [manage, setManage] = useState(false), [preview, setPreview] = useState(null), [assignment, setAssignment] = useState({}), [error, setError] = useState(""), [loading, setLoading] = useState(false), [query, setQuery] = useState(""), [picked, setPicked] = useState("");
+    const [file, setFile] = useState(null), [target, setTarget] = useState(""), [title, setTitle] = useState(""), [description, setDescription] = useState(""), [sheet, setSheet] = useState("Sheet1"), [first, setFirst] = useState(3), [last, setLast] = useState(109), [headingCell, setHeadingCell] = useState(""), [headingFormat, setHeadingFormat] = useState("");
+    const [columns, setColumns] = useState({ ordinal: "A", location: "B", role: "C", first_name: "E", last_name: "F", personnel_code: "G", friday: "H", holiday: "I", overtime: "J", region: "" });
+    const [versions, setVersions] = useState({}), [clock, setClock] = useState(Date.now());
+    const lock = useRef(false), initialized = useRef(false);
+    const request = async (path = "", method = "GET", body = null, binary = false) => {
+        const headers = { ...tok() };
+        if (body instanceof FormData) {
+            Object.keys(headers).forEach(k => { if (k.toLowerCase() === "content-type")
+                delete headers[k]; });
+        }
+        else if (body !== null)
+            headers["Content-Type"] = "application/json";
+        const response = await fetch(base + path, { method, headers, body: body === null ? undefined : body instanceof FormData ? body : JSON.stringify(body) });
+        if (!response.ok) {
+            const d = await response.json().catch(() => ({}));
+            throw Error(d.error || d.message || ("خطا در درخواست (HTTP " + response.status + ")"));
+        }
+        if (binary) {
+            const b = await response.blob();
+            if (b.size < 4 || new Uint8Array(await b.slice(0, 4).arrayBuffer()).join(",") !== "80,75,3,4")
+                throw Error("فایل اکسل معتبر نیست");
+            return b;
+        }
+        return response.json();
+    };
+    const download = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
+    const refresh = async () => { var _a; const data = await request(); const list = data.templates || []; setCatalog(list); setCanManage(!!data.can_manage); setDefaultId((_a = data.default_template_id) !== null && _a !== void 0 ? _a : null); setSelected(old => { var _a; const next = !initialized.current ? String((_a = data.default_template_id) !== null && _a !== void 0 ? _a : "") : old; return list.some(t => String(t.id) === next && Number(t.enabled) === 1) ? next : ""; }); initialized.current = true; };
+    useEffect(() => { refresh().catch(() => setError("دریافت قالب‌ها ناموفق بود؛ خروجی داخلی خطیار همچنان قابل استفاده است.")); }, []);
+    useEffect(() => { if (!preview)
+        return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [preview]);
+    const action = async (fn) => { if (lock.current || working)
+        return; lock.current = true; setLoading(true); setError(""); try {
+        await fn();
+    }
+    catch (e) {
+        setError(e.message || "عملیات ناموفق بود");
+    }
+    finally {
+        lock.current = false;
+        setLoading(false);
+    } };
+    const submit = () => action(async () => { if (!file)
+        throw Error("فایل XLSX را انتخاب کنید"); if (!target && !title.trim())
+        throw Error("نام قالب الزامی است"); const mapping = { sheet, first_row: Number(first), last_row: Number(last), columns: Object.fromEntries(Object.entries(columns).filter(([, v]) => v.trim()).map(([k, v]) => [k, v.trim().toUpperCase()])) }; if (headingCell.trim())
+        mapping.heading = { cell: headingCell.trim().toUpperCase(), format: headingFormat }; const form = new FormData(); form.append("file", file); form.append("mapping", JSON.stringify(mapping)); form.append("title", title); form.append("description", description); await request(target ? "/" + target + "/versions" : "", "POST", form); setFile(null); await refresh(); });
+    const patch = (t, change) => action(async () => { await request("/" + t.id, "PUT", { title: t.title, description: t.description || "", enabled: Number(t.enabled) === 1, version_id: Number(t.active_version_id), ...change }); await refresh(); });
+    const makeDefault = id => action(async () => { await request("/default", "POST", { template_id: id }); await refresh(); setSelected(id == null ? "" : String(id)); });
+    const startPreview = async () => { if (lock.current || working || !selected)
+        return; const id = beginWork("محاسبه و پیش‌نمایش جانمایی نیروها"); if (!id)
+        return; lock.current = true; setLoading(true); setError(""); try {
+        await new Promise(r => setTimeout(r, 0));
+        const data = await request("/preview?progress_id=" + (id === "local" ? "" : id), "POST", { template_id: Number(selected), year, month, forecast_remaining: forecast, include_surplus: surplus });
+        setPreview(data);
+        setAssignment({ ...data.assignments });
+        setClock(Date.now());
+        setPicked("");
+        setQuery("");
+        endWork(true);
+    }
+    catch (e) {
+        setError(e.message);
+        endWork();
+    }
+    finally {
+        lock.current = false;
+        setLoading(false);
+    } };
+    const people = (preview === null || preview === void 0 ? void 0 : preview.people) || [], slots = (preview === null || preview === void 0 ? void 0 : preview.slots) || [];
+    const personById = new Map(people.map(p => [String(p.id), p]));
+    const assigned = new Set(Object.values(assignment).filter(v => v != null).map(String));
+    const unassigned = people.filter(p => !assigned.has(String(p.id)));
+    const unmatched = new Set(((preview === null || preview === void 0 ? void 0 : preview.unmatched) || []).map(String));
+    const move = (person, destination) => { if (!personById.has(String(person)))
+        return; setAssignment(old => { const next = { ...old }; const source = Object.keys(next).find(k => String(next[k]) === String(person)); if (destination !== "" && !slots.some(s => String(s.id) === String(destination)))
+        return old; const displaced = destination === "" ? null : next[destination]; if (source !== undefined)
+        next[source] = destination === "" ? null : (displaced !== null && displaced !== void 0 ? displaced : null); if (destination !== "")
+        next[destination] = Number(person); return next; }); setPicked(""); };
+    const expires = preview ? Math.max(0, Math.floor(Number(preview.expires_at) - clock / 1000)) : 0;
+    const exportFinal = async () => { if (lock.current || working || !preview || expires <= 0)
+        return; const id = beginWork("اعتبارسنجی چینش و تولید Excel"); if (!id)
+        return; lock.current = true; setLoading(true); setError(""); try {
+        await new Promise(r => setTimeout(r, 0));
+        const payload = { snapshot_token: preview.snapshot_token, assignments: slots.map(s => ({ slot_id: String(s.id), user_id: assignment[s.id] == null ? null : Number(assignment[s.id]) })) };
+        await request("/validate-placement", "POST", payload);
+        const blob = await request("/export?progress_id=" + (id === "local" ? "" : id), "POST", payload, true);
+        download(blob, "کارکرد-سازمان-" + year + "-" + month + ".xlsx");
+        setPreview(null);
+        endWork(true);
+    }
+    catch (e) {
+        setError(e.message);
+        endWork();
+    }
+    finally {
+        lock.current = false;
+        setLoading(false);
+    } };
+    const match = (p, s) => !query || [p === null || p === void 0 ? void 0 : p.first_name, p === null || p === void 0 ? void 0 : p.last_name, p === null || p === void 0 ? void 0 : p.personnel_code, p === null || p === void 0 ? void 0 : p.region, p === null || p === void 0 ? void 0 : p.location, p === null || p === void 0 ? void 0 : p.role, s === null || s === void 0 ? void 0 : s.location, s === null || s === void 0 ? void 0 : s.role, s === null || s === void 0 ? void 0 : s.region].join(" ").includes(query);
+    const names = { ordinal: "شماره ردیف", region: "منطقه (اختیاری)", location: "محل خدمت", role: "سمت", first_name: "نام", last_name: "نام خانوادگی", personnel_code: "شماره پرسنلی", friday: "جمعه‌کاری", holiday: "تعطیل‌کاری", overtime: "اضافه‌کاری" };
+    const overlay = { position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,36,28,.55)", display: "grid", placeItems: "center", padding: 12 };
+    const modal = { background: "var(--card,#fff)", color: "var(--text,#173b32)", width: "min(1100px,100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 18, padding: 18, boxShadow: "0 16px 70px #003b3333", direction: "rtl", fontFamily: "Vazirmatn,Tahoma" };
+    const personLabel = p => p ? (p.first_name + " " + p.last_name + " · " + p.personnel_code) : "جایگاه خالی";
+    const drop = (ev, dest) => { ev.preventDefault(); move(ev.dataTransfer.getData("text/plain"), dest); };
+    return React.createElement("div", { dir: "rtl", style: { width: "100%", marginTop: 12, borderTop: "1px solid var(--line,#dce8df)", paddingTop: 12 } },
+        React.createElement("style", null, ".kh-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.kh-template-grid label{display:grid;gap:4px}.kh-template-table{width:100%;border-collapse:collapse;font-size:12px}.kh-template-table th,.kh-template-table td{padding:9px;border-bottom:1px solid var(--line,#dce8df);text-align:right}.kh-template-table th{position:sticky;top:0;background:#e7f2eb;color:#17463a;z-index:1}.kh-template-drop{border:1px dashed #83ad9d;border-radius:12px;padding:14px;margin:8px 0;background:var(--card,#fff)}"),
+        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "end" } },
+            React.createElement("label", null,
+                "\u0642\u0627\u0644\u0628 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F",
+                React.createElement("select", { className: "input", value: selected, disabled: loading || working, onChange: e => setSelected(e.target.value) },
+                    React.createElement("option", { value: "" }, "\u0642\u0627\u0644\u0628 \u062F\u0627\u062E\u0644\u06CC \u062E\u0637\u06CC\u0627\u0631"),
+                    catalog.filter(t => Number(t.enabled) === 1).map(t => React.createElement("option", { key: t.id, value: String(t.id) }, t.title)))),
+            canManage && React.createElement("button", { className: "btn g", disabled: working || loading, onClick: () => { setError(""); setManage(true); } }, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0642\u0627\u0644\u0628\u200C\u0647\u0627"),
+            React.createElement("button", { className: "btn p", disabled: working || loading, onClick: selected ? startPreview : legacyExport }, selected ? "محاسبه و پیش‌نمایش جانمایی نیروها" : "تولید فایل اکسل سازمان")),
+        !manage && !preview && error && React.createElement("p", { role: "alert" }, error),
+        manage && React.createElement("div", { style: overlay },
+            React.createElement("section", { role: "dialog", "aria-modal": "true", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0642\u0627\u0644\u0628\u200C\u0647\u0627", style: modal },
+                React.createElement("div", { className: "row", style: { justifyContent: "space-between" } },
+                    React.createElement("h3", null, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0642\u0627\u0644\u0628\u200C\u0647\u0627"),
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setManage(false) }, "\u0628\u0633\u062A\u0646")),
+                error && React.createElement("p", { role: "alert" }, error),
+                React.createElement("button", { className: "btn g", disabled: loading, onClick: () => makeDefault(null) }, "\u0642\u0627\u0644\u0628 \u062F\u0627\u062E\u0644\u06CC \u062E\u0637\u06CC\u0627\u0631 \u0628\u0647\u200C\u0639\u0646\u0648\u0627\u0646 \u067E\u06CC\u0634\u200C\u0641\u0631\u0636"),
+                React.createElement("div", { style: { overflow: "auto", maxHeight: 300 } },
+                    React.createElement("table", { className: "kh-template-table" },
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0639\u0646\u0648\u0627\u0646"),
+                                React.createElement("th", null, "\u0646\u0633\u062E\u0647"),
+                                React.createElement("th", null, "\u0638\u0631\u0641\u06CC\u062A / \u06AF\u0631\u0648\u0647"),
+                                React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                                React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                        React.createElement("tbody", null, catalog.map(t => { var _a, _b; return React.createElement("tr", { key: t.id },
+                            React.createElement("td", null,
+                                t.title,
+                                String(defaultId) === String(t.id) ? " (پیش‌فرض)" : ""),
+                            React.createElement("td", null, faPlain(t.version_no)),
+                            React.createElement("td", null,
+                                faPlain((_a = t.slot_count) !== null && _a !== void 0 ? _a : 0),
+                                " / ",
+                                faPlain((_b = t.group_count) !== null && _b !== void 0 ? _b : 0)),
+                            React.createElement("td", null, Number(t.enabled) === 1 ? "فعال" : "غیرفعال"),
+                            React.createElement("td", null,
+                                React.createElement("div", { className: "row", style: { flexWrap: "wrap", gap: 4 } },
+                                    React.createElement("button", { className: "btn g", disabled: loading || Number(t.enabled) !== 1, onClick: () => makeDefault(Number(t.id)) }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636"),
+                                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => patch(t, { enabled: Number(t.enabled) !== 1 }) }, Number(t.enabled) === 1 ? "غیرفعال" : "فعال"),
+                                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => action(async () => { const v = await request("/" + t.id + "/versions"); setVersions(old => ({ ...old, [t.id]: v.versions || [] })); }) }, "\u0646\u0633\u062E\u0647\u200C\u0647\u0627"),
+                                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => action(async () => download(await request("/" + t.id + "/download", "GET", null, true), "قالب-" + t.id + ".xlsx")) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0627\u0635\u0644")),
+                                versions[t.id] && React.createElement("select", { className: "input", value: String(t.active_version_id), disabled: loading, onChange: e => patch(t, { version_id: Number(e.target.value) }) }, versions[t.id].map(v => React.createElement("option", { key: v.id, value: v.id },
+                                    "\u0646\u0633\u062E\u0647 ",
+                                    faPlain(v.version_no)))))); })))),
+                React.createElement("h4", null, "\u062B\u0628\u062A \u0642\u0627\u0644\u0628 \u06CC\u0627 \u0646\u0633\u062E\u0647 \u062C\u062F\u06CC\u062F"),
+                React.createElement("div", { className: "kh-template-grid" },
+                    React.createElement("label", null,
+                        "\u0646\u0648\u0639 \u062B\u0628\u062A",
+                        React.createElement("select", { className: "input", value: target, onChange: e => setTarget(e.target.value) },
+                            React.createElement("option", { value: "" }, "\u0642\u0627\u0644\u0628 \u062C\u062F\u06CC\u062F"),
+                            catalog.map(t => React.createElement("option", { key: t.id, value: t.id }, t.title)))),
+                    !target && React.createElement(React.Fragment, null,
+                        React.createElement("label", null,
+                            "\u0646\u0627\u0645 \u0642\u0627\u0644\u0628",
+                            React.createElement("input", { className: "input", value: title, onChange: e => setTitle(e.target.value) })),
+                        React.createElement("label", null,
+                            "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A",
+                            React.createElement("input", { className: "input", value: description, onChange: e => setDescription(e.target.value) }))),
+                    React.createElement("label", null,
+                        "\u0646\u0627\u0645 \u0634\u06CC\u062A",
+                        React.createElement("input", { className: "input", value: sheet, onChange: e => setSheet(e.target.value) })),
+                    React.createElement("label", null,
+                        "\u0627\u0648\u0644\u06CC\u0646 \u0631\u062F\u06CC\u0641",
+                        React.createElement("input", { className: "input", type: "number", value: first, onChange: e => setFirst(e.target.value) })),
+                    React.createElement("label", null,
+                        "\u0622\u062E\u0631\u06CC\u0646 \u0631\u062F\u06CC\u0641",
+                        React.createElement("input", { className: "input", type: "number", value: last, onChange: e => setLast(e.target.value) })),
+                    Object.entries(names).map(([key, label]) => React.createElement("label", { key: key },
+                        label,
+                        React.createElement("input", { className: "input", dir: "ltr", maxLength: 3, value: columns[key], onChange: e => setColumns(old => ({ ...old, [key]: e.target.value.toUpperCase() })) }))),
+                    React.createElement("label", null,
+                        "\u0633\u0644\u0648\u0644 \u0633\u0631\u0628\u0631\u06AF (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)",
+                        React.createElement("input", { className: "input", dir: "ltr", value: headingCell, onChange: e => setHeadingCell(e.target.value) })),
+                    React.createElement("label", null,
+                        "\u0641\u0631\u0645\u062A \u0633\u0631\u0628\u0631\u06AF",
+                        React.createElement("input", { className: "input", value: headingFormat, placeholder: "{title} - {month_name} {year}", onChange: e => setHeadingFormat(e.target.value) }))),
+                React.createElement("div", { className: "kh-template-drop", onDragOver: e => e.preventDefault(), onDrop: e => { e.preventDefault(); setFile(e.dataTransfer.files[0] || null); } },
+                    React.createElement("label", null,
+                        "\u0641\u0627\u06CC\u0644 XLSX \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0631\u0647\u0627 \u06A9\u0646\u06CC\u062F",
+                        React.createElement("input", { type: "file", accept: ".xlsx", onChange: e => setFile(e.target.files[0] || null) })),
+                    file && React.createElement("p", null, file.name)),
+                React.createElement("button", { className: "btn p", disabled: loading || !file, onClick: submit }, loading ? "در حال پردازش…" : "ذخیره قالب"))),
+        preview && React.createElement("div", { style: overlay },
+            React.createElement("section", { role: "dialog", "aria-modal": "true", "aria-label": "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC", style: modal },
+                React.createElement("div", { className: "row", style: { justifyContent: "space-between" } },
+                    React.createElement("h3", null, "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setPreview(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641")),
+                error && React.createElement("p", { role: "alert" }, error),
+                React.createElement("p", { "aria-live": "polite" }, expires > 0 ? "اعتبار باقی‌مانده: " + faPlain(expires) + " ثانیه" : "پیش‌نمایش منقضی شده است؛ دوباره محاسبه کنید."),
+                React.createElement("div", { className: "kh-template-grid" }, [["کل نیروها", people.length], ["ظرفیت قالب", slots.length], ["جانمایی‌شده", assigned.size], ["جایگاه خالی", slots.length - assigned.size], ["مازاد", unassigned.filter(p => !unmatched.has(String(p.id))).length], ["بدون تطبیق", unassigned.filter(p => unmatched.has(String(p.id))).length]].map(([label, value]) => React.createElement("div", { key: label, className: "kh-template-drop" },
+                    React.createElement("strong", null, faPlain(value)),
+                    " ",
+                    label))),
+                React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                    React.createElement("input", { className: "input", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0645\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC", value: query, onChange: e => setQuery(e.target.value) }),
+                    React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648 \u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC", value: picked, onChange: e => setPicked(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648"),
+                        people.map(p => React.createElement("option", { key: p.id, value: p.id }, personLabel(p)))),
+                    React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u062C\u0627\u06CC\u06AF\u0627\u0647 \u0645\u0642\u0635\u062F", value: "", disabled: !picked || loading, onChange: e => { if (e.target.value)
+                            move(picked, e.target.value === "unassigned" ? "" : e.target.value); } },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0642\u0635\u062F"),
+                        React.createElement("option", { value: "unassigned" }, "\u062E\u0627\u0631\u062C \u0627\u0632 \u062C\u0627\u06CC\u06AF\u0627\u0647"),
+                        slots.map(s => React.createElement("option", { key: s.id, value: s.id },
+                            faPlain(s.row),
+                            " \u00B7 ",
+                            s.location,
+                            " \u00B7 ",
+                            s.role)))),
+                React.createElement("div", { style: { maxHeight: "42vh", overflow: "auto" } },
+                    React.createElement("table", { className: "kh-template-table" },
+                        React.createElement("thead", null,
+                            React.createElement("tr", null, ["جایگاه", "محل و سمت سازمانی", "نیرو / شماره پرسنلی", "منطقه و سمت نیرو", "جمعه", "تعطیل", "اضافه", "عملیات"].map(v => React.createElement("th", { key: v }, v)))),
+                        React.createElement("tbody", null, slots.filter(s => match(personById.get(String(assignment[s.id])), s)).map(s => { const p = personById.get(String(assignment[s.id])); return React.createElement("tr", { key: s.id, onDragOver: e => e.preventDefault(), onDrop: e => drop(e, String(s.id)) },
+                            React.createElement("td", null, faPlain(s.row)),
+                            React.createElement("td", null,
+                                s.location,
+                                " \u00B7 ",
+                                s.role),
+                            React.createElement("td", { draggable: !!p && !loading, onDragStart: e => p && e.dataTransfer.setData("text/plain", String(p.id)) },
+                                p ? "↕ " : "",
+                                personLabel(p)),
+                            React.createElement("td", null, p && [p.region, p.location, p.role].filter(Boolean).join(" · ")),
+                            React.createElement("td", null, p && faPlain(p.friday)),
+                            React.createElement("td", null, p && faPlain(p.holiday)),
+                            React.createElement("td", null, p && faPlain(p.overtime)),
+                            React.createElement("td", null,
+                                p && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(p.id, "") }, "\u062D\u0630\u0641 \u062A\u062E\u0635\u06CC\u0635"),
+                                picked && React.createElement("button", { className: "btn g", disabled: loading, onClick: () => move(picked, String(s.id)) }, "\u062A\u062E\u0635\u06CC\u0635"))); })))),
+                [["نیروهای مازاد", false], ["نیروهای بدون تطبیق", true]].map(([label, flag]) => React.createElement("div", { key: label, className: "kh-template-drop", onDragOver: e => e.preventDefault(), onDrop: e => drop(e, "") },
+                    React.createElement("strong", null, label),
+                    React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } }, unassigned.filter(p => unmatched.has(String(p.id)) === flag && match(p)).map(p => React.createElement("button", { key: p.id, className: "btn g", draggable: !loading, onDragStart: e => e.dataTransfer.setData("text/plain", String(p.id)), onClick: () => setPicked(String(p.id)) }, personLabel(p)))))),
+                React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                    React.createElement("button", { className: "btn g", disabled: loading, onClick: () => setAssignment({ ...preview.assignments }) }, "\u0628\u0627\u0632\u0646\u0634\u0627\u0646\u06CC \u062C\u0627\u0646\u0645\u0627\u06CC\u06CC"),
+                    React.createElement("button", { className: "btn p", disabled: loading || working || expires <= 0, onClick: exportFinal }, "\u062A\u0623\u06CC\u06CC\u062F \u0686\u06CC\u0646\u0634 \u0648 \u062F\u0627\u0646\u0644\u0648\u062F Excel"),
+                    expires <= 0 && React.createElement("button", { className: "btn g", disabled: loading, onClick: startPreview }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F")))));
+}
 function ShiftReport() {
     var _a, _b;
     const [metricDetail, setMetricDetail] = useState(null);
@@ -14924,7 +15169,7 @@ function ShiftReport() {
                 React.createElement("label", null,
                     React.createElement("input", { type: "checkbox", checked: includeSurplusInOvertime, disabled: !!workProgress, onChange: e => setIncludeSurplusInOvertime(e.target.checked) }),
                     " \u0644\u062D\u0627\u0638 \u0645\u0627\u0632\u0627\u062F \u062D\u0636\u0648\u0631 \u062F\u0631 \u0645\u06CC\u0627\u0646\u06AF\u06CC\u0646 \u0648 \u0645\u062C\u0645\u0648\u0639 \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631"),
-                React.createElement("button", { className: "btn p", disabled: !!workProgress, onClick: exportOrganization }, "\u2913 \u062A\u0648\u0644\u06CC\u062F \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"))) : React.createElement(React.Fragment, null,
+                React.createElement(WorkTemplateControls, { key: periodKey, year: jy, month: jm, forecast: forecastRemaining, surplus: includeSurplusInOvertime, beginWork: beginWork, endWork: endWork, working: !!workProgress, legacyExport: exportOrganization }))) : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0633\u0627\u0644"),
