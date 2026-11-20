@@ -3522,6 +3522,8 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
   $out = [];
   $reportedUsers=[];
+  $progressUsers=count(array_unique(array_column($assigns,'user_id')));
+  $progressMax=(($GLOBALS['kh_work_progress']['mode']??'')==='organization')?55:96;
   $employmentWindows=_work_employment_windows();
   foreach ($assigns as $a) {
     // Several shift assignments can overlap one month; calculate each user only once.
@@ -3529,6 +3531,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
     if ($allowedUserIds !== null && !isset($allowedUserIds[$reportUid])) continue;
     if(isset($reportedUsers[$reportUid]))continue;
     $reportedUsers[$reportUid]=true;
+    _work_progress_tick(5+(int)floor(($progressMax-5)*max(0,count($reportedUsers)-1)/max(1,$progressUsers)),'محاسبه کارکرد نیروها',count($reportedUsers)-1,$progressUsers);
     $employment=$employmentWindows[$reportUid]??[];
     // Select an effective shift within the reporting window, not the first historical assignment.
     $shift=null;
@@ -3645,7 +3648,7 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
     // when all visible daily rows showed 00:00.
     if ($lastDay > 0) {
       try {
-        require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+        require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
         $monthlyTo=$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT);
         $dailyReport=attendance_report_owned_by_entry_date($reportUid,$fromJdate,$monthlyTo,true);
         $dailyTotals=_work_month_daily_attendance_totals($dailyReport,max(0,$lastDay-$firstIncludedDay+1));
@@ -3794,7 +3797,7 @@ function _finalize_work_month($year,$month,$userId){
   if((int)(Db::one("SELECT GET_LOCK(?,0) locked",[$lock])['locked']??0)!==1)Http::error('نهایی‌سازی این ماه در حال اجرا است',409);
   try{
     if(_final_work_month($year,$month))Http::error('این ماه قبلاً نهایی شده است',409);
-    require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+    require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
     $rows=_shift_month_report($year,$month);
     $people=_work_month_people();
     foreach($rows as &$row)$row['organization_person']=$people[(int)$row['user_id']]??[];
@@ -3818,11 +3821,41 @@ route('POST','/api/admin/shift-report/finalization',function($p,$b,$u){
   _monthly_work_report_need($u);
   return _finalize_work_month((int)($b['year']??0),(int)($b['month']??0),(int)($u['id']??0));
 },false,ADMIN);
+// Progress is scoped to the authenticated administrator and an unpredictable operation ID.
+function _work_progress_path($uid,$id){
+  if(!is_string($id)||!preg_match('/^[a-f0-9]{32}$/D',$id))return null;
+  return sys_get_temp_dir().'/khatyar-work-'.hash('sha256',__DIR__.'|'.(int)$uid.'|'.$id).'.json';
+}
+function _work_progress_start($u,$mode){
+  $path=_work_progress_path($u['id'],$_GET['progress_id']??null);
+  if(!$path)return;
+  $GLOBALS['kh_work_progress']=['path'=>$path,'mode'=>$mode];
+  _work_progress_tick(1,'آماده‌سازی اطلاعات');
+  register_shutdown_function(static function()use($path){$v=json_decode((string)@file_get_contents($path),true);if(is_array($v)&&($v['percent']??0)<100){$v['ended']=true;@file_put_contents($path,json_encode($v,JSON_UNESCAPED_UNICODE),LOCK_EX);}});
+}
+function _work_progress_tick($percent,$stage,$done=null,$total=null){
+  $ctx=$GLOBALS['kh_work_progress']??null;if(!$ctx)return;
+  $path=$ctx['path'];$data=['percent'=>(int)$percent,'stage'=>$stage,'done'=>$done,'total'=>$total];
+  $tmp=@tempnam(dirname($path),'khwp-');if(!$tmp)return;
+  @chmod($tmp,0600);
+  if(@file_put_contents($tmp,json_encode($data,JSON_UNESCAPED_UNICODE))!==false)@rename($tmp,$path);
+  if(is_file($tmp))@unlink($tmp);
+}
+route('GET','/api/admin/shift-report/progress',function($p,$b,$u){
+  _monthly_work_report_need($u);header('Cache-Control: no-store');
+  $path=_work_progress_path($u['id'],$_GET['progress_id']??null);
+  if(!$path)Http::error('شناسه عملیات نامعتبر است',422);
+  if(!is_file($path)||filemtime($path)<time()-3600)return ['percent'=>0,'stage'=>'در انتظار شروع پردازش'];
+  return json_decode((string)@file_get_contents($path),true)?:['percent'=>0,'stage'=>'در انتظار شروع پردازش'];
+},false,ADMIN);
 route('GET', '/api/admin/shift-report', function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
-  return ['year'=>$jy,'month'=>$jm,'rows'=>_work_month_rows($jy,$jm)];
+  _work_progress_start($u,'monthly');
+  $rows=_work_month_rows($jy,$jm);
+  _work_progress_tick(100,'محاسبه تکمیل شد');
+  return ['year'=>$jy,'month'=>$jm,'rows'=>$rows];
 }, false, ADMIN);
 
 // بررسی کارکرد در گزارش تردد: از همان موتور ماهانه و snapshot ماه نهایی‌شده استفاده می‌کند.
@@ -4143,7 +4176,7 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   $uid=(int)($_GET['user_id']??0);
   $from=trim($_GET['from']??''); $to=trim($_GET['to']??'');
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
-  require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+  require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
   return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, ADMIN);
 
@@ -4404,6 +4437,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
+  _work_progress_start($u,'organization');
   $final=_final_work_month($jy,$jm);
   $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm));
   $byId=$final?null:_work_month_people();
@@ -4412,6 +4446,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $forecastRequested=($_GET['forecast_remaining']??'1')==='1';
   $includeSurplus=($_GET['include_surplus']??'0')==='1';
   $forecastByUser=[];
+  _work_progress_tick(56,'آماده‌سازی پیش‌بینی');
   if($forecastRequested&&!$final){
     [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
     $todayJ=sprintf('%04d-%02d-%02d',$cy,$cm,$cd);
@@ -4435,12 +4470,15 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
           $leaveByUser[$uid][sprintf('%04d-%02d-%02d',$y,$m,$d)]=true;
         }
       }
+      $forecastDone=0;
       foreach($rows as $r){
+        _work_progress_tick(56+(int)floor(23*$forecastDone/max(1,count($rows))),'محاسبه پیش‌بینی', $forecastDone++,count($rows));
         $uid=(int)($r['user_id']??0);
         if($uid<=0)continue;
         // Build the employee-specific average from actual completed prior workdays,
         // not from a calendar-day denominator or monthly totals containing holiday overtime.
         $priorOvertime=0;$workedDays=0;
+        $forecastBatch=_work_report_attendance_batch($uid,$firstJ,$endJ);
         for($ts=$monthStartTs;$ts<$todayTs;$ts+=86400){
           [$py,$pm,$pd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
           $pj=sprintf('%04d-%02d-%02d',$py,$pm,$pd);
@@ -4448,7 +4486,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
           $dayShift=_active_user_shift_assignment($uid,$pj);
           if(!$dayShift)continue;
           $dr=(($dayShift['type']??'')==='advanced')?_shift_day_row($dayShift['shift_id']??$dayShift['id'],$pj):null;
-          $dayRows=_attendance_rows_for_jdate($uid,$pj,true,false);
+          $dayRows=_attendance_rows_for_jdate($uid,$pj,true,false,$forecastBatch);
           if(!$dayRows)continue; // only the employee's actually worked days
           $sessions=array_map(static fn($a)=>[
             'in'=>strtotime($a['check_in']),
@@ -4483,6 +4521,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     }
   }
 
+  _work_progress_tick(80,'ساخت فایل اکسل');
   $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
   $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
   $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -4491,6 +4530,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $xw->setTextCol(6);
   $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
   $i=0;foreach($rows as $r){
+    _work_progress_tick(80+(int)floor(15*$i/max(1,count($rows))),'درج اطلاعات در اکسل',$i,count($rows));
     $person=_work_organization_person($r,$byId,$daily);
     // Reconcile legacy frozen months only from their immutable daily evidence.
     // Never update the stored snapshot or consult current exemption settings for it.
@@ -4507,7 +4547,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
         $retry=$daily[(int)$r['user_id']]??[];
         $count=ShiftCalc::jMonthDays($jy,$jm);
       }else{
-        require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+        require_once (is_file(__DIR__.'/../app/api/admin-attendance-report-owned.php')?__DIR__.'/../app/api/admin-attendance-report-owned.php':__DIR__.'/../khat-yar.ir/api/admin-attendance-report-owned.php');
         $first=sprintf('%04d-%02d-01',$jy,$jm);
         $last=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
         $yesterday=ShiftCalc::normJdate(_app_jdate_from_time(date('Y-m-d H:i:s',strtotime('yesterday noon'))));
@@ -4534,6 +4574,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     $xw->setComment($row,8,'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.');
     $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'غیبت کسرشده: '.$hm($absence).' ساعت'."\n".'کسورات امنیتی بدون هم‌پوشانی: '.$hm($device).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی پس از سقف: '.$hm($forecastOt).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
   }
+  _work_progress_tick(96,'بسته‌بندی و ارسال فایل اکسل');
   $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
 },false,ADMIN);
 
