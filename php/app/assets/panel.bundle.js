@@ -106,8 +106,7 @@ function _cacheTtlFor(p) {
             return ttl;
     return 0;
 }
-function _invalidateCache() { for (const k in _cache)
-    delete _cache[k]; }
+function _invalidateCache(){_readEpoch++;_pendingReads.clear();for(const k in _cache)delete _cache[k];}
 async function _readJsonResponse(r) {
     const text = await r.text();
     try {
@@ -170,32 +169,33 @@ async function _fetchWithAuth(url, options) {
         return r;
     }
 }
-async function GET(p, opts) {
-    const ttl = (opts && opts.ttl) || _cacheTtlFor(p);
-    const key = p;
-    if (ttl && _cache[key] && (Date.now() - _cache[key].t) < ttl)
-        return _cache[key].v;
-    const controller = opts && opts.timeoutMs ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), opts.timeoutMs) : null;
-    try {
-        const r = await _fetchWithAuth(API_BASE + p, { cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) });
-        const v = await _readJsonResponse(r);
-        if (!r.ok)
-            throw new Error(v.error || v.message || 'خطای سرور');
-        if (ttl)
-            _cache[key] = { t: Date.now(), v };
-        return v;
-    }
-    catch (error) {
-        if (controller && controller.signal.aborted)
-            throw new Error('زمان دریافت موقعیت‌ها پایان یافت؛ دوباره تلاش کنید.');
-        throw error;
-    }
-    finally {
-        if (timer)
-            clearTimeout(timer);
-    }
+const _pendingReads=new Map();
+let _readEpoch=0;
+async function GET(p, opts){
+  const ttl=opts&&Object.prototype.hasOwnProperty.call(opts,'ttl')?opts.ttl:_cacheTtlFor(p);
+  const key=p,token=localStorage.token||'',epoch=_readEpoch;
+  const shared=!!ttl&&!(opts&&opts.timeoutMs);
+  if(ttl&&_cache[key]&&_cache[key].token===token&&Date.now()-_cache[key].t<ttl)return _cache[key].v;
+  const flightKey=epoch+'|'+token+'|'+key;
+  if(shared&&_pendingReads.has(flightKey))return _pendingReads.get(flightKey);
+  const load=async()=>{
+    const controller=opts&&opts.timeoutMs?new AbortController():null;
+    const timer=controller?setTimeout(()=>controller.abort(),opts.timeoutMs):null;
+    try{
+      const r=await _fetchWithAuth(API_BASE+p,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
+      const v=await _readJsonResponse(r);
+      if(!r.ok)throw new Error(v.error||v.message||'خطای سرور');
+      if(ttl&&epoch===_readEpoch&&token===(localStorage.token||''))_cache[key]={t:Date.now(),v,token};
+      return v;
+    }catch(error){if(controller&&controller.signal.aborted)throw new Error('زمان دریافت اطلاعات پایان یافت؛ دوباره تلاش کنید.');throw error;}
+    finally{if(timer)clearTimeout(timer);}
+  };
+  if(!shared)return load();
+  const pending=load();
+  _pendingReads.set(flightKey,pending);
+  try{return await pending;}finally{if(_pendingReads.get(flightKey)===pending)_pendingReads.delete(flightKey);}
 }
+
 async function downloadProtectedFile(path, filename) {
     const r = await fetch(API_BASE + path, { headers: tok(), cache: 'no-store' });
     if (!r.ok) {
@@ -1224,7 +1224,7 @@ function BirthdayCelebration({ bdays }) {
 }
 function Dashboard() {
     const [s, setS] = useState(null);
-    const [tw, setTw] = useState({ top: [], bottom: [] });
+    const [tw, setTw] = useState({ top: [], bottom: [] }); const [workersState,setWorkersState]=useState("idle");
     const [activeTab, setActiveTab] = useState('overview');
     const [bdays, setBdays] = useState(null);
     const [loadErr, setLoadErr] = useState("");
@@ -1234,7 +1234,8 @@ function Dashboard() {
         setLoadErr("");
         db.stats().then(setS).catch(e => setLoadErr(e && e.message ? e.message : "خطا در دریافت اطلاعات داشبورد")).finally(() => setLoading(false));
     };
-    useEffect(() => { loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); db.topWorkers().then(setTw).catch(() => { }); }, []);
+    useEffect(()=>{loadStats();GET("/admin/birthdays-month").then(setBdays).catch(()=>{});},[]);
+    useEffect(()=>{if(!['performance','insights'].includes(activeTab)||workersState!=='idle')return;setWorkersState('loading');db.topWorkers().then(data=>{setTw(data);setWorkersState('ready');}).catch(()=>setWorkersState('error'));},[activeTab,workersState]);
     if (loading && !s)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10 } },
@@ -1268,7 +1269,9 @@ function Dashboard() {
             React.createElement(PersonnelDistributionDashboard, null)),
         activeTab === 'attendance' && React.createElement("div", { id: "dashboard-content-attendance", role: "tabpanel", "aria-labelledby": "dashboard-tab-attendance" },
             React.createElement(LiveStaffDashboard, null)),
-        activeTab === 'performance' && (tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { className: "dashboard-workers", id: "dashboard-content-performance", role: "tabpanel", "aria-labelledby": "dashboard-tab-performance", "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
+        ['performance','insights'].includes(activeTab)&&workersState==='loading'&&React.createElement("p",{role:"status",className:"panel muted"},"در حال دریافت کارایی نیروها…"),
+        ['performance','insights'].includes(activeTab)&&workersState==='error'&&React.createElement("div",{role:"alert",className:"panel"},"دریافت کارایی نیروها ناموفق بود.",React.createElement("button",{className:"btn g",onClick:()=>setWorkersState('idle')},"تلاش مجدد")),
+        activeTab === 'performance' && workersState==='ready' && (tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { className: "dashboard-workers", id: "dashboard-content-performance", role: "tabpanel", "aria-labelledby": "dashboard-tab-performance", "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
             React.createElement("div", { className: "dashboard-section-head" },
                 React.createElement("div", null,
                     React.createElement("span", { className: "dashboard-section-kicker" }, "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0639\u0645\u0644\u06A9\u0631\u062F"),

@@ -70,7 +70,7 @@ function _cacheTtlFor(p){
   for(const [prefix,ttl] of Object.entries(_cacheTTL)) if(p===prefix || p.startsWith(prefix+'?')) return ttl;
   return 0;
 }
-function _invalidateCache(){ for(const k in _cache) delete _cache[k]; }
+function _invalidateCache(){_readEpoch++;_pendingReads.clear();for(const k in _cache)delete _cache[k];}
 async function _readJsonResponse(r){
   const text = await r.text();
   try { return text ? JSON.parse(text) : {}; }
@@ -117,20 +117,31 @@ async function _fetchWithAuth(url, options){
     return await rawFetch(url,{...options,credentials:'same-origin',headers:{...(options&&options.headers||{}),...tok()}});
   }catch(_){return r}
 }
+const _pendingReads=new Map();
+let _readEpoch=0;
 async function GET(p, opts){
-  const ttl = (opts&&opts.ttl) || _cacheTtlFor(p);
-  const key = p;
-  if(ttl && _cache[key] && (Date.now()-_cache[key].t)<ttl) return _cache[key].v;
-  const controller=opts&&opts.timeoutMs?new AbortController():null;
-  const timer=controller?setTimeout(()=>controller.abort(),opts.timeoutMs):null;
-  try{
-    const r = await _fetchWithAuth(API_BASE+p,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
-    const v = await _readJsonResponse(r);
-    if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
-    if(ttl) _cache[key]={t:Date.now(),v};
-    return v;
-  }catch(error){if(controller&&controller.signal.aborted)throw new Error('زمان دریافت موقعیت‌ها پایان یافت؛ دوباره تلاش کنید.');throw error;}
-  finally{if(timer)clearTimeout(timer);}
+  const ttl=opts&&Object.prototype.hasOwnProperty.call(opts,'ttl')?opts.ttl:_cacheTtlFor(p);
+  const key=p,token=localStorage.token||'',epoch=_readEpoch;
+  const shared=!!ttl&&!(opts&&opts.timeoutMs);
+  if(ttl&&_cache[key]&&_cache[key].token===token&&Date.now()-_cache[key].t<ttl)return _cache[key].v;
+  const flightKey=epoch+'|'+token+'|'+key;
+  if(shared&&_pendingReads.has(flightKey))return _pendingReads.get(flightKey);
+  const load=async()=>{
+    const controller=opts&&opts.timeoutMs?new AbortController():null;
+    const timer=controller?setTimeout(()=>controller.abort(),opts.timeoutMs):null;
+    try{
+      const r=await _fetchWithAuth(API_BASE+p,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
+      const v=await _readJsonResponse(r);
+      if(!r.ok)throw new Error(v.error||v.message||'خطای سرور');
+      if(ttl&&epoch===_readEpoch&&token===(localStorage.token||''))_cache[key]={t:Date.now(),v,token};
+      return v;
+    }catch(error){if(controller&&controller.signal.aborted)throw new Error('زمان دریافت اطلاعات پایان یافت؛ دوباره تلاش کنید.');throw error;}
+    finally{if(timer)clearTimeout(timer);}
+  };
+  if(!shared)return load();
+  const pending=load();
+  _pendingReads.set(flightKey,pending);
+  try{return await pending;}finally{if(_pendingReads.get(flightKey)===pending)_pendingReads.delete(flightKey);}
 }
 
 async function downloadProtectedFile(path, filename){
@@ -830,7 +841,7 @@ function BirthdayCelebration({bdays}){
 }
 
 function Dashboard(){
-  const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]});
+  const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]}); const [workersState,setWorkersState]=useState("idle");
   const [activeTab,setActiveTab]=useState('overview');
   const [bdays,setBdays]=useState(null);
   const [loadErr,setLoadErr]=useState("");
@@ -839,7 +850,8 @@ function Dashboard(){
     setLoading(true); setLoadErr("");
     db.stats().then(setS).catch(e=>setLoadErr(e&&e.message?e.message:"خطا در دریافت اطلاعات داشبورد")).finally(()=>setLoading(false));
   };
-  useEffect(()=>{loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(()=>{});db.topWorkers().then(setTw).catch(()=>{})},[]);
+  useEffect(()=>{loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(()=>{});},[]);
+  useEffect(()=>{if(!['performance','insights'].includes(activeTab)||workersState!=='idle')return;setWorkersState('loading');db.topWorkers().then(data=>{setTw(data);setWorkersState('ready');}).catch(()=>setWorkersState('error'));},[activeTab,workersState]);
   if(loading&&!s)return <div className="panel" style={{margin:"14px 0"}}><div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}><span>در حال دریافت اطلاعات داشبورد…</span><span className="muted" style={{fontSize:12}}>لطفاً چند لحظه صبر کنید</span></div></div>;
   if(loadErr&&!s)return <div className="panel" style={{margin:"14px 0",border:"1px solid #f0caca"}}><h3 style={{marginTop:0}}>اطلاعات داشبورد دریافت نشد</h3><p style={{color:"var(--danger)",fontSize:13,lineHeight:1.9}}>{loadErr}</p><button className="btn p" onClick={loadStats}>تلاش مجدد</button></div>;
   if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
@@ -856,7 +868,9 @@ function Dashboard(){
     </section>}
     {activeTab==='personnel'&&<div id="dashboard-content-personnel" role="tabpanel" aria-labelledby="dashboard-tab-personnel"><PersonnelDistributionDashboard/></div>}
     {activeTab==='attendance'&&<div id="dashboard-content-attendance" role="tabpanel" aria-labelledby="dashboard-tab-attendance"><LiveStaffDashboard/></div>}
-    {activeTab==='performance'&&(tw && tw.groups && tw.groups.length>0 ? <section className="dashboard-workers" id="dashboard-content-performance" role="tabpanel" aria-labelledby="dashboard-tab-performance" aria-label="کارایی نیروها">
+    {['performance','insights'].includes(activeTab)&&workersState==='loading'&&<p role="status" className="panel muted">در حال دریافت کارایی نیروها…</p>}
+    {['performance','insights'].includes(activeTab)&&workersState==='error'&&<div role="alert" className="panel">دریافت کارایی نیروها ناموفق بود. <button className="btn g" onClick={()=>setWorkersState('idle')}>تلاش مجدد</button></div>}
+    {activeTab==='performance'&&workersState==='ready'&&(tw && tw.groups && tw.groups.length>0 ? <section className="dashboard-workers" id="dashboard-content-performance" role="tabpanel" aria-labelledby="dashboard-tab-performance" aria-label="کارایی نیروها">
       <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">ارزیابی عملکرد</span><h2>کارایی نیروها به تفکیک سمت</h2></div><span className="dashboard-section-caption">{tw.zone_scope==="own"?"محدوده منطقه شما":"پرکارترین و کم‌کارترین همکاران"}</span></div>
       <div className="grid2 dashboard-worker-grid">
         {tw.groups.map((g,i)=><WorkerGroup key={g.key} title={g.title} data={g} color={GROUP_COLORS[g.key]||"#0d7a5f"}/>)}
