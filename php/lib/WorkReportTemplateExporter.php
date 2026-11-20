@@ -148,6 +148,12 @@ final class WorkReportTemplateExporter {
             $types=WorkReportTemplateArchive::xml($zip,'[Content_Types].xml');
             $data=$sheet->getElementsByTagNameNS(self::S,'sheetData')->item(0);if(!$data)throw new InvalidArgumentException('Missing worksheet data');
             $rows=[];$max=0;foreach($data->getElementsByTagNameNS(self::S,'row') as $row){$n=(int)$row->getAttribute('r');$rows[$n]=$row;$max=max($max,$n);}
+            if(!empty($structure['heading'])){
+                $h=$structure['heading'];$month=(int)($context['month']??0);$year=(int)($context['year']??0);
+                $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+                if($month<1||$month>12||$year<1300||$year>1500||!preg_match('/^([A-Z]{1,3})([1-9][0-9]*)$/D',$h['cell'],$m)||!isset($rows[(int)$m[2]]))throw new InvalidArgumentException('Invalid reporting period heading');
+                self::setCell($sheet,$rows[(int)$m[2]],$m[1],strtr($h['format'],['{title}'=>$h['title'],'{month_name}'=>$months[$month-1],'{year}'=>self::note((string)$year)]));
+            }
             $replace=[];$notes=[];$counts=[];$totals=[7=>0,8=>0,9=>0];$used=[];
             $addTotals=static function(array $r)use(&$totals,&$used){$id=$r['user_id'];if(isset($used[$id]))throw new LogicException('Duplicate output');$used[$id]=true;foreach([7,8,9] as $c)$totals[$c]+=(int)round($r['cells'][$c]*1000000);};
             foreach($structure['slots'] as $slot){
@@ -176,6 +182,46 @@ final class WorkReportTemplateExporter {
             $append(['مجموع کل ساعات',null,null,null,null,null,$totals[7]/1000000,$totals[8]/1000000,$totals[9]/1000000]);
             $dimension=$sheet->getElementsByTagNameNS(self::S,'dimension')->item(0);
             if($dimension){$ref=$dimension->getAttribute('ref');$parts=explode(':',$ref);$last=end($parts);preg_match('/^([A-Z]+)/',$last,$m);$endCol=self::column(max(10,self::col($m[1]??'A')));$dimension->setAttribute('ref',$parts[0].':'.$endCol.$max);}
+            // Extend only the selected sheet's simple rectangular print area.
+            $book=WorkReportTemplateArchive::xml($zip,'xl/workbook.xml');
+            $sheetIndex=null;$idx=0;foreach($book->getElementsByTagNameNS(self::S,'sheet') as $node){if($node->getAttribute('name')===$structure['sheet'])$sheetIndex=$idx;$idx++;}
+            $changed=false;
+            foreach($book->getElementsByTagNameNS(self::S,'definedName') as $node){
+                if($node->getAttribute('name')!=='_xlnm.Print_Area'||!$node->hasAttribute('localSheetId')||(int)$node->getAttribute('localSheetId')!==$sheetIndex)continue;
+                if(!preg_match('/^(.+!)\$([A-Z]+)\$(\d+):\$([A-Z]+)\$(\d+)$/Du',$node->textContent,$m))throw new InvalidArgumentException('Complex print area requires explicit template adjustment');
+                $prefix="'".str_replace("'","''",$structure['sheet'])."'!";
+                if($m[1]!==$prefix&&$m[1]!==$structure['sheet'].'!')throw new InvalidArgumentException('Print area sheet mismatch');
+                $node->textContent=$m[1].'
+            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
+            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
+            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
+        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
+    }
+}
+.$m[2].'
+            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
+            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
+            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
+        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
+    }
+}
+.$m[3].':
+            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
+            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
+            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
+        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
+    }
+}
+.self::column(max(10,self::col($m[4]))).'
+            self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
+            if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;
+            WorkReportTemplateArchive::inspect($tmp);$success=true;return $tmp;
+        }finally{if($open)$zip->close();if(!$success)@unlink($tmp);}
+    }
+}
+.max($max,(int)$m[5]);$changed=true;
+            }
+            if($changed)self::put($zip,'xl/workbook.xml',$book);
             self::notes($zip,$sheet,$path,$replace,$notes,$types);
             self::put($zip,$path,$sheet);self::put($zip,'[Content_Types].xml',$types);
             if(!$zip->close())throw new RuntimeException('Cannot finalize workbook');$open=false;

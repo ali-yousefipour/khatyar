@@ -72,7 +72,20 @@ final class WorkReportTemplateParser {
             if(!$slots)throw new InvalidArgumentException('No personnel slots found');
             $defined=[];foreach($book->getElementsByTagNameNS('*','definedName') as $node)$defined[]=['name'=>$node->getAttribute('name'),'value'=>$node->textContent];
             $page=[];foreach(['pageSetup','pageMargins','printOptions'] as $tag){$n=$doc->getElementsByTagNameNS('*',$tag)->item(0);if($n)$page[$tag]=$doc->saveXML($n);}
-            return ['sheet'=>$name,'sheet_path'=>$path,'sheet_names'=>$info['sheet_names'],'sha256'=>$info['sha256'],'columns'=>$columns,'slots'=>$slots,'groups'=>array_values($groups),'merges'=>$merges,'formulas'=>$formulas,'defined_names'=>$defined,'print'=>$page];
+            $heading=$mapping['heading']??null;
+            if($heading!==null){
+                if(!is_array($heading)||!is_string($heading['cell']??null)||!preg_match('/^([A-Z]{1,3})([1-9][0-9]*)$/D',$heading['cell'],$hm)||!is_string($heading['format']??null)||mb_strlen($heading['format'])>1000)throw new InvalidArgumentException('Invalid heading mapping');
+                $ci=0;foreach(str_split($hm[1]) as $ch)$ci=$ci*26+ord($ch)-64;
+                if($ci>16384||(int)$hm[2]>1048576||(int)$hm[2]>=$start||!array_key_exists($heading['cell'],$values)||isset($formulas[$heading['cell']]))throw new InvalidArgumentException('Invalid heading cell');
+                foreach($merges as $range){
+                    if(!preg_match('/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/D',$range,$m))continue;
+                    $idx=static function($col){$n=0;foreach(str_split($col) as $c)$n=$n*26+ord($c)-64;return $n;};
+                    if((int)$hm[2]>=(int)$m[2]&&(int)$hm[2]<=(int)$m[4]&&$ci>=$idx($m[1])&&$ci<=$idx($m[3])&&$heading['cell']!==$m[1].$m[2])throw new InvalidArgumentException('Heading must be merge anchor');
+                }
+                if(!str_contains($heading['format'],'{month_name}')||!str_contains($heading['format'],'{year}'))throw new InvalidArgumentException('Heading requires month and year');
+                $heading=['cell'=>$heading['cell'],'format'=>$heading['format'],'title'=>(string)($heading['title']??$values[$heading['cell']])];
+            }
+            return ['heading'=>$heading,'sheet'=>$name,'sheet_path'=>$path,'sheet_names'=>$info['sheet_names'],'sha256'=>$info['sha256'],'columns'=>$columns,'slots'=>$slots,'groups'=>array_values($groups),'merges'=>$merges,'formulas'=>$formulas,'defined_names'=>$defined,'print'=>$page];
         }finally{$zip->close();}
     }
 }
