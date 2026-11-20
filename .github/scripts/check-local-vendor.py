@@ -12,3 +12,11 @@ for filename in ['react/react.production.min.js','react/react-dom.production.min
     assert 'vendor/'+filename in panel, filename
 assert panel.index('react/react.production.min.js')<panel.index('react/react-dom.production.min.js')
 print('PASS local runtime references and React dependency order')
+
+# Vendor scripts must execute in document order before the deferred app modules.
+scripts=re.findall(r'<script\b[^>]*>',panel,re.I)
+vendor=[tag for tag in scripts if re.search(r'src="\/?vendor/',tag)]
+assert len(vendor)==6
+assert all(re.search(r'\bdefer\b',tag) and not re.search(r'\basync\b',tag) for tag in vendor)
+assert panel.index('leaflet/leaflet.js')<panel.index('leaflet-draw/leaflet.draw.js')<panel.index('assets/panel.bundle.js')
+print('PASS deferred vendor order')
