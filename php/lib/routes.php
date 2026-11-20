@@ -3211,7 +3211,25 @@ function _auto_shift_for_user($userId){
     'allow_offday'=>1
   ];
 }
-require_once __DIR__.'/WorkReportReadScope.php';
+// Compatible with partially deployed FTP releases. Never break API bootstrap for an optional report optimization.
+if(!class_exists('WorkReportReadScope',false)){
+  if(is_file(__DIR__.'/WorkReportReadScope.php'))require_once __DIR__.'/WorkReportReadScope.php';
+  else {
+    final class WorkReportReadScope {
+      private static int $depth=0;
+      private static array $values=[];
+      public static function run(callable $fn){
+        self::$depth++;
+        try{return $fn();}finally{if(--self::$depth===0)self::$values=[];}
+      }
+      public static function remember(string $key,callable $fn){
+        if(!self::$depth)return $fn();
+        if(!array_key_exists($key,self::$values))self::$values[$key]=$fn();
+        return self::$values[$key];
+      }
+    }
+  }
+}
 function _attendance_adjusted_overtime($userId,$jdate){
   return WorkReportReadScope::remember('ot:'.(int)$userId.':'.str_replace('/','-',$jdate),
     static fn()=>_attendance_adjusted_overtime_uncached($userId,$jdate));

@@ -36,7 +36,11 @@ function attendance_punch_provenance(int $uid,array $ids): array {
   }catch(Throwable $e){error_log('attendance admin provenance unavailable: '.$e->getMessage());}
   return $result;
 }
-require_once dirname(__DIR__,2).'/lib/WorkReportReadScope.php';
+if(!class_exists('WorkReportReadScope',false)){
+  $scopeFile=dirname(__DIR__,2).'/lib/WorkReportReadScope.php';
+  if(is_file($scopeFile))require_once $scopeFile;
+  else require_once dirname(__DIR__,2).'/lib/routes.php';
+}
 function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false, $includeTelemetry=true) {
   if(!function_exists('_attendance_report'))require_once dirname(__DIR__,2).'/lib/routes.php';
   return WorkReportReadScope::run(static fn()=>attendance_report_owned_by_entry_date_impl($userId,$from,$to,$liveOnly,$includeTelemetry));
