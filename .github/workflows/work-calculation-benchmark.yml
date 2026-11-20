@@ -1,0 +1,25 @@
+name: Work calculation benchmark (synthetic fixtures)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'php/tests/work_calculation_benchmark.php'
+      - 'php/lib/ShiftCalc.php'
+      - 'php/lib/routes.php'
+      - '.github/workflows/work-calculation-benchmark.yml'
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check calculation regressions and measure actual helpers
+        run: |
+          set -euo pipefail
+          php php/tests/work_shift_regression_test.php
+          php php/tests/work_month_daily_reconciliation_test.php
+          php php/tests/work_month_overtime_reconciliation_test.php
+          php php/tests/work_calculation_benchmark.php
