@@ -72,7 +72,7 @@ function button(tree, label) { return nodes(tree, node => node.type === 'button'
   assert.equal(nodes(tree,node=>node.type==='select')[0].props.value,5,'period locked during calculation');
   oldMonthly.resolve({ok:true,json:async()=>({rows:[]})}); await monthlyLoad;
   tree = render(); assert.ok(text(tree).includes('100٪'),'completed calculation shows 100 percent');
-  await new Promise(resolve=>setTimeout(resolve,500));
+  await new Promise(resolve=>setTimeout(resolve,800));
   tree=render();
   assert.ok(text(tree).includes('محاسبه کارکرد'), 'newly selected month must explicitly request fresh calculation');
   effects.forEach(cleanup => cleanup?.());

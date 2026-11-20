@@ -14568,23 +14568,55 @@ function ShiftReport() {
     const workLock=useRef(false);
     const progressTimer=useRef(null);
     const progressOp=useRef(null);
+    const paintWork=(data)=>{
+        if(typeof document==="undefined")return;
+        const host=document.getElementById("kh-work-progress");
+        if(!host)return;
+        if(!data){if(host.open)host.close();host.hidden=true;return;}
+        host.hidden=false;
+        host.querySelector("[data-work-title]").textContent=data.title;
+        host.querySelector("[data-work-percent]").textContent=data.percent==null?"—":String(data.percent).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])+"٪";
+        const bar=host.querySelector("progress");
+        if(data.percent==null)bar.removeAttribute("value");else bar.value=data.percent;
+        host.querySelector("[data-work-stage]").textContent=data.stage;
+        host.querySelector("[data-work-count]").textContent=data.total==null?"":(String(data.done??0)+" از "+String(data.total)+" نفر").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
+        if(!host.open){try{host.showModal();}catch(_){host.setAttribute("open","");}}
+    };
+    const progressData=useRef(null);
+    const publishWork=(data)=>{progressData.current=data;paintWork(data);setWorkProgress(data);};
     const beginWork=(title)=>{
         if(workLock.current)return null;
-        const id=Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");
         workLock.current=true;
-        progressOp.current=id;
-        setWorkProgress({title,percent:0,stage:"در انتظار شروع پردازش"});
-        const poll=async()=>{try{
+        publishWork({title,percent:null,stage:"در حال دریافت و محاسبه اطلاعات…"});
+        let id="";
+        try{id=Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");}catch(_){}
+        const op=id||"local";
+        progressOp.current=op;
+        let polling=false;
+        const poll=async()=>{if(polling||progressOp.current!==op)return;polling=true;try{
             const r=await fetch(API_BASE+"/admin/shift-report/progress?progress_id="+id,{headers:tok(),cache:"no-store"});
-            if(!r.ok)return;
+            if(!r.ok)throw Error("progress unavailable");
             const v=await r.json();
-            if(progressOp.current===id)setWorkProgress(old=>old?{...old,...v,percent:Math.max(old.percent,Math.min(99,Number(v.percent)||0))}:old);
-        }catch(_){}};
-        progressTimer.current=setInterval(poll,1000);
-        return id;
+            if(progressOp.current===op&&progressData.current){
+                const old=progressData.current;
+                publishWork({...old,...v,percent:Math.max(old.percent??0,Math.min(99,Number(v.percent)||0))});
+            }
+        }catch(_){if(progressOp.current===op&&progressData.current)publishWork({...progressData.current,stage:"ارتباط با وضعیت پیشرفت برقرار نیست؛ پردازش اصلی ادامه دارد…"});}
+        finally{polling=false;}};
+        if(id)progressTimer.current=setInterval(poll,1000);
+        else publishWork({...progressData.current,stage:"در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست"});
+        return op;
     };
-    const endWork=(success=false)=>{clearInterval(progressTimer.current);const id=progressOp.current; if(!success){progressOp.current=null;workLock.current=false;setWorkProgress(null);return;} setWorkProgress(old=>old?{...old,percent:100,stage:'عملیات تکمیل شد'}:old);setTimeout(()=>{if(progressOp.current===id){progressOp.current=null;workLock.current=false;setWorkProgress(null);}},450);};
-    useEffect(()=>()=>{clearInterval(progressTimer.current);progressOp.current=null;},[]);
+    const endWork=(success=false)=>{
+        clearInterval(progressTimer.current);
+        const id=progressOp.current;
+        progressOp.current=null;
+        if(!id)return;
+        if(!success){workLock.current=false;publishWork(null);return;}
+        publishWork({...progressData.current,percent:100,stage:"عملیات تکمیل شد"});
+        setTimeout(()=>{if(workLock.current&&!progressOp.current){workLock.current=false;publishWork(null);}},750);
+    };
+    useEffect(()=>()=>{clearInterval(progressTimer.current);progressOp.current=null;workLock.current=false;paintWork(null);},[]);
     const finalRequest = useRef(0), finalScope = useRef(""), finalLock = useRef(false);
     const monthlyRequest = useRef(0);
     const periodKey = String(jy) + "-" + jm;
@@ -14644,7 +14676,8 @@ function ShiftReport() {
     const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
     const metricCell = (r, key, value) => React.createElement("button", { type: "button", className: "btn g", style: { font: "inherit", fontWeight: 700, color: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: "3px 6px" }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0628\u0646\u0627 \u0648 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647", onClick: () => setMetricDetail({ row: r, metric: key, year: jy, month: jm }) }, faPlain(hm(value)));
     const run = async () => { const id=beginWork('در حال محاسبه کارکرد نیروها'); if(!id)return; const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
-        const response=await fetch(API_BASE+'/admin/shift-report?year='+year+'&month='+month+'&progress_id='+id,{headers:tok()});
+        await new Promise(resolve=>setTimeout(resolve,0));
+        const response=await fetch(API_BASE+'/admin/shift-report?year='+year+'&month='+month+'&progress_id='+(id==="local"?"":id),{headers:tok()});
         const r=await response.json().catch(()=>({}));
         if(!response.ok)throw Error(r.error||r.message||'خطا در محاسبه کارکرد');
         if(!Array.isArray(r.rows))throw Error('پاسخ گزارش کارکرد معتبر نیست');
@@ -14679,7 +14712,8 @@ function ShiftReport() {
     const [forecastRemaining, setForecastRemaining] = useState(true);
     const [includeSurplusInOvertime, setIncludeSurplusInOvertime] = useState(false);
     const exportOrganization = async () => { const id=beginWork('در حال ساخت فایل اکسل سازمان'); if(!id)return; setReportError(''); try {
-        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id}`, { headers: tok() });
+        await new Promise(resolve=>setTimeout(resolve,0));
+        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id==="local"?"":id}`, { headers: tok() });
         if (!res.ok) {
             const detail=await res.json().catch(()=>({}));
             throw Error(detail.error||detail.message||(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان (HTTP "+res.status+")"));
@@ -14697,11 +14731,11 @@ function ShiftReport() {
         if(progressOp.current===id){setReportError(e.message || "خطا در تولید فایل سازمان");endWork();}
     } };
     return (React.createElement("div", { className: "admin-workspace-page monthly-work-report-page" },
-        workProgress && React.createElement("div",{role:"dialog","aria-modal":true,"aria-label":workProgress.title,style:{position:"fixed",inset:0,zIndex:2147483640,background:"rgba(0,0,0,.55)",display:"grid",placeItems:"center",padding:16}},
+        workProgress && (typeof document==="undefined" || !document.getElementById("kh-work-progress")) && React.createElement("div",{role:"dialog","aria-modal":true,"aria-label":workProgress.title,style:{position:"fixed",inset:0,zIndex:2147483640,background:"rgba(0,0,0,.55)",display:"grid",placeItems:"center",padding:16}},
           React.createElement("div",{style:{width:"min(420px,100%)",background:"var(--card,#fff)",color:"var(--text,#172033)",borderRadius:20,padding:24,textAlign:"center",fontFamily:"Vazirmatn,Tahoma",boxShadow:"0 18px 60px #0005"}},
             React.createElement("h3",null,workProgress.title),
-            React.createElement("strong",{style:{fontSize:34,color:"#0d9272"}},faPlain(workProgress.percent)+"٪"),
-            React.createElement("progress",{max:100,value:workProgress.percent,style:{width:"100%",height:18,accentColor:"#0d9272"}}),
+            React.createElement("strong",{style:{fontSize:34,color:"#0d9272"}},workProgress.percent==null?"—":faPlain(workProgress.percent)+"٪"),
+            React.createElement("progress",{max:100,value:workProgress.percent??undefined,style:{width:"100%",height:18,accentColor:"#0d9272"}}),
             React.createElement("p",{"aria-live":"polite"},workProgress.stage),
             workProgress.total!=null&&React.createElement("p",null,faPlain(workProgress.done)+" از "+faPlain(workProgress.total)+" نفر"))),
         React.createElement("style", null, `.monthly-work-report-page .work-report-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.monthly-work-report-page .work-report-heading h3{margin:0}.monthly-work-report-page .work-report-state{padding:22px;border:1px dashed var(--line);border-radius:14px;text-align:center;background:var(--card,#fff);line-height:1.9;margin-top:12px}.monthly-work-report-page .work-report-state[role=alert]{border:1px solid #e2b7b7;background:#fff5f4;color:#9e2727}.monthly-work-report-page .work-report-table-wrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:12px}.monthly-work-report-page .work-report-table-wrap:focus-visible{outline:3px solid #0d7a5f;outline-offset:2px}.monthly-work-report-page .work-report-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:1580px;width:100%}.monthly-work-report-page .work-report-table th{position:sticky;top:0;z-index:2;background:#edf6f1;white-space:normal;line-height:1.6;border-bottom:2px solid #0d7a5f}.monthly-work-report-page .work-report-table td{white-space:nowrap}.monthly-work-report-page .work-report-table tbody tr:nth-child(even){background:rgba(13,122,95,.035)}.monthly-work-report-page .work-report-table tbody tr:hover{background:rgba(13,122,95,.09)}.monthly-work-report-page .work-report-table th:first-child,.monthly-work-report-page .work-report-table td:first-child{position:sticky;right:0;z-index:1;background:var(--card,#fff);min-width:175px}.monthly-work-report-page .work-report-table th:first-child{z-index:3;background:#edf6f1}.monthly-work-report-page .tabbar{display:flex;overflow-x:auto;gap:6px;padding-bottom:7px;scrollbar-width:thin}.monthly-work-report-page .tabbtn{white-space:nowrap;flex-shrink:0}`),
