@@ -8304,11 +8304,66 @@ function ShiftReport(){
   const [finalStatus,setFinalStatus]=useState(null); const [finalBusy,setFinalBusy]=useState(false); const [statusBusy,setStatusBusy]=useState(false);
   const tj=todayJ();
   const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [rows,setRows]=useState(null); const [busy,setBusy]=useState(false);
+    const [workProgress,setWorkProgress]=useState(null);
+    const workLock=useRef(false);
+    const progressTimer=useRef(null);
+    const progressOp=useRef(null);
+    const reuseReport=useRef(null);
+    const paintWork=(data)=>{
+        if(typeof document==="undefined")return;
+        const host=document.getElementById("kh-work-progress");
+        if(!host)return;
+        if(!data){if(host.open)host.close();host.hidden=true;return;}
+        host.hidden=false;
+        host.querySelector("[data-work-title]").textContent=data.title;
+        host.querySelector("[data-work-percent]").textContent=data.percent==null?"—":String(data.percent).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])+"٪";
+        const bar=host.querySelector("progress");
+        if(data.percent==null)bar.removeAttribute("value");else bar.value=data.percent;
+        host.querySelector("[data-work-stage]").textContent=data.stage;
+        host.querySelector("[data-work-count]").textContent=data.total==null?"":(String(data.done??0)+" از "+String(data.total)+" نفر").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
+        if(!host.open){try{host.showModal();}catch(_){host.setAttribute("open","");}}
+    };
+    const progressData=useRef(null);
+    const publishWork=(data)=>{progressData.current=data;paintWork(data);setWorkProgress(data);};
+    const beginWork=(title)=>{
+        if(workLock.current)return null;
+        workLock.current=true;
+        publishWork({title,percent:null,stage:"در حال دریافت و محاسبه اطلاعات…"});
+        let id="";
+        try{id=Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");}catch(_){}
+        const op=id||"local";
+        progressOp.current=op;
+        let polling=false;
+        const poll=async()=>{if(polling||progressOp.current!==op)return;polling=true;try{
+            const r=await fetch(API_BASE+"/admin/shift-report/progress?progress_id="+id,{headers:tok(),cache:"no-store"});
+            if(!r.ok)throw Error("progress unavailable");
+            const v=await r.json();
+            if(progressOp.current===op&&progressData.current){
+                const old=progressData.current;
+                publishWork({...old,...v,percent:Math.max(old.percent??0,Math.min(99,Number(v.percent)||0))});
+            }
+        }catch(_){if(progressOp.current===op&&progressData.current)publishWork({...progressData.current,stage:"ارتباط با وضعیت پیشرفت برقرار نیست؛ پردازش اصلی ادامه دارد…"});}
+        finally{polling=false;}};
+        if(id)progressTimer.current=setInterval(poll,1000);
+        else publishWork({...progressData.current,stage:"در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست"});
+        return op;
+    };
+    const endWork=(success=false)=>{
+        clearInterval(progressTimer.current);
+        const id=progressOp.current;
+        progressOp.current=null;
+        if(!id)return;
+        if(!success){workLock.current=false;publishWork(null);return;}
+        publishWork({...progressData.current,percent:100,stage:"عملیات تکمیل شد"});
+        setTimeout(()=>{if(workLock.current&&!progressOp.current){workLock.current=false;publishWork(null);}},750);
+    };
+    useEffect(()=>()=>{clearInterval(progressTimer.current);progressOp.current=null;workLock.current=false;paintWork(null);},[]);
+
   const finalRequest=useRef(0),finalScope=useRef(""),finalLock=useRef(false);
   const monthlyRequest=useRef(0);
   const periodKey=String(jy)+"-"+jm; finalScope.current=periodKey;
   useEffect(()=>()=>{finalRequest.current++;monthlyRequest.current++;finalScope.current="";},[]);
-  const selectReportPeriod=(year,month)=>{if(finalLock.current)return;finalRequest.current++;monthlyRequest.current++;finalScope.current=String(year)+"-"+month;setJy(year);setJm(month);setRows(null);setReportError("");setBusy(false);setFinalStatus(null);setStatusBusy(false);};
+  const selectReportPeriod=(year,month)=>{if(finalLock.current||workLock.current)return;finalRequest.current++;monthlyRequest.current++;finalScope.current=String(year)+"-"+month;setJy(year);setJm(month);setRows(null);setReportError("");setBusy(false);setFinalStatus(null);setStatusBusy(false);};
   const loadFinalStatus=async(year=jy,month=jm)=>{
     const scope=String(year)+"-"+month,generation=++finalRequest.current;setStatusBusy(true);
     try{const res=await fetch(API_BASE+"/admin/shift-report/finalization?year="+year+"&month="+month,{headers:tok()});const data=await res.json();if(!res.ok)throw Error(data.error||data.message||"خطا در دریافت وضعیت");if(generation===finalRequest.current&&finalScope.current===scope)setFinalStatus({...data,period:scope});}
@@ -8326,20 +8381,62 @@ function ShiftReport(){
   };
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
   const metricCell=(r,key,value)=><button type="button" className="btn g" style={{font:"inherit",fontWeight:700,color:"inherit",textDecoration:"underline",textUnderlineOffset:3,padding:"3px 6px"}} title="مشاهده مبنا و ریز روزانه" onClick={()=>setMetricDetail({row:r,metric:key,year:jy,month:jm})}>{faPlain(hm(value))}</button>;
-  const run=async()=>{const generation=++monthlyRequest.current;const year=jy,month=jm;setBusy(true);setReportError("");try{const r=await db.shiftReport(year,month);if(generation===monthlyRequest.current)setRows(Array.isArray(r.rows)?r.rows:[]);}catch(e){if(generation===monthlyRequest.current){setRows(null);setReportError(e.message||"دریافت گزارش کارکرد ناموفق بود.");}}finally{if(generation===monthlyRequest.current)setBusy(false);}};
+    const run = async () => { const id=beginWork('در حال محاسبه کارکرد نیروها'); if(!id)return; const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
+        await new Promise(resolve=>setTimeout(resolve,0));
+        const response=await fetch(API_BASE+'/admin/shift-report?year='+year+'&month='+month+'&progress_id='+(id==="local"?"":id),{headers:tok()});
+        const r=await response.json().catch(()=>({}));
+        if(!response.ok)throw Error(r.error||r.message||'خطا در محاسبه کارکرد');
+        if(!Array.isArray(r.rows))throw Error('پاسخ گزارش کارکرد معتبر نیست');
+        if (generation === monthlyRequest.current)
+            setRows(r.rows);
+        reuseReport.current=r.reuse_token?{token:r.reuse_token,year,month,at:Date.now()}:null;
+        endWork(true);
+    }
+    catch (e) {
+        if (generation === monthlyRequest.current) {
+            setRows(null);
+            setReportError(e.message || "دریافت گزارش کارکرد ناموفق بود.");
+            endWork();
+        }
+    }
+    finally {
+        if (generation === monthlyRequest.current)
+            setBusy(false);
+    } };
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`کارکرد_${jy}_${jm}.xlsx`; a.click(); }catch(e){ alert(e.message); } };
   const [forecastRemaining,setForecastRemaining]=useState(true);
   const [includeSurplusInOvertime,setIncludeSurplusInOvertime]=useState(false);
-  const exportOrganization=async()=>{try{const res=await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining?1:0}&include_surplus=${includeSurplusInOvertime?1:0}`,{headers:tok()});if(!res.ok)throw new Error(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان");const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`کارکرد-سازمان-${jy}-${jm}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}catch(e){alert(e.message||"خطا");}};
+    const exportOrganization = async () => { const id=beginWork('در حال ساخت فایل اکسل سازمان'); if(!id)return; setReportError(''); try {
+        await new Promise(resolve=>setTimeout(resolve,0));
+        const reuse=reuseReport.current;
+        const useReuse=!!(reuse&&reuse.year===jy&&reuse.month===jm&&Date.now()-reuse.at<300000&&typeof window!=="undefined"&&window.confirm("از نتیجه کارکرد محاسبه‌شده در پنج دقیقه اخیر استفاده شود؟ اگر اطلاعات تردد یا درخواست‌ها تغییر کرده، لغو را بزنید تا محاسبه تازه انجام شود."));
+        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id==="local"?"":id}&reuse_token=${useReuse?reuse.token:""}`, { headers: tok() });
+        if (!res.ok) {
+            const detail=await res.json().catch(()=>({}));
+            throw Error(detail.error||detail.message||(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان (HTTP "+res.status+")"));
+        }
+        const blob = await res.blob();
+        if(blob.size<4 || new Uint8Array(await blob.slice(0,4).arrayBuffer()).join(",")!=="80,75,3,4")throw Error("فایل دریافت‌شده اکسل معتبر نیست");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `کارکرد-سازمان-${jy}-${jm}.xlsx`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        endWork(true);
+    }
+    catch (e) {
+        if(progressOp.current===id){setReportError(e.message || "خطا در تولید فایل سازمان");endWork();}
+    } };
   return(<div className="admin-workspace-page monthly-work-report-page">
+    {workProgress&&(typeof document==="undefined"||!document.getElementById("kh-work-progress"))&&<div role="dialog" aria-modal="true" aria-label={workProgress.title} style={{position:"fixed",inset:0,zIndex:2147483640,background:"rgba(0,0,0,.55)",display:"grid",placeItems:"center",padding:16}}><div style={{width:"min(420px,100%)",background:"var(--card,#fff)",color:"var(--text,#172033)",borderRadius:20,padding:24,textAlign:"center",fontFamily:"Vazirmatn,Tahoma"}}><h3>{workProgress.title}</h3><strong style={{fontSize:34,color:"#087f5b"}}>{workProgress.percent==null?"—":faPlain(workProgress.percent)+"٪"}</strong><progress max={100} value={workProgress.percent??undefined} style={{width:"100%",accentColor:"#087f5b"}}/><p role="status">{workProgress.stage}</p>{workProgress.total!=null&&<p>{faPlain(workProgress.done??0)} از {faPlain(workProgress.total)} نفر</p>}</div></div>}
     <style>{`.monthly-work-report-page .work-report-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.monthly-work-report-page .work-report-heading h3{margin:0}.monthly-work-report-page .work-report-state{padding:22px;border:1px dashed var(--line);border-radius:14px;text-align:center;background:var(--card,#fff);line-height:1.9;margin-top:12px}.monthly-work-report-page .work-report-state[role=alert]{border:1px solid #e2b7b7;background:#fff5f4;color:#9e2727}.monthly-work-report-page .work-report-table-wrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:12px}.monthly-work-report-page .work-report-table-wrap:focus-visible{outline:3px solid #0d7a5f;outline-offset:2px}.monthly-work-report-page .work-report-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:1580px;width:100%}.monthly-work-report-page .work-report-table th{position:sticky;top:0;z-index:2;background:#edf6f1;white-space:normal;line-height:1.6;border-bottom:2px solid #0d7a5f}.monthly-work-report-page .work-report-table td{white-space:nowrap}.monthly-work-report-page .work-report-table tbody tr:nth-child(even){background:rgba(13,122,95,.035)}.monthly-work-report-page .work-report-table tbody tr:hover{background:rgba(13,122,95,.09)}.monthly-work-report-page .work-report-table th:first-child,.monthly-work-report-page .work-report-table td:first-child{position:sticky;right:0;z-index:1;background:var(--card,#fff);min-width:175px}.monthly-work-report-page .work-report-table th:first-child{z-index:3;background:#edf6f1}.monthly-work-report-page .tabbar{display:flex;overflow-x:auto;gap:6px;padding-bottom:7px;scrollbar-width:thin}.monthly-work-report-page .tabbtn{white-space:nowrap;flex-shrink:0}`}</style>
     <div className="work-report-heading"><div><h3>گزارش‌های کارکرد نیروها</h3><p className="muted" style={{margin:"5px 0 0"}}>محاسبه و بررسی کارکرد، خروجی سازمان و نهایی‌سازی ماهانه</p></div>{rows&&<span className="muted" role="status">{fa(rows.length)} نفر · {J_MONTHS[jm-1]} {fa(jy)}</span>}</div>
-    <div className="tabbar" role="tablist" aria-label="بخش‌های گزارش کارکرد" style={{marginBottom:12}}>{[["monthly","گزارش کارکرد ماهانه"],["organization","تولید گزارش کارکرد برای ارسال به سازمان"],["company-final","فایل نهایی شرکت"],["organization-reconcile","یکسان‌سازی کارکرد با دریافتی سازمان"],["rotation","محاسبه چرخش شیفت نیروها"],["finalize","نهایی کردن کارکرد نیروها"]].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={reportTab===key} className={"tabbtn"+(reportTab===key?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab(key);if(key==="finalize")setFinalStatus(null);}}>{label}</button>)}</div>
-    {reportTab==="organization-reconcile"?<OrganizationWorkReconciliation key={periodKey} year={jy} month={jm} onPeriodChange={selectReportPeriod}/>:reportTab==="company-final"?<CompanyWorkReport key={periodKey} year={jy} month={jm} onPeriodChange={selectReportPeriod}/>:reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
+    <div className="tabbar" role="tablist" aria-label="بخش‌های گزارش کارکرد" style={{marginBottom:12}}>{[["monthly","گزارش کارکرد ماهانه"],["organization","تولید گزارش کارکرد برای ارسال به سازمان"],["company-final","فایل نهایی شرکت"],["organization-reconcile","یکسان‌سازی کارکرد با دریافتی سازمان"],["rotation","محاسبه چرخش شیفت نیروها"],["finalize","نهایی کردن کارکرد نیروها"]].map(([key,label])=><button key={key} type="button" role="tab" aria-selected={reportTab===key} className={"tabbtn"+(reportTab===key?" on":"")} disabled={finalBusy||!!workProgress} onClick={()=>{setReportTab(key);if(key==="finalize")setFinalStatus(null);}}>{label}</button>)}</div>
+    {reportTab==="organization-reconcile"?<OrganizationWorkReconciliation key={periodKey} year={jy} month={jm} onPeriodChange={selectReportPeriod}/>:reportTab==="company-final"?<CompanyWorkReport key={periodKey} year={jy} month={jm} onPeriodChange={selectReportPeriod}/>:reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy||!!workProgress}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel">{reportError&&<div role="alert" className="work-report-state">{reportError}<button className="btn p" onClick={exportOrganization}>تلاش دوباره</button></div>}<h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} disabled={!!workProgress} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} disabled={!!workProgress} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" disabled={!!workProgress} onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-      <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></div>
-      <div><label className="label">ماه</label><select className="input" style={{maxWidth:130}} value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
-      <button className="btn p" disabled={busy} onClick={run}>{busy?"در حال محاسبه…":"محاسبه کارکرد"}</button>
+      <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></div>
+      <div><label className="label">ماه</label><select className="input" style={{maxWidth:130}} value={jm} disabled={finalBusy||!!workProgress} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
+      <button className="btn p" disabled={busy||!!workProgress} onClick={run}>{busy?"در حال محاسبه…":"محاسبه کارکرد"}</button>
       {rows&&rows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>}
       <span className="muted" style={{fontSize:12}}>شیفت شب، اسفند کبیسه، بازه تخصیص، تاخیر و تعجیل خروج در محاسبه لحاظ می‌شود.</span>
     </div>

@@ -3829,6 +3829,31 @@ route('POST','/api/admin/shift-report/finalization',function($p,$b,$u){
   return _finalize_work_month((int)($b['year']??0),(int)($b['month']??0),(int)($u['id']??0));
 },false,ADMIN);
 // Progress is scoped to the authenticated administrator and an unpredictable operation ID.
+function _work_report_reuse_path($uid,$y,$m){
+  return sys_get_temp_dir().'/khatyar-work-reuse-'.hash('sha256',__DIR__.'|'.(int)$uid.'|'.(int)$y.'|'.(int)$m).'.json';
+}
+function _work_report_reuse_save($u,$y,$m,$rows){
+  // Reuse only complete reconciled results, and only on explicit request.
+  foreach($rows as $r)if(!array_key_exists('device_off_union_minutes',$r))return null;
+  try{
+    $token=bin2hex(random_bytes(16));
+    $path=_work_report_reuse_path($u['id'],$y,$m);
+    $tmp=tempnam(dirname($path),'khwork-');
+    if($tmp===false)return null;
+    try{chmod($tmp,0600);$payload=json_encode(['token'=>$token,'at'=>time(),'rows'=>$rows],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+      if(file_put_contents($tmp,$payload)===false||!rename($tmp,$path))return null;
+    }finally{if(is_file($tmp))@unlink($tmp);}
+    return $token;
+  }catch(Throwable $e){error_log('work report reuse unavailable: '.$e->getMessage());return null;}
+}
+function _work_report_reuse_load($u,$y,$m,$token){
+  if(!is_string($token)||!preg_match('/^[a-f0-9]{32}$/D',$token))return null;
+  $path=_work_report_reuse_path($u['id'],$y,$m);
+  if(!is_file($path)||filemtime($path)<time()-300)return null;
+  $v=json_decode((string)@file_get_contents($path),true);
+  if(!is_array($v)||!is_string($v['token']??null)||!hash_equals($v['token'],$token)||($v['at']??0)<time()-300||!is_array($v['rows']??null))return null;
+  return $v['rows'];
+}
 function _work_progress_path($uid,$id){
   if(!is_string($id)||!preg_match('/^[a-f0-9]{32}$/D',$id))return null;
   return sys_get_temp_dir().'/khatyar-work-'.hash('sha256',__DIR__.'|'.(int)$uid.'|'.$id).'.json';
@@ -3864,7 +3889,7 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
   _work_progress_start($u,'monthly');
   $rows=_work_month_rows($jy,$jm);
   _work_progress_tick(100,'محاسبه تکمیل شد');
-  return ['year'=>$jy,'month'=>$jm,'rows'=>$rows];
+  return ['year'=>$jy,'month'=>$jm,'rows'=>$rows,'reuse_token'=>_final_work_month($jy,$jm)?null:_work_report_reuse_save($u,$jy,$jm,$rows)];
 }, false, ADMIN);
 
 // بررسی کارکرد در گزارش تردد: از همان موتور ماهانه و snapshot ماه نهایی‌شده استفاده می‌کند.
@@ -4448,7 +4473,8 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
   _work_progress_start($u,'organization');
   $final=_final_work_month($jy,$jm);
-  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm));
+  $reuse=$final?null:_work_report_reuse_load($u,$jy,$jm,$_GET['reuse_token']??null);
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):($reuse??_shift_month_report($jy,$jm)));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.

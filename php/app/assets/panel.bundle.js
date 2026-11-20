@@ -14568,6 +14568,7 @@ function ShiftReport() {
     const workLock=useRef(false);
     const progressTimer=useRef(null);
     const progressOp=useRef(null);
+    const reuseReport=useRef(null);
     const paintWork=(data)=>{
         if(typeof document==="undefined")return;
         const host=document.getElementById("kh-work-progress");
@@ -14683,6 +14684,7 @@ function ShiftReport() {
         if(!Array.isArray(r.rows))throw Error('پاسخ گزارش کارکرد معتبر نیست');
         if (generation === monthlyRequest.current)
             setRows(r.rows);
+        reuseReport.current=r.reuse_token?{token:r.reuse_token,year,month,at:Date.now()}:null;
         endWork(true);
     }
     catch (e) {
@@ -14713,7 +14715,9 @@ function ShiftReport() {
     const [includeSurplusInOvertime, setIncludeSurplusInOvertime] = useState(false);
     const exportOrganization = async () => { const id=beginWork('در حال ساخت فایل اکسل سازمان'); if(!id)return; setReportError(''); try {
         await new Promise(resolve=>setTimeout(resolve,0));
-        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id==="local"?"":id}`, { headers: tok() });
+        const reuse=reuseReport.current;
+        const useReuse=!!(reuse&&reuse.year===jy&&reuse.month===jm&&Date.now()-reuse.at<300000&&typeof window!=="undefined"&&window.confirm("از نتیجه کارکرد محاسبه‌شده در پنج دقیقه اخیر استفاده شود؟ اگر اطلاعات تردد یا درخواست‌ها تغییر کرده، لغو را بزنید تا محاسبه تازه انجام شود."));
+        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}&progress_id=${id==="local"?"":id}&reuse_token=${useReuse?reuse.token:""}`, { headers: tok() });
         if (!res.ok) {
             const detail=await res.json().catch(()=>({}));
             throw Error(detail.error||detail.message||(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان (HTTP "+res.status+")"));
