@@ -7,6 +7,7 @@ const gate=src('PresenceGate.js');
 const wizard=src('PresenceCheckWizard.js');
 const alarm=src('presenceAlarm.js');
 const camera=src('cameraSession.js');
+const notify=src('notify.js');
 const selfie=src('PersonalPhotoCapture.js');
 const rear=src('VehiclesPhotoCapture.js');
 const native=fs.readFileSync(path.join(__dirname,'../plugins/khatyar-radio-native/PresenceAlarmService.java'),'utf8');
@@ -32,6 +33,10 @@ assert.match(rear,/previewRetryRef\.current < 2/,'rear native preview recovery r
 assert.match(camera,/if \(owner === token\.current\) return/,'camera owner does not poll after acquisition');
 assert.match(camera,/waitForCameraRelease\(timeoutMs=4000\)/,'system camera waits for owner release, not an arbitrary delay');
 assert.match(alarm,/generation !== currentGeneration/,'stale async player must not revive alert');
+assert.match(notify,/bypassDnd:\s*false/,'presence alarm notification must honor Do Not Disturb');
+assert.doesNotMatch(notify,/bypassDnd:\s*true/,'DND-bypass must never be enabled');
+assert.match(notify,/if \(!isPresence\) playSound/,'presence notifications do not create a second foreground player');
+
 assert.match(native,/handler\.postDelayed\(expiry/,'native foreground alarm stops when deadline expires');
 assert.match(native,/USAGE_NOTIFICATION_EVENT/,'native sound honors notification interruption policy');
 assert.match(patch,/putExtra\("presence_deadline", deadlineMs\)/,'notification carries deadline to native service');
