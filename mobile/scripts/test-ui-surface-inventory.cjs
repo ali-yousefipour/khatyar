@@ -48,8 +48,12 @@ for (const relative of files) {
       counts.fontScaleSuppressed.push(relative + ':' + node.loc.start.line);
     }
     if ((tag === 'TouchableOpacity' || tag === 'Pressable') && !hasAttr(node,'accessibilityLabel')) {
-      const visibleText = node.children.some(child => child.type === 'JSXText' && child.value.trim() ||
-        child.type === 'JSXElement' && nameOf(child.openingElement.name) === 'Text');
+      // An icon alongside a nested title is not icon-only; check the complete child tree.
+      let visibleText = false;
+      for (const child of node.children) traverse(child, sub => {
+        if (sub.type === 'JSXElement' && nameOf(sub.openingElement.name) === 'Text') visibleText = true;
+        if (sub.type === 'JSXText' && sub.value.trim()) visibleText = true;
+      });
       const hasIcon = node.children.some(child => child.type === 'JSXElement' &&
         ['MaterialCommunityIcons','Ionicons','Feather','FontAwesome','MaterialIcons'].includes(nameOf(child.openingElement.name)));
       if (hasIcon && !visibleText) counts.iconOnlyControls.push(relative + ':' + node.loc.start.line);
@@ -81,6 +85,7 @@ assert.ok(counts.components >= 22, 'All shared component source files must be in
 assert.ok(counts.modals >= 50, 'Unexpected modal inventory reduction: review renamed or removed modals');
 assert.deepEqual(counts.modalBackMissing, [], 'Every literal JSX Modal must support Android Back');
 assert.deepEqual(counts.modalTextInputCandidates, [], 'Every literal JSX Modal containing a TextInput must contain keyboard avoidance');
+assert.deepEqual(counts.iconOnlyControls, [], 'Icon-only literal actions need accessible labels; nested Text content is recognized');
 console.log('STATIC UI INVENTORY (not a runtime pass):', JSON.stringify({
   screens:counts.screens, components:counts.components, modalTags:counts.modals,
   textInputTags:counts.textInputs, touchableTags:counts.buttons, a11yLabelProps:counts.accessibleLabels,
