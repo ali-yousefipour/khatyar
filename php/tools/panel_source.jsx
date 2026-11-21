@@ -1578,7 +1578,7 @@ function Modal({title,onClose,children,style}){
       const first=focusable[0],last=focusable[focusable.length-1];
       if(!dialog.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus();return;}
       if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog)){e.preventDefault();last.focus();}
-      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+      else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===dialog)){e.preventDefault();first.focus();}
     };
     document.addEventListener("keydown",onKeyDown);
     return()=>{document.removeEventListener("keydown",onKeyDown);if(previous?.isConnected)previous.focus();};
