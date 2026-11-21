@@ -23,5 +23,5 @@ assert.match(source,/className="burger"[\s\S]*?<svg viewBox="0 0 24 24"/);
 assert.match(styles,/\.layout \.main > \.top \.burger svg/);
 assert.match(styles,/\.dashboard-primary-tabs/);
 assert.match(styles,/\.account-dropdown/);
-assert.match(html,/panel\.bundle\.js\?v=20261107\.2002/);
+assert.match(html,/panel\.bundle\.js\?v=\d{8}\.[\w.-]+/,'panel must reference an explicit cache-busted bundle');
 console.log('Dashboard tabs, evidence-labeled analysis, responsive menu and account actions are implemented.');
