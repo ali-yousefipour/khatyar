@@ -20,6 +20,10 @@ assert.doesNotMatch(station, /permItems==null\?true/, 'Missing station permissio
 assert.match(station, /queueIfOffline:false/, 'Station permission must come from live server');
 assert.match(station, /if\(loadError\)return/, 'Failed station setup needs a recoverable error screen');
 
+assert.match(station,/const saveInFlight=useRef\(false\)/,'station save must use synchronous in-flight guard');
+assert.match(station,/if\(saveInFlight\.current\|\|!canNext\)return;saveInFlight\.current=true;setSaving\(true\)/,'rapid station saves must be rejected before React rerenders');
+assert.match(station,/queueIfOffline:false,body:\{station_id:editId\|\|0/,'station save cannot be replayed from generic offline queue');
+assert.match(station,/finally\{saveInFlight\.current=false;setSaving\(false\)\}/,'station save lock must release on success and failure');
 const list = read('ListScreens.js');
 assert.match(list, /function useRemoteRows\(path\)/, 'Historical lists need a common error/retry mechanism');
 assert.equal((list.match(/onRetry=\{retry\}/g) || []).length, 5, 'All five history pages must expose retry');
