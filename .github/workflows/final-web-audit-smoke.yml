@@ -1,0 +1,51 @@
+name: Final web audit - public assets and unauthenticated access
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/final-web-audit-smoke.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify production asset signatures and protected GET routes
+        env:
+          BASE_URL: https://khat-yar.ir
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, time
+          base=os.environ['BASE_URL']
+          def read(path):
+              # HTTP status plus content, without authentication or cookies, read-only.
+              result=subprocess.run(
+                  ['curl','-sS','-L','--max-time','25','-H','Cache-Control: no-cache',
+                   '-w','\nKH_AUDIT_HTTP:%{http_code}',base+path],
+                  capture_output=True,text=True,timeout=30)
+              if result.returncode:
+                  raise RuntimeError('Transport error for '+path+': '+result.stderr[-400:])
+              body,code=result.stdout.rsplit('\nKH_AUDIT_HTTP:',1)
+              return int(code.strip()),body
+          checks=[
+              ('/assets/khatyar-emerald-system.css?v=20261121.audit34','WEB-UX-012'),
+              ('/assets/panel-long-operation-progress.js?v=20261121.dashboard2','KhatyarLongOperation'),
+              ('/assets/work-report-default-placement-ui.js?v=20261121.stage34','KhatyarLongOperation'),
+          ]
+          failed=[]
+          for path,marker in checks:
+              code,body=read(path)
+              ok=code==200 and marker in body and '<html' not in body[:400].lower()
+              print(('PASS' if ok else 'FAIL')+' ASSET '+path+' HTTP '+str(code)+' marker '+str(marker in body))
+              if not ok: failed.append(path)
+          # Protected read endpoints must not return private data to an anonymous client.
+          for path in ['/api/auth/me','/api/admin/users','/api/admin/attendance-report','/api/admin/shift-report/templates']:
+              code,body=read(path)
+              ok=code in (401,403)
+              print(('PASS' if ok else 'FAIL')+' ANON_ACCESS '+path+' HTTP '+str(code))
+              if not ok: failed.append(path+' HTTP '+str(code))
+          if failed:
+              raise SystemExit('Production audit blockers: '+', '.join(failed))
+          PY
