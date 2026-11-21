@@ -24,7 +24,7 @@ assert.ok(!code.includes('stampDivider:'),'large stamp divider was removed');
 assert.match(code,/Location\.reverseGeocodeAsync/,'Android native geocoder');
 assert.match(code,/\/my\/reverse-geocode\?lat=/,'rate-limited server OpenStreetMap road resolver');
 assert.match(code,/\/geo\/reverse\?lat=/,'existing Neshan map road resolver');
-assert.match(code,/Promise\.all\(\[deviceLookup\(\),serverLookup\(\)\]\)/,'independent geocoders run without sequential delay');
+assert.match(code,/Promise\.all\(\[\s*deviceLookup\(\),serverLookup\(\),lastRoad\?Promise\.resolve\(null\):neshanLookup\(\)\s*\]\)/,'all active geocoders run in parallel before metadata timeout');
 assert.match(code,/const resolved=deviceRoad\|\|serverRoad\|\|mapRoad\|\|lastRoad;/,'three sources plus safe local offline cache');
 assert.match(code,/haversine\(lat,lng,Number\(stored.lat\),Number\(stored.lng\)\)<=75/,'offline street cache is spatially bounded');
 assert.match(code,/Date\.now\(\)-Number\(stored.saved_at\)<24\*60\*60\*1000/,'offline street cache has a one-day TTL');
