@@ -19,7 +19,7 @@ const mustReconcile = [
 const start = workflow.indexOf('for rel in app/index.php');
 const end = workflow.indexOf('; do', start);
 assert.ok(start >= 0 && end > start, 'locate forced production reconciliation loop');
-const forced = new Set(workflow.slice(start, end).trim().split(/\\s+/));
+const forced = new Set(workflow.slice(start, end).trim().split(/\s+/));
 for (const file of mustReconcile) {
   assert.ok(forced.has(file), file + ' must be shipped even beyond the rolling 10-commit range');
   assert.ok(fs.existsSync(path.join(root, 'php', file)), file + ' must exist in the deploy source');
