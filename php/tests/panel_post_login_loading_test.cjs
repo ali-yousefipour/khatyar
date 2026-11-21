@@ -21,4 +21,10 @@ assert.match(progress, /\.kh-long-operation-spinner/, 'visual uses the same spin
 assert.match(shell, /panel-long-operation-progress\.js/, 'progress stylesheet loads before React app');
 assert.ok(shell.indexOf('panel-long-operation-progress.js') < shell.indexOf('panel.bundle.js?v='), 'progress script loads first');
 
+assert.match(shell, /id="kh-initial-loader"/, 'first-paint loader remains mounted');
+assert.match(shell, /\.kh-loader-stage\{[^}]*width:min\(420px,100%\)/, 'first-paint card uses unified width');
+assert.match(shell, /class="kh-loader-spinner"/, 'first-paint loader has motion indicator');
+assert.match(shell, /<progress aria-label="پیشرفت راه‌اندازی اولیه"><\\/progress>/, 'first-paint loader uses accessible indeterminate progress');
+assert.match(shell, /@media\(prefers-reduced-motion:reduce\)/, 'animations honor reduced motion');
+assert.match(shell, /#kh-initial-loader\.kh-loader-hide/, 'loader can dismiss after initial render');
 console.log('post-login loading regression contracts passed');
