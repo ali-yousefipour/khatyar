@@ -76,6 +76,11 @@ function harness() {
   assert.match(text(tree), /network failed/); assert.ok(!text(tree).includes('پرسنل آزمایشی'), 'failed request cannot show stale rows');
   test.unmount();
   const source = require('node:fs').readFileSync(path.join(__dirname, '../src/screens/CompanyPayrollHistory.js'), 'utf8');
+  assert.match(source, /<Text allowFontScaling accessibilityRole="header" style=\{styles\.readableTitle\}>نسخه خوانای فیش حقوق<\/Text>/, 'payroll preview needs a scalable, accessible reading section');
+  assert.match(source, /<PayrollAccessSlip slip=\{slip\} width=\{screenWidth - 32\} \/>/, 'fixed A5 export renderer remains unchanged');
+  assert.match(source, /<View accessible accessibilityLabel=\{\x60\$\{label\}/, 'readable payroll fields need full text labels for screen readers');
+  assert.match(source, /readableRow: \{ minHeight: 48, paddingVertical: 9/, 'readable payroll rows need scalable layout');
+  assert.match(source, /در تصویر فیش A5 ذخیره نمی‌شود/, 'reading panel must identify that printed layout is unchanged');
   const saveStart = source.indexOf('  const saveIssuedSlip = async () => {');
   const saveEnd = source.indexOf('\n  return <View', saveStart);
   for (const mode of ['success', 'queued', 'network-error']) {
