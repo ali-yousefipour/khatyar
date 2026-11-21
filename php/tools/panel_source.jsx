@@ -1576,6 +1576,7 @@ function Modal({title,onClose,children,style}){
       const focusable=[...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length);
       if(!focusable.length){e.preventDefault();dialog.focus();return;}
       const first=focusable[0],last=focusable[focusable.length-1];
+      if(!dialog.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus();return;}
       if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog)){e.preventDefault();last.focus();}
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
     };
