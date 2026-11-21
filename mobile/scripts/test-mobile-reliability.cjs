@@ -43,11 +43,44 @@ async function testPermissionRevocation() {
   assert.deepEqual(Array.from(await readAppItems(42)), ['Dashboard']);
 }
 
+
+async function testConcurrentPermissionCacheWrites() {
+  const storage = new Map();
+  let releaseFirstWrite;
+  let writeCount = 0;
+  let fetchCount = 0;
+  const ctx = {
+    AsyncStorage: {
+      getItem: async key => storage.get(key) || null,
+      setItem: async (key, value) => {
+        if (++writeCount === 1) await new Promise(resolve => { releaseFirstWrite = resolve; });
+        storage.set(key, value);
+      },
+      removeItem: async key => { storage.delete(key); },
+    },
+    request: async () => ({ items: [++fetchCount === 1 ? 'OldRole' : 'NewRole'] }),
+  };
+  vm.createContext(ctx);
+  vm.runInContext(permissionsSource.replace(/^import .*;\\s*$/gm, '').replace(/export /g, '') +
+    '\\nthis.api={readAppItems,refreshAppItems,invalidateAppItems};', ctx);
+  const first = ctx.api.refreshAppItems(14);
+  for (let i = 0; i < 10 && !releaseFirstWrite; i++) await Promise.resolve();
+  assert.equal(typeof releaseFirstWrite, 'function');
+  const invalidation = ctx.api.invalidateAppItems(14);
+  const second = ctx.api.refreshAppItems(14);
+  releaseFirstWrite();
+  await assert.rejects(first, /مجوزهای قدیمی/);
+  await invalidation;
+  assert.deepEqual(Array.from(await second), ['NewRole']);
+  assert.deepEqual(Array.from(await ctx.api.readAppItems(14)), ['NewRole']);
+}
+
 (async () => {
   await testPermissionRevocation();
+  await testConcurrentPermissionCacheWrites();
   assert.match(auth, /const me=await request\('\/auth\/me',\{noStore:true,timeoutMs:8000\}\)/);
   assert.match(auth, /await invalidateAppItems\(user\.id\)/);
-  assert.match(permissionsSource, /if \(epoch !== \(epochs\.get\(key\) \|\| 0\)\) return null/);
+  assert.match(permissionsSource, /invalidating\.has\(key\) \|\| epoch !==/);
   assert.match(auth, /resetAccountCaches\(d\.user\?\.id\)/);
   assert.match(auth, /invalidateAppItems\(normalized\.id\)/);
   assert.match(auth, /queueIfOffline:false,forceNetwork:true,timeoutMs:7000/);
