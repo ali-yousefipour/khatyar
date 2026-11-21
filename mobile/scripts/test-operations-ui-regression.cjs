@@ -19,4 +19,10 @@ assert.match(school,/accessibilityLabel="ثبت بازدید و بازرسی ج�
 assert.match(dashboard,/خطای ذخیره ترتیب/);
 assert.match(dashboard,/moveBtn: \{ width: 42, height: 48/);
 assert.match(dashboard,/dragHandle: \{ width: 44, height: 48/);
-console.log('PASS operational screens: outage resilience, school location/access, dashboard order controls');
+const requestScreens=read('RequestScreens.js');
+assert.match(requestScreens,/if \(decisionInFlight\.current\) return;/,'rapid double taps must not submit duplicate decisions');
+assert.match(requestScreens,/decisionInFlight\.current = true;[\s\S]*?finally \{ decisionInFlight\.current = false; setBusy\(0\); \}/,'decision lock must release after both success and error');
+assert.match(requestScreens,/queueIfOffline:false, body: \{ decision, note: note\[id\] \|\| '' \}/,'approval actions must not silently enter offline queue');
+assert.equal((requestScreens.match(/disabled=\{busy!==0\}/g)||[]).length,2,'both decision controls must disable during any approval');
+assert.equal((requestScreens.match(/accessibilityState=\{\{disabled:busy!==0,busy:busy===r\.id\}\}/g)||[]).length,2,'decision controls expose disabled and busy states');
+console.log('PASS operational screens: outage resilience, school location/access, dashboard order controls, serialized request decisions');
