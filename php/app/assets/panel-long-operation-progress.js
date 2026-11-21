@@ -7,7 +7,8 @@
   if (!win || !doc || win.KhatyarLongOperation) return;
   const nativeFetch = win.fetch;
   if (typeof nativeFetch !== 'function') return;
-  const DELAY_MS = 1400;
+  const DELAY_MS = 600;
+  const MAX_WAIT_MS = 180000; // Safety guard if consumers never read a response body.
   const tasks = new Map();
   let seq = 0;
   let host = null;
@@ -35,7 +36,7 @@
     return {
       title: dashboard ? 'در حال بارگذاری داشبورد' : report ? 'در حال تهیه گزارش یا خروجی' : 'در حال دریافت اطلاعات',
       stage: dashboard ? 'در حال دریافت اطلاعات کارت‌ها و تب‌های داشبورد…' : report ? 'لطفاً تا آماده‌شدن نتیجه صبر کنید…' : 'دریافت اطلاعات از سامانه در حال انجام است…',
-      delay: dashboard ? 350 : DELAY_MS
+      delay: dashboard || report ? 0 : DELAY_MS
     };
   }
   function ensureHost() {
@@ -82,13 +83,20 @@
   }
   function begin(details, delay) {
     const id = ++seq;
-    const task = { ...details, started: false, timer: null };
+    const task = { ...details, started: false, timer: null, watchdog: null };
     tasks.set(id, task);
-    task.timer = win.setTimeout(() => {
-      if (!tasks.has(id)) return;
+    const wait = delay == null ? DELAY_MS : Math.max(0, delay);
+    if (wait === 0) {
       task.started = true;
-      paint();
-    }, delay == null ? DELAY_MS : Math.max(0, delay));
+      paint(); // Paint before the network request or expensive React tab render begins.
+    } else {
+      task.timer = win.setTimeout(() => {
+        if (!tasks.has(id)) return;
+        task.started = true;
+        paint();
+      }, wait);
+    }
+    task.watchdog = win.setTimeout(() => end(id), MAX_WAIT_MS);
     return id;
   }
   function update(id, details) {
@@ -101,6 +109,7 @@
     const task = tasks.get(id);
     if (!task) return;
     win.clearTimeout(task.timer);
+    win.clearTimeout(task.watchdog);
     tasks.delete(id);
     paint();
   }
@@ -110,18 +119,50 @@
     end,
     classify
   });
-  win.fetch = function (input, init) {
-    const detail = classify(input, init);
-    if (!detail) return nativeFetch.apply(this, arguments);
-    const id = begin(detail, detail.delay);
-    let request;
-    try { request = nativeFetch.apply(this, arguments); }
-    catch (error) { end(id); throw error; }
-    return Promise.resolve(request).then(
-      result => { end(id); return result; },
-      error => { end(id); throw error; }
-    );
-  };
+  // Most authenticated panel calls intentionally use the pre-captured browser
+  // fetch, bypassing window.fetch. Instrument BOTH entry points without nesting.
+  // Finishing at response headers is too early: tables often take much longer
+  // to receive/parse the response body than to receive its HTTP status.
+  function trackedFetch(native) {
+    return function (input, init) {
+      const detail = classify(input, init);
+      if (!detail) return native.apply(this, arguments);
+      const id = begin(detail, detail.delay);
+      let result;
+      try { result = native.apply(this, arguments); }
+      catch (error) { end(id); throw error; }
+      return Promise.resolve(result).then(response => {
+        if (!response || !response.body || response.status === 204 || response.status === 304) {
+          end(id); return response;
+        }
+        let consumed = false;
+        const methods = ['json', 'text', 'blob', 'arrayBuffer', 'formData'];
+        for (const method of methods) {
+          if (typeof response[method] !== 'function') continue;
+          const original = response[method].bind(response);
+          try {
+            Object.defineProperty(response, method, {
+              configurable: true, value: function () {
+                consumed = true;
+                let value;
+                try { value = original.apply(response, arguments); }
+                catch (error) { end(id); throw error; }
+                return Promise.resolve(value).finally(() => end(id));
+              }
+            });
+          } catch (_) {} // A frozen Response is still usable; watchdog cleans up.
+        }
+        // A caller that inspects only HTTP status must not leave an orphan loader.
+        win.setTimeout(() => { if (!consumed) end(id); }, 1600);
+        return response;
+      }, error => { end(id); throw error; });
+    };
+  }
+  win.fetch = trackedFetch(nativeFetch);
+  const captured = win.__KHATYAR_NATIVE_FETCH__;
+  if (typeof captured === 'function' && captured !== nativeFetch) {
+    win.__KHATYAR_NATIVE_FETCH__ = trackedFetch(captured);
+  }
   // Some older panel modules and libraries use XMLHttpRequest instead of fetch.
   // Observe only duration; do not inspect or modify request/response payloads.
   const XHR = win.XMLHttpRequest;
