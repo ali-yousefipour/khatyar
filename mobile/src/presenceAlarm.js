@@ -10,12 +10,13 @@ let soundObj = null;
 let deadlineTimer = null;
 let alarmActive = false;
 let generation = 0;
+let activeDeadlineMs = 0;
 
 const VIBRATE_PATTERN = [0, 700, 300, 700, 300, 1000];
 async function beginLoopingAlarm(currentGeneration) {
   if (!alarmActive || soundObj) return;
   try {
-    if(await NativeModules?.KhatyarRadio?.startPresenceAlarm?.()){
+    if(await NativeModules?.KhatyarRadio?.startPresenceAlarm?.(activeDeadlineMs||Date.now()+180000)){ 
       if(!alarmActive)NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();
       return;
     }
@@ -33,16 +34,18 @@ async function beginLoopingAlarm(currentGeneration) {
 export async function startPresenceAlarm(deadlineMs) {
   if (Number.isFinite(deadlineMs) && deadlineMs <= Date.now()) { await stopPresenceAlarm(); return; }
   if (alarmActive) return;
+  activeDeadlineMs=Number.isFinite(deadlineMs)?deadlineMs:0;
   alarmActive = true;
   const currentGeneration = ++generation;
   if (deadlineTimer) clearTimeout(deadlineTimer);
-  if (Number.isFinite(deadlineMs)) deadlineTimer = setTimeout(() => { stopPresenceAlarm().catch(() => {}); }, Math.max(0,deadlineMs-Date.now()));
+  if (Number.isFinite(deadlineMs)) deadlineTimer = setTimeout(() => { stopPresenceAlarm({dismissNotifications:true}).catch(() => {}); }, Math.max(0,deadlineMs-Date.now()));
   beginLoopingAlarm(currentGeneration).catch(() => {});
 }
 
 export async function stopPresenceAlarm({dismissNotifications=false}={}) {
   if(dismissNotifications)try{NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();}catch(_){}
   alarmActive = false;
+  activeDeadlineMs = 0;
   ++generation;
   if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
   try { Vibration.cancel(); } catch (e) {}
