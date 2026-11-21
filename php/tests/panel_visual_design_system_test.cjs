@@ -7,7 +7,7 @@ const html=fs.readFileSync(path.join(__dirname,'../app/panel.html'),'utf8');
 const marker=css.indexOf('WEB-UX-010');
 assert.ok(marker>=0,'shared design improvements must exist in canonical emerald stylesheet');
 const layer=css.slice(marker);
-assert.match(html,/khatyar-emerald-system\.css\?v=20261121\.unified1/,'the new style version is cache busted');
+assert.match(html,/khatyar-emerald-system\.css\?v=20261121\.unified2/,'the new style version is cache busted');
 assert.ok(html.indexOf('panel.bundle.css')<html.indexOf('khatyar-emerald-system.css'),'canonical design layer overrides base panel styles');
 for(const key of ['--kh-type-body','--kh-type-caption','--kh-control-height','--kh-text','--kh-border','--kh-focus']){
  assert.ok(layer.includes(key),'design token missing: '+key);
