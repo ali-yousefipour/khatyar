@@ -13,7 +13,10 @@ export default function SignaturePad({ value, onChange, height = 160 }) {
   const mounted = useRef(true);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  useEffect(() => () => { mounted.current = false; captureGeneration.current += 1; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; captureGeneration.current += 1; };
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
