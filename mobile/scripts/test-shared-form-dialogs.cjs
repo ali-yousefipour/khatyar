@@ -15,7 +15,10 @@ assert.match(school,/const submit=async\(\)=>\{if\(submitInFlight\.current\|\|sa
 assert.match(school,/submitInFlight\.current=true;setSaving\(true\);try\{/,'lock must be acquired before async work');
 assert.match(school,/finally\{submitInFlight\.current=false;setSaving\(false\)\}/,'failed submissions must unlock');
 assert.match(school,/queueIfOffline:true/,'school inspection offline queue contract must remain intact');
-assert.match(school,/visible=\{reviewOpen\} transparent animationType="slide" onRequestClose=\{\(\)=>\{if\(!saving\)setReviewOpen\(false\)\}\}/,'hardware Back cannot abandon pending submission');
+assert.match(school,/visible=\{reviewOpen\} transparent animationType="slide" onRequestClose=\{\(\)=>\{if\(!submitInFlight\.current\)setReviewOpen\(false\)\}\}/,'hardware Back cannot abandon pending submission');
+assert.match(school,/<ModalKeyboardView style=\{s\.overlay\}><View style=\{s\.modal\}>\{searchable&&<TextInput allowFontScaling/,'searchable school service modal must avoid keyboard');
+assert.match(school,/keyboardShouldPersistTaps="handled">\{shown\.map/,'selector taps must work with keyboard open');
+assert.match(school,/accessibilityState=\{\{selected:String\(value\)===String\(x\)\}\}/,'school selector announces selected item');
 assert.match(school,/<ScrollView style=\{s\.reviewScroll\} contentContainerStyle=\{s\.reviewContent\}>/,'large review text must scroll');
 assert.match(school,/await loadRecent\(\);setReviewOpen\(false\);/,'only successful save path closes review and resets form');
 
