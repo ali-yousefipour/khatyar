@@ -94,8 +94,9 @@ export default function RadioScreen() {
   const selected = channels.find(c => Number(c.id) === Number(channelId));
   const busy = recording ? false : !!ctxBusy;
   const playbackBusy = !!playingMessageId || playbackLockUntil > Date.now();
-  const pttDisabled = !enabled || !channelId || playbackBusy;
-  const changingDisabled = recording || loading || busy || playbackBusy;
+  const uploading = /تکمیل ضبط|در حال .*ارسال/.test(String(status||''));
+  const pttDisabled = !enabled || !channelId || playbackBusy || uploading;
+  const changingDisabled = recording || uploading || loading || busy || playbackBusy;
   const maxSeconds = Math.max(1, Math.round((maxTalkMs || 25000) / 1000));
   const minSeconds = Math.max(1, Math.ceil((minTalkMs || 1500) / 1000));
   const currentSpeaker = lastMessage?.sender_name || lastMessage?.first_name || lastMessage?.family || '';
