@@ -20,6 +20,8 @@ assert.match(dashboard,/خطای ذخیره ترتیب/);
 assert.match(dashboard,/moveBtn: \{ width: 42, height: 48/);
 assert.match(dashboard,/dragHandle: \{ width: 44, height: 48/);
 const requestScreens=read('RequestScreens.js');
+assert.match(requestScreens,/initial=\{value \|\| null\}/,'Jalali date filter reopens at selected date');
+assert.match(requestScreens,/accessibilityLabel=\{label\} accessibilityHint="انتخاب تاریخ شمسی"/,'date filters announce their purpose');
 assert.match(requestScreens,/if \(decisionInFlight\.current\) return;/,'rapid double taps must not submit duplicate decisions');
 assert.match(requestScreens,/decisionInFlight\.current = true;[\s\S]*?finally \{ decisionInFlight\.current = false; setBusy\(0\); \}/,'decision lock must release after both success and error');
 assert.match(requestScreens,/queueIfOffline:false, body: \{ decision, note: note\[id\] \|\| '' \}/,'approval actions must not silently enter offline queue');
