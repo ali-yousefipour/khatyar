@@ -9,7 +9,17 @@ const labels={pending:'در انتظار بررسی',in_progress:'در حال ب
 const actions={start:'شروع بررسی',note:'ثبت یادداشت',reply:'ثبت پاسخ',escalate:'ارجاع به مسئول واحد',return:'بازگشت برای تکمیل',close:'مختومه کردن'};
 const fa=v=>String(v??'—').replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[+x]);
 const en=v=>String(v).replace(/[۰-۹]/g,x=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).replace(/[٠-٩]/g,x=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)));
-const date=v=>{if(!v)return '—';try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(new Date(String(v).replace(' ','T')+'+03:30'));}catch(_){return fa(v);}};
+const date=v=>{
+ if(!v)return '—';
+ try{
+  const iso=String(v).trim().replace(' ','T');
+  // Timestamps may already include an explicit offset or UTC designator.
+  const hasZone=/[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso);
+  const parsed=new Date(hasZone?iso:iso+'+03:30');
+  if(!Number.isFinite(parsed.getTime()))return fa(v);
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(parsed);
+ }catch(_){return fa(v);}
+};
 const now=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tehran',dateStyle:'short',timeStyle:'medium'}).format(new Date()).replace(' ','T').slice(0,16);
 const fresh=()=>({complainant_type:'parent',first_name:'',last_name:'',phone:'',address:'',school_id:'',company_id:'',subject:'',custom_subject:'',body:'',received_at:now(),school_snapshot:{},company_snapshot:{}});
 const btn=(label,fn,disabled=false,primary=false)=>h('button',{type:'button',className:'btn'+(primary?' p':''),onClick:fn,disabled},label);
@@ -18,7 +28,7 @@ const select=(label,value,onChange,options)=>h('label',{className:'sc-field'},h(
 const errorText=e=>e?.message||'خطا در ارتباط با سرور';
 function Lookup({get,path,label,display,onPick,min=0,initial='',extra='',seed=[]}){
  const [q,setQ]=useState(initial),[rows,setRows]=useState(seed),[err,setErr]=useState(''),[loading,setLoading]=useState(false),[open,setOpen]=useState(false);
- useEffect(()=>{if(!open)return;let live=true;if(q.length<min){setRows([]);return;}setLoading(true);const t=setTimeout(()=>get(base+'/'+path+'?q='+encodeURIComponent(q)+extra).then(v=>{if(live){setRows(Array.isArray(v)?v:[]);setErr('');}}).catch(e=>{if(live){setErr(errorText(e));setRows([]);}}).finally(()=>{if(live)setLoading(false);}),300);return()=>{live=false;clearTimeout(t);};},[q,extra,open,path]);
+ useEffect(()=>{if(!open)return;let live=true;if(q.length<min){setRows([]);setLoading(false);return;}setLoading(true);const t=setTimeout(()=>get(base+'/'+path+'?q='+encodeURIComponent(q)+extra).then(v=>{if(live){setRows(Array.isArray(v)?v:[]);setErr('');}}).catch(e=>{if(live){setErr(errorText(e));setRows([]);}}).finally(()=>{if(live)setLoading(false);}),300);return()=>{live=false;clearTimeout(t);};},[q,extra,open,path]);
  return h('div',{className:'sc-lookup'},field(label,{value:q,onFocus:()=>setOpen(true),onChange:e=>{setQ(e.target.value);setOpen(true);},onKeyDown:e=>{if(e.key==='Escape')setOpen(false);},'aria-expanded':open,'aria-autocomplete':'list',autoComplete:'off'}),open&&h('div',{className:'sc-results'},loading?h('p',null,'در حال جستجو…'):err?h('p',{role:'alert'},err):rows.length?rows.map((x,i)=>h('button',{key:x.id||x.national_code||i,type:'button',onClick:()=>{onPick(x);setQ(display(x));setOpen(false);}},display(x))):h('p',null,'موردی یافت نشد')));
 }
 function Snapshot({value,fields,onChange}){
