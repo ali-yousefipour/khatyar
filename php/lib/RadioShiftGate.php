@@ -20,24 +20,10 @@ function kh_radio_shift_responsible(array $user): bool {
     $level=(int)($user['level']??99);
     return $level>=1 && $level<=4;
 }
-function kh_radio_shift_personal_limit(array $user): bool {
-    if(!kh_radio_shift_responsible($user))return false;
-    $uid=(int)($user['id']??0);
-    if($uid<=0)return false;
-    try {
-        $row=Db::one("SELECT shift_limit_enabled FROM radio_user_settings WHERE user_id=? LIMIT 1",[$uid]);
-        return $row!==null && !empty($row['shift_limit_enabled']);
-    }catch(Throwable $e){
-        // When the legacy table has not yet been migrated, keep management
-        // staff's former exemption until their feature is initialized.
-        error_log('Radio personal shift limit unavailable: '.$e->getMessage());
-        return false;
-    }
-}
 function kh_radio_shift_restricted(array $user): bool {
-    return kh_radio_shift_responsible($user)
-        ? kh_radio_shift_personal_limit($user)
-        : kh_radio_shift_enabled();
+    // Levels 1–4 are operators of the global rule, not subjects of a
+    // separate per-user restriction. The global site checkbox covers 5–9.
+    return !kh_radio_shift_responsible($user) && kh_radio_shift_enabled();
 }
 function kh_radio_shift_started_at(array $user): ?string {
     $uid=(int)($user['id']??0);
