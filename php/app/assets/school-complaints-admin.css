@@ -124,3 +124,12 @@
  .sc-module .sc-review>.sc-card{border-inline-start:1px solid #999}
 }
 @media(prefers-reduced-motion:reduce){.sc-module .sc-metric{transition:none;transform:none!important}}
+
+/* QR remains local and print-ready; receipt carries only the tracking identifier. */
+.sc-module .sc-qr{display:grid;place-items:center;max-width:100%;padding:12px;background:#fff;border:1px solid #d8e9df;border-radius:14px;width:max-content;margin-inline:auto}
+.sc-module .sc-qr svg{display:block;width:min(180px,45vw);height:auto;aspect-ratio:1}
+.sc-module .sc-case-qr{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:16px 0;padding:14px;border:1px solid var(--sc-border);border-radius:14px;background:var(--sc-soft)}
+.sc-module .sc-case-qr .sc-qr{margin:0}
+.sc-module .sc-case-qr .sc-code{display:inline-block;margin:0}
+@media screen and (max-width:600px){.sc-module .sc-case-qr{flex-direction:column;align-items:stretch;text-align:center}.sc-module .sc-case-qr .sc-qr{margin-inline:auto}}
+@media print{.sc-module .sc-case-qr{display:flex;flex-direction:row;break-inside:avoid}.sc-module .sc-qr{border-color:#bbb}.sc-module .sc-qr svg{width:135px}}
