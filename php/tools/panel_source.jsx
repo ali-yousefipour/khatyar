@@ -1571,6 +1571,9 @@ function Modal({title,onClose,children,style}){
     const dialog=dialogRef.current;
     dialog?.focus();
     const onKeyDown=e=>{
+      // Only the frontmost dialog handles keyboard events when multiple modals are stacked.
+      const dialogs=typeof document.querySelectorAll==='function'?[...document.querySelectorAll('.modal-bg [role="dialog"]')]:[];
+      if(dialogs.length&&dialogs[dialogs.length-1]!==dialog)return;
       if(e.key==="Escape"){e.preventDefault();closeRef.current();return;}
       if(e.key!=="Tab"||!dialog)return;
       const focusable=[...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length);
