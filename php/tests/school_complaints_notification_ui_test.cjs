@@ -15,7 +15,7 @@ const flatten=(node)=>Array.isArray(node)?node.flatMap(flatten):node&&typeof nod
 const render=()=>flatten(ctx.NotificationSettings({value,onChange:v=>{value=v;}}));
 let nodes=render();
 let boxes=nodes.filter(x=>x.type==='input'&&x.props.type==='checkbox');
-assert.equal(boxes.length,6*4*2,'each stage has four audiences and two independent delivery channels');
+assert.equal(boxes.length,6*5*2,'each stage has five audiences and two independent delivery channels');
 assert.ok(boxes.every(x=>x.props.checked===false),'all delivery rules must default to OFF');
 const chosen=boxes.find(x=>x.props['aria-label']==='ثبت اولیه شکایت، شاکی، پیامک نگین');
 assert.ok(chosen,'explicit per-channel accessible name');
