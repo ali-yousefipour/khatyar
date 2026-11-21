@@ -22,7 +22,7 @@ function SpinnerColumn({ label, icon, value, length, onChange }) {
         <Text style={styles.columnTitleText} allowFontScaling={false}>{label}</Text>
       </View>
       <View style={styles.wheel}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={'افزایش ' + label} onPress={() => change(1)} style={styles.arrow}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={'کاهش ' + label} onPress={() => change(-1)} style={styles.arrow}>
           <MaterialCommunityIcons name="chevron-up" size={25} color={C.slate} />
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={label + ' ' + fa(two(wrap(value - 1, length)))} onPress={() => change(-1)} style={styles.neighbor}>
@@ -34,7 +34,7 @@ function SpinnerColumn({ label, icon, value, length, onChange }) {
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={label + ' ' + fa(two(wrap(value + 1, length)))} onPress={() => change(1)} style={styles.neighbor}>
           <Text style={styles.neighborText} allowFontScaling={false}>{fa(two(wrap(value + 1, length)))}</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={'کاهش ' + label} onPress={() => change(-1)} style={styles.arrow}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={'افزایش ' + label} onPress={() => change(1)} style={styles.arrow}>
           <MaterialCommunityIcons name="chevron-down" size={25} color={C.slate} />
         </TouchableOpacity>
       </View>
