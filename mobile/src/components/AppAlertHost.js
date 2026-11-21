@@ -2,6 +2,7 @@ import React,{useEffect,useState,useRef} from 'react';
 import {Alert,Modal,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import {MaterialCommunityIcons} from '@expo/vector-icons';
 import {C,FONT} from '../theme';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const nativeAlert=Alert.alert.bind(Alert);
 const category=title=>/خطا|ناموفق|مشکل|مسدود|مجاز نیست|اشتباه|نامعتبر/.test(title)?'error':/حذف|لغو|خروج|پاک|رد|هشدار|اخطار/.test(title)?'warning':/موفق|ثبت شد|انجام شد|ذخیره شد|تأیید شد/.test(title)?'success':'info';
@@ -10,6 +11,7 @@ const TYPES={error:{icon:'alert-circle-outline',tint:'#b42335',background:'#fff0
 // Keep the existing Alert.alert(title, message, buttons, options) contract for
 // confirmation prompts throughout the app, including destructive actions.
 export default function AppAlertHost(){
+  const insets=useSafeAreaInsets();
   const[current,setCurrent]=useState(null);
   const queue=useRef([]);
   useEffect(()=>{
@@ -32,17 +34,17 @@ export default function AppAlertHost(){
   const dismissible=current?.options?.cancelable!==false;
   const style=TYPES[category(current?.title||'')];
   return <Modal visible={!!current} transparent animationType="fade" statusBarTranslucent onRequestClose={()=>{if(dismissible)dismiss()}}>
-    <View style={s.backdrop}><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن پیام" activeOpacity={1} style={StyleSheet.absoluteFill} onPress={()=>{if(dismissible)dismiss()}} disabled={!dismissible}/>
+    <View style={[s.backdrop,{paddingTop:Math.max(20,insets.top+12),paddingBottom:Math.max(20,insets.bottom+12)}]}><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن پیام" activeOpacity={1} style={StyleSheet.absoluteFill} onPress={()=>{if(dismissible)dismiss()}} disabled={!dismissible}/>
       <View style={s.card} accessibilityViewIsModal accessibilityRole="alert">
         <View style={[s.iconCircle,{backgroundColor:style.background}]}><MaterialCommunityIcons name={style.icon} size={30} color={style.tint}/></View>
-        <Text style={s.title}>{current?.title||'پیام خطیار'}</Text>
-        {current?.message?<ScrollView style={s.messageScroll} contentContainerStyle={s.messageContent}><Text style={s.message}>{current.message}</Text></ScrollView>:null}
-        <View style={s.actions}>{(current?.buttons||[]).map((button,index)=>{
+        <Text allowFontScaling accessibilityRole="header" style={s.title}>{current?.title||'پیام خطیار'}</Text>
+        {current?.message?<ScrollView style={s.messageScroll} contentContainerStyle={s.messageContent} nestedScrollEnabled><Text allowFontScaling style={s.message}>{current.message}</Text></ScrollView>:null}
+        <ScrollView style={s.actionsScroll} contentContainerStyle={s.actionsContent} nestedScrollEnabled><View style={s.actions}>{(current?.buttons||[]).map((button,index)=>{
           const cancel=button.style==='cancel';const destructive=button.style==='destructive';
-          return <TouchableOpacity key={index} accessibilityRole="button" style={[s.button,cancel?s.secondary:destructive?s.destructive:s.primary]} activeOpacity={0.8} onPress={()=>dismiss(button)}><Text style={[s.buttonText,cancel&&s.secondaryText]}>{button.text||'تأیید'}</Text></TouchableOpacity>;
-        })}</View>
+          return <TouchableOpacity key={index} accessibilityRole="button" style={[s.button,cancel?s.secondary:destructive?s.destructive:s.primary]} activeOpacity={0.8} onPress={()=>dismiss(button)}><Text allowFontScaling style={[s.buttonText,cancel&&s.secondaryText]}>{button.text||'تأیید'}</Text></TouchableOpacity>;
+        })}</View></ScrollView>
       </View>
     </View>
   </Modal>;
 }
-const s=StyleSheet.create({backdrop:{flex:1,backgroundColor:'rgba(11,27,46,.64)',justifyContent:'center',alignItems:'center',padding:20},card:{width:'100%',maxWidth:420,backgroundColor:'#fff',borderRadius:24,padding:22,alignItems:'center',elevation:12},iconCircle:{width:64,height:64,borderRadius:20,alignItems:'center',justifyContent:'center',marginBottom:14},title:{fontFamily:FONT.bold,fontSize:19,color:C.ink,textAlign:'center',lineHeight:30},messageScroll:{maxHeight:280,alignSelf:'stretch',marginTop:10},messageContent:{paddingVertical:4},message:{fontFamily:FONT.regular,fontSize:14,color:C.ink,textAlign:'center',lineHeight:25,writingDirection:'rtl'},actions:{width:'100%',flexDirection:'row-reverse',flexWrap:'wrap',gap:9,marginTop:20},button:{flex:1,minWidth:100,minHeight:50,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:12},primary:{backgroundColor:C.brand},secondary:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line},destructive:{backgroundColor:C.danger},buttonText:{fontFamily:FONT.bold,fontSize:14,color:'#fff',textAlign:'center'},secondaryText:{color:C.ink}});
+const s=StyleSheet.create({backdrop:{flex:1,backgroundColor:'rgba(11,27,46,.64)',justifyContent:'center',alignItems:'center',padding:20},card:{width:'100%',maxWidth:420,maxHeight:'100%',backgroundColor:'#fff',borderRadius:24,padding:22,alignItems:'center',elevation:12},iconCircle:{width:64,height:64,borderRadius:20,alignItems:'center',justifyContent:'center',marginBottom:14},title:{fontFamily:FONT.bold,fontSize:19,color:C.ink,textAlign:'center',lineHeight:30},messageScroll:{maxHeight:280,flexShrink:1,alignSelf:'stretch',marginTop:10},messageContent:{paddingVertical:4},message:{fontFamily:FONT.regular,fontSize:14,color:C.ink,textAlign:'center',lineHeight:25,writingDirection:'rtl'},actionsScroll:{alignSelf:'stretch',maxHeight:220,flexGrow:0},actionsContent:{flexGrow:1},actions:{width:'100%',flexDirection:'row-reverse',flexWrap:'wrap',gap:9,marginTop:20},button:{flex:1,minWidth:100,minHeight:50,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:12},primary:{backgroundColor:C.brand},secondary:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line},destructive:{backgroundColor:C.danger},buttonText:{fontFamily:FONT.bold,fontSize:14,color:'#fff',textAlign:'center'},secondaryText:{color:C.ink}});
