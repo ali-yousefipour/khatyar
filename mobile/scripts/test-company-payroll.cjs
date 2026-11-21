@@ -101,6 +101,12 @@ function harness() {
   assert.match(source, /<View accessible accessibilityLabel=\{\x60\$\{label\}/, 'readable payroll fields need full text labels for screen readers');
   assert.match(source, /readableRow: \{ minHeight: 48, paddingVertical: 9/, 'readable payroll rows need scalable layout');
   assert.match(source, /در تصویر فیش A5 ذخیره نمی‌شود/, 'reading panel must identify that printed layout is unchanged');
+  assert.match(source,/const detailColumns = systemFontScale >= 1\.5 \|\| screenWidth < 520 \? 1/,'payroll details need single-column layout on narrow or large-font screens');
+  assert.match(source,/width:detailColumns===3\?'31\.8%':detailColumns===2\?'48\.5%':'100%'/,'payroll detail cells adapt to one, two or three columns');
+  assert.match(source,/<Text allowFontScaling style=\{styles\.detailValue\}>/,'payroll detail values must grow without truncating');
+  assert.match(source,/<Text allowFontScaling style=\{styles\.netValue\}>/,'net pay must remain fully readable at large text sizes');
+  assert.doesNotMatch(source,/<Text style=\{styles\.detailValue\} numberOfLines=\{3\}/,'payroll detail value must not truncate at three lines');
+
   assert.match(source, /if \(issuanceLock\.current\) return;/, 'preview fetch must be protected from repeated taps');
   assert.match(source, /if \(!slipRef\.current \|\| !slip \|\| issuing \|\| issuanceLock\.current\) return;/, 'issuance must have immediate reentrancy guard');
   const saveStart = source.indexOf('  const saveIssuedSlip = async () => {');
