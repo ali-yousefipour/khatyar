@@ -34,6 +34,6 @@ for(const character of withoutComments){
 assert.equal(depth,0,'all CSS blocks must be balanced');
 for (const marker of ['WEB-UX-012','WEB-UX-013']) assert.ok(css.includes(marker), 'missing audit phase marker: '+marker);
 const phase34=css.slice(css.indexOf('/* WEB-UX-012'));
-for(const pattern of [/table thead th/,/position: sticky/,/:focus-within/,/:focus-visible/,/overscroll-behavior: contain/,/max-height: calc\\(100dvh - 24px\\)/,/@media screen and \\(max-width: 430px\\)/,/@media \\(prefers-reduced-motion: reduce\\)/]) assert.match(phase34,pattern,'table and modal behavior contract');
+for(const snippet of ['table thead th','position: sticky',':focus-within',':focus-visible','overscroll-behavior: contain','max-height: calc(100dvh - 24px)','@media screen and (max-width: 430px)','@media (prefers-reduced-motion: reduce)']) assert.ok(phase34.includes(snippet),'missing table/modal contract: '+snippet);
 assert.ok(!phase34.includes('@media print'),'responsive rules must not modify print behavior');
 console.log('PASS shared typography, controls, focus, tables, modal and responsive CSS contracts');
