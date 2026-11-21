@@ -263,7 +263,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     setBusy(true);
     setError('');
     try {
-      await getAppConfig();
+      await getAppConfig().catch(()=>null); // Cached configuration is optional after the photo is already captured.
       const stamped = await captureRef(shotRef, { format: 'jpg', quality: 1 });
       const data = await compressToDataUri(stamped, {
         maxW: getImageConfig().maxWidth,
