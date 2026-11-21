@@ -11,8 +11,9 @@ public final class PresenceAlarmService extends Service {
   private final Handler handler=new Handler(Looper.getMainLooper());
   private final Runnable expiry=()->stopSelf();
   private long activeDeadlineMs=0L;
-  public static void start(Context context) {
+  public static void start(Context context,long deadlineMs) {
     Intent intent=new Intent(context,PresenceAlarmService.class);
+    if(deadlineMs>0L)intent.putExtra("presence_deadline",deadlineMs);
     if(Build.VERSION.SDK_INT>=26)context.startForegroundService(intent);else context.startService(intent);
   }
   public static void stop(Context context){context.stopService(new Intent(context,PresenceAlarmService.class));}
