@@ -1,0 +1,37 @@
+name: PHP Attendance and Radio Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'php/lib/routes.php'
+      - 'php/lib/RadioShiftGate.php'
+      - 'php/app/radio-api.php'
+      - 'php/app/radio-api-v2.php'
+      - 'php/tests/attendance_replay_receipts_test.php'
+      - 'php/tests/radio_shift_gate_test.php'
+      - 'php/migrations/20261121_attendance_action_receipts.sql'
+      - '.github/workflows/php-attendance-radio-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax verification
+        run: |
+          php -l php/lib/routes.php
+          php -l php/lib/RadioShiftGate.php
+          php -l php/app/radio-api.php
+          php -l php/app/radio-api-v2.php
+          php -l php/tests/attendance_replay_receipts_test.php
+          php -l php/tests/radio_shift_gate_test.php
+      - name: Attendance replay regression
+        run: php php/tests/attendance_replay_receipts_test.php
+      - name: Radio global restriction regression
+        run: php php/tests/radio_shift_gate_test.php
