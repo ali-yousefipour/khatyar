@@ -425,7 +425,7 @@ export function TeamReportScreen() {
           </TouchableOpacity>)}
         </View>
       </View>
-      <View style={tm.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput style={tm.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی لحظه‌ای نام و نام خانوادگی..." placeholderTextColor={C.muted}/>{!!query && <TouchableOpacity onPress={() => setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>}</View>
+      <View style={tm.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput style={tm.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی لحظه‌ای نام و نام خانوادگی..." placeholderTextColor={C.muted}/>{!!query && <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک کردن جستجوی گزارش" hitSlop={10} onPress={() => setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>}</View>
       <Text style={tm.regionFilterLabel}>فیلتر براساس منطقه</Text>
       <ScrollView horizontal persistentScrollbar={false} showsHorizontalScrollIndicator={false} style={tm.regionScroller} contentContainerStyle={tm.regionChips}>
         {[{ id: 'all', name: 'همه مناطق' }, ...regions].map((region) => (
