@@ -1,0 +1,41 @@
+name: School Complaints Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'php/lib/school_complaints_routes.php'
+      - 'php/app/assets/school-complaints-*'
+      - 'php/tools/test_school_complaint_*'
+      - '.github/workflows/school-complaints-regression.yml'
+  pull_request:
+    paths:
+      - 'php/lib/school_complaints_routes.php'
+      - 'php/app/assets/school-complaints-*'
+      - 'php/tools/test_school_complaint_*'
+      - '.github/workflows/school-complaints-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP route syntax
+        run: php -l php/lib/school_complaints_routes.php
+      - name: Validate JavaScript syntax
+        run: |
+          node --check php/app/assets/school-complaints-admin.js
+          node --check php/app/assets/school-complaints-qr.js
+          node --check php/app/assets/school-complaints-pdf.js
+      - name: Verify QR structure and tracking payload
+        run: node php/tools/test_school_complaint_qr.cjs
+      - name: Verify independent PDF download
+        run: node php/tools/test_school_complaint_pdf.cjs
+      - name: Verify branded A4 print
+        run: node php/tools/test_school_complaint_print.cjs
+      - name: Verify permissions and workflow
+        run: php php/tools/test_school_complaint_permissions.php
