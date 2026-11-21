@@ -50,6 +50,10 @@ verify(strpos($v2,"'poll-all','archive','responsible-recent'")!==false,'Poll and
 verify(strpos($v2,"?radio_audio_signed_user():au();")!==false,'Signed audio must resolve scoped user before dispatch');
 verify(strpos($v2,"if(\$op==='audio'&&\$method==='GET'){kh_radio_shift_require(\$u);")!==false,'Signed audio needs shift check after user resolution');
 verify(strpos($legacy,'kh_radio_shift_require($u)')!==false,'Legacy voice guard missing');
+verify(strpos($legacy,'lock_until<DATE_SUB(NOW(),INTERVAL 30 SECOND)')!==false,'Legacy cleanup preserves upload grace');
+verify(strpos($v2,'AS upload_window_valid')!==false,'V2 checks upload lease against DB time');
+verify(strpos($v2,'AS active_lease')!==false,'V2 checks take lease against DB time');
+verify(strpos($v2,"'مجوز صحبت شما منقضی شده است'")!==false,'Expired speaking lease remains a separate error from shift rule');
 $panel=file_get_contents(__DIR__.'/../tools/panel_source.jsx');
 verify(strpos($panel,'checked={shiftLimit}')!==false,'Admin setting checkbox is rendered');
 verify(strpos($panel,"api('shift-limit-set'")!==false,'Admin setting checkbox saves on server');
