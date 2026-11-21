@@ -2,7 +2,7 @@
 /* Run: node php/tools/test_school_complaint_pdf.cjs */
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../app/assets/school-complaints-pdf.js'),'utf8');
-let clicked=false,file=null,downloads=[];
+let clicked=false,file=null,downloads=[],imageData='data:image/jpeg;base64,/9j/2Q==';
 const ctx={
  fillRect(){},fillText(){},drawImage(){},measureText(str){return {width:String(str).length*14}},
  set font(v){},set direction(v){},set textAlign(v){},set textBaseline(v){},set fillStyle(v){}
@@ -10,7 +10,7 @@ const ctx={
 const doc={
  fonts:{ready:Promise.resolve()},body:{appendChild(){}},
  createElement(type){
-  if(type==='canvas')return {width:0,height:0,getContext(){return ctx},toDataURL(){return 'data:image/jpeg;base64,/9j/2Q=='}};
+  if(type==='canvas')return {width:0,height:0,getContext(){return ctx},toDataURL(){return imageData}};
   return {set download(name){downloads.push(name)},click(){clicked=true},remove(){}};
  }
 };
@@ -42,5 +42,8 @@ vm.runInNewContext(source,sandbox);
  const count=Number(multipage.match(/\/Type \/Pages \/Count (\d+)/)?.[1]);
  assert(count>=2,'Long complaint must paginate');
  await assert.rejects(()=>web.KhatyarSchoolPdf.download({tracking_code:'invalid'}),/نامعتبر/);
+ imageData='data:,';
+ await assert.rejects(()=>web.KhatyarSchoolPdf.download(record),/تصویر صفحه PDF/);
+ imageData='data:image/jpeg;base64,/9j/2Q==';
  console.log('School complaint PDF smoke checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
