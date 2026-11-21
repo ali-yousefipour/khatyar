@@ -637,7 +637,7 @@ route('POST', '/api/auth/logout', function($p, $b, $u) {
   if (!$allow) Http::error('خروج از حساب کاربری توسط مدیر سامانه غیرفعال شده است.', 403);
   $limit = (int)_req_setting('logout_monthly_limit', 0);
   if ($limit > 0) {
-    $used = (int)(Db::one("SELECT COUNT(*) n FROM activity_logs WHERE user_id=? AND event='logout' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)", [$u['id'], $eventAt])['n'] ?? 0);
+    $used = (int)(Db::one("SELECT COUNT(*) n FROM activity_logs WHERE user_id=? AND event='logout' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)", [$u['id']])['n'] ?? 0);
     if ($used >= $limit) Http::error("شما در ۳۰ روز اخیر {$used} بار خارج شده‌اید و به سقف مجاز ({$limit} بار) رسیده‌اید.", 403);
   }
   $dt = $u['device_type'] ?? 'web';
@@ -2702,7 +2702,18 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   // جلسه‌ای که به‌دلیل عبور از سقف ۱۴ ساعت همین لحظه بسته شده، خطای ثبت خروج نیست.
   if (!$open && $autoClosed) {
-    return ['ok'=>true,'auto_closed'=>true,'check_out'=>$autoClosed['check_out'] ?? null,'attendance_id'=>(int)($autoClosed['id'] ?? 0),'auto_close_reason'=>$autoClosed['reason'] ?? '14_hour_limit'];
+    $reply=['ok'=>true,'auto_closed'=>true,'check_out'=>$autoClosed['check_out'] ?? null,'attendance_id'=>(int)($autoClosed['id'] ?? 0),'auto_close_reason'=>$autoClosed['reason'] ?? '14_hour_limit'];
+    // Store an acknowledgement for an automatically closed session as well;
+    // repeated offline delivery must return the original success response.
+    if($clientUuid!=='' && _attendance_receipts_ready()){
+      $pdo=Db::pdo();$pdo->beginTransaction();
+      try{Db::one('SELECT id FROM users WHERE id=? FOR UPDATE',[(int)$u['id']]);
+        if($replay=_attendance_saved_reply((int)$u['id'],'checkout',$clientUuid)){$pdo->commit();return $replay;}
+        _attendance_save_reply((int)$u['id'],'checkout',$clientUuid,(int)$reply['attendance_id'],$reply);
+        $pdo->commit();
+      }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+    return $reply;
   }
   if (!$open) Http::error('جلسهٔ ورودِ باز برای شما وجود ندارد.', 400);
 
