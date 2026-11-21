@@ -1,14 +1,12 @@
 <?php
 class Db {
   public static $enabled=true;
-  public static $personal=false;
   public static $open=false;
   public static $checkedOut=false;
   public static $calls=[];
   public static function one($sql,$params=[]){
     self::$calls[]=[$sql,$params];
     if(strpos($sql,'app_settings')!==false)return ['value'=>self::$enabled?'1':'0'];
-    if(strpos($sql,'shift_limit_enabled')!==false)return ['shift_limit_enabled'=>self::$personal?1:0];
     if(strpos($sql,'staff_attendance')!==false)return self::$open?['id'=>10,'check_out'=>self::$checkedOut?'2026-10-28 11:05:00':null]:null;
     return null;
   }
@@ -35,14 +33,9 @@ verify(!kh_radio_shift_enabled(),'Global checkbox can disable shift restriction'
 foreach([5,6,7,8,9] as $level)
   verify(kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Global off releases level '.$level);
 verify(!kh_radio_shift_allowed(['id'=>0,'level'=>6]),'Unknown user denied regardless of global setting');
-Db::$personal=true;
-verify(!kh_radio_shift_allowed($manager),'Official personal restriction applies even when global gate is off');
-Db::$open=true;
-verify(kh_radio_shift_allowed($manager),'Restricted official allowed with check-in');
-Db::$checkedOut=true;
-verify(!kh_radio_shift_allowed($manager),'Restricted official denied on checkout');
-Db::$checkedOut=false;Db::$open=false;Db::$personal=false;
-verify(kh_radio_shift_allowed($manager),'Official can disable personal restriction');
+// Officials are exempt from the attendance rule, regardless of global state.
+foreach([1,2,3,4] as $level)
+  verify(kh_radio_shift_allowed(['id'=>2,'level'=>$level]),'Official level '.$level.' must remain exempt');
 Db::$enabled=true;
 verify(!kh_radio_shift_allowed($staff),'Global restriction restored');
 $queries=array_filter(Db::$calls,static fn($c)=>strpos($c[0],'staff_attendance')!==false);
@@ -62,14 +55,18 @@ verify(strpos($panel,'checked={shiftLimit}')!==false,'Admin setting checkbox is 
 verify(strpos($panel,"api('shift-limit-set'")!==false,'Admin setting checkbox saves on server');
 $adminApi=file_get_contents(__DIR__.'/../app/radio-admin-api.php');
 verify(strpos($adminApi,"'radio_limit_to_shift'")!==false,'Admin setting must be persisted');
-verify(strpos($v2,"'shift_limit_toggle_allowed'")!==false,'Level 1-4 toggle flag must be exposed');
-verify(strpos($v2,"'shift-limit-set'")!==false,'Personal shift restriction endpoint must exist');
-verify(strpos($v2,"['channels','settings','shift-limit-set']")!==false,'Toggle endpoint must initialize the per-user column even if channels were not loaded');
-verify(strpos($v2,'$stored=kh_radio_shift_personal_limit($u)')!==false,'Toggle must verify saved state before reporting success');
+verify(strpos($v2,"'shift_limit_toggle_allowed'")!==false,'Levels 1-4 see radio control');
+verify(strpos($v2,"'shift-limit-set'")!==false,'Mobile global gate endpoint exists');
+verify(strpos($v2,"if(!canListenAll(\$u))")!==false,'Levels 5-9 cannot change shared setting');
+verify(strpos($v2,"VALUES('radio_limit_to_shift',?)")!==false,'Mobile updates the same global key as site');
+verify(strpos($v2,"'global_shift_restricted'=>\$stored")!==false,'Mobile toggle returns confirmed global state');
+verify(strpos($v2,"'radio_limit_to_shift'=>kh_radio_shift_enabled()")!==false,'Mobile fetches the same setting as the site');
+verify(strpos($v2,'kh_radio_shift_personal_limit')===false,'No personal radio restriction remains');
 $context=file_get_contents(__DIR__.'/../../mobile/src/radio/RadioContext.js');
-verify(strpos($context,'response?.shift_restricted!==next')!==false,'App must confirm the server restriction response');
-verify(strpos($context,'verified?.shift_restricted!==next')!==false,'App must read back the saved restriction before reinitializing radio');
-verify(strpos($v2,"if(!canListenAll(\$u))")!==false,'Personal toggle must be restricted by effective role level');
+verify(strpos($context,'setGlobalShiftLimit=async value')!==false,'Mobile toggle updates global setting');
+verify(strpos($context,'result?.global_shift_restricted!==next')!==false,'Mobile confirms server response');
+verify(strpos($context,'verified?.radio_limit_to_shift!==next')!==false,'Mobile confirms shared setting after write');
 $mobile=file_get_contents(__DIR__.'/../../mobile/src/screens/RadioScreen.js');
-verify(strpos($mobile,'shiftLimitToggleAllowed && <SettingToggle')!==false,'Restricted radio control must appear only for managers');
-echo "PASS configurable radio shift restriction, personal level 1-4 control and guarded voice routes\n";
+verify(strpos($mobile,'shiftLimitToggleAllowed && <SettingToggle')!==false,'Mobile control only shown for levels 1-4');
+verify(strpos($mobile,'checked={globalShiftLimit}')!==false,'Mobile switch reflects global checkbox state');
+echo "PASS shared radio attendance gate controlled by site and officials 1-4, voice routes guarded\n";
