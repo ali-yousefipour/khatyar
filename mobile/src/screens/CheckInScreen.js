@@ -803,7 +803,7 @@ function CheckInCore({ viewportHeight }) {
       const previousQueuedOpen=retainQueuedOpen(await readLocalOpen(),await hasPendingAttendanceCheckin(user?.id),user?.id);
       if(previousQueuedOpen){setOpen(previousQueuedOpen);throw new Error('ورود قبلی در صف ارسال است؛ نیازی به ثبت ورود مجدد نیست.');}
       try {
-        if (attendanceOnline && await hasPendingAttendanceCheckout()) {
+        if (attendanceOnline && await hasPendingAttendanceCheckout(user?.id)) {
           throw new Error('خروج قبلی هنوز با سرور همگام نشده است؛ لطفاً اتصال اینترنت را بررسی کنید و چند ثانیه بعد دوباره تلاش کنید.');
         }
         const freshCfg = attendanceOnline ? await request('/my/checkin-config', { noStore: true, timeoutMs: 8000 }) : null;
