@@ -15,8 +15,12 @@ for(const term of ['sc-responsive-table',"'data-label':'نام'", "'data-label':
  assert.ok(js.includes(term),'mobile table cells must preserve visible text labels '+term);
 assert.match(css, /\.sc-module \.sc-table\[role="region"\]:focus-visible/,'keyboard region requires a visible focus ring');
 assert.match(css, /max-width:390px/,'report card labels must work on narrow 320/375 screens');
-for(const text of [panel,built]){
- assert.match(text,/school-complaints-admin\.js\?v=20261121\.wizard4/,'lazy JS uses current version');
- assert.match(text,/school-complaints-admin\.css\?v=20261121\.wizard4/,'lazy CSS uses current version');
+const portal=fs.readFileSync(path.join(root,'app/school-complaints-portal.html'),'utf8');
+const versions=extension=>[panel,built,portal].map(text=>text.match(new RegExp('school-complaints-admin\\.'+extension+'\\?v=([\\w.-]+)'))?.[1]);
+for(const extension of ['js','css']){
+ const found=versions(extension);
+ assert.ok(found.every(Boolean),'versioned complaints '+extension+' is present in panel, bundle and standalone portal');
+ assert.equal(new Set(found).size,1,'complaints '+extension+' asset cache keys must match across all entrypoints');
 }
+assert.equal(versions('js')[0],versions('css')[0],'JS and CSS should share a release key');
 console.log('PASS complaints tables responsive cards, keyboard scroll and versioned modules');
