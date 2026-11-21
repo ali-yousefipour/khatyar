@@ -301,3 +301,46 @@
 - **شواهد آخرین کد:** `Project Integrity` موفق [44907009949](https://github.com/ali-yousefipour/khatyar/actions/runs/44907009949)، `Mobile Regression Isolation` موفق با **۶۷ اسکریپت و صفر شکست** [44907010000](https://github.com/ali-yousefipour/khatyar/actions/runs/44907010000)، `Mobile Reliability QA` شامل ساخت JS bundle اندروید موفق [44907009952](https://github.com/ali-yousefipour/khatyar/actions/runs/44907009952).
 - **مرز اعتبار:** ۶۷ آزمون روی سورس/JS و bundle هستند، نه ۶۷ آزمون روی گوشی. برای تأیید ۱۰۰–۲۰۰٪، TalkBack، RTL در تمام صفحات و مجوزهای PHP لازم است سناریوهای `docs/mobile-ui-device-validation.md` با دستگاه واقعی و حساب نقش آزمایشی اجرا شوند.
 - **انتشار:** ساخت APK امضاشده `build-android-myket` روی کامیت‌های عادی به‌درستی `skipped` مانده است؛ هیچ انتشار جدیدی انجام نشده.
+
+
+## تکمیل بازخوانی ایستا — ۲۰۲۶-۱۱-۲۱، سری کامیت‌های 75def36 تا b619220
+
+**مبنای جدید:** `b619220856c1236488af23968b5cdd5b9f69ea93`. در این نوبت همه ۶۴ فایل `mobile/src/screens` و ۲۲ فایل `mobile/src/components` مستقیماً از GitHub بازخوانی شدند. بازخوانی شامل کنترل وجود JSX Modal، TextInput، FlatList، الگوی Back، KeyboardAvoidingView، محدودسازی نتایج و غیرفعال‌سازی صریح مقیاس فونت بود؛ این بررسی، آزمون عملکردی تمام مسیرها نیست. نمونه‌های کدهای alias نظیر `StationCaptureScreen.js` و `StationCaptureV3Screen.js` به V5 ارجاع می‌دهند و صفحه اجرایی مستقل محسوب نمی‌شوند.
+
+### نتیجه اجرای خودکار ممیزی JSX
+
+خروجی واقعی `mobile/scripts/test-ui-surface-inventory.cjs` در [اجرای موفق رگرسیون 44908203590](https://github.com/ali-yousefipour/khatyar/actions/runs/44908203590):
+
+| معیار | نتیجه |
+|---|---|
+| فایل صفحه | ۶۴ |
+| کامپوننت مشترک | ۲۲ |
+| تگ JSX Modal | ۵۳ |
+| تگ TextInput | ۱۴۱ |
+| تگ TouchableOpacity/Pressable | ۷۲۷ |
+| صفت accessibilityLabel | ۲۱۷ |
+| مودال بدون onRequestClose | ۰ مورد در الگوهای AST بررسی‌شده |
+| مودال دارای ورودی بدون ساختار keyboard avoidance | ۰ نامزد در الگوهای AST بررسی‌شده |
+| کنترل فقط-آیکن بدون accessibilityLabel | ۰ نامزد در الگوهای AST بررسی‌شده |
+| allowFontScaling صریحاً خاموش | ۲ مورد در قالب چاپ A5 `PayrollAccessSlip.js`؛ صفحه نسخه خوانای جداگانه دارد |
+
+> این صفرها فقط مربوط به مواردی هستند که اسکریپت AST تشخیص می‌دهد؛ آن‌ها تضمین دسترس‌پذیری و رفتار درست روی گوشی واقعی نیستند. تعداد ویژگی‌های accessibilityLabel نیز شمارش prop است و معیار پوشش دسترس‌پذیری نیست.
+
+### اصلاحات این مجموعه
+
+| شناسه | اولویت | فایل | اشکال و علت | اصلاح | کامیت | آزمون |
+|---|---|---|---|---|---|---|
+| UI-12 | P1 | `mobile/src/components/ReportPersonPickerModal.js` | `slice(0,100)` افراد بعد از صد نفر را از فهرست اولیه حذف می‌کرد | حذف سقف، استفاده از FlatList، حفظ RTL و TalkBack | [a5189f2](https://github.com/ali-yousefipour/khatyar/commit/a5189f204275f9ab76ed0357d645fb5201bd4373) | پس از اصلاح قرارداد آزمون، CI رگرسیون موفق |
+| UI-13 | P1 (رگرسیون تست) | `mobile/src/components/ReportPersonPickerModal.js` | تست ایستای TalkBack الگوی نگارش صریح `accessibilityState={{selected}}` را انتظار داشت | حفظ قرارداد مورد انتظار آزمون با رفتار معادل | [f193d87](https://github.com/ali-yousefipour/khatyar/commit/f193d87dd01499971716416204a5c20af46b456a) | CI موفق |
+| UI-14 | P2 (پیشگیری) | `mobile/scripts/test-underreviewed-screen-ux.cjs` | امکان برگشت محدودسازی بی‌صدای نتایج در توسعه بعدی | افزودن رگرسیون FlatList و منع سقف ۱۰۰ نتیجه | [75def36](https://github.com/ali-yousefipour/khatyar/commit/75def36d1f02e878a56ddaf66e7f397c97810d47) | [رگرسیون موفق](https://github.com/ali-yousefipour/khatyar/actions/runs/44908203590) |
+| UI-15 | P1 | `mobile/src/components/JDatePicker.js` | سال ۱۴۰۷ اشتباهاً کبیسه و ۱۴۰۸ غیرکبیسه محاسبه می‌شد؛ روز اولیه نیز تا ۳۱ بدون توجه به ماه پذیرفته می‌شد | محاسبه طول سال بر اساس تبدیل موجود j2g و محدودسازی روز اولیه به طول واقعی ماه | [a61c670](https://github.com/ali-yousefipour/khatyar/commit/a61c6700202aa63bc0d1ff5c40c595f0c0c0be91) | [رگرسیون کامیت نهایی](https://github.com/ali-yousefipour/khatyar/actions/runs/44908564815) |
+| UI-16 | P2 (پیشگیری) | `mobile/scripts/test-request-time-picker-ux.cjs` | عدم وجود آزمون دوره کبیسه | افزودن آزمون ۱۴۰۳/۱۴۰۵/۱۴۰۷/۱۴۰۸ با توابع واقعی تبدیل و طول ماه | [b619220](https://github.com/ali-yousefipour/khatyar/commit/b619220856c1236488af23968b5cdd5b9f69ea93) | [رگرسیون موفق](https://github.com/ali-yousefipour/khatyar/actions/runs/44908564815) |
+
+برای کامیت `b619220`، [Project Integrity موفق](https://github.com/ali-yousefipour/khatyar/actions/runs/44908564829) و Mobile Regression Isolation نیز موفق بوده است؛ workflow ساخت APK [اجرا نشده / skipped](https://github.com/ali-yousefipour/khatyar/actions/runs/44908564851).
+
+### موارد غیرقابل‌تأیید در ممیزی صرفاً ایستا
+
+- مسیر قابل مشاهده و مجوز هر role، حالت نشست منقضی، داده آفلاین و رفتار واقعی API باید با حساب آزمایشی و سرور تست تأیید شود.
+- تمام ویزاردها با ورودی عکس، GPS، بی‌سیم، دوربین و پلاک، تست تعامل و حفظ داده در قطع اینترنت نیاز دارند.
+- RTL، فونت ۲۰۰٪، TalkBack، تبلت، Gesture Navigation، سرعت و Memory Leak با خواندن کد و تست AST قابل‌تأیید نهایی نیستند.
+- **تأیید کامل UI/UX و انتشار APK انجام نشده است**؛ تا تحقق معیارهای سند `docs/mobile-ui-device-validation.md`، این سطرها باز می‌مانند.
