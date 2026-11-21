@@ -11645,7 +11645,7 @@ function App(){
       }
     }).finally(()=>{if(live)setSettingsLoadedFor(identity);});
     return()=>{live=false;};
-  },[me?.id,me?.role_id,me?.is_admin,me?.must_change_pw]);
+  },[me?.id,me?.role_id,me?.is_admin,me?.must_change_pw,authRetry]);
   if(!authReady)return <PanelStartupLoading title="در حال بررسی نشست" stage="بررسی اعتبار ورود و اتصال به سرور…"/>;
   if(authError&&!me)return <div role="alert" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",padding:22,textAlign:"center"}}><div className="card-p" style={{maxWidth:470}}><h3>ارتباط موقت با سرور برقرار نیست</h3><p>{authError}</p><p className="muted">نشست شما حفظ شده است. پس از برقراری ارتباط دوباره تلاش کنید.</p><button type="button" className="btn p" onClick={()=>setAuthRetry(n=>n+1)}>تلاش مجدد</button></div></div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
