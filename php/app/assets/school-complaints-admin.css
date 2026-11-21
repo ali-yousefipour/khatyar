@@ -60,3 +60,67 @@
 @media screen and (max-width:360px){.sc-module .sc-metrics{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.sc-module *{transition:none!important}}
 @media print{.sc-module .sc-header{box-shadow:none;padding:0 0 12px;border-bottom:2px solid #087f67}.sc-module .sc-card{box-shadow:none;padding:10px}.sc-module .sc-table thead{display:table-header-group}.sc-module .sc-table tr{break-inside:avoid}.sc-module .sc-code{border-color:#333}}
+
+/* Accessible mobile-first refinement for registration, records and case workflow. */
+.sc-module{width:100%;max-width:100%;box-sizing:border-box;isolation:isolate}
+.sc-module :is(.sc-card,.sc-header,.sc-table,.sc-grid,.sc-review){min-width:0;max-width:100%;box-sizing:border-box}
+.sc-module .sc-header{background:linear-gradient(115deg,#07563f 0%,#087c68 56%,#126e81 100%);border:1px solid #ffffff24}
+.sc-module .sc-tabs{position:sticky;top:0;z-index:12;box-shadow:0 6px 22px #0a423015}
+.sc-module .sc-tabs .btn{font-weight:700;line-height:1.5}
+.sc-module .sc-tabs .btn.p{background:var(--sc-brand);color:#fff;border-color:var(--sc-brand)}
+.sc-module .sc-toolbar{margin-block:12px;justify-content:flex-start}
+.sc-module .sc-toolbar .btn{min-height:44px}
+.sc-module .sc-field .input:focus-visible,.sc-module textarea:focus-visible,.sc-module select:focus-visible{outline:2px solid #087f67;outline-offset:2px;border-color:#087f67}
+.sc-module .sc-field input[readonly]{background:var(--sc-soft);opacity:.95;cursor:default}
+.sc-module .sc-field input:disabled,.sc-module .btn:disabled{opacity:.55}
+.sc-module .sc-lookup:focus-within{z-index:15}
+.sc-module .sc-results{box-shadow:0 16px 38px #10382d30;overscroll-behavior:contain}
+.sc-module .sc-results button:focus-visible{background:var(--sc-soft)}
+.sc-module .sc-steps{counter-reset:school-step}
+.sc-module .sc-steps li{min-width:0}
+.sc-module .sc-steps .btn{display:flex;align-items:center;justify-content:center;padding:10px 8px;line-height:1.6}
+.sc-module .sc-steps .active .btn{box-shadow:0 0 0 3px #087f6720}
+.sc-module .sc-alert{background:#fff5f4;border-color:#e9a29d;line-height:1.8}
+.sc-module .sc-success{background:#effaf4;border-color:#94cfb4;line-height:1.8}
+.sc-module .sc-metric{transition:transform .15s ease,box-shadow .15s ease}
+.sc-module .sc-metric:focus-visible,.sc-module button:focus-visible{outline:3px solid #168a9e;outline-offset:3px}
+.sc-module .sc-metric:hover{transform:translateY(-2px);box-shadow:0 8px 22px #064e3b16}
+.sc-module .sc-table{scrollbar-width:thin;overscroll-behavior-x:contain}
+.sc-module .sc-table td:last-child .btn{white-space:nowrap}
+.sc-module .sc-event{overflow-wrap:anywhere}
+.sc-module .sc-event strong{display:block}
+.sc-module .sc-event small{opacity:.75}
+.sc-module .sc-long{line-height:2;unicode-bidi:plaintext}
+.sc-module .sc-school-map>div{min-width:0}
+.sc-module .sc-school-map .leaflet-container{z-index:1}
+.sc-module .sc-receipt .sc-code{direction:ltr;text-align:center;letter-spacing:.03em}
+.sc-module .sc-review>.sc-card{border-inline-start:3px solid var(--sc-brand)}
+.sc-module .sc-review>.sc-card .sc-toolbar{justify-content:space-between}
+@media screen and (max-width:900px){
+ .sc-module .sc-tabs{position:relative}
+ .sc-module .sc-table .sc-responsive-table td{grid-template-columns:minmax(88px,34%) minmax(0,1fr)}
+ .sc-module .sc-table .sc-responsive-table tr{box-shadow:0 2px 10px #064e3b0a}
+ .sc-module .sc-table .sc-responsive-table td::before{color:var(--sc-brand)}
+ .sc-module .sc-table .sc-responsive-table td:last-child .btn{width:100%}
+}
+@media screen and (max-width:600px){
+ .sc-module .sc-header{border-radius:14px}
+ .sc-module .sc-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .sc-module .sc-tabs .btn{width:100%;min-width:0}
+ .sc-module .sc-grid{grid-template-columns:1fr}
+ .sc-module .sc-review .sc-grid{grid-template-columns:1fr}
+ .sc-module .sc-steps{grid-template-columns:1fr;gap:4px}
+ .sc-module .sc-steps li:last-child{grid-column:auto}
+ .sc-module .sc-steps .btn{justify-content:flex-start;text-align:right;min-height:44px}
+ .sc-module .sc-toolbar .btn{flex:1 1 auto}
+ .sc-module .sc-school-map .leaflet-container{min-height:230px}
+ .sc-module .sc-table .sc-responsive-table td{grid-template-columns:minmax(78px,34%) minmax(0,1fr);font-size:.9rem}
+ .sc-module .sc-code{font-size:clamp(16px,5vw,26px)}
+}
+@media print{
+ .sc-module .sc-tabs,.sc-module .sc-steps,.sc-module .sc-results{display:none!important}
+ .sc-module .sc-card,.sc-module .sc-event{break-inside:avoid;box-shadow:none!important}
+ .sc-module .sc-school-map .leaflet-container{max-height:130px;overflow:hidden}
+ .sc-module .sc-review>.sc-card{border-inline-start:1px solid #999}
+}
+@media(prefers-reduced-motion:reduce){.sc-module .sc-metric{transition:none;transform:none!important}}
