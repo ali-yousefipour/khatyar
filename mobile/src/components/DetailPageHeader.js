@@ -14,7 +14,7 @@ export default function DetailPageHeader({ title, navigation }) {
       </TouchableOpacity>
       <View style={s.titleGroup}>
         <Image source={require('../../assets/icon.png')} style={s.brandLogo} accessibilityLabel="نشان خطیار" />
-        <Text accessibilityRole="header" numberOfLines={2} style={s.title}>{title}</Text>
+        <Text allowFontScaling accessibilityRole="header" style={s.title}>{title}</Text>
       </View>
       <TouchableOpacity activeOpacity={0.75} style={s.button} accessibilityRole="button" accessibilityLabel="بازگشت" onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Dashboard')}>
         <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
