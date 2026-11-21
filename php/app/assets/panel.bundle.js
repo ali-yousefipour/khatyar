@@ -21175,7 +21175,7 @@ function SchoolComplaintsLauncher() {
         if (!document.querySelector('link[data-school-complaints]')) {
             const css = document.createElement("link");
             css.rel = "stylesheet";
-            css.href = "/assets/school-complaints-admin.css?v=20261121.3";
+            css.href = "/assets/school-complaints-admin.css?v=20261121.wizard2";
             css.dataset.schoolComplaints = "1";
             document.head.appendChild(css);
         }
@@ -21188,7 +21188,7 @@ function SchoolComplaintsLauncher() {
             return () => { alive = false; };
         }
         const script = document.createElement("script");
-        script.src = "/assets/school-complaints-admin.js?v=20261121.7";
+        script.src = "/assets/school-complaints-admin.js?v=20261121.wizard2";
         script.onload = ready;
         script.onerror = () => { if (alive)
             setError("خطا در دریافت ماژول شکایات"); };
