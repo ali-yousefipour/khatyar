@@ -127,6 +127,10 @@ async function download(record,options={}){
   field('مسئول',record.assigned_name);
   field('مهلت',tehran(record.due_at));
   field('تاریخ مختومه',tehran(record.closed_at));
+  section('مستندات پیوست');
+  if(Array.isArray(record.attachments)&&record.attachments.length){
+   for(const att of record.attachments)field('فایل پیوست',clean(att.filename)+' — '+fa(Math.ceil(Number(att.byte_size||0)/1024))+' کیلوبایت');
+  }else write('مستندی برای این پرونده ثبت نشده است.',22);
   section('تاریخچه اقدامات');
   for(const ev of record.events||[]){
    next(105);write((actionTitle[ev.action]||ev.action||'ثبت اولیه')+' | '+(ev.actor_name||'—')+' | '+tehran(ev.created_at),22,true);
