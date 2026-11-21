@@ -1406,7 +1406,7 @@ function CheckInShiftTab(){
       const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
       const kind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
       return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard]}>
-        <TouchableOpacity activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
           <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind}</Text></View>
           <View style={s.shiftModernPill}><Text style={s.shiftModernPillText}>{d.is_off?'استراحت':fmtMinFa(d.minutes)}</Text></View>
           <MaterialCommunityIcons name={active?'chevron-up':'chevron-down'} size={22} color={C.brand}/>
