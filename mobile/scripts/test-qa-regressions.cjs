@@ -18,7 +18,7 @@ assert.match(permissions,/setTimeout\(\(\)=>\{if\(mounted\.current\)check\(\);\}
 assert.match(api,/!!options\.noStore,!!options\.forceNetwork/,'requests with different freshness policies cannot share in-flight responses');
 assert.match(api,/export async function clearUserScopedApiCache/,'private HTTP caches must be reset');
 assert.match(api,/if\(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch&&\(!isAttendanceRead\(path\)\|\|readAttendanceEpoch===attendanceMutationEpoch\.current\)\)/,'stale previous-account responses must not overwrite current cache');
-assert.match(api,/if\(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch&&\(!isAttendanceRead\(path\)\|\|readAttendanceEpoch===attendanceMutationEpoch\.current\)\)\{if\(memCache\[cacheKey\]/,'stale previous-account requests must not read the next user\'s fallback cache');
+assert.match(api,/if\(readEpoch!==userCacheEpoch\|\|isAttendanceRead\(path\)&&readAttendanceEpoch!==attendanceMutationEpoch\.current\)/,'stale previous-account requests must not read the next user\'s fallback cache');
 assert.equal((auth.match(/await resetAccountCaches\(d\.user\?\.id\);await setTokens/g)||[]).length,3,'all three login methods must reset user-scoped caches and invalidate route grants');
 assert.match(access,/if\(epoch!==cacheEpoch\)return null/,'late access responses are discarded');
 assert.match(school,/if\(epoch!==cacheEpoch\)return null/,'late school bootstrap responses are discarded');
