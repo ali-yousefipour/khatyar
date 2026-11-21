@@ -70,6 +70,8 @@ const api=context.api;
   assert.equal((await api.pending()).length,1,'legacy evidence is retained for explicit manual review');
   await assert.rejects(api.retryOne('legacy',async()=>({ok:true})),/حساب دیگری|ورود شما تأیید نشده/);
   assert.equal((await api.pending()).length,1,'Unowned evidence must remain pending rather than be sent by another account');
+  // Reset only the in-memory test fixture; production must retain unowned evidence.
+  storage.set('offline_queue_v2',JSON.stringify([]));
   const list=fs.readFileSync(path.join(__dirname,'../src/screens/SendQueueScreen.js'),'utf8');
   assert.match(list,/official-visits/,'Official visits must appear in the visible queue');
   assert.match(list,/confirmRetry\(item\)/,'Legacy replay must require explicit user confirmation');
