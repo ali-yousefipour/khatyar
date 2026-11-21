@@ -157,7 +157,10 @@ export default function PresenceGate({navigationRef}){
      ? Date.parse(String(data.immediate_at).replace(' ','T')+'+03:30') : NaN;
    const requestedAtMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:Date.now();
    const deliveredAtMs=Number(data.delivered_at_ms)||requestedAtMs;
-   const deadlineMs=deliveredAtMs+notificationWindow*60000;
+   // Prefer the authoritative scheduled/request timestamp. A delayed Android
+   // notification or late tap must never restart or extend the response window.
+   const deadlineAnchorMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:deliveredAtMs;
+   const deadlineMs=deadlineAnchorMs+notificationWindow*60000;
    if(!alive||(!data.delivered_at_ms&&Date.now()>=deadlineMs))return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
   };
