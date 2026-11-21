@@ -22211,8 +22211,12 @@ function App() {
             document.title = b.title;
             window.__brandLogo = b.logo;
         }).catch(e => {
-            if (live)
+            if (live) {
+                // Fail closed if role permissions cannot be loaded, especially after
+                // switching accounts in the same browser session.
+                setAllowed([]);
                 console.warn('Panel settings temporarily unavailable:', e.message);
+            }
         }).finally(() => { if (live)
             setSettingsLoadedFor(identity); });
         return () => { live = false; };
