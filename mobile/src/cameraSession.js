@@ -35,16 +35,20 @@ export function useCameraSession(enabled) {
 
   useEffect(() => {
     if (!enabled || !foreground) return undefined;
+    let timer = null;
     const acquire = () => {
+      if (owner === token.current) return;
       if (!isCameraInUse()) {
         owner = token.current;
         setAcquired(true);
+        if (timer !== null) { clearInterval(timer); timer = null; }
       }
     };
+    // Poll only while another camera owns the lens. Stop immediately after acquisition.
+    timer = setInterval(acquire, 250);
     acquire();
-    const timer = setInterval(acquire, 250);
     return () => {
-      clearInterval(timer);
+      if (timer !== null) clearInterval(timer);
       setAcquired(false);
       if (owner === token.current) {
         owner = null;
