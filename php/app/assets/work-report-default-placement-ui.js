@@ -59,7 +59,7 @@
     const box=document.createElement('section');
     box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');
     box.setAttribute('aria-label','ذخیره جایگذاری پیش‌فرض');
-    box.style.cssText='max-width:540px;width:100%;background:#fff;color:#173c34;border-radius:18px;padding:24px;box-shadow:0 24px 70px #0004;font:14px Vazirmatn,Tahoma,sans-serif';
+    box.style.cssText='max-width:540px;width:100%;max-height:calc(100dvh - 32px);overflow-y:auto;background:#fff;color:#173c34;border-radius:18px;padding:clamp(14px,4vw,24px);box-shadow:0 24px 70px #0004;font:14px Vazirmatn,Tahoma,sans-serif';
     const heading=document.createElement('h3');heading.textContent='ذخیره جایگذاری پیش‌فرض';heading.style.cssText='margin:0 0 12px;font-size:18px';
     const desc=document.createElement('p');desc.textContent='فایل کارکرد ماه قبل را انتخاب کنید. فقط ردیف و مشخصات نیروها ذخیره می‌شود؛ ارقام کارکرد و محاسبات وارد نمی‌شوند.';desc.style.cssText='line-height:2;margin:0 0 14px';
     const file=document.createElement('input');file.type='file';file.accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';file.style.cssText='width:100%;margin:6px 0 16px';
@@ -69,9 +69,27 @@
     const save=button('بارگذاری و ذخیره',true),remove=button('حذف چیدمان ذخیره‌شده',false),close=button('بستن',false);
     controls.append(save,remove,close);box.append(heading,desc,file,state,controls);overlay.append(box);document.body.append(overlay);
     function errorMessage(err){state.textContent=err?.message||'عملیات انجام نشد';state.style.color='#aa2626';}
-    const dismiss=()=>overlay.remove();close.onclick=dismiss;
+    const previousFocus=document.activeElement;
+    let busy=false;
+    const dismiss=()=>{
+      if(busy)return;
+      overlay.remove();
+      document.removeEventListener('keydown',onDialogKeydown,true);
+      if(previousFocus?.isConnected&&typeof previousFocus.focus==='function')previousFocus.focus();
+    };
+    function onDialogKeydown(event){
+      if(!overlay.isConnected)return;
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss();return;}
+      if(event.key!=='Tab')return;
+      const focusable=[file,save,remove,close].filter(el=>!el.disabled&&!el.hidden);
+      if(!focusable.length)return;
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(event.shiftKey&&(document.activeElement===first||!box.contains(document.activeElement))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!box.contains(document.activeElement))){event.preventDefault();first.focus();}
+    }
+    close.onclick=dismiss;
     overlay.addEventListener('click',event=>{if(event.target===overlay)dismiss();});
-    overlay.addEventListener('keydown',event=>{if(event.key==='Escape')dismiss();});
+    document.addEventListener('keydown',onDialogKeydown,true);
     file.focus();
     let template=null;
     (async()=>{
@@ -86,24 +104,26 @@
       }catch(err){errorMessage(err);save.disabled=true;remove.disabled=true;}
     })();
     save.onclick=async()=>{
+      if(busy||!template)return;
       if(!file.files?.length){state.textContent='فایل اکسل را انتخاب کنید';return;}
       if(!/\.xlsx$/i.test(file.files[0].name)){state.textContent='فقط فایل xlsx پذیرفته می‌شود';return;}
-      const data=new FormData();data.append('file',file.files[0]);save.disabled=true;remove.disabled=true;state.textContent='در حال بررسی و ذخیره فایل…';state.style.color='#173c34';
+      const data=new FormData();data.append('file',file.files[0]);busy=true;close.disabled=true;save.disabled=true;remove.disabled=true;state.textContent='در حال بررسی و ذخیره فایل…';state.style.color='#173c34';
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',body:data});
         const result=await response.json();if(!response.ok)throw Error(result.error||result.message||'خطا در ذخیره: '+response.status);
         state.textContent='جایگذاری '+result.saved_count+' نیرو ذخیره شد. در پیش‌نمایش بعدی اعمال می‌شود.';
         remove.disabled=false;
-      }catch(err){errorMessage(err);}finally{save.disabled=false;}
+      }catch(err){errorMessage(err);}finally{busy=false;close.disabled=false;save.disabled=false;}
     };
     remove.onclick=async()=>{
+      if(busy||!template)return;
       if(!window.confirm('چیدمان پیش‌فرض حذف شود؟'))return;
-      remove.disabled=true;
+      busy=true;close.disabled=true;save.disabled=true;remove.disabled=true;
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'DELETE'});
         if(!response.ok)throw Error('حذف چیدمان انجام نشد');
         state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';
-      }catch(err){errorMessage(err);remove.disabled=false;}
+      }catch(err){errorMessage(err);remove.disabled=false;}finally{busy=false;close.disabled=false;save.disabled=false;}
     };
   }
   function attach(){
