@@ -21185,7 +21185,7 @@ function SchoolComplaintsLauncher() {
         if (!document.querySelector('link[data-school-complaints]')) {
             const css = document.createElement("link");
             css.rel = "stylesheet";
-            css.href = "/assets/school-complaints-admin.css?v=20261121.wizard2";
+            css.href = "/assets/school-complaints-admin.css?v=20261121.wizard3";
             css.dataset.schoolComplaints = "1";
             document.head.appendChild(css);
         }
