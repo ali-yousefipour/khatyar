@@ -30,7 +30,7 @@ const context = {
   perform: fn => fn(), base: '/school-complaints', tab: 'inbox', query: p => 'page=' + p,
   get: async () => { if (fail) throw Error('network failed'); return { total: 1, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
   labels: { pending: 'در انتظار' }, name: () => 'کاربر نمونه', date: () => '۱۴۰۵/۰۸/۳۰',
-  files: [], M: () => {}, setTimeout: cb => cb(), Map, Error
+  files: [], M: () => {}, setTimeout: cb => cb(), XLSX: xlsx, Map, Error
 };
 vm.runInNewContext(section('const savePdf=', '\n const exportRows=') + '\nthis.savePdf=savePdf;', context);
 vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.exportRows=exportRows;', context);
