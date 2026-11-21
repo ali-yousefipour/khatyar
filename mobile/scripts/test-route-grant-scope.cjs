@@ -15,6 +15,8 @@ const current = keyFor('Reports',{id:101,role_id:5,level:5});
 assert.notEqual(current,keyFor('Reports',{id:102,role_id:5,level:5}),'grants cannot cross accounts');
 assert.notEqual(current,keyFor('Reports',{id:101,role_id:4,level:5}),'role changes invalidate the currently displayed grant');
 assert.notEqual(current,keyFor('Reports',{id:101,role_id:5,level:4}),'permission level changes invalidate the currently displayed grant');
+assert.notEqual(current,keyFor('Reports',{id:101,role_id:5,level:5,is_admin:true}),'admin flag changes invalidate the grant');
+assert.notEqual(current,keyFor('Reports',{id:101,role_id:5,level:5,role_title:'بازرس'}),'role title changes invalidate the grant');
 assert.notEqual(current,keyFor('Requests',{id:101,role_id:5,level:5}),'grants cannot cross routes');
 assert.match(gate,/if\(pending\|\|authorizedScope!==scopeKey\)return/,'stale account grants must render loading rather than a protected screen');
 assert.match(gate,/setAccess\(null\);setAuthorizedScope\(''\);setPending\(true\)/,'role transitions clear the previous grant');
