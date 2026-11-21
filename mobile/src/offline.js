@@ -76,9 +76,14 @@ export async function enqueue(item={}) {
   return withStorageLock(async()=>{
     const queue=await pending();
     const clientUuid=typeof item.client_uuid==='string'&&item.client_uuid.trim()?item.client_uuid:uuid();
-    if(queue.some(x=>String(x.client_uuid||'')===String(clientUuid)))return clientUuid;
     const owner=await readVerifiedUser().catch(()=>null);
     if(!owner?.id)throw new Error('برای ثبت آفلاین، ابتدا با حساب کاربری تأییدشده وارد شوید.');
+    const existing=queue.find(x=>String(x.client_uuid||'')===String(clientUuid));
+    if(existing){
+      if(!existing.owner_user_id || String(existing.owner_user_id)!==String(owner.id) || existing.path!==item.path)
+        throw new Error('این شناسه عملیات قبلاً برای حساب یا مسیر دیگری ثبت شده است.');
+      return clientUuid;
+    }
     let stored;
     const created=[];
     try {
