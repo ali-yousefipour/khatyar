@@ -22102,6 +22102,15 @@ function AccountPasswordDialog({ onClose }) {
             React.createElement("button", { className: "btn g", type: "button", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
             React.createElement("button", { className: "btn p", type: "submit", disabled: saving }, saving ? 'در حال ذخیره…' : 'ذخیره رمز جدید'))));
 }
+function PanelStartupLoading({ title = "در حال آماده‌سازی پنل مدیریت", stage = "دریافت اطلاعات و تنظیمات اولیه…" }) {
+    return React.createElement("div", { className: "kh-login-startup", role: "status", "aria-live": "polite", "aria-label": title },
+        React.createElement("div", { className: "kh-long-operation-card" },
+            React.createElement("span", { className: "kh-long-operation-spinner", "aria-hidden": "true" }),
+            React.createElement("h3", null, title),
+            React.createElement("strong", null, "\u062F\u0631 \u062D\u0627\u0644 \u067E\u0631\u062F\u0627\u0632\u0634\u2026"),
+            React.createElement("progress", { "aria-label": "\u067E\u06CC\u0634\u0631\u0641\u062A \u0622\u0645\u0627\u062F\u0647\u200C\u0633\u0627\u0632\u06CC \u067E\u0646\u0644" }),
+            React.createElement("p", null, stage)));
+}
 function App() {
     const [me, setMe] = useState(null);
     const [authReady, setAuthReady] = useState(false);
@@ -22111,6 +22120,7 @@ function App() {
     const [allowed, setAllowed] = useState([]);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
+    const [settingsLoadedFor, setSettingsLoadedFor] = useState(null);
     const [navigationRestored, setNavigationRestored] = useState(false);
     useEffect(() => {
         if (!(me === null || me === void 0 ? void 0 : me.is_admin)) {
@@ -22181,11 +22191,34 @@ function App() {
         setMe(u); }).catch(e => { if (active)
         setAuthError(e.message || 'ارتباط با سرور موقتاً برقرار نیست.'); }).finally(() => { if (active)
         setAuthReady(true); }); return () => { active = false; }; }, [authRetry]);
-    useEffect(() => { if (me && me.is_admin && !me.must_change_pw) {
-        db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(e => { console.warn('Panel settings temporarily unavailable:', e.message); });
-    } }, [me]);
+    useEffect(() => {
+        if (!(me === null || me === void 0 ? void 0 : me.is_admin) || me.must_change_pw) {
+            setSettingsLoadedFor(null);
+            return;
+        }
+        let live = true;
+        const identity = String(me.id) + ':' + String(me.role_id);
+        setSettingsLoadedFor(null);
+        db.settings().then(s => {
+            if (!live)
+                return;
+            const all = s.role_perms || {};
+            const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id);
+            const rp = all[me.role_id];
+            setAllowed(has && Array.isArray(rp) ? rp : null);
+            const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" };
+            setBrand(b);
+            document.title = b.title;
+            window.__brandLogo = b.logo;
+        }).catch(e => {
+            if (live)
+                console.warn('Panel settings temporarily unavailable:', e.message);
+        }).finally(() => { if (live)
+            setSettingsLoadedFor(identity); });
+        return () => { live = false; };
+    }, [me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.role_id, me === null || me === void 0 ? void 0 : me.is_admin, me === null || me === void 0 ? void 0 : me.must_change_pw]);
     if (!authReady)
-        return React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A\u2026");
+        return React.createElement(PanelStartupLoading, { title: "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A", stage: "\u0628\u0631\u0631\u0633\u06CC \u0627\u0639\u062A\u0628\u0627\u0631 \u0648\u0631\u0648\u062F \u0648 \u0627\u062A\u0635\u0627\u0644 \u0628\u0647 \u0633\u0631\u0648\u0631\u2026" });
     if (authError && !me)
         return React.createElement("div", { role: "alert", style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", padding: 22, textAlign: "center" } },
             React.createElement("div", { className: "card-p", style: { maxWidth: 470 } },
@@ -22216,6 +22249,8 @@ function App() {
                     catch (e) {
                         alert(e.message);
                     } } }, "\u062E\u0631\u0648\u062C"))));
+    if (me.is_admin && !me.must_change_pw && (settingsLoadedFor !== String(me.id) + ':' + String(me.role_id) || !navigationRestored))
+        return React.createElement(PanelStartupLoading, { title: "\u062F\u0631 \u062D\u0627\u0644 \u0622\u0645\u0627\u062F\u0647\u200C\u0633\u0627\u0632\u06CC \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A", stage: "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u060C \u0645\u062C\u0648\u0632\u0647\u0627 \u0648 \u0635\u0641\u062D\u0627\u062A \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC\u2026" });
     const SECTIONS = PANEL_MENU_SECTIONS;
     const can = (k) => !allowed || allowed.includes(k);
     const firstAllowed = SECTIONS.flatMap(([, keys]) => keys).find(k => VIEWS[k] && can(k));
