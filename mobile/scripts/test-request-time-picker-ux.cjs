@@ -18,6 +18,19 @@ assert.match(picker, /arrow: \{ minHeight: 44/, 'spinner arrows meet Android tou
 assert.match(picker, /neighbor: \{ minHeight: 44/, 'adjacent time entries meet Android touch target');
 assert.match(picker, /behavior=\{Platform.OS === 'ios' \? 'padding' : 'height'\}/, 'keyboard avoidance works on Android');
 const jalali = fs.readFileSync(path.resolve(__dirname, '../src/components/JDatePicker.js'), 'utf8');
+// Extract the actual calendar helpers so leap-year checks exercise production code.
+const j2gSource = jalali.match(/function j2g\([\s\S]*?\n}\nfunction jMonthLen/)?.[0]?.replace(/\nfunction jMonthLen$/, '');
+const monthLenSource = jalali.match(/function jMonthLen\([\s\S]*?\n}\nexport function jToStr/)?.[0]?.replace(/\nexport function jToStr$/, '');
+assert.ok(j2gSource && monthLenSource, 'calendar conversion and month length functions remain extractable');
+const calendarVm = require('node:vm');
+const calendarContext = { Number, Math, Date };
+calendarVm.createContext(calendarContext);
+calendarVm.runInContext(j2gSource + '\n' + monthLenSource + '\nthis.jMonthLen=jMonthLen;', calendarContext);
+assert.equal(calendarContext.jMonthLen(1407, 12), 29, '1407 must not expose an invalid Esfand 30');
+assert.equal(calendarContext.jMonthLen(1408, 12), 30, '1408 leap year must expose valid Esfand 30');
+assert.equal(calendarContext.jMonthLen(1403, 12), 30, 'existing leap years remain selectable');
+assert.equal(calendarContext.jMonthLen(1405, 12), 29, 'ordinary years have 29 Esfand days');
+assert.match(jalali, /Math\.min\(jMonthLen\(/, 'initial selected date must be clamped to the actual month length');
 assert.match(jalali, /const ascii =/, 'Jalali calendar normalizes Persian and Arabic initial digits');
 assert.match(jalali, /const parts = ascii\(initial\)/, 'initial string date uses normalized numerals');
 assert.match(jalali, /const insets = useSafeAreaInsets\(\)/, 'Jalali picker respects bottom system insets');
