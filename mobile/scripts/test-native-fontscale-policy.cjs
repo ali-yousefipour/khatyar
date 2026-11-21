@@ -1,0 +1,21 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const parser = require('@babel/parser');
+const read = name => fs.readFileSync(path.resolve(__dirname, '../src', name), 'utf8');
+const font = read('fontscale.js');
+const print = read('components/PayrollAccessSlip.js');
+assert.ok(parser.parse(font, {sourceType:'module',plugins:['jsx']}).program.body.length, 'font scale provider must parse');
+assert.doesNotMatch(font, /(?:Text|TextInput)\.defaultProps\s*=/, 'system font size must not be overridden globally');
+assert.doesNotMatch(font, /allowFontScaling:\s*false/, 'native default font scaling must not be disabled');
+assert.doesNotMatch(font, /import\s*\{\s*Text\s*,\s*TextInput\s*\}\s*from\s*['"]react-native['"]/, 'fontscale module must not mutate platform text primitives');
+assert.match(font, /const changes = useRef\(0\)/, 'keep race-safe user font preference loading');
+assert.match(font, /if \(!mounted \|\| changes\.current !== currentChange\) return/, 'stale preferences cannot overwrite new font choices');
+assert.equal((print.match(/allowFontScaling=\{false\}/g)||[]).length, 2,
+  'only the two layout-calibrated A5 print text groups explicitly opt out');
+assert.match(print, /position: 'absolute'/, 'print-only font exceptions belong to position-calibrated paper layout');
+const screen = read('screens/CompanyPayrollHistory.js');
+assert.match(screen, /نسخه خوانای فیش حقوق/, 'print-only exception must have a readable alternative');
+assert.match(screen, /<Text allowFontScaling accessibilityRole="header" style=\{styles\.readableTitle\}>/, 'readable preview must scale with Android');
+console.log('PASS native Android font scaling is enabled; A5 print remains explicit exception with readable alternative');
