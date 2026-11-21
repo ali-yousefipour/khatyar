@@ -15,9 +15,9 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = trim((string)$get('app_latest_version', '2.0.6'));
-if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '2.0.6';
-$latest = version_compare($latest, '2.0.6', '<') ? '2.0.6' : $latest;
+$latest = trim((string)$get('app_latest_version', '2.0.7'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '2.0.7';
+$latest = version_compare($latest, '2.0.7', '<') ? '2.0.7' : $latest;
 $min = trim((string)$get('app_min_version', '0.0.0'));
 if (!preg_match('/^\d+\.\d+\.\d+$/', $min)) $min = '0.0.0';
 $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar-releases/releases/latest/download/khat-yar.apk';
