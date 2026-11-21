@@ -9,6 +9,12 @@ const shell = fs.readFileSync(path.join(__dirname, '../app/panel.html'), 'utf8')
 assert.match(source, /function PanelStartupLoading\(/, 'post-login loading component exists');
 assert.match(source, /className="kh-login-startup"/, 'post-login loading has unified class');
 assert.match(source, /if\(!authReady\)return <PanelStartupLoading/, 'session restore displays progress');
+assert.match(source, /settings: \(opts\)=> GET\('\/admin\/settings',opts\)/, 'settings accepts request timeout options');
+assert.match(source, /db\.settings\(\{timeoutMs:15000\}\)/, 'post-login settings request is time bounded');
+assert.match(source, /settingsLoadError\.current=e\?\.message/, 'settings failures are persisted without granting permissions');
+assert.match(source, /if\(me\.is_admin&&settingsLoadError\.current\)return/, 'settings errors expose a retry view');
+assert.match(source, /setAuthRetry\(n=>n\+1\)/, 'settings retry uses the existing session restore flow');
+
 assert.match(source, /if\(!me\)return <Login/, 'failed or absent session still displays login');
 assert.match(source, /if\(authError&&!me\)return/, 'network error state remains reachable');
 assert.match(source, /if\(me\.is_admin&&!me\.must_change_pw&&\(settingsLoadedFor!==String\(me\.id\)/, 'admin route waits for matching settings');
