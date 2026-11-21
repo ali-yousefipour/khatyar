@@ -249,3 +249,30 @@
   clip-path:inset(50%);
   white-space:nowrap;
 }
+
+
+/* Complaint wizard and event notifications — keyboard-first RTL visual system. */
+.sc-module .sc-notification-settings{display:grid;gap:16px;margin-block:24px;padding:clamp(14px,2.5vw,24px);border:1px solid #bfdfd1;border-radius:20px;background:linear-gradient(145deg,#f3faf6,#fff);color:#174d3d}
+.sc-module .sc-notification-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sc-module .sc-notification-heading h3{margin:0 0 6px;font-size:clamp(17px,2vw,20px);color:#075d4b}
+.sc-module .sc-notification-heading p{margin:0;max-width:650px}
+.sc-module .sc-notification-total{display:inline-flex;align-items:center;padding:7px 12px;border-radius:999px;background:#d8f0e5;color:#075a49;font-weight:800;white-space:nowrap}
+.sc-module .sc-notification-list{display:grid;gap:12px}
+.sc-module .sc-notification-stage{background:#fff;border:1px solid #d4e7dc;border-radius:16px;padding:clamp(12px,1.5vw,18px);box-shadow:0 8px 30px -25px #075d4b}
+.sc-module .sc-notification-stage-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sc-module .sc-notification-stage-head h4{margin:0;color:#155741;font-size:15px}
+.sc-module .sc-notification-stage-head p{margin:3px 0 0;color:#526b60;font-size:12px}
+.sc-module .sc-notification-step{display:grid;place-items:center;flex:0 0 34px;height:34px;border-radius:11px;background:#0b745d;color:#fff;font-weight:800}
+.sc-module .sc-notification-recipients{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.sc-module .sc-notification-recipient{display:grid;gap:9px;border:1px solid #e1ece5;border-radius:12px;padding:12px;min-width:0}
+.sc-module .sc-notification-recipient strong{font-size:13px}
+.sc-module .sc-notification-switch{display:flex;align-items:center;gap:9px;font-size:13px;min-height:38px;cursor:pointer}
+.sc-module .sc-notification-switch input{accent-color:#087f67;min-width:19px;min-height:19px;width:19px;height:19px;cursor:pointer}
+.sc-module .sc-notification-switch:focus-within{outline:2px solid #087f67;outline-offset:2px;border-radius:8px}
+.sc-module .sc-notification-footnote{margin:0;border-top:1px solid #d7e8df;padding-top:12px}
+.sc-module .sc-wizard-panel{border:1px solid #cfe2d8;box-shadow:0 12px 35px -28px #073e32}
+.sc-module .sc-wizard-actions{position:relative;background:linear-gradient(#ffffff,#f8fcf9);border-top:1px solid #dcece3;padding-top:16px}
+.sc-module .sc-wizard-content :is(input,textarea,select):focus-visible{outline:3px solid #158268;outline-offset:2px}
+.sc-module .sc-wizard-help{border-inline-start:3px solid #0c8868;background:#edf8f1;border-radius:6px;padding:9px 12px}
+@media(max-width:430px){.sc-module .sc-notification-settings{padding:12px}.sc-module .sc-notification-recipients{grid-template-columns:1fr}.sc-module .sc-notification-stage-head{align-items:flex-start}}
+@media print{.sc-module .sc-notification-settings{display:none!important}}
