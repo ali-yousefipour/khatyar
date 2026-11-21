@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { C, FONT } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function ReportPersonPickerModal({ visible, targets = [], selectedId = null, excludeId = null, title = 'انتخاب شخص', onClose, onSelect }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState(''); const [role, setRole] = useState('');
+  // Filters belong to each selection session, not to a previous modal opening.
+  useEffect(() => { if (visible) { setQuery(''); setRole(''); } }, [visible]);
   const roles = useMemo(() => { const m=new Map(); targets.forEach(t=>{const title=t.role_title||'بدون سمت';if(!m.has(title))m.set(title,title)});return Array.from(m.values()).sort((a,b)=>a.localeCompare(b,'fa')); },[targets]);
   const list = useMemo(() => { const q=query.trim().toLocaleLowerCase('fa'); return targets.filter(t=>{if(excludeId!=null&&String(t.id)===String(excludeId))return false;if(role&&(t.role_title||'بدون سمت')!==role)return false;if(!q)return true;const hay=(t.first_name||'')+' '+(t.last_name||'')+' '+(t.role_title||'');return hay.toLocaleLowerCase('fa').includes(q)}).slice(0,100); },[targets,query,role,excludeId]);
   return <Modal visible={!!visible} transparent animationType="slide" onRequestClose={onClose}>
