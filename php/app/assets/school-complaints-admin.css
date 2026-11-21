@@ -229,3 +229,23 @@
 /* WEB-UX-013: accessible empty state without breaking desktop/mobile table layouts. */
 .sc-module .sc-table .sc-empty-results{padding:26px 18px;text-align:center;color:var(--kh-text-muted,#4d665c);line-height:1.9;white-space:normal;}
 @media screen and (max-width:900px){.sc-module .sc-responsive-table .sc-empty-results{display:block;grid-column:1/-1;min-width:0;}}
+
+/* School complaints - keyboard-operable lookup and accessible report table. */
+.sc-module .sc-lookup [role="combobox"] { width:100%; }
+.sc-module .sc-results [role="option"]:focus-visible {
+  outline: 2px solid var(--brand-2,#087f67);
+  outline-offset: -2px;
+  background: var(--brand-soft,#e7f4ed);
+}
+.sc-module .sc-results [role="option"] { min-height:44px; }
+.sc-module .sc-visually-hidden {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  border:0;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
