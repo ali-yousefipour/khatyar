@@ -3577,8 +3577,8 @@ function _shift_month_report_impl($jy, $jm, $throughJdate=null, $onlyUserId=null
       GROUP BY type,unit,from_jdate,to_jdate,the_date,from_time,to_time",[$a['user_id']]);
     $normSummaryDate=static function($v){$v=trim(str_replace('/','-',(string)$v));if(!preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/',$v,$m))return null;return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);};
     foreach($rqs as $rq){
-      $from=$normSummaryDate($rq['from_jdate']??'')?:$normSummaryDate($rq['the_date']??'');
-      $to=$normSummaryDate($rq['to_jdate']??'')?:$normSummaryDate($rq['the_date']??'')?:$from;
+      $from=(($rq['unit']??'')==='hourly'?$normSummaryDate($rq['the_date']??''):null)?:$normSummaryDate($rq['from_jdate']??'')?:$normSummaryDate($rq['the_date']??'');
+      $to=(($rq['unit']??'')==='hourly'?$from:null)?:$normSummaryDate($rq['to_jdate']??'')?:$normSummaryDate($rq['the_date']??'')?:$from;
       if(!$from||!$to||$to<$from)continue;
       $fromTs=j_to_ts($from);$toTs=j_to_ts($to);
       if($fromTs===false||$fromTs===null||$toTs===false||$toTs===null||$toTs<$fromTs)continue;
@@ -4139,8 +4139,8 @@ function _attendance_report_impl($userId,$fromJ,$toJ,$ownedByEntry=false){
       return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
     };
     foreach($reqRows as $rr){
-      $rf=$normReqDate($rr['from_jdate']??'') ?: $normReqDate($rr['the_date']??'');
-      $rt=$normReqDate($rr['to_jdate']??'') ?: $rf;
+      $rf=(($rr['unit']??'')==='hourly'?$normReqDate($rr['the_date']??''):null) ?: $normReqDate($rr['from_jdate']??'') ?: $normReqDate($rr['the_date']??'');
+      $rt=(($rr['unit']??'')==='hourly'?$rf:null) ?: $normReqDate($rr['to_jdate']??'') ?: $rf;
       if(!$rf||!$rt||$rf>$rt) continue;
       if($rr['unit']==='hourly'){
         $mins=(int)($rr['minutes']??0);
@@ -5103,6 +5103,27 @@ function _req_policy_balance($uid,array $policy,$jy,$jm){
   }return $out;
 }
 
+// An overtime request is valid only for a day with a completed attendance session.
+// Check server-side on submission and again at approval to prevent stale approvals.
+function _req_require_overtime_attendance(int $uid,array $request): void {
+  if(($request['type']??'')!=='overtime')return;
+  $span=_req_policy_span($request);
+  if(!$span)Http::error('تاریخ درخواست اضافه‌کار معتبر نیست.',422);
+  $day=$span['start']->setTime(0,0);
+  $end=$day->modify('+1 day');
+  $rows=Db::all("SELECT check_in,check_out FROM staff_attendance
+    WHERE user_id=? AND check_in>=? AND check_in<? AND check_out IS NOT NULL",
+    [$uid,$day->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
+  foreach($rows as $row){
+    $in=strtotime((string)$row['check_in']);
+    $out=strtotime((string)$row['check_out']);
+    if(!$in||!$out)continue;
+    [$in,$out]=ShiftCalc::normalizeSessionPair($in,$out);
+    if($out>$in)return;
+  }
+  Http::error('ثبت اضافه‌کار فقط برای روزهایی مجاز است که تردد ورود و خروج معتبر داشته باشید.',422);
+}
+
 // Reject time already covered by a real or provisional attendance interval.
 function _req_reject_attendance_overlap(int $uid,array $request): void {
   $type=$request['type']??'';
@@ -5174,6 +5195,7 @@ function _req_work_policy_handler($path,callable $handler){
     $locked=Db::one("SELECT GET_LOCK(?,10) acquired",[$lock]);
     if((int)($locked['acquired']??0)!==1) Http::error('درخواست دیگری در حال بررسی است؛ دوباره تلاش کنید.',409);
     try{
+      _req_require_overtime_attendance($uid,$request);
       if(!$approval && ($request['type']??'')!=='manual') _req_reject_attendance_overlap($uid,$request);
       if(!$approval || ($request['status']??'')==='rejected') _req_reject_overlap($uid,$request);
       $policy=_req_active_work_policy($uid);
