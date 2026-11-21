@@ -47,4 +47,9 @@ assert.match(jalali,/monthNavButton: \{ minWidth: 48, minHeight: 48/,'calendar m
 assert.match(jalali,/month: \{ width: '31%', minHeight: 48, paddingVertical: 10/,'month options must grow with large fonts');
 assert.match(jalali,/year: \{ width: '22%', minHeight: 48, paddingVertical: 10/,'year options must grow with large fonts');
 assert.match(jalali,/todayAction: \{ flex: 1, minHeight: 48, paddingVertical: 10/,'today footer action must grow with large fonts');
+assert.doesNotMatch(picker,/allowFontScaling=\{false\}/,'shared time picker must not explicitly suppress Android system font scale');
+assert.equal((picker.match(/allowFontScaling\b/g)||[]).length,14,'time picker spinner and action labels should scale');
+assert.match(picker,/quickChip: \{ flexGrow: 1,[^\n]+paddingVertical: 8, minHeight: 48/,'quick choices need scalable height and 48dp minimum target');
+assert.match(picker,/minuteRow: \{ flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap'/,'minute manual input and label should wrap on narrow Android screens');
+assert.match(picker,/actions: \{ flexDirection: 'row-reverse', flexWrap: 'wrap'/,'confirmation actions wrap when system font size is large');
 console.log('PASS request time picker UX and HH:mm contract');
