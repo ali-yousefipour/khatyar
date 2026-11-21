@@ -22120,7 +22120,6 @@ function App() {
     const [allowed, setAllowed] = useState([]);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
-    const [settingsLoadedFor, setSettingsLoadedFor] = useState(null);
     const [navigationRestored, setNavigationRestored] = useState(false);
     useEffect(() => {
         if (!(me === null || me === void 0 ? void 0 : me.is_admin)) {
@@ -22172,6 +22171,7 @@ function App() {
     catch (e) { } return next; });
     // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
     const [openSections, setOpenSections] = useState({});
+    const [settingsLoadedFor, setSettingsLoadedFor] = useState(null);
     const [accountOpen, setAccountOpen] = useState(false);
     const [passwordDialog, setPasswordDialog] = useState(false);
     const accountRef = useRef(null);
