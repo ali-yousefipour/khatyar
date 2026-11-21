@@ -26,6 +26,11 @@ final class SchoolComplaintNotifications {
   public static function queue(int $caseId, int $eventId, string $event, array $config): void {
     if (!in_array($event,self::EVENTS,true)) return;
     $rules=self::normalize($config['notifications']??[]);
+    $hasEnabled=false;
+    foreach ($rules[$event]??[] as $methods) {
+      if (!empty($methods['sms'])||!empty($methods['bale'])) { $hasEnabled=true; break; }
+    }
+    if (!$hasEnabled) return;
     $r=Db::one('SELECT tracking_code,phone,company_snapshot,assigned_to,supervisor_id FROM school_complaints WHERE id=?',[$caseId]);
     if (!$r) return;
     $company=json_decode((string)($r['company_snapshot']??'{}'),true);
@@ -53,7 +58,11 @@ final class SchoolComplaintNotifications {
     }
   }
   private static function userPhone(int $id): string {
-    if ($id<=0) return ''; // Complaint-only operators have no verified mobile in their account schema.
+    if ($id===0) return '';
+    if ($id<0) {
+      $row=Db::one('SELECT mobile AS phone FROM school_complaint_accounts WHERE id=? AND is_active=1',[-$id]);
+      return (string)($row['phone']??'');
+    }
     $row=Db::one('SELECT phone FROM users WHERE id=? AND is_active=1',[$id]);
     return (string)($row['phone']??'');
   }
