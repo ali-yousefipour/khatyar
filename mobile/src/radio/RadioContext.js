@@ -111,10 +111,20 @@ useEffect(()=>{if(!user?.id){setPersonalShiftLimitState(false);setShiftLimitTogg
 useEffect(()=>{if(!user?.id||!NATIVE)return;syncNative();},[user?.id,enabled,channelId,volumePttEnabled]);
 const setPersonalShiftLimit=async value=>{
   if(!shiftLimitToggleAllowed||loading||recordingRef.current)return;
+  const next=!!value;
   setLoading(true);setLoadError('');
   try{
-    const response=await request('/radio-api-v2.php?op=shift-limit-set',{method:'POST',body:{enabled:!!value},queueIfOffline:false});
-    setPersonalShiftLimitState(!!response?.personal_shift_limit);
+    const response=await request('/radio-api-v2.php?op=shift-limit-set',{method:'POST',body:{enabled:next},queueIfOffline:false,noStore:true});
+    if(response?.personal_shift_limit!==next||response?.shift_restricted!==next){
+      throw new Error('سرور تغییر محدودیت بی‌سیم را تأیید نکرد. لطفاً دوباره تلاش کنید.');
+    }
+    // Read back the setting before restarting the JS/native radio listeners.
+    // This also prevents showing an unverified optimistic switch state.
+    const verified=await request('/radio-api-v2.php?op=channels',{noStore:true});
+    if(!!verified?.personal_shift_limit!==next||!!verified?.shift_restricted!==next){
+      throw new Error('تنظیم محدودیت با وضعیت ثبت‌شده در سرور مطابقت ندارد.');
+    }
+    setPersonalShiftLimitState(next);
     await load();
   }catch(error){setLoadError(error?.message||'ذخیره محدودیت بی‌سیم ناموفق بود.');}
   finally{setLoading(false);}
