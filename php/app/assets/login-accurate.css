@@ -244,3 +244,14 @@ body:has(.login-page){margin:0!important;background:#d8eafa!important;font-famil
   border-radius:0!important;
  }
 }
+
+/* Scoped complaints operator entry: same visible login entrypoint, isolated token security. */
+.login-page .login-support .kh-complaints-login-link{
+ flex:1 1 100%;display:flex;align-items:center;justify-content:center;text-align:center;
+ min-height:44px;border:1px solid #b6dfca;border-radius:12px;padding:9px 12px;
+ color:#075f49!important;background:#eaf8f0;font:700 12px Vazirmatn,Tahoma,sans-serif!important;
+ text-decoration:none!important;line-height:1.8;
+}
+.login-page .login-support .kh-complaints-login-link:hover{background:#def2e6;text-decoration:none!important}
+.login-page .login-support .kh-complaints-login-link:focus-visible{outline:3px solid #087f67;outline-offset:2px}
+@media(max-width:430px){.login-page .login-support{justify-content:center!important}.login-page .login-support .kh-complaints-login-link{font-size:12px!important}}
