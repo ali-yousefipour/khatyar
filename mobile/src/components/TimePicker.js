@@ -94,7 +94,7 @@ export default function TimePicker({ visible, onClose, onSelect, initial, label 
 
   return (
     <Modal visible={!!visible} transparent animationType="fade" statusBarTranslucent={false} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.backdrop}>
         <View style={[styles.card, { maxHeight: Math.max(280, height - 76) }]}>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
             <View style={styles.heading}>
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
   columnTitle: { flexDirection: 'row-reverse', gap: 5, alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
   columnTitleText: { fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
   wheel: { alignItems: 'stretch', backgroundColor: '#fff', borderRadius: 15, paddingHorizontal: 5, paddingVertical: 3 },
-  arrow: { minHeight: 30, alignItems: 'center', justifyContent: 'center' },
-  neighbor: { minHeight: 34, alignItems: 'center', justifyContent: 'center' },
+  arrow: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  neighbor: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   neighborText: { fontFamily: FONT.regular, fontSize: 18, color: '#637184' },
   current: { minHeight: 52, borderRadius: 13, backgroundColor: '#ccefe1', alignItems: 'center', justifyContent: 'center' },
   currentText: { fontFamily: FONT.bold, color: C.brand, fontSize: 28 },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   hourCell: {minWidth:44,minHeight:44,flexGrow:1,borderRadius:10,borderWidth:1,borderColor:'#e1e7ef',alignItems:'center',justifyContent:'center'},
   minuteRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginTop: 12 },
   minuteHelp: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', flex: 1 },
-  minuteInput: { width: 69, height: 43, borderRadius: 12, borderWidth: 1, borderColor: C.brand, fontFamily: FONT.bold, fontSize: 17, color: C.ink, backgroundColor: '#fff' },
+  minuteInput: { width: 69, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: C.brand, fontFamily: FONT.bold, fontSize: 17, color: C.ink, backgroundColor: '#fff' },
   invalid: { borderColor: C.danger },
   error: { fontFamily: FONT.regular, fontSize: 11, color: C.danger, textAlign: 'right' },
   quickTitle: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 16, marginBottom: 8 },
