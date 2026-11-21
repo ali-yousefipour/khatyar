@@ -11,6 +11,7 @@ const section = (from, to) => {
 };
 const calls = [];
 let fail = false;
+let failWrite = false;
 const progress = {
   begin(title, options) { calls.push(['begin', title, options]); return 17; },
   update(id, details) { calls.push(['update', id, details]); },
@@ -23,7 +24,7 @@ const xlsx = {
     book_new: () => ({}),
     book_append_sheet: () => {}
   },
-  writeFile: () => { calls.push(['write']); }
+  writeFile: () => { calls.push(['write']); if(failWrite)throw Error('xlsx write failed'); }
 };
 const context = {
   window: { KhatyarLongOperation: progress, KhatyarSchoolPdf: { download: async () => { calls.push(['pdf']); if (fail) throw Error('pdf failed'); } }, XLSX: xlsx },
@@ -47,6 +48,11 @@ vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.e
   calls.length = 0;
   await context.savePdf({ tracking_code: 'SSC-1' });
   assert.deepEqual(calls.map(v => v[0]), ['begin', 'pdf', 'end']);
+  calls.length = 0;
+  failWrite = true;
+  await assert.rejects(context.exportRows(), /xlsx write failed/);
+  assert.equal(calls.at(-1)[0], 'end', 'Excel serialization error must close spinner');
+  failWrite = false;
   calls.length = 0;
   fail = true;
   await assert.rejects(context.exportRows(), /network failed/);
