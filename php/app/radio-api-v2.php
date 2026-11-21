@@ -81,24 +81,24 @@ $u=($op==='audio'&&$method==='GET'&&isset($_GET['sig']))?radio_audio_signed_user
 // INFORMATION_SCHEMA probes on that hot path: they can exhaust shared-host DB
 // connections under concurrent clients. Channel loading/settings are the only
 // bootstrap points; live requests use the already prepared schema.
-if(in_array($op,['channels','settings','shift-limit-set'],true)){
+if(in_array($op,['channels','settings'],true)){
   radio_schema();
   if(!ce('radio_user_settings','listen_all'))Db::run("ALTER TABLE radio_user_settings ADD COLUMN listen_all TINYINT(1) NOT NULL DEFAULT 0");
-  if(!ce('radio_user_settings','shift_limit_enabled'))Db::run("ALTER TABLE radio_user_settings ADD COLUMN shift_limit_enabled TINYINT(1) NOT NULL DEFAULT 0");
 }
+// Operators at levels 1–4 change exactly the same global setting as the website.
+// Do not persist a per-user radio gate or override the role's own exemption.
 if($op==='shift-limit-set'&&$method==='POST'){
-  if(!canListenAll($u))re('تنظیم محدودیت شخصی بی‌سیم فقط برای سطوح ۱ تا ۴ مجاز است',403);
+  if(!canListenAll($u))re('تغییر محدودیت عمومی بی‌سیم فقط برای سطوح ۱ تا ۴ مجاز است',403);
   $payload=rb();
   if(!array_key_exists('enabled',$payload)||!is_bool($payload['enabled']))re('وضعیت محدودیت معتبر نیست',422);
-  $limit=$payload['enabled']?1:0;
-  Db::run("INSERT INTO radio_user_settings(user_id,shift_limit_enabled) VALUES(?,?) ON DUPLICATE KEY UPDATE shift_limit_enabled=VALUES(shift_limit_enabled)",[(int)$u['id'],$limit]);
-  // Return the persisted state, not just the input sent by the device.
-  $stored=kh_radio_shift_personal_limit($u);
-  if($stored!==((bool)$limit))re('تنظیم محدودیت بی‌سیم ذخیره نشد؛ دوباره تلاش کنید',500);
-  rj(['ok'=>true,'personal_shift_limit'=>$stored,'shift_restricted'=>kh_radio_shift_restricted($u),'shift_allowed'=>kh_radio_shift_allowed($u)]);
+  $enabled=$payload['enabled'];
+  Db::run("INSERT INTO app_settings(`key`,`value`) VALUES('radio_limit_to_shift',?) ON DUPLICATE KEY UPDATE value=VALUES(value)",[$enabled?'1':'0']);
+  $stored=kh_radio_shift_enabled();
+  if($stored!==$enabled)re('تنظیم سراسری بی‌سیم ذخیره نشد؛ دوباره تلاش کنید',500);
+  rj(['ok'=>true,'radio_limit_to_shift'=>$stored,'global_shift_restricted'=>$stored]);
 }
 if(in_array($op,['presence','take','send','poll','poll-all','archive','responsible-recent','latest-three'],true))kh_radio_shift_require($u);
-if($op==='channels'&&$method==='GET'){$rows=Db::all('SELECT * FROM radio_channels WHERE is_active=1 ORDER BY priority DESC,id');$o=[];foreach($rows as$c)if(okch($c,$u)){$lm=Db::one('SELECT MAX(id) m FROM radio_messages WHERE channel_id=?',[$c['id']]);$o[]=['id'=>(int)$c['id'],'name'=>$c['name'],'code'=>$c['code'],'description'=>$c['description'],'channel_type'=>$c['channel_type']??'custom','min_talk_ms'=>(int)($c['min_talk_ms']??1500),'max_talk_ms'=>(int)($c['max_talk_ms']??25000),'priority'=>(int)($c['priority']??0),'busy'=>!empty($c['current_speaker_id'])&&strtotime((string)$c['lock_until'])>time(),'speaker_id'=>$c['current_speaker_id']?(int)$c['current_speaker_id']:null,'last_message_id'=>(int)($lm['m']??0)];}$s=Db::one('SELECT enabled,channel_id,listen_all FROM radio_user_settings WHERE user_id=?',[$u['id']]);$cid=(int)($s['channel_id']??($o[0]['id']??0));$allowed=canListenAll($u);$listenAll=$allowed&&$s&&!empty($s['listen_all']);$allMax=0;if($allowed){$x=Db::one('SELECT MAX(m.id) m FROM radio_messages m JOIN radio_channels c ON c.id=m.channel_id WHERE c.is_active=1');$allMax=(int)($x['m']??0);}rj(['ok'=>true,'channels'=>$o,'enabled'=>$s?(bool)$s['enabled']:true,'channel_id'=>$cid,'listen_all_allowed'=>$allowed,'listen_all'=>$listenAll,'listen_all_last_message_id'=>$allMax,'shift_restricted'=>kh_radio_shift_restricted($u),'global_shift_restricted'=>kh_radio_shift_enabled(),'personal_shift_limit'=>kh_radio_shift_personal_limit($u),'shift_limit_toggle_allowed'=>canListenAll($u),'shift_allowed'=>kh_radio_shift_allowed($u),'shift_started_at'=>kh_radio_shift_started_at($u)]);}
+if($op==='channels'&&$method==='GET'){$rows=Db::all('SELECT * FROM radio_channels WHERE is_active=1 ORDER BY priority DESC,id');$o=[];foreach($rows as$c)if(okch($c,$u)){$lm=Db::one('SELECT MAX(id) m FROM radio_messages WHERE channel_id=?',[$c['id']]);$o[]=['id'=>(int)$c['id'],'name'=>$c['name'],'code'=>$c['code'],'description'=>$c['description'],'channel_type'=>$c['channel_type']??'custom','min_talk_ms'=>(int)($c['min_talk_ms']??1500),'max_talk_ms'=>(int)($c['max_talk_ms']??25000),'priority'=>(int)($c['priority']??0),'busy'=>!empty($c['current_speaker_id'])&&strtotime((string)$c['lock_until'])>time(),'speaker_id'=>$c['current_speaker_id']?(int)$c['current_speaker_id']:null,'last_message_id'=>(int)($lm['m']??0)];}$s=Db::one('SELECT enabled,channel_id,listen_all FROM radio_user_settings WHERE user_id=?',[$u['id']]);$cid=(int)($s['channel_id']??($o[0]['id']??0));$allowed=canListenAll($u);$listenAll=$allowed&&$s&&!empty($s['listen_all']);$allMax=0;if($allowed){$x=Db::one('SELECT MAX(m.id) m FROM radio_messages m JOIN radio_channels c ON c.id=m.channel_id WHERE c.is_active=1');$allMax=(int)($x['m']??0);}rj(['ok'=>true,'channels'=>$o,'enabled'=>$s?(bool)$s['enabled']:true,'channel_id'=>$cid,'listen_all_allowed'=>$allowed,'listen_all'=>$listenAll,'listen_all_last_message_id'=>$allMax,'shift_restricted'=>kh_radio_shift_restricted($u),'global_shift_restricted'=>kh_radio_shift_enabled(),'radio_limit_to_shift'=>kh_radio_shift_enabled(),'shift_limit_toggle_allowed'=>canListenAll($u),'shift_allowed'=>kh_radio_shift_allowed($u),'shift_started_at'=>kh_radio_shift_started_at($u)]);}
 if($op==='state'&&$method==='GET'){$s=Db::one('SELECT enabled,channel_id FROM radio_user_settings WHERE user_id=?',[$u['id']]);$cid=(int)($s['channel_id']??0);$c=$cid?ec($cid,$u):null;rj(['ok'=>true,'enabled'=>$s?(bool)$s['enabled']:true,'channel'=>$c?['id'=>(int)$c['id'],'name'=>$c['name'],'busy'=>!empty($c['current_speaker_id'])&&strtotime((string)$c['lock_until'])>time(),'speaker_id'=>$c['current_speaker_id']?(int)$c['current_speaker_id']:null]:null]);}
 if($op==='presence'&&$method==='POST'){$cid=(int)(rb()['channel_id']??0);ec($cid,$u);if(te('radio_presence'))Db::run('INSERT INTO radio_presence(channel_id,user_id,last_seen_at) VALUES(?,?,NOW()) ON DUPLICATE KEY UPDATE last_seen_at=NOW()',[$cid,$u['id']]);rj(['ok'=>true]);}
 if($op==='settings'&&$method==='POST'){$b=rb();$cid=(int)($b['channel_id']??0);if($cid)ec($cid,$u);$en=!empty($b['enabled'])?1:0;if(!empty($b['listen_all']))requireListenAll($u);$la=(!empty($b['listen_all'])&&canListenAll($u))?1:0;Db::run('INSERT INTO radio_user_settings(user_id,enabled,channel_id,listen_all) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE enabled=VALUES(enabled),channel_id=VALUES(channel_id),listen_all=VALUES(listen_all)',[$u['id'],$en,$cid?:null,$la]);rj(['ok'=>true,'enabled'=>(bool)$en,'channel_id'=>$cid,'listen_all'=>(bool)$la]);}
