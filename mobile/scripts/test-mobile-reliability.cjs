@@ -75,8 +75,61 @@ async function testConcurrentPermissionCacheWrites() {
   assert.deepEqual(Array.from(await ctx.api.readAppItems(14)), ['NewRole']);
 }
 
+
+async function testOfflineReplayConcurrency() {
+  const queueStore = new Map();
+  const user = {id: 23};
+  const storage = {
+    getItem: async key => queueStore.get(key) || null,
+    setItem: async (key, value) => {queueStore.set(key, value);},
+    removeItem: async key => {queueStore.delete(key);},
+  };
+  const ctx = {
+    AsyncStorage: storage,
+    Network: {getNetworkStateAsync: async () => ({isConnected:true, isInternetReachable:true})},
+    FileSystem: {documentDirectory:null},
+    readVerifiedUser: async () => user,
+  };
+  vm.createContext(ctx);
+  vm.runInContext(offline.replace(/^import .*;\s*$/gm, '').replace(/export /g, '') +
+    '\nthis.queue={enqueue,pending,retryOne,flush};', ctx);
+  await ctx.queue.enqueue({path:'/my/requests', client_uuid:'test-replay-23', body:{type:'manual'}});
+  let finishManual;
+  let sends = 0;
+  const manual = ctx.queue.retryOne('test-replay-23', async () => {
+    sends++;
+    return new Promise(resolve => {finishManual = resolve;});
+  });
+  for(let i=0;i<30&&!finishManual;i++) await Promise.resolve();
+  assert.equal(typeof finishManual, 'function', 'manual replay must begin');
+  const automatic = ctx.queue.flush(async () => {sends++; return {ok:true};});
+  finishManual({ok:true});
+  await manual;
+  await automatic;
+  assert.equal(sends, 1, 'automatic flush must skip an active manual retry');
+  assert.equal((await ctx.queue.pending()).length, 0, 'successful retry must leave no queued item');
+
+  await ctx.queue.enqueue({path:'/my/requests', client_uuid:'test-replay-24', body:{type:'manual'}});
+  let finishAutomatic;
+  const ongoingFlush = ctx.queue.flush(async () => {
+    sends++;
+    return new Promise(resolve => {finishAutomatic = resolve;});
+  }, {force:true});
+  for(let i=0;i<30&&!finishAutomatic;i++) await Promise.resolve();
+  assert.equal(typeof finishAutomatic, 'function', 'automatic replay must begin');
+  const delayedManual = ctx.queue.retryOne('test-replay-24', async () => {
+    sends++;
+    return {ok:true};
+  });
+  finishAutomatic({ok:true});
+  await ongoingFlush;
+  await assert.rejects(delayedManual, /قبلاً ارسال شده است/);
+  assert.equal(sends, 2, 'manual retry must not resubmit an automatically delivered item');
+}
+
 (async () => {
   await testPermissionRevocation();
+  await testOfflineReplayConcurrency();
   await testConcurrentPermissionCacheWrites();
   assert.match(auth, /const me=await request\('\/auth\/me',\{noStore:true,timeoutMs:8000\}\)/);
   assert.match(auth, /await invalidateAppItems\(user\.id\)/);
