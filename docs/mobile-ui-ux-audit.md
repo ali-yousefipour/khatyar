@@ -25,6 +25,8 @@
 | UI-02 | P2 | `mobile/src/components/ReportPersonPickerModal.js` | فیلتر سمت‌های پرتعداد بدون سقف ارتفاع؛ گزینه‌های بدون state دسترس‌پذیری و عدم رعایت insets پایین | محدودسازی ارتفاع فیلتر، Safe Area، برچسب و selected state، ابعاد لمس در `7a65de4f` | بازخوانی کد و تست ایستا افزوده؛ نتیجه CI جداگانه |
 | UI-03 | P2 (اصلاح جزئی) | `mobile/src/components/JDatePicker.js` | ورودی اولیه با ارقام فارسی/عربی یکپارچه نبود؛ تب‌ها و ماه/سال selected state نداشتند؛ فاصلهٔ پایین Safe Area کنترل نمی‌شد | نرمال‌سازی رقم، تب/انتخاب TalkBack، Safe Area و حداقل ارتفاع روزها در `77f1ba3f` | آزمون ایستا افزوده؛ دستگاه تأیید نشده |
 
+| UI-04 | P2 | `mobile/src/components/ReportTextModal.js` | Android keyboard avoidance was disabled; modal content was not scrollable and text scaling was suppressed | shared `ModalKeyboardView`, scrollable body, fixed actions, busy-safe Back, accessible font scaling; commit `265d6d90` | JSX and UX source tests added in `d1691e10`; Android device test unverified |
+
 ## فهرست واقعی (پوشش ممیزی)
 
 | عنوان/شناسه | مسیر واقعی | نقش مجاز | UI | RTL | فونت | واکنش‌گرایی | فرم | مودال | دسترس‌پذیری | API | اولویت | اصلاح | کامیت | آزمون |
@@ -109,7 +111,7 @@
 | PulseLoadingIndicator | `mobile/src/components/PulseLoadingIndicator.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | ReportImageThumbnail | `mobile/src/components/ReportImageThumbnail.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | ReportPersonPickerModal | `mobile/src/components/ReportPersonPickerModal.js` | نیازمند استخراج مجوز runtime / سرور | اصلاح محدود | جزئی | نامشخص | بهبود جزئی | بررسی‌نشده | بازبینی/اصلاح محدود | بهبود محدود | بررسی‌نشده | P2 | اصلاح جزئی | 7a65de4f | آزمون ایستا افزوده؛ CI در انتظار |
-| ReportTextModal | `mobile/src/components/ReportTextModal.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
+| ReportTextModal | `mobile/src/components/ReportTextModal.js` | نیازمند استخراج مجوز runtime / سرور | اصلاح محدود | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | SafeBottomBar | `mobile/src/components/SafeBottomBar.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | جزئی | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | بازبینی ایستا؛ تست دستگاه نشده |
 | SignaturePad | `mobile/src/components/SignaturePad.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | TaxiPlate | `mobile/src/components/TaxiPlate.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
@@ -140,3 +142,9 @@
 - `JDatePicker.js`: ورودی عدد فارسی/عربی، Safe Area، وضعیت Tab و اندازه لمس — `77f1ba3f`؛ آزمون `30330103`.
 - هیچ تغییر PHP/MySQL، قرارداد پاسخ API، موتور حضور و غیاب یا نسخه APK در این مجموعه اعمال نشده است.
 - دسترس‌پذیری و فونت ۲۰۰٪ در دستگاه واقعی هنوز تأیید نشده‌اند. موفقیت آزمون ایستا تأیید تصویری نیست.
+
+## Android report text modal update — 2026-11-21
+
+- `mobile/src/components/ReportTextModal.js`: added shared Android keyboard avoidance, scrollable text, accessible text scaling and actions; blocked Back close during a pending submission. API and PHP untouched.
+- `mobile/scripts/test-report-screens.cjs`: JSX parse and source contract assertions added; real-device visual tests remain pending.
+- Global font scaling override in `mobile/src/fontscale.js` still exists and requires a staged approach and visual regression verification.
