@@ -37,7 +37,10 @@ function radio_user(){
 }
 function radio_body(){ $raw=file_get_contents('php://input'); $j=json_decode($raw,true); return is_array($j)?$j:$_POST; }
 function radio_channel($id){ $c=Db::one('SELECT * FROM radio_channels WHERE id=? AND is_active=1',[(int)$id]); if(!$c) radio_error('کانال صوتی یافت نشد',404); return $c; }
-function radio_cleanup_locks(){ try{Db::run('UPDATE radio_channels SET current_speaker_id=NULL,lock_until=NULL WHERE lock_until IS NOT NULL AND lock_until<NOW()');}catch(Throwable $e){} }
+// Keep the channel free immediately after lock_until, but preserve the old
+// sender identifier briefly while a completed recording is being uploaded by
+// radio-api-v2.php. Both versions share the same radio_channels table.
+function radio_cleanup_locks(){ try{Db::run('UPDATE radio_channels SET current_speaker_id=NULL,lock_until=NULL WHERE lock_until IS NOT NULL AND lock_until<DATE_SUB(NOW(),INTERVAL 30 SECOND)');}catch(Throwable $e){} }
 function radio_audio_path($id){ return __DIR__.'/uploads/radio/'.((int)$id).'.m4a'; }
 
 radio_setup();
