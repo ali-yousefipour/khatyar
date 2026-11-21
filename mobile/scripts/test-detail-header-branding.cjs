@@ -14,4 +14,14 @@ assert.match(header, /goldRule/, 'Keep the gold brand accent from approved mocku
 assert.match(header, /backgroundColor:'#075d4b'/, 'Use the emerald header color');
 assert.match(app, /<MaterialCommunityIcons name="menu" size=\{25\} color="#fff"/, 'Global menu icon should use the consistent vector icon');
 assert.doesNotMatch(app, />☰<\/Text>/, 'Do not fall back to a font-dependent hamburger character');
+const accountHeader=fs.readFileSync(path.resolve(__dirname,'../src/components/AccountFormHeader.js'),'utf8');
+assert.equal((accountHeader.match(/<Text allowFontScaling/g)||[]).length,3,'account form section, heading and description must scale with Android');
+assert.doesNotMatch(accountHeader,/lineHeight: 23/,'account form description should expand line height with system scaling');
+const alertHost=fs.readFileSync(path.resolve(__dirname,'../src/components/AppAlertHost.js'),'utf8');
+assert.match(alertHost,/useSafeAreaInsets\(\)/,'alert modal must respect system bars');
+assert.match(alertHost,/maxHeight:'100%'/,'alert modal must be bounded to available viewport');
+assert.match(alertHost,/actionsScroll:\{alignSelf:'stretch',maxHeight:220/,'many alert actions must remain scrollable');
+assert.match(alertHost,/messageScroll:\{maxHeight:280,flexShrink:1/,'long alerts must remain scrollable');
+assert.match(alertHost,/<Text allowFontScaling accessibilityRole="header"/,'alert title must scale and be announced');
+assert.equal((alertHost.match(/<Text allowFontScaling/g)||[]).length,3,'alert title, message and buttons must scale');
 console.log('PASS shared detail header branding and accessibility');
