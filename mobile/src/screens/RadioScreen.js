@@ -43,7 +43,9 @@ const recentOnly = rows => {
   const map = new Map();
   for (const item of (Array.isArray(rows) ? rows : [])) {
     if (item?.id == null || !item.created_at) continue;
-    const date = new Date(String(item.created_at).replace(' ', 'T')).getTime();
+    const raw = String(item.created_at).trim();
+    const local = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?$/);
+    const date = new Date(local ? `${local[1]}T${local[2]}:${local[3] || '00'}+03:30` : raw).getTime();
     if (Number.isFinite(date) && Date.now() - date < 86400000 && Date.now() >= date - 300000) {
       map.set(String(item.id), item);
     }
@@ -218,7 +220,7 @@ export default function RadioScreen() {
         <View style={[s.statusDot, { backgroundColor: busy ? '#dc2626' : '#16a34a' }]} />
         <View style={s.statusDetails}>
           <Text style={s.caption}>وضعیت کانال</Text>
-          <Text style={s.statusText}>{busy ? (ctxSpeaker?.name || 'کاربر در حال صحبت است') : 'کانال آزاد است'}</Text>
+          <Text style={s.statusText}>{!enabled ? 'بی‌سیم خاموش است' : /حضور|شیفت کاری|ورود بزنید|ورود ثبت/i.test(loadError || '') ? 'دسترسی بی‌سیم تا ثبت ورود محدود است' : !!loadError ? 'ارتباط بی‌سیم نیازمند بررسی است' : loading ? 'در حال همگام‌سازی کانال' : busy ? (ctxSpeaker?.name || 'کاربر در حال صحبت است') : 'کانال آزاد است'}</Text>
           {!!busy && !!ctxSpeaker?.role && <Text style={s.caption}>سمت: {ctxSpeaker.role}</Text>}
           {!!busy && listenAll && !!ctxSpeaker?.channelName && <Text style={s.caption}>کانال در حال مکالمه: {ctxSpeaker.channelName}</Text>}
         </View>
