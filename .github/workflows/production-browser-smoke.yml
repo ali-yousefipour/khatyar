@@ -19,15 +19,16 @@ jobs:
         run: |
           npm install --no-save playwright@1.51.1
           npx playwright install --with-deps chromium
-      - name: Verify public login with external runtime CDNs blocked
+      - name: Verify public login at seven RTL viewport widths with external CDNs blocked
         run: |
+          mkdir -p browser-smoke
           node <<'JS'
           const { chromium } = require('playwright');
           const assert = require('node:assert/strict');
           (async () => {
             const browser = await chromium.launch({headless:true});
             try {
-              for (const viewport of [{width:1366,height:768},{width:390,height:844}]) {
+              for (const viewport of [{width:320,height:720},{width:375,height:812},{width:430,height:932},{width:768,height:1024},{width:1024,height:768},{width:1366,height:768},{width:1920,height:1080}]) {
                 const page = await browser.newPage({viewport});
                 const errors=[],blocked=[];
                 await page.route('**/*', route=>{
@@ -45,12 +46,37 @@ jobs:
                 await page.waitForFunction(()=>{const loader=document.getElementById('kh-initial-loader');return !loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).display==='none'||getComputedStyle(loader).visibility==='hidden';},{},{timeout:45000});
                 assert.equal(errors.length,0,errors.join('\n'));
                 assert.equal(blocked.length,0,'External runtime requests: '+blocked.join(','));
+                const ui = await page.evaluate(() => {
+                  const root=document.getElementById('root');
+                  const loader=document.getElementById('kh-initial-loader');
+                  const focusable=[...document.querySelectorAll('input,button,select,textarea,a[href]')].filter(x=>x.getClientRects().length);
+                  const overflowing=document.documentElement.scrollWidth-innerWidth;
+                  return {direction:document.documentElement.dir,rootVisible:!!root?.getClientRects().length,
+                    loaderHidden:!loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).visibility==='hidden',
+                    viewport:innerWidth,overflowing,focusable:focusable.length};
+                });
+                assert.equal(ui.direction,'rtl','Login must preserve right-to-left direction');
+                assert.ok(ui.rootVisible,'Login root should be visible');
+                assert.ok(ui.loaderHidden,'Initial boot loader must leave the screen');
+                assert.ok(ui.focusable>0,'Login needs keyboard-accessible controls');
+                // Record horizontal overflow for follow-up without changing production styles.
+                if (ui.overflowing>2) console.warn('RESPONSIVE_OVERFLOW',viewport,ui.overflowing);
+                await page.screenshot({path:'browser-smoke/login-'+viewport.width+'.png',fullPage:true});
+                console.log('RESPONSIVE_RESULT',JSON.stringify(ui));
                 console.log('PASS rendered login',viewport,await page.evaluate(()=>({react:window.React?.version ?? null,domReady:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd})));
                 await page.close();
               }
             } finally {await browser.close();}
           })().catch(e=>{console.error(e);process.exitCode=1;});
           JS
+      - name: Upload seven-width public login screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-public-login-responsive
+          path: browser-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
   concurrency:
     runs-on: ubuntu-latest
     timeout-minutes: 4
