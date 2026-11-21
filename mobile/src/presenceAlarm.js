@@ -2,10 +2,10 @@ import * as Notifications from 'expo-notifications';
 import { Vibration, NativeModules } from 'react-native';
 import { playSound, stopSound } from './soundFx';
 
-// آلارم صحت‌سنجی حضور:
-// ۱) پس از دریافت فرمان، ۵ ثانیه فرصت داده می‌شود.
-// ۲) اگر کاربر برنامه/فرآیند صحت‌سنجی را باز نکرد، صدای هشدار اختصاصی به‌صورت تکرارشونده پخش می‌شود.
-// ۳) با شروع صحت‌سنجی، stopPresenceAlarm صدا و لرزش را فوراً قطع می‌کند.
+// آلارم مرکزی صحت‌سنجی حضور:
+// ۱) هم‌زمان با فعال‌شدن مهلت درخواست، بدون تأخیر شروع می‌شود.
+// ۲) پخش تکرارشونده تا تأیید آماده‌بودن ویزارد یا انقضای مهلت ادامه دارد.
+// ۳) فقط acknowledgement واقعی ویزارد، اتمام یا انقضا منابع صوتی را آزاد می‌کند.
 let soundObj = null;
 let deadlineTimer = null;
 let alarmActive = false;
