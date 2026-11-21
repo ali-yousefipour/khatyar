@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../app/assets/work-report-default-placement-ui.js'),'utf8');
+assert.match(source,/box\.setAttribute\('role','dialog'\)/,'placement window exposes dialog semantics');
+assert.match(source,/box\.setAttribute\('aria-modal','true'\)/,'dialog has modal semantics');
+assert.match(source,/file\.setAttribute\('aria-label','انتخاب فایل اکسل کارکرد قبلی'\)/,'file input is labeled for assistive technology');
+assert.match(source,/state\.tabIndex=-1/,'status is programmatically focusable during blocked operations');
+assert.match(source,/if\(!focusable\.length\)\{event\.preventDefault\(\);state\.focus\(\);return;\}/,'Tab cannot escape while controls are disabled');
+assert.match(source,/if\(event\.key==='Escape'\)/,'dialog supports Escape');
+const operations=[...source.matchAll(/busy=true;file\.disabled=true;close\.disabled=true;save\.disabled=true;remove\.disabled=true;/g)];
+assert.equal(operations.length,2,'save and remove disable the file while processing');
+const cleanups=[...source.matchAll(/finally\{busy=false;file\.disabled=false;close\.disabled=false;save\.disabled=false;\}/g)];
+assert.equal(cleanups.length,2,'both success and failure restore controls');
+assert.match(source,/previousFocus\?\.isConnected/,'dismiss returns focus to its original target');
+console.log('PASS placement modal label, focus trap, busy and cleanup contracts');
