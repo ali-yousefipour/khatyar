@@ -27,6 +27,8 @@
 
 | UI-04 | P2 | `mobile/src/components/ReportTextModal.js` | Android keyboard avoidance was disabled; modal content was not scrollable and text scaling was suppressed | shared `ModalKeyboardView`, scrollable body, fixed actions, busy-safe Back, accessible font scaling; commit `265d6d90` | JSX and UX source tests added in `d1691e10`; Android device test unverified |
 
+| UI-05 | P2 | `mobile/src/components/DetailPageHeader.js` | عنوان هدر با `numberOfLines={2}` حتی در متن طولانی بریده می‌شد و فونت اندروید را رعایت نمی‌کرد | فعال‌سازی `allowFontScaling` و حذف محدودیت دو خط در `cd1802a3` | رگرسیون ایستا در `3dc357f3`؛ دستگاه تأیید نشده |
+
 ## فهرست واقعی (پوشش ممیزی)
 
 | عنوان/شناسه | مسیر واقعی | نقش مجاز | UI | RTL | فونت | واکنش‌گرایی | فرم | مودال | دسترس‌پذیری | API | اولویت | اصلاح | کامیت | آزمون |
@@ -98,7 +100,7 @@
 | AccountFormHeader | `mobile/src/components/AccountFormHeader.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | AppAlertHost | `mobile/src/components/AppAlertHost.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | DashboardTiles | `mobile/src/components/DashboardTiles.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
-| DetailPageHeader | `mobile/src/components/DetailPageHeader.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | جزئی | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | بازبینی ایستا؛ تست دستگاه نشده |
+| DetailPageHeader | `mobile/src/components/DetailPageHeader.js` | نیازمند استخراج مجوز runtime / سرور | اصلاح محدود | جزئی | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | بازبینی ایستا؛ تست دستگاه نشده |
 | DriverPhotoAvatar | `mobile/src/components/DriverPhotoAvatar.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | HistoricalMediaImage | `mobile/src/components/HistoricalMediaImage.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
 | ImageViewer | `mobile/src/components/ImageViewer.js` | نیازمند استخراج مجوز runtime / سرور | ارزیابی‌نشده | نامشخص | نامشخص | نامشخص | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | بررسی‌نشده | — | باقی‌مانده | — | اجرا نشده |
@@ -148,3 +150,8 @@
 - `mobile/src/components/ReportTextModal.js`: added shared Android keyboard avoidance, scrollable text, accessible text scaling and actions; blocked Back close during a pending submission. API and PHP untouched.
 - `mobile/scripts/test-report-screens.cjs`: JSX parse and source contract assertions added; real-device visual tests remain pending.
 - Global font scaling override in `mobile/src/fontscale.js` still exists and requires a staged approach and visual regression verification.
+
+## Shared header font scaling — 2026-11-21
+
+- `mobile/src/components/DetailPageHeader.js`: removed fixed two-line truncation; title now opts into Android system font scaling. Header height is content-driven. Core navigation actions and branding unchanged.
+- `mobile/scripts/test-detail-header-branding.cjs`: added non-truncation regression assertions. Actual 125/150/200% visual testing remains pending.
