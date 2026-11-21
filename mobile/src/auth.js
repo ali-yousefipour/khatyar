@@ -63,7 +63,27 @@ useEffect(()=>{
     try{
       const net=await Network.getNetworkStateAsync();
       if(net?.isConnected===false||net?.isInternetReachable===false)return;
-      await request('/auth/me',{noStore:true,timeoutMs:8000});
+      const me=await request('/auth/me',{noStore:true,timeoutMs:8000});
+      if(!alive)return;
+      const fresh=me?.user&&normalizeUser(me.user);
+      if(fresh?.id && String(fresh.id)===String(user.id)){
+        const permissionsChanged=String(user.role_id)!==String(fresh.role_id)
+          ||String(user.level)!==String(fresh.level)
+          ||String(user.is_admin)!==String(fresh.is_admin)
+          ||String(user.role_title)!==String(fresh.role_title);
+        if(permissionsChanged){
+          await invalidateAppItems(user.id);
+          if(!alive)return;
+          await clearAccessCache();
+          if(!alive)return;
+          setUser(fresh);
+        }
+        if(permissionsChanged || String(user.security_exempt)!==String(fresh.security_exempt)){
+          applySecurityExemption(fresh);
+          await saveVerifiedUser(fresh);
+          if(!permissionsChanged && alive)setUser(fresh);
+        }
+      }
       if(alive)setOfflineSession(false);
     }catch(_){
       // Network and server failures are NOT revocation.
