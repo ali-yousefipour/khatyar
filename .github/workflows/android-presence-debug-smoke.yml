@@ -1,4 +1,4 @@
-name: Android Presence Native Debug APK Smoke
+name: Android 2.0.11 Native Debug APK Build
 on:
   workflow_dispatch:
   push:
@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/android-presence-debug-smoke.yml'
       - 'mobile/src/VehiclesPhotoCapture.js'
+      - 'mobile/package.json'
+      - 'mobile/package-lock.json'
+      - 'mobile/app.config.js'
       - 'mobile/scripts/test-presence-watermark-compact.cjs'
 permissions:
   contents: read
