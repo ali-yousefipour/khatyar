@@ -84,8 +84,8 @@
       const focusable=[file,save,remove,close].filter(el=>!el.disabled&&!el.hidden);
       if(!focusable.length){event.preventDefault();state.focus();return;}
       const first=focusable[0],last=focusable[focusable.length-1];
-      if(event.shiftKey&&(document.activeElement===first||!box.contains(document.activeElement))){event.preventDefault();last.focus();}
-      else if(!event.shiftKey&&(document.activeElement===last||!box.contains(document.activeElement))){event.preventDefault();first.focus();}
+      if(event.shiftKey&&(document.activeElement===first||!focusable.includes(document.activeElement))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!focusable.includes(document.activeElement))){event.preventDefault();first.focus();}
     }
     close.onclick=dismiss;
     overlay.addEventListener('click',event=>{if(event.target===overlay)dismiss();});
