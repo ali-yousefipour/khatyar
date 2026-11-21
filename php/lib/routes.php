@@ -3954,9 +3954,19 @@ function _work_progress_tick($percent,$stage,$done=null,$total=null){
   $path=$ctx['path'];
   if(isset($ctx['batch'])){[$offset,$size,$all]=$ctx['batch'];$percent=min(95,5+(int)floor(90*($offset+$size*max(0,min(100,$percent))/100)/max(1,$all)));$done=$offset;$total=$all;}
   $data=['percent'=>(int)$percent,'stage'=>$stage,'done'=>$done,'total'=>$total];
+  // Hundreds of staff can advance the counter within a single second.
+  // Coalesce short-lived progress changes to avoid filesystem churn during
+  // the expensive payroll calculation. Final completion is never throttled.
+  $now=microtime(true);
+  $last=$GLOBALS['kh_work_progress_last'][$path]??null;
+  if($percent<100 && is_array($last) && $now-($last['at']??0)<0.35 &&
+     (int)($last['percent']??-1)>=(int)$percent-1 &&
+     (string)($last['stage']??'')===(string)$stage)return;
   $tmp=@tempnam(dirname($path),'khwp-');if(!$tmp)return;
   @chmod($tmp,0600);
-  if(@file_put_contents($tmp,json_encode($data,JSON_UNESCAPED_UNICODE))!==false)@rename($tmp,$path);
+  if(@file_put_contents($tmp,json_encode($data,JSON_UNESCAPED_UNICODE))!==false){
+    if(@rename($tmp,$path))$GLOBALS['kh_work_progress_last'][$path]=['at'=>$now,'percent'=>$percent,'stage'=>$stage];
+  }
   if(is_file($tmp))@unlink($tmp);
 }
 route('GET','/api/admin/shift-report/progress',function($p,$b,$u){
@@ -3971,7 +3981,9 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
   _work_progress_start($u,'monthly');
+  $started=microtime(true);
   $rows=_work_monthly_display_rows($jy,$jm,($_GET['forecast_remaining']??'1')==='1');
+  header('Server-Timing: monthly-work;dur='.max(0,round((microtime(true)-$started)*1000)));
   _work_progress_tick(100,'محاسبه تکمیل شد');
   return ['year'=>$jy,'month'=>$jm,'rows'=>$rows,'reuse_token'=>null];
 }, false, ADMIN);
