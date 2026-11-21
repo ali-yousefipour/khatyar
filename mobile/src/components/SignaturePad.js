@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, PanResponder, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import { C, FONT } from '../theme';
@@ -9,13 +9,18 @@ export default function SignaturePad({ value, onChange, height = 160 }) {
   const [strokes, setStrokes] = useState([]); // آرایه‌ای از آرایه‌های نقطه {x,y}
   const currentRef = useRef([]);
   const shotRef = useRef(null);
-  const capturedOnce = useRef(!!value);
+  const captureGeneration = useRef(0);
+  const mounted = useRef(true);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => () => { mounted.current = false; captureGeneration.current += 1; }, []);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
+        captureGeneration.current += 1;
         currentRef.current = [{ x: e.nativeEvent.locationX, y: e.nativeEvent.locationY }];
         setStrokes((s) => [...s, currentRef.current]);
       },
@@ -28,15 +33,18 @@ export default function SignaturePad({ value, onChange, height = 160 }) {
   ).current;
 
   async function capture() {
+    const generation = captureGeneration.current;
     try {
       const uri = await captureRef(shotRef, { format: 'png', quality: 0.8, result: 'base64' });
-      onChange('data:image/png;base64,' + uri);
-      capturedOnce.current = true;
+      // Never restore an obsolete signature after Clear, a new stroke or unmount.
+      if (!mounted.current || generation !== captureGeneration.current) return;
+      onChangeRef.current('data:image/png;base64,' + uri);
     } catch (e) { /* گرفتن تصویر امضا ناموفق بود؛ کاربر می‌تواند دوباره امضا کند */ }
   }
 
   function clear() {
-    setStrokes([]); currentRef.current = []; onChange('');
+    captureGeneration.current += 1;
+    setStrokes([]); currentRef.current = []; onChangeRef.current('');
   }
 
   return (
@@ -48,7 +56,7 @@ export default function SignaturePad({ value, onChange, height = 160 }) {
         {!strokes.length && !value && <Text style={s.hint}>با انگشت خود این‌جا امضا کنید</Text>}
       </ViewShot>
       <View style={s.bar}>
-        <TouchableOpacity onPress={clear}><Text style={s.clearTxt}>پاک کردن</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک کردن امضا" onPress={clear} style={s.clearButton}><Text allowFontScaling style={s.clearTxt}>پاک کردن</Text></TouchableOpacity>
       </View>
     </View>
   );
@@ -58,5 +66,6 @@ const s = StyleSheet.create({
   pad: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'hidden' },
   hint: { position: 'absolute', top: '45%', width: '100%', textAlign: 'center', color: C.muted, fontFamily: FONT.regular, fontSize: 12 },
   bar: { flexDirection: 'row-reverse', justifyContent: 'flex-start', backgroundColor: '#fafbfe', borderColor: C.line, borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 13, borderBottomRightRadius: 13, padding: 8 },
+  clearButton: { minHeight: 48, minWidth: 96, alignItems: 'center', justifyContent: 'center' },
   clearTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12.5 },
 });
