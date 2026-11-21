@@ -190,3 +190,43 @@
 
 - هنگام بازشدن مجدد مودال `ReportPersonPickerModal`، جستجوی نام و فیلتر سمت از جلسه قبلی پاک می‌شوند. شخص انتخاب‌شده در caller تغییر نمی‌کند و مدل داده/درخواست API ثابت است.
 - تست رگرسیون به `test-underreviewed-screen-ux.cjs` افزوده شد. بررسی عملی در Android هنوز موردنیاز است.
+
+
+## ممیزی ساختاری JSX و اصلاحات عملیاتی — ۲۰۲۶-۱۱-۲۱
+
+**مرجع:** mobile/scripts/test-ui-surface-inventory.cjs؛ آزمون اجراشده در [Mobile Regression Isolation 44903492559](https://github.com/ali-yousefipour/khatyar/actions/runs/44903492559) با نتیجه موفق. این یک ممیزی **ایستای سورس** است، نه تأیید اجرا روی گوشی.
+
+| شاخص شناسایی‌شده از AST واقعی | تعداد |
+|---|---:|
+| فایل‌های صفحه (شامل مسیرهای مخفی و قدیمی) | ۶۴ |
+| کامپوننت‌های مشترک | ۲۲ |
+| تگ JSX Modal | ۵۳ |
+| تگ JSX TextInput | ۱۴۱ |
+| تگ TouchableOpacity / Pressable | ۷۲۷ |
+| prop برچسب accessibilityLabel | ۲۰۳ |
+
+این تعدادها مربوط به occurrence در سورس هستند و برابر با تعداد واقعی instanceهای runtime نیستند. وجود ۲۰۳ label، نشانه تأیید ۷۲۷ کنترل لمسی نیست؛ تمام کنترل‌های بدون label به تفکیک زمینه و نقش نیازمند بررسی‌اند.
+
+**یافته‌های قابل بازتولید AST:**
+- سه Modal بدون onRequestClose در StationCaptureScreenV2.js (خطوط ۲۷ تا ۲۹، نسخه قدیمی که از مسیر اصلی V5 باز نمی‌شود) شناسایی شدند؛ در 4bda9bea اصلاح شدند.
+- دو نامزد Modal دارای TextInput و فاقد KeyboardAvoidingView در SchoolServiceScreen.js و StationCaptureScreenV2.js شناسایی شدند؛ در 6a3b4da2 و 4bda9bea اصلاح شدند.
+- پس از رفع موارد فوق، آزمون موجودی در 62160607 برای دو دسته «Modal بدون Back» و «Modal با TextInput بدون کنترل کیبورد» به شرط شکست CI تبدیل شد. این بررسی فقط JSX literal را پوشش می‌دهد.
+
+| کد | اولویت | مسیر | مشکل تأییدشده و اصلاح | کامیت و آزمون |
+|---|---|---|---|---|
+| UI-12 | P2 | VehicleIdentityFields.js | جستجوی سال خودرو داخل مودال بدون جلوگیری از پوشاندن ورودی توسط کیبورد؛ Safe Area و وضعیت انتخاب حرف/سال ناقص بودند. ModalKeyboardView و accessibility اضافه شد، قرارداد پلاک تغییر نکرد | fc5b57d0 / 51cc54f9 |
+| UI-13 | P1 | SignaturePad.js | تصویر امضای در حال capture می‌توانست پس از Clear، شروع stroke جدید یا unmount با تأخیر به والد ارسال شود. generation guard و cleanup و دکمه پاک‌کردن دسترس‌پذیر اضافه شد | cf9f4941، 1be3372b / 51cc54f9 (آزمون race با Promise کنترل‌شده) |
+| UI-14 | P1 | StationCaptureV5Screen.js | امکان POST تکراری قبل از rerender در ثبت ایستگاه؛ قفل useRef فوری و queueIfOffline:false اضافه شد | 86941f09 / 90b0b2a0 |
+| UI-15 | P1 | SchoolServiceScreen.js | امکان ذخیره هم‌زمان چند بازدید و بسته‌شدن زودهنگام مرور نهایی. قفل useRef، مرور اسکرول‌پذیر، حفظ داده بعد از خطا و Back-safe اضافه شد. **صف آفلاین بازدید سرویس مدارس حفظ شد** | 6b3c8c97 / 7fea62d9 |
+| UI-16 | P2 | SchoolServiceScreen.js | انتخابگر جستجودار در مودال با کیبورد Android تداخل داشت؛ ModalKeyboardView و برچسب/selected state اضافه شد | 6a3b4da2 / 9a260e44 |
+| UI-17 | P2 | StationCaptureScreenV2.js | سه Modal قدیمی بدون Back و یکی با TextInput بدون keyboard avoidance؛ اصلاح و امکان اسکرول نوع تابلو اضافه شد | 4bda9bea / gate 62160607 |
+
+### آزمون‌هایی که هنوز انجام نشده‌اند
+
+- **فونت و رندر واقعی:** متن ۱۰۰، ۱۲۵، ۱۵۰ و ۲۰۰ درصد، حالت افقی، گوشی کم‌عرض و تبلت، کیبورد باز و بسته، gesture navigation و TalkBack؛ هیچ یک با شبیه‌ساز/گوشی در این محیط تأیید نشده‌اند.
+- **سیاست fontScale سراسری (UI-01):** همچنان Text.defaultProps / TextInput.defaultProps اندازه فونت سیستم را غیرفعال می‌کنند. حذف سراسری آن بدون device/visual regression در صفحات حساس، ریسک بروز اختلال دارد؛ رفع قطعی باقی است.
+- **نقش‌ها/سرور:** آزمون تعاملی تمام نقش‌ها، API واقعی و مجوز endpointهای PHP با حساب‌های تست مجاز انجام نشده. موفقیت تست کد معادل تأیید authorization سرور نیست.
+- **کارایی و حافظه:** اندازه‌گیری روی دستگاه (startup، حافظه تصاویر، jank و تعداد درخواست) ثبت نشده؛ از روی شمارش فایل نمی‌توان آن را موفق اعلام کرد.
+- **انتشار:** نسخه موبایل ۲.۰.۱۰ ثابت است، APK ساخته/منتشر نشده، آزمون signed build و smoke روی دستگاه هنوز در این مرحله انجام نشده.
+
+این مستند مشکلات رفع‌شده را «تأیید کد و CI» و مشکلات باقی‌مانده را «تأییدنشده» تفکیک می‌کند؛ ادعای اتمام ۹۶ ردیف ممیزی عملی ندارد.
