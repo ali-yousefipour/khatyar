@@ -1418,7 +1418,8 @@ function CheckInShiftTab(){
   useEffect(()=>{loadSchedule();return()=>{requestSeq.current++}},[]);
   if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
   const days=Array.isArray(data?.days)?data.days:[];
-  const shiftMissing=!data?.shift||days.length===0;
+  // A temporary substitute can have dated shifts even without a permanent assignment.
+  const shiftMissing=days.length===0;
   const total=days.reduce((sum,d)=>sum+Math.max(0,Number(d.minutes)||0),0);
   const working=days.filter(d=>!d.is_off).length;
   const shiftType=data?.shift?.type??data?.shift_type;
