@@ -8,6 +8,8 @@ assert.match(header, /require\('\.\.\/\.\.\/assets\/icon\.png'\)/, 'Use the actu
 assert.match(header, /accessibilityLabel="باز کردن منو"/, 'Drawer control needs its accessible name');
 assert.match(header, /accessibilityLabel="بازگشت"/, 'Back control needs its accessible name');
 assert.match(header, /width:48, height:48/, 'Buttons must meet Android touch size requirements');
+assert.match(header, /<Text allowFontScaling accessibilityRole="header" style=\{s\.title\}>\{title\}<\/Text>/, 'Detail title must scale and wrap instead of truncating at two lines');
+assert.doesNotMatch(header, /numberOfLines=\{2\}/, 'Shared detail title must not be cut off with large Android fonts');
 assert.match(header, /goldRule/, 'Keep the gold brand accent from approved mockups');
 assert.match(header, /backgroundColor:'#075d4b'/, 'Use the emerald header color');
 assert.match(app, /<MaterialCommunityIcons name="menu" size=\{25\} color="#fff"/, 'Global menu icon should use the consistent vector icon');
