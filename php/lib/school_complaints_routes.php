@@ -6,6 +6,7 @@ function sc_config(): array {
 }
 // Persist the notification in the same transaction as the case transition.
 function sc_notify($uid,$id,$title): void {
+ if((int)$uid<0)return; // Dedicated accounts poll the complaint inbox; not organizational notifications.
  Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES(?,?,?,?)",[(int)$uid,$title,'برای مشاهده پرونده به صندوق شکایات سرویس مدارس مراجعه کنید.',json_encode(['type'=>'school_complaint','complaint_id'=>(int)$id],JSON_UNESCAPED_UNICODE)]);
 }
 function sc_overdue_scan(): int {
@@ -30,6 +31,7 @@ function sc_overdue_scan(): int {
 }
 function sc_access($u): array {
  $c=sc_config();$id=(int)$u['id'];$admin=!empty($u['is_admin']);
+ if(!empty($u['sc_only']))return ['allowed'=>true,'receive'=>!empty($u['sc_receive']),'review'=>false,'supervisor'=>false,'report'=>!empty($u['sc_report']),'admin'=>false];
  $role=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms'");
  $perms=$role?json_decode($role['value'],true):[];
  $allowed=$admin||in_array('schoolcomplaints',(array)($perms[(string)$u['role_id']]??[]),true);
@@ -100,14 +102,14 @@ function sc_case($id,$u): array {
  $r['overall_remaining_minutes']=(int)floor(($overall->getTimestamp()-time())/60);
  $r['overall_overdue']=$r['status']==='closed' ? $r['closed_at']>$r['overall_due_at'] : $r['overall_remaining_minutes']<0;
  $r['can_attach']=$r['status']!=='closed'&&((int)$r['assigned_to']===(int)$u['id']||(int)$r['created_by']===(int)$u['id']);
- $r['assigned_name']=Db::one("SELECT CONCAT_WS(' ',first_name,last_name) name FROM users WHERE id=?",[$r['assigned_to']])['name']??'';
+ $r['assigned_name']=sc_identity_name((int)$r['assigned_to']);
  $r['remaining_minutes']=(int)floor(((new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran')))->getTimestamp()-time())/60);
  $r['overdue']=$r['status']!=='closed'&&new DateTimeImmutable($r['due_at'],new DateTimeZone('Asia/Tehran'))<new DateTimeImmutable('now');
  return $r;
 }
 function sc_list($u,$inbox=false,$summary=false): array {
  $a=sc_need($u);$w=['1=1'];$p=[];
- if($inbox){$w[]='(c.assigned_to=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id']);}
+ if($inbox){$w[]='(c.assigned_to=? OR c.created_by=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id']);}
  elseif(!$a['report']){$w[]='(c.created_by=? OR c.assigned_to=? OR c.supervisor_id=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id'],$u['id']);}
  foreach(['school_id','company_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  foreach(['first_name','last_name','phone'] as $k)if(!empty($_GET[$k])){$w[]="c.$k LIKE ?";$p[]='%'.sc_text($_GET[$k],100).'%';}
@@ -138,15 +140,16 @@ function sc_list($u,$inbox=false,$summary=false): array {
  $direction=strtolower((string)($_GET['direction']??''))==='asc'?'ASC':'DESC';
  $limit=isset($_GET['page'])?"LIMIT $size OFFSET $offset":"LIMIT 500";
  $overallDue=sc_overall_due_expr();
- $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,$overallDue overall_due_at,TIMESTAMPDIFF(MINUTE,NOW(),$overallDue) overall_remaining_minutes,(SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
+ $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,$overallDue overall_due_at,TIMESTAMPDIFF(MINUTE,NOW(),$overallDue) overall_remaining_minutes,COALESCE((SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to),(SELECT a.display_name FROM school_complaint_accounts a WHERE a.id=-c.assigned_to)) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
  if(!isset($_GET['page']))return $rows;
  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_complaints c WHERE $where",$p)['n']??0);
  $result=['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
  if($inbox){
-  $result['metrics']=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status IN ('in_progress','returned')),0) in_progress,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue FROM school_complaints c WHERE (c.assigned_to=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))",[$u['id'],$u['id']])??[];
+  $result['metrics']=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status IN ('in_progress','returned')),0) in_progress,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue FROM school_complaints c WHERE (c.assigned_to=? OR c.created_by=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))",[$u['id'],$u['id'],$u['id']])??[];
  }
  return $result;
 }
+require_once __DIR__.'/school_complaint_accounts.php';
 route('GET','/api/school-complaints/access',function($p,$b,$u){return sc_access($u);});
 route('GET','/api/school-complaints/settings',function($p,$b,$u){sc_need($u,'admin');return sc_config();});
 route('PUT','/api/school-complaints/settings',function($p,$b,$u){
@@ -154,7 +157,7 @@ route('PUT','/api/school-complaints/settings',function($p,$b,$u){
  $receivers=array_values(array_unique(array_filter(array_map('intval',(array)($b['receivers']??[])))));
  $reporters=array_values(array_unique(array_filter(array_map('intval',(array)($b['reporters']??[])))));
  if(!$review||!$super||$review===$super||!$receivers)Http::error('مسئولان و دریافت‌کنندگان را تعیین کنید',422);
- foreach(array_unique(array_merge($receivers,$reporters,[$review,$super])) as $id)if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('کاربر فعال یافت نشد',422);
+ foreach(array_unique(array_merge($receivers,$reporters,[$review,$super])) as $id)if(!sc_identity_active($id))Http::error('کاربر فعال یافت نشد',422);
  $topics=[];foreach((array)($b['topics']??[]) as $topic)$topics[]=sc_text($topic,255);
  $rh=(int)($b['review_hours']??24);$sh=(int)($b['supervisor_hours']??24);
  if(min($rh,$sh)<1||max($rh,$sh)>8760)Http::error('مهلت نامعتبر است',422);
@@ -164,7 +167,10 @@ route('PUT','/api/school-complaints/settings',function($p,$b,$u){
 route('GET','/api/school-complaints/topics',function($p,$b,$u){sc_need($u);return array_values(array_unique(array_merge(sc_config()['topics']??[],['سایر'])));});
 route('GET','/api/school-complaints/users',function($p,$b,$u){
  sc_need($u,'admin');$q=sc_text((string)($_GET['q']??''),100,false);$like='%'.$q.'%';
- return Db::all("SELECT id,first_name,last_name,username FROM users WHERE is_active=1 AND (first_name LIKE ? OR last_name LIKE ? OR username LIKE ? OR CONCAT_WS(' ',first_name,last_name) LIKE ?) ORDER BY last_name,first_name LIMIT 50",[$like,$like,$like,$like]);
+ $staff=Db::all("SELECT id,first_name,last_name,username FROM users WHERE is_active=1 AND (first_name LIKE ? OR last_name LIKE ? OR username LIKE ? OR CONCAT_WS(' ',first_name,last_name) LIKE ?) ORDER BY last_name,first_name LIMIT 50",[$like,$like,$like,$like]);
+ $operators=Db::all('SELECT id,username,display_name FROM school_complaint_accounts WHERE is_active=1 AND (display_name LIKE ? OR username LIKE ?) ORDER BY display_name LIMIT 50',[$like,$like]);
+ foreach($operators as $a)$staff[]=['id'=>sc_operator_id((int)$a['id']),'first_name'=>$a['display_name'],'last_name'=>'','username'=>$a['username'].' (اختصاصی شکایات)'];
+ return $staff;
 });
 route('GET','/api/school-complaints/drivers',function($p,$b,$u){
  sc_need($u,'receive');$q=sc_text((string)($_GET['q']??''),100,false);
@@ -189,7 +195,7 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  if($key!==null&&($existing=Db::one('SELECT id,tracking_code FROM school_complaints WHERE tracking_code=? AND created_by=?',[$code,$u['id']])))return $existing;
  $c=sc_config();$review=(int)($c['reviewer']??0);$super=(int)($c['supervisor']??0);
  if(!$review||!$super)Http::error('ابتدا گردش رسیدگی را تنظیم کنید',422);
- foreach([$review,$super] as $id)if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('مسئول فعال تعیین نشده است',422);
+ foreach([$review,$super] as $id)if(!sc_identity_active($id))Http::error('مسئول فعال تعیین نشده است',422);
  $type=$b['complainant_type']??'';if(!in_array($type,['parent','driver'],true))Http::error('نوع شاکی نامعتبر است',422);
  $first=sc_text($b['first_name']??'',100);$last=sc_text($b['last_name']??'',100);
  $phone=sc_phone($b['phone']??'',$type);$address=sc_text($b['address']??'',700,$type==='parent');
@@ -211,7 +217,7 @@ route('GET','/api/school-complaints/inbox',function($p,$b,$u){return sc_list($u,
 route('GET','/api/school-complaints/search',function($p,$b,$u){return sc_list($u);});
 route('GET','/api/school-complaints/dashboard',function($p,$b,$u){return sc_list($u,false,true);});
 route('GET','/api/school-complaints/{id}',function($p,$b,$u){
- $r=sc_case((int)$p['id'],$u);$r['events']=Db::all("SELECT e.*,CONCAT_WS(' ',u.first_name,u.last_name) actor_name FROM school_complaint_events e LEFT JOIN users u ON u.id=e.actor_id WHERE e.complaint_id=? ORDER BY e.id",[$r['id']]);return $r;
+ $r=sc_case((int)$p['id'],$u);$r['events']=Db::all("SELECT e.*,COALESCE(NULLIF(CONCAT_WS(' ',u.first_name,u.last_name),''),a.display_name) actor_name FROM school_complaint_events e LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN school_complaint_accounts a ON a.id=-e.actor_id WHERE e.complaint_id=? ORDER BY e.id",[$r['id']]);return $r;
 });
 route('GET','/api/school-complaints/{id}/attachments',function($p,$b,$u){
  $r=sc_case((int)$p['id'],$u);
@@ -263,12 +269,12 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  if($act==='return'){
  if($r['status']!=='escalated'||(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('بازگشت فقط توسط مسئول واحد مجاز است',409);}
  $previous=Db::one("SELECT actor_id FROM school_complaint_events WHERE complaint_id=? AND action='escalate' ORDER BY id DESC LIMIT 1",[$id]);
- $reviewer=(int)($previous['actor_id']??0);if(!$reviewer||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$reviewer])){$db->rollBack();Http::error('رسیدگی‌کننده قبلی فعال نیست',409);}
+ $reviewer=(int)($previous['actor_id']??0);if(!$reviewer||!sc_identity_active($reviewer)){$db->rollBack();Http::error('رسیدگی‌کننده قبلی فعال نیست',409);}
  Db::run("UPDATE school_complaints SET status='returned',assigned_to=?,due_at=? WHERE id=?",[$reviewer,sc_deadline($r['review_hours']),$id]);
  }
  if($act==='escalate'){
  if(!in_array($r['status'],['pending','in_progress','answered','returned'],true)){$db->rollBack();Http::error('پرونده قبلاً ارجاع شده است',409);}
- if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$r['supervisor_id']])){$db->rollBack();Http::error('مسئول واحد فعال نیست',422);}
+ if(!sc_identity_active((int)$r['supervisor_id'])){$db->rollBack();Http::error('مسئول واحد فعال نیست',422);}
  Db::run("UPDATE school_complaints SET status='escalated',assigned_to=supervisor_id,due_at=? WHERE id=?",[sc_deadline($r['supervisor_hours']),$id]);
  }
  if($act==='close'&&$r['status']==='escalated'&&(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('مختومه کردن فقط توسط مسئول واحد مجاز است',409);}
