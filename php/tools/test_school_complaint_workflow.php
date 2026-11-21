@@ -35,6 +35,10 @@ class Db {
   if(str_contains($query,'CONCAT_WS'))return ['name'=>'مسئول'];
   return null;
  }
+ public static function insert(string $query,array $params=[]):int {
+  self::run($query,$params);
+  return count(self::$events);
+ }
  public static function run(string $query,array $params=[]):void {
   if(str_contains($query,"SET status='in_progress'"))self::$case['status']='in_progress';
   elseif(str_contains($query,"SET status='answered'"))self::$case['status']='answered';
