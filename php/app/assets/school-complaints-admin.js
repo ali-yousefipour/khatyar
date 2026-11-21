@@ -105,7 +105,7 @@ function SchoolMap({school}){
 }
 
 function AccountManager({get,send}){
- const empty=()=>({id:null,username:'',display_name:'',password:'',can_receive:true,can_report:false,is_active:true});
+ const empty=()=>({id:null,username:'',display_name:'',mobile:'',password:'',can_receive:true,can_report:false,is_active:true});
  const [accounts,setAccounts]=useState([]),[form,setForm]=useState(empty),[busy,setBusy]=useState(false),[err,setErr]=useState(''),[notice,setNotice]=useState('');
  const reload=async()=>{const list=await get(base+'/accounts');setAccounts(Array.isArray(list)?list:[]);};
  useEffect(()=>{reload().catch(e=>setErr(errorText(e)));},[]);
@@ -123,22 +123,24 @@ function AccountManager({get,send}){
  };
  return h('section',{className:'sc-card sc-account-manager'},
   h('h3',null,'کاربران اختصاصی شکایات سرویس مدارس'),
-  h('p',{className:'sc-help'},'این حساب‌ها مستقل از پرسنل سازمان هستند؛ در فهرست کاربران، مناطق، چارت سازمانی و حضور و غیاب ثبت نمی‌شوند. ورود فقط از صفحه مخصوص شکایات امکان‌پذیر است.'),
+  h('p',{className:'sc-help'},'این حساب‌ها مستقل از پرسنل سازمان هستند؛ در فهرست کاربران، مناطق، چارت سازمانی و حضور و غیاب ثبت نمی‌شوند. ورود از پیوند اختصاصی موجود در صفحه ورود اصلی خطیار نیز امکان‌پذیر است؛ دسترسی این حساب‌ها مستقل می‌ماند.'),
   h('p',null,h('a',{href:'/school-complaints-portal',target:'_blank',rel:'noopener noreferrer'},'باز کردن صفحه ورود اختصاصی شکایات')),
   err&&h('p',{role:'alert',className:'sc-alert'},err),
   notice&&h('p',{role:'status',className:'sc-success'},notice),
   h('div',{className:'sc-grid'},
    field('نام و نام خانوادگی نمایشی',{value:form.display_name,maxLength:200,onChange:e=>change('display_name',e.target.value)}),
    field('نام کاربری لاتین',{value:form.username,maxLength:100,disabled:!!form.id,autoComplete:'off',onChange:e=>change('username',e.target.value)}),
+   field('موبایل اعلان‌ها (اختیاری)',{value:form.mobile||'',inputMode:'tel',maxLength:13,dir:'ltr',placeholder:'09123456789',onChange:e=>change('mobile',e.target.value)}),
    field(form.id?'رمز جدید (خالی = بدون تغییر)':'رمز عبور اولیه (حداقل ۱۲ کاراکتر)',{type:'password',value:form.password,maxLength:128,autoComplete:'new-password',onChange:e=>change('password',e.target.value)})),
   h('div',{className:'sc-toolbar'},
    ...[['can_receive','اجازه ثبت و دریافت شکایت'],['can_report','گزارش‌گیری از تمام شکایات'],['is_active','حساب فعال']].map(([k,title])=>h('label',{key:k},h('input',{type:'checkbox',checked:!!form[k],onChange:e=>change(k,e.target.checked)}),' '+title))),
   h('div',{className:'sc-toolbar'},btn(form.id?'ذخیره تغییرات کاربر':'ایجاد کاربر اختصاصی',save,busy,true),btn('پاک‌کردن فرم',()=>{setForm(empty());setErr('');},busy)),
   h('h4',null,'فهرست حساب‌های اختصاصی'),
   accounts.length?h('div',{className:'sc-table',role:'region',tabIndex:0,'aria-label':'جدول حساب‌های اختصاصی شکایات؛ برای مشاهده ستون‌های بیشتر پیمایش کنید'},h('table',{className:'sc-responsive-table'},
-    h('thead',null,h('tr',null,...['نام','نام کاربری','ثبت شکایت','گزارش جامع','وضعیت','عملیات'].map(v=>h('th',{key:v},v)))),
+    h('thead',null,h('tr',null,...['نام','نام کاربری','موبایل اعلان','ثبت شکایت','گزارش جامع','وضعیت','عملیات'].map(v=>h('th',{key:v},v)))),
     h('tbody',null,...accounts.map(a=>h('tr',{key:a.id},
       h('td',{'data-label':'نام'},a.display_name),h('td',{'data-label':'نام کاربری',dir:'ltr'},a.username),
+      h('td',{'data-label':'موبایل اعلان',dir:'ltr'},fa(a.mobile||'—')),
       h('td',{'data-label':'ثبت شکایت'},a.can_receive?'مجاز':'غیرفعال'),
       h('td',{'data-label':'گزارش جامع'},a.can_report?'مجاز':'غیرفعال'),
       h('td',{'data-label':'وضعیت'},a.is_active?'فعال':'غیرفعال'),
