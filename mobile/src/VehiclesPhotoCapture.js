@@ -369,11 +369,8 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               </View>
               <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>کاربر: {stamp.operator || 'نامشخص'}  |  خط: {stamp.line || 'نامشخص'}</Text>
               <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>ایستگاه: {stamp.nearest || 'نامشخص'}</Text>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>خیابان: {stamp.street || 'نامشخص'}</Text>
-              <View style={s.stampFooter}>
-                <Text numberOfLines={1} style={s.stampCoords}>{faNum(stamp.coords)}</Text>
-                {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OSM</Text> : null}
-              </View>
+              <Text numberOfLines={2} ellipsizeMode="tail" style={s.stampGeo}>موقعیت: {faNum(stamp.coords)}  •  خیابان: {stamp.street || 'نامشخص'}</Text>
+              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap</Text> : null}
             </View>
           </View>
 
@@ -483,8 +480,8 @@ const s = StyleSheet.create({
     lineHeight:13, includeFontPadding:false },
   stampBrand: { color:'#f4d18a', fontFamily:FONT.bold, fontSize:9.5, textAlign:'right', flexShrink:1,
     lineHeight:14, includeFontPadding:false },
-  stampFooter: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'space-between', gap:5 },
-  stampCoords: { color:'#e4f7ef', fontFamily:FONT.regular, fontSize:8.5, textAlign:'right', lineHeight:12 },
+  stampGeo: { color:'#e4f7ef', fontFamily:FONT.regular, fontSize:8.5, textAlign:'right', lineHeight:12,
+    writingDirection:'rtl', includeFontPadding:false },
   attribution: { color:'#d2e8dc', fontSize:7, textAlign:'left', lineHeight:11 },
   metaLoading: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'center', marginTop: 8 },
   previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 8 },
