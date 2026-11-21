@@ -15,6 +15,13 @@ const viewsBlock = source.match(/const VIEWS=\{([\s\S]*?)\n\};/);
 assert.ok(viewsBlock, 'Canonical view registry must exist');
 const viewKeys = [...viewsBlock[1].matchAll(/^\s*([a-z]+):\{/gm)].map(x => x[1]);
 assert.deepEqual([...keys].sort(), [...viewKeys].sort(), 'Every view appears exactly once in sidebar');
+const declared = [...viewsBlock[1].matchAll(/^\s*([a-z]+):\{t:"[^"]+",ic:(?:"[^"]+"|[^,]+),c:([A-Za-z]\w*)\}/gm)];
+assert.equal(declared.length,viewKeys.length,'Every registered view must reference a concrete React component');
+assert.ok(declared.length>=61,'All 61 audited admin views remain registered');
+for(const [,key,component] of declared){
+  assert.match(source,new RegExp('(?:function|const|class)\\s+'+component+'\\b'),'Missing mounted view component '+key+': '+component);
+}
+
 assert.match(source, /const MENU=PANEL_MENU_SECTIONS\.flatMap/, 'Permissions must use the canonical sidebar');
 assert.match(source, /const can=\(k\)=>!allowed\|\|allowed\.includes\(k\)/, 'No role bypass in menu visibility');
 assert.doesNotMatch(source, /CORE_VIEWS|CORE\.includes\(k\)/, 'Core view bypass removed');
