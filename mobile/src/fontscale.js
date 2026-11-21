@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Text, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -21,13 +21,27 @@ export const useFontScale = () => useContext(Ctx);
 
 export function FontScaleProvider({ children }) {
   const [scale, setScaleState] = useState(1);
+  const changes = useRef(0);
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((v) => { const s = parseFloat(v) || 1; FONT_SCALE = s; setScaleState(s); }).catch(() => {});
+    let mounted = true;
+    const currentChange = changes.current;
+    AsyncStorage.getItem(KEY).then((v) => {
+      if (!mounted || changes.current !== currentChange) return;
+      const parsed = Number.parseFloat(v);
+      const next = Number.isFinite(parsed) ? Math.min(1.5, Math.max(0.85, parsed)) : 1;
+      FONT_SCALE = next;
+      setScaleState(next);
+    }).catch(() => {});
+    return () => { mounted = false; };
   }, []);
-  const setScale = (s) => {
-    s = Math.min(1.5, Math.max(0.85, s));
-    FONT_SCALE = s; setScaleState(s);
-    AsyncStorage.setItem(KEY, String(s)).catch(() => {});
+  const setScale = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    const next = Math.min(1.5, Math.max(0.85, parsed));
+    changes.current += 1;
+    FONT_SCALE = next;
+    setScaleState(next);
+    AsyncStorage.setItem(KEY, String(next)).catch(() => {});
   };
   return <Ctx.Provider value={{ scale, setScale }}>{children}</Ctx.Provider>;
 }
