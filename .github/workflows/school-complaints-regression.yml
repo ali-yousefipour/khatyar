@@ -39,3 +39,5 @@ jobs:
         run: node php/tools/test_school_complaint_print.cjs
       - name: Verify permissions and workflow
         run: php php/tools/test_school_complaint_permissions.php
+      - name: Verify full case lifecycle and role enforcement
+        run: php php/tools/test_school_complaint_workflow.php
