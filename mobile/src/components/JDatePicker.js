@@ -78,40 +78,40 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
       <View style={s.bg}>
         <View style={[s.card, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
           <View style={s.head}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه قبل" accessibilityState={{ disabled: !canGoPrevious }} disabled={!canGoPrevious} onPress={() => { if (safeJm === 1) { setJm(12); setJy(safeJy - 1); } else setJm(safeJm - 1); }}><Text style={[s.nav, !canGoPrevious && s.navDisabled]}>‹</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه قبل" style={s.monthNavButton} accessibilityState={{ disabled: !canGoPrevious }} disabled={!canGoPrevious} onPress={() => { if (safeJm === 1) { setJm(12); setJy(safeJy - 1); } else setJm(safeJm - 1); }}><Text allowFontScaling style={[s.nav, !canGoPrevious && s.navDisabled]}>‹</Text></TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب سال" onPress={() => setMode(mode === 'year' ? 'day' : 'year')}>
-              <Text style={s.title}>{J_MONTHS[safeJm - 1]} {fa(safeJy)}</Text>
-              <Text style={s.hint}>برای انتخاب سال لمس کنید</Text>
+              <Text allowFontScaling style={s.title}>{J_MONTHS[safeJm - 1]} {fa(safeJy)}</Text>
+              <Text allowFontScaling style={s.hint}>برای انتخاب سال لمس کنید</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه بعد" accessibilityState={{ disabled: !canGoNext }} disabled={!canGoNext} onPress={() => { if (safeJm === 12) { setJm(1); setJy(safeJy + 1); } else setJm(safeJm + 1); }}><Text style={[s.nav, !canGoNext && s.navDisabled]}>›</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه بعد" style={s.monthNavButton} accessibilityState={{ disabled: !canGoNext }} disabled={!canGoNext} onPress={() => { if (safeJm === 12) { setJm(1); setJy(safeJy + 1); } else setJm(safeJm + 1); }}><Text allowFontScaling style={[s.nav, !canGoNext && s.navDisabled]}>›</Text></TouchableOpacity>
           </View>
           <View style={s.tabs}>
-            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='day'}} style={[s.tab, mode === 'day' && s.tabOn]} onPress={() => setMode('day')}><Text style={[s.tabTxt, mode === 'day' && s.tabTxtOn]}>روز</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='month'}} style={[s.tab, mode === 'month' && s.tabOn]} onPress={() => setMode('month')}><Text style={[s.tabTxt, mode === 'month' && s.tabTxtOn]}>ماه</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='year'}} style={[s.tab, mode === 'year' && s.tabOn]} onPress={() => setMode('year')}><Text style={[s.tabTxt, mode === 'year' && s.tabTxtOn]}>سال</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='day'}} style={[s.tab, mode === 'day' && s.tabOn]} onPress={() => setMode('day')}><Text allowFontScaling style={[s.tabTxt, mode === 'day' && s.tabTxtOn]}>روز</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='month'}} style={[s.tab, mode === 'month' && s.tabOn]} onPress={() => setMode('month')}><Text allowFontScaling style={[s.tabTxt, mode === 'month' && s.tabTxtOn]}>ماه</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='year'}} style={[s.tab, mode === 'year' && s.tabOn]} onPress={() => setMode('year')}><Text allowFontScaling style={[s.tabTxt, mode === 'year' && s.tabTxtOn]}>سال</Text></TouchableOpacity>
           </View>
           {mode === 'day' && <ScrollView contentContainerStyle={s.grid}>
             {days.map((d) => (
               <TouchableOpacity key={d} accessibilityRole="button" accessibilityLabel={`${fa(d)} ${J_MONTHS[safeJm - 1]}${safeJy === today.jy && safeJm === today.jm && d === today.jd ? '، امروز' : ''}`} accessibilityState={{selected:selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d}} style={[s.day, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDay, selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d && s.selected]} onPress={() => { setSelectedDate({jy:safeJy,jm:safeJm,jd:d}); onSelect({ jy: safeJy, jm: safeJm, jd: d, gStr: jToStr(safeJy, safeJm, d), label: jLabel(safeJy, safeJm, d) }); onClose && onClose(); }}>
-                <Text style={[s.dayTxt, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDayTxt, selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d && s.selectedTxt]}>{fa(d)}</Text>
+                <Text allowFontScaling style={[s.dayTxt, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDayTxt, selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d && s.selectedTxt]}>{fa(d)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
           {mode === 'month' && <ScrollView contentContainerStyle={s.grid}>
             {J_MONTHS.map((m, idx) => (
               <TouchableOpacity key={m} accessibilityRole="button" accessibilityLabel={m} accessibilityState={{selected:safeJm===idx+1}} style={[s.month, safeJm === idx + 1 && s.selected]} onPress={() => { setJm(idx + 1); setMode('day'); }}>
-                <Text style={[s.dayTxt, safeJm === idx + 1 && s.selectedTxt]}>{m}</Text>
+                <Text allowFontScaling style={[s.dayTxt, safeJm === idx + 1 && s.selectedTxt]}>{m}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
           {mode === 'year' && <ScrollView contentContainerStyle={s.grid}>
             {years.map((y) => (
               <TouchableOpacity key={y} accessibilityRole="button" accessibilityLabel={'سال '+fa(y)} accessibilityState={{selected:safeJy===y}} style={[s.year, safeJy === y && s.selected]} onPress={() => { setJy(y); setMode('month'); }}>
-                <Text style={[s.dayTxt, safeJy === y && s.selectedTxt]}>{fa(y)}</Text>
+                <Text allowFontScaling style={[s.dayTxt, safeJy === y && s.selectedTxt]}>{fa(y)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
-          <View style={s.footer}><TouchableOpacity style={[s.todayAction, !todayAllowed && s.actionDisabled]} disabled={!todayAllowed} accessibilityRole="button" accessibilityLabel="انتخاب تاریخ امروز" accessibilityState={{ disabled: !todayAllowed }} onPress={() => { onSelect({ ...today, gStr: jToStr(today.jy,today.jm,today.jd), label: jLabel(today.jy,today.jm,today.jd) }); onClose && onClose(); }}><Text style={s.todayActionTxt}>انتخاب امروز</Text></TouchableOpacity><TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>بستن</Text></TouchableOpacity></View>
+          <View style={s.footer}><TouchableOpacity style={[s.todayAction, !todayAllowed && s.actionDisabled]} disabled={!todayAllowed} accessibilityRole="button" accessibilityLabel="انتخاب تاریخ امروز" accessibilityState={{ disabled: !todayAllowed }} onPress={() => { onSelect({ ...today, gStr: jToStr(today.jy,today.jm,today.jd), label: jLabel(today.jy,today.jm,today.jd) }); onClose && onClose(); }}><Text allowFontScaling style={s.todayActionTxt}>انتخاب امروز</Text></TouchableOpacity><TouchableOpacity style={s.close} onPress={onClose}><Text allowFontScaling style={s.closeTxt}>بستن</Text></TouchableOpacity></View>
         </View>
       </View>
     </Modal>
@@ -123,7 +123,8 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   title: { fontFamily: FONT.bold, fontSize: 17, color: C.ink, textAlign: 'center' },
   hint: { fontFamily: FONT.regular, fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 3 },
-  nav: { fontSize: 30, color: C.brand, paddingHorizontal: 16, fontWeight: '700' },
+  monthNavButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  nav: { fontSize: 30, color: C.brand, paddingHorizontal: 10, fontWeight: '700' },
   navDisabled: { opacity: 0.3 },
   actionDisabled: { opacity: 0.4 },
   tabs: { flexDirection: 'row-reverse', backgroundColor: '#eef1f7', borderRadius: 12, padding: 4, marginBottom: 10 },
@@ -135,14 +136,14 @@ const s = StyleSheet.create({
   day: { width: '13%', minHeight:44, aspectRatio: 1, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   todayDay: { backgroundColor: '#e1f5e9', borderColor: C.brand, borderWidth: 2 },
   todayDayTxt: { color: C.brand },
-  month: { width: '31%', height: 48, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  year: { width: '22%', height: 46, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  month: { width: '31%', minHeight: 48, paddingVertical: 10, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  year: { width: '22%', minHeight: 48, paddingVertical: 10, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   selected: { backgroundColor: C.brand, borderColor: C.brand },
   selectedTxt: { color: '#fff' },
   dayTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
   footer: { flexDirection: 'row-reverse', gap: 10, marginTop: 12 },
-  todayAction: { flex: 1, minHeight: 46, backgroundColor: C.brand, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  todayAction: { flex: 1, minHeight: 48, paddingVertical: 10, backgroundColor: C.brand, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   todayActionTxt: { fontFamily: FONT.bold, color: '#fff' },
-  close: { flex: 1, minHeight: 46, backgroundColor: '#eef1f7', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  close: { flex: 1, minHeight: 48, paddingVertical: 10, backgroundColor: '#eef1f7', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   closeTxt: { fontFamily: FONT.bold, color: C.ink },
 });
