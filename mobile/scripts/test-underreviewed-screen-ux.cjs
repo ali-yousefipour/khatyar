@@ -33,4 +33,6 @@ assert.match(picker, /accessibilityState=\{\{selected:role===x\}\}/, 'role selec
 assert.match(picker, /accessibilityState=\{\{selected\}\}/, 'selected person is exposed to TalkBack');
 assert.match(picker, /role:\{minHeight:44/, 'role chips have minimum accessible touch height');
 assert.match(picker, /item:\{minHeight:48/, 'person entries have accessible touch height');
+assert.ok((picker.match(/<Text allowFontScaling/g)||[]).length>=8, 'person selector labels, roles and entries must opt into Android font scaling');
+assert.match(picker, /<TextInput\s+allowFontScaling/, 'person search must opt into Android font scaling');
 console.log('PASS under-reviewed screens: stale-response guards, recoverability, icons, accessibility and responsive layout');
