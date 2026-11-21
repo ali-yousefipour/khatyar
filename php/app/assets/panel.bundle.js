@@ -22377,7 +22377,7 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 2.0.6 (radio-shift-controls-and-reports)");
+    console.log("PANEL BUILD: 2.0.7 (radio-manager-shift-toggle-fix)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
     requestAnimationFrame(() => requestAnimationFrame(() => { const loader = document.getElementById("kh-initial-loader"); if (loader)
         loader.classList.add("kh-loader-hide"); }));
