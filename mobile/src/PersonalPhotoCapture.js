@@ -6,7 +6,7 @@ import { C, FONT } from './theme';
 import ActivityIndicator from './components/PulseLoadingIndicator';
 import { compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
-import { useCameraSession } from './cameraSession';
+import { useCameraSession, waitForCameraRelease } from './cameraSession';
 import { launchCamera, requestCameraAccess, ImagePicker } from './cameraLock';
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
@@ -32,7 +32,7 @@ export default function PersonalPhotoCapture({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(instruction);
   const [preview, setPreview] = useState(null);
-  const [useInlineCamera, setUseInlineCamera] = useState(false);
+  const [useInlineCamera] = useState(!systemCameraFirst);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
@@ -79,7 +79,7 @@ export default function PersonalPhotoCapture({
     setMessage('در حال بازکردن دوربین گوشی…');
     try {
       // Release any active CameraView before launching the phone camera app.
-      if (useInlineCamera) await new Promise(resolve => setTimeout(resolve, 1200));
+      if (useInlineCamera && !(await waitForCameraRelease())) throw new Error('camera_still_in_use');
       const access = await requestCameraAccess();
       if (!access?.granted) throw new Error('camera_permission_denied');
       const result = await launchCamera({
@@ -110,7 +110,7 @@ export default function PersonalPhotoCapture({
   }
 
   useEffect(() => {
-    if (manualSystemCamera || !permission?.granted || autoCameraStarted.current) return;
+    if (!systemCameraFirst || manualSystemCamera || !permission?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, permission?.granted]);
