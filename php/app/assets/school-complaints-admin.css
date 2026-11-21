@@ -225,3 +225,7 @@
   .sc-module .sc-responsive-table td small { grid-column: 1; }
   .sc-module .sc-responsive-table td::before { font-weight: 750; }
 }
+
+/* WEB-UX-013: accessible empty state without breaking desktop/mobile table layouts. */
+.sc-module .sc-table .sc-empty-results{padding:26px 18px;text-align:center;color:var(--kh-text-muted,#4d665c);line-height:1.9;white-space:normal;}
+@media screen and (max-width:900px){.sc-module .sc-responsive-table .sc-empty-results{display:block;grid-column:1/-1;min-width:0;}}
