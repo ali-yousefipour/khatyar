@@ -8,6 +8,7 @@ assert.match(source,/box\.setAttribute\('aria-modal','true'\)/,'dialog has modal
 assert.match(source,/file\.setAttribute\('aria-label','انتخاب فایل اکسل کارکرد قبلی'\)/,'file input is labeled for assistive technology');
 assert.match(source,/state\.tabIndex=-1/,'status is programmatically focusable during blocked operations');
 assert.match(source,/if\(!focusable\.length\)\{event\.preventDefault\(\);state\.focus\(\);return;\}/,'Tab cannot escape while controls are disabled');
+assert.equal((source.match(/!focusable\.includes\(document\.activeElement\)/g)||[]).length,2,'Tab and Shift+Tab remain trapped when status is programmatically focused');
 assert.match(source,/if\(event\.key==='Escape'\)/,'dialog supports Escape');
 const operations=[...source.matchAll(/busy=true;file\.disabled=true;close\.disabled=true;save\.disabled=true;remove\.disabled=true;/g)];
 assert.equal(operations.length,2,'save and remove disable the file while processing');
