@@ -29,7 +29,7 @@ assert.match(code,/const resolved=deviceRoad\|\|serverRoad\|\|mapRoad\|\|lastRoa
 assert.match(code,/haversine\(lat,lng,Number\(stored.lat\),Number\(stored.lng\)\)<=75/,'offline street cache is spatially bounded');
 assert.match(code,/Date\.now\(\)-Number\(stored.saved_at\)<24\*60\*60\*1000/,'offline street cache has a one-day TTL');
 assert.match(code,/if\(deviceRoad\|\|serverRoad\|\|mapRoad\)await AsyncStorage\.setItem/,'map result is cached for no-network photo capture');
-assert.match(code,/source === 'openstreetmap' \? <Text style=\{s.attribution\}>© OpenStreetMap/,'OSM requires proper attribution on image');
+assert.match(code,/source === 'openstreetmap' \? <Text style=\{s.attribution\}>© OpenStreetMap contributors/,'OSM requires full attribution on image');
 assert.match(route,/next_allowed/,'backend keeps rate limiting');
 assert.match(api,/route\('GET', '\/api\/geo\/reverse'/,'Neshan route exists');
 console.log('PASS photo watermark: compressed RTL metadata with street + GPS and 3 geocoders with bounded offline cache');
