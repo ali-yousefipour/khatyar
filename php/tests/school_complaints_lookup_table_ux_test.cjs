@@ -47,6 +47,9 @@ assert.match(src,/document\.addEventListener\('pointerdown',outside\)/,'outside 
 assert.match(src,/Number\.isSafeInteger\(total\)/,'export refuses corrupted total counts');
 assert.match(src,/total>10000/,'export refuses excessive requests before fetching all pages');
 assert.match(src,/role:'status','aria-live':'polite'/,'pagination changes are announced');
+assert.match(src,/const loadFallback=message=>err\?/, 'API errors must have a distinct recoverable state');
+assert.match(src,/btn\('تلاش مجدد',\(\)=>F\(n=>n\+1\)/, 'failed dashboards and tables offer explicit retry');
+for(const label of ['در حال دریافت آمار…','در حال دریافت اطلاعات…','در حال دریافت تنظیمات…']) assert.ok(src.includes('loadFallback(\''+label+'\')'),'loading state should switch to retryable errors for '+label);
 assert.match(src,/className:'sc-visually-hidden'/,'report table has accessible caption');
 assert.match(css,/\.sc-results \[role="option"\]:focus-visible/,'focused options are visibly highlighted');
 console.log('PASS complaints lookup, keyboard dismissal, export count safeguards, pagination and report semantics');
