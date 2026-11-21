@@ -89,7 +89,7 @@ export function RequestInboxScreen() {
     {rows===null ? <ActivityIndicator color={C.brand}/> : filtered.length===0 ? <View style={inboxStyle.empty}><MaterialCommunityIcons name="clipboard-check-outline" size={45} color={C.muted}/><Text style={inboxStyle.emptyTitle}>{rows.length ? 'درخواستی مطابق فیلترها پیدا نشد' : 'درخواستی در کارتابل شما نیست'}</Text><Text style={inboxStyle.subtitle}>{rows.length ? 'فیلترها را تغییر دهید.' : 'درخواست‌های ارجاع‌شده برای تأیید در این بخش نمایش داده می‌شوند.'}</Text></View> : filtered.map((r)=>{
       const open=expanded[r.id] !== false;
       return <View key={r.id} style={inboxStyle.card}>
-        <TouchableOpacity onPress={()=>setExpanded(p=>({...p,[r.id]:!open}))} style={{flexDirection:'row-reverse',alignItems:'center',gap:10}}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`درخواست ${r.requester || r.requester_name || r.user_name || 'نامشخص'}، ${TY[r.type] || r.type}`} accessibilityState={{expanded:open}} onPress={()=>setExpanded(p=>({...p,[r.id]:!open}))} style={{flexDirection:'row-reverse',alignItems:'center',gap:10}}>
           <View style={inboxStyle.avatar}><MaterialCommunityIcons name="account-outline" size={23} color={C.brand}/></View>
           <View style={{flex:1}}><Text style={inboxStyle.name}>{r.requester || r.requester_name || r.user_name || 'نام ارسال‌کننده نامشخص'}</Text><Text style={inboxStyle.subtitle}>{TY[r.type] || r.type} {r.unit==='hourly'?'· ساعتی':r.unit==='daily'?'· روزانه':''}</Text></View>
           <MaterialCommunityIcons name={open?'chevron-up':'chevron-down'} size={24} color={C.muted}/>
