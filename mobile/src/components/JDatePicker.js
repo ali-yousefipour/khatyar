@@ -65,17 +65,20 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
   const len = jMonthLen(safeJy, safeJm);
   const days = Array.from({ length: len }, (_, i) => i + 1);
   const years = Array.from({ length: Math.max(1, maxY - minYear + 1) }, (_, i) => maxY - i);
+  const canGoPrevious = safeJy > minYear || safeJm > 1;
+  const canGoNext = safeJy < maxY || safeJm < 12;
+  const todayAllowed = today.jy >= minYear && today.jy <= maxY;
   return (
     <Modal visible={!!visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.bg}>
         <View style={s.card}>
           <View style={s.head}>
-            <TouchableOpacity onPress={() => { if (safeJm === 1) { setJm(12); setJy(Math.max(minYear, safeJy - 1)); } else setJm(safeJm - 1); }}><Text style={s.nav}>‹</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه قبل" accessibilityState={{ disabled: !canGoPrevious }} disabled={!canGoPrevious} onPress={() => { if (safeJm === 1) { setJm(12); setJy(safeJy - 1); } else setJm(safeJm - 1); }}><Text style={[s.nav, !canGoPrevious && s.navDisabled]}>‹</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setMode(mode === 'year' ? 'day' : 'year')}>
               <Text style={s.title}>{J_MONTHS[safeJm - 1]} {fa(safeJy)}</Text>
               <Text style={s.hint}>برای انتخاب سال لمس کنید</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { if (safeJm === 12) { setJm(1); setJy(Math.min(maxY, safeJy + 1)); } else setJm(safeJm + 1); }}><Text style={s.nav}>›</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه بعد" accessibilityState={{ disabled: !canGoNext }} disabled={!canGoNext} onPress={() => { if (safeJm === 12) { setJm(1); setJy(safeJy + 1); } else setJm(safeJm + 1); }}><Text style={[s.nav, !canGoNext && s.navDisabled]}>›</Text></TouchableOpacity>
           </View>
           <View style={s.tabs}>
             <TouchableOpacity style={[s.tab, mode === 'day' && s.tabOn]} onPress={() => setMode('day')}><Text style={[s.tabTxt, mode === 'day' && s.tabTxtOn]}>روز</Text></TouchableOpacity>
@@ -103,7 +106,7 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
               </TouchableOpacity>
             ))}
           </ScrollView>}
-          <View style={s.footer}><TouchableOpacity style={s.todayAction} onPress={() => { onSelect({ ...today, gStr: jToStr(today.jy,today.jm,today.jd), label: jLabel(today.jy,today.jm,today.jd) }); onClose && onClose(); }}><Text style={s.todayActionTxt}>انتخاب امروز</Text></TouchableOpacity><TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>بستن</Text></TouchableOpacity></View>
+          <View style={s.footer}><TouchableOpacity style={[s.todayAction, !todayAllowed && s.actionDisabled]} disabled={!todayAllowed} accessibilityRole="button" accessibilityLabel="انتخاب تاریخ امروز" accessibilityState={{ disabled: !todayAllowed }} onPress={() => { onSelect({ ...today, gStr: jToStr(today.jy,today.jm,today.jd), label: jLabel(today.jy,today.jm,today.jd) }); onClose && onClose(); }}><Text style={s.todayActionTxt}>انتخاب امروز</Text></TouchableOpacity><TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>بستن</Text></TouchableOpacity></View>
         </View>
       </View>
     </Modal>
@@ -116,6 +119,8 @@ const s = StyleSheet.create({
   title: { fontFamily: FONT.bold, fontSize: 17, color: C.ink, textAlign: 'center' },
   hint: { fontFamily: FONT.regular, fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 3 },
   nav: { fontSize: 30, color: C.brand, paddingHorizontal: 16, fontWeight: '700' },
+  navDisabled: { opacity: 0.3 },
+  actionDisabled: { opacity: 0.4 },
   tabs: { flexDirection: 'row-reverse', backgroundColor: '#eef1f7', borderRadius: 12, padding: 4, marginBottom: 10 },
   tab: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
   tabOn: { backgroundColor: C.brand },
