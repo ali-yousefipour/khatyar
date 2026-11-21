@@ -40,6 +40,8 @@ export default function PresenceCheckWizard(){
  const[queued,setQueued]=useState(false);
  const coordsRef=useRef(null);
  const finishedRef=useRef(false);
+ const submissionBusyRef=useRef(false);
+ const captureTimeRef=useRef(null);
  const allowExitRef=useRef(false);
  const readyReported=useRef(false);
  const layoutReported=useRef(false);
@@ -96,9 +98,13 @@ export default function PresenceCheckWizard(){
  };
 
  async function submit(vehiclesUrl,coords){
-   if(finishedRef.current||sending||presenceRemainingMs(requestId,deadlineMs)<=0){
+   if(finishedRef.current)return true;
+   if(submissionBusyRef.current)return false;
+   if(presenceRemainingMs(requestId,deadlineMs)<=0){
      setExpired(true);terminalRef.current=true;emitPresenceWizardState(requestId,'expired');setStep('expired');return;
    }
+   submissionBusyRef.current=true;
+   if(!captureTimeRef.current)captureTimeRef.current=new Date().toISOString();
    coordsRef.current=coords||coordsRef.current;
    setError('');
    setSending(true);
@@ -114,23 +120,27 @@ export default function PresenceCheckWizard(){
          request_id:requestId,
          random:!!p.random || requestId.startsWith('local_'),
          immediate,
-         captured_at:new Date().toISOString(),
-         client_uuid:'presence_'+String(user?.id||'')+'_'+requestId.replace(/[^a-zA-Z0-9_-]/g,'_')
+         captured_at:captureTimeRef.current,
+         client_uuid:'presence_'+String(user?.id||'')+'_'+String(requestId||deadlineMs).replace(/[^a-zA-Z0-9_-]/g,'_')
        },
-       timeoutMs:60000,
+       timeoutMs:25000,
        noStore:true,
        queueIfOffline:true
      });
      if(!r?.ok||(!r?.queued&&(!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)))throw new Error('ثبت یا ذخیره در صف تأیید نشد.');
      setQueued(!!r.queued);
+     // The server or durable offline queue already acknowledged this request.
+     // A secondary local status write must not turn that acknowledgement into
+     // an error or leave the user stuck on the photo preview.
      finishedRef.current=true;
      terminalRef.current=true;
-     if(doneKey)await AsyncStorage.setItem(doneKey,'1');
-     await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done',{slot,day,immediate,user_id:Number(user?.id||0)});
+     if(doneKey)await AsyncStorage.setItem(doneKey,'1').catch(()=>{});
+     await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done',{slot,day,immediate,user_id:Number(user?.id||0)}).catch(()=>{});
      emitPresenceWizardState(requestId,'completed');
-     await stopPresenceAlarm({dismissNotifications:true});
+     stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
      setSending(false);
      setStep('done');
+     return true;
    }catch(e){
      finishedRef.current=false;
      setSending(false);
@@ -138,6 +148,8 @@ export default function PresenceCheckWizard(){
      setStep('vehicles');
      Alert.alert('ارسال صحت‌سنجی ناموفق بود',e?.message||'ارتباط با سرور برقرار نشد. عکس‌ها حذف نشده‌اند؛ دوباره «تأیید و ارسال» را بزنید.');
      return false;
+   }finally{
+     submissionBusyRef.current=false;
    }
  }
 
