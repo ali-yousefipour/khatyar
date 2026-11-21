@@ -73,7 +73,7 @@ export default function RadioScreen() {
     enabled, channels, channelId, busy: ctxBusy, speaker: ctxSpeaker, recording, status,
     lastMessage, recentMessages, maxTalkMs, minTalkMs, loading, loadError, setEnabled,
     setChannel, startTalk, stopTalk, reloadChannels, playRecentMessage, playingMessageId,
-    listenAll, listenAllAllowed, setListenAll, volumePttEnabled, setVolumePttEnabled,
+    listenAll, listenAllAllowed, setListenAll, personalShiftLimit, shiftLimitToggleAllowed, setPersonalShiftLimit, volumePttEnabled, setVolumePttEnabled,
   } = useRadio();
   // Keep one preloaded player per announcement. Replacing a source immediately before
   // play() used to race the asynchronous decoder (most visibly for channel 5).
@@ -199,6 +199,7 @@ export default function RadioScreen() {
 
       <View style={s.settingRow}>
         <Text style={s.quickActionsLabel}>کنترل‌های سریع</Text>
+        {shiftLimitToggleAllowed && <SettingToggle label="محدودیت حضور بی‌سیم" shortLabel="محدودیت" icon="shield-lock-outline" checked={personalShiftLimit} onPress={() => { if (!loading && !recording) setPersonalShiftLimit(!personalShiftLimit); }} />}
         <SettingToggle label="استفاده از ولوم بالا به‌عنوان PTT" shortLabel="ولوم + / PTT" icon="volume-plus" checked={volumePttEnabled} onPress={() => setVolumePttEnabled(!volumePttEnabled)} />
         {listenAllAllowed && <SettingToggle label="شنود همه کانال‌ها" shortLabel="شنود همه" icon="headphones" checked={listenAll} onPress={() => setListenAll(!listenAll)} />}
       </View>
