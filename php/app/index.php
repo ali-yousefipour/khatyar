@@ -151,6 +151,14 @@ if (strpos($path, '/api') !== 0) {
     echo $publicHtml;
     exit;
   }
+  // Standalone complaint-only portal, not part of staff administration.
+  if ($method === 'GET' && $path === '/school-complaints-portal') {
+    header('Cache-Control: no-store, max-age=0');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Content-Type: text/html; charset=utf-8');
+    readfile(__DIR__.'/school-complaints-portal.html');
+    exit;
+  }
   // Keep the original login/admin application unchanged; old bookmarks may use /panel.
   if ($method === 'GET' && in_array($path, ['/panel', '/login'], true)) {
     header('Cache-Control: no-store, max-age=0');
@@ -368,6 +376,15 @@ foreach ($routes as $r) {
   try {
   if (!$r['public']) {
     $tok = Http::bearer(); $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null;
+    if (is_array($payload) && ($payload['t'] ?? '') === 'sc') {
+      // Scoped tokens cannot authorize any organizational API endpoint.
+      if (strpos($path,'/api/school-complaints/') !== 0)
+        Http::error('توکن اختصاصی فقط برای شکایات سرویس مدارس مجاز است',403);
+      if (!function_exists('sc_operator_auth'))
+        Http::error('ماژول کاربران شکایات نصب نشده است',503);
+      $user=sc_operator_auth($payload);
+      Http::$currentToken=$tok;
+    } else {
     // Keep bootstrap authentication independent of newly deployed helper methods.
     // Legacy access tokens have no type claim; refresh/image tokens have explicit types.
     $isMediaToken = is_array($payload) && ($payload['t'] ?? '') === 'media';
@@ -404,6 +421,7 @@ foreach ($routes as $r) {
     ], true)) Http::error('برای ادامه ابتدا رمز عبور پیش‌فرض را تغییر دهید', 403);
     if (empty($user['is_admin'])) { $mrow = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'"); $mcfg = $mrow ? json_decode($mrow['value'], true) : null; if (!empty($mcfg['enabled'])) Http::error((string)($mcfg['message'] ?? '') ?: 'نرم‌افزار و پنل موقتاً برای تعمیرات غیرفعال است. لطفاً بعداً تلاش کنید.', 503); }
     if ($r['minLevel'] <= 3) { if (empty($user['is_admin'])) Http::error('دسترسی مدیریتی لازم است', 403); } elseif ((int)$user['level'] > $r['minLevel']) Http::error('سطح دسترسی کافی نیست', 403);
+    }
   }
   if(strpos($path,'/api/admin/work-contracts')===0) {
     // The same role_perms key used by the web sidebar is enforced on API.
@@ -416,7 +434,7 @@ foreach ($routes as $r) {
   }
   // Audit authenticated mutations across both web and Android. Never store request
   // bodies, query strings, tokens or user-agent strings in the audit trail.
-  if ($user && in_array($method, ['POST','PUT','PATCH','DELETE'], true)
+  if ($user && empty($user['sc_only']) && in_array($method, ['POST','PUT','PATCH','DELETE'], true)
       && !preg_match('~^/api/(?:admin/logs|session/renew|location|gps|heartbeat|radio|push|notifications/(?:poll|heartbeat))~', $path)) {
     $auditUserId=(int)$user['id'];
     $auditRoute=(string)$r['p'];

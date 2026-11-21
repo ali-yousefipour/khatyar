@@ -5,12 +5,22 @@ on:
     branches: [main]
     paths:
       - 'php/lib/school_complaints_routes.php'
+      - 'php/lib/school_complaint_accounts.php'
+      - 'php/app/index.php'
+      - 'php/app/school-complaints-portal.html'
+      - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
+      - 'php/tools/panel_source.jsx'
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
       - '.github/workflows/school-complaints-regression.yml'
   pull_request:
     paths:
       - 'php/lib/school_complaints_routes.php'
+      - 'php/lib/school_complaint_accounts.php'
+      - 'php/app/index.php'
+      - 'php/app/school-complaints-portal.html'
+      - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
+      - 'php/tools/panel_source.jsx'
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
       - '.github/workflows/school-complaints-regression.yml'
@@ -24,13 +34,22 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Validate PHP route syntax
-        run: php -l php/lib/school_complaints_routes.php
+      - name: Build canonical panel to verify bundle/launcher parity
+        run: |
+          cd php
+          npm install --no-save --no-package-lock typescript@5.9.3
+          bash tools/build_panel_bundle.sh
+      - name: Validate PHP route and scoped-auth syntax
+        run: |
+          php -l php/lib/school_complaints_routes.php
+          php -l php/lib/school_complaint_accounts.php
+          php -l php/app/index.php
       - name: Validate JavaScript syntax
         run: |
           node --check php/app/assets/school-complaints-admin.js
           node --check php/app/assets/school-complaints-qr.js
           node --check php/app/assets/school-complaints-pdf.js
+          node --check php/app/assets/school-complaints-portal.js
       - name: Verify deployed asset wiring and source/bundle consistency
         run: node php/tools/test_school_complaint_assets.cjs
       - name: Verify QR structure and tracking payload
@@ -40,6 +59,8 @@ jobs:
       - name: Verify branded A4 print
         run: node php/tools/test_school_complaint_print.cjs
       - name: Verify permissions and workflow
-        run: php php/tools/test_school_complaint_permissions.php
+        run: |
+          php php/tools/test_school_complaint_permissions.php
+          php php/tools/test_school_complaint_isolated_accounts.php
       - name: Verify full case lifecycle and role enforcement
         run: php php/tools/test_school_complaint_workflow.php
