@@ -222,6 +222,24 @@ export default function CompanyPayrollHistory() {
           {slip && payrollFontsReady && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
             <PayrollAccessSlip slip={slip} width={screenWidth - 32} />
           </View>}
+          {slip && <View style={styles.readableSlip} accessible={false}>
+            <Text allowFontScaling accessibilityRole="header" style={styles.readableTitle}>نسخه خوانای فیش حقوق</Text>
+            <Text allowFontScaling style={styles.readableNote}>این بخش برای مطالعه با فونت بزرگ و صفحه‌خوان است؛ در تصویر فیش A5 ذخیره نمی‌شود.</Text>
+            <Text allowFontScaling style={styles.readableLine}>دوره: {faNum(`${slip.row?.period_jy || '—'}/${String(slip.row?.period_jm || '—').padStart(2, '0')}`)}</Text>
+            <Text allowFontScaling style={styles.readableLine}>نام: {slip.row?.employee_name || '—'}</Text>
+            {!!slip.row?.role_title && <Text allowFontScaling style={styles.readableLine}>سمت: {slip.row.role_title}</Text>}
+            <Text allowFontScaling style={styles.readableNet}>خالص پرداختی: {moneyText(slip.row?.data?.net ?? slip.row?.net)} ریال</Text>
+            {(slip.fields || []).map((field, index) => {
+              const label = slip.labels?.[index] || field;
+              const key = String(field || '');
+              if (hiddenDetailFields.has(key.toLowerCase()) || normalizeLabel(label) === 'ردیف' || key === 'net' || normalizeLabel(label) === 'خالصپرداختی') return null;
+              const value = slip.row?.data?.[field];
+              return <View accessible accessibilityLabel={`${label}، ${value == null || value === '' ? 'ثبت نشده' : integerMoneyFields.has(key) ? moneyText(value) : faNum(String(value))}`} key={key + index} style={styles.readableRow}>
+                <Text allowFontScaling style={styles.readableKey}>{label}</Text>
+                <Text allowFontScaling style={styles.readableValue}>{value == null || value === '' ? '—' : integerMoneyFields.has(key) ? moneyText(value) : faNum(String(value))}</Text>
+              </View>;
+            })}
+          </View>}
           <TouchableOpacity accessibilityRole="button" disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'دریافت و ذخیره تصویر فیش'}</Text></TouchableOpacity>
           <TouchableOpacity accessibilityRole="button" disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
         </ScrollView>
@@ -285,6 +303,14 @@ const styles = StyleSheet.create({
   netTitle: { fontFamily: FONT.bold, fontSize: 17, color: '#b91c1c', textAlign: 'center' },
   netValue: { fontFamily: FONT.bold, fontSize: 24, color: '#b91c1c', textAlign: 'center', marginTop: 8 },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'right', paddingVertical: 12 },
+  readableSlip: { marginTop: 18, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', gap: 10 },
+  readableTitle: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, textAlign: 'right' },
+  readableNote: { fontFamily: FONT.regular, fontSize: 12, color: C.slate, textAlign: 'right' },
+  readableLine: { fontFamily: FONT.regular, fontSize: 15, color: C.ink, textAlign: 'right' },
+  readableNet: { fontFamily: FONT.bold, fontSize: 18, color: C.brand, textAlign: 'right' },
+  readableRow: { minHeight: 48, paddingVertical: 9, borderTopWidth: 1, borderTopColor: C.line, flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  readableKey: { fontFamily: FONT.regular, fontSize: 14, color: C.slate, textAlign: 'right', flexShrink: 1 },
+  readableValue: { fontFamily: FONT.bold, fontSize: 15, color: C.ink, textAlign: 'left', flexShrink: 1 },
   slipPaper: { width: '100%', aspectRatio: 210 / 148, padding: 9, backgroundColor: '#fff', borderWidth: 1, borderColor: '#999', justifyContent: 'space-between' },
   slipHeading: { fontFamily: FONT.bold, textAlign: 'center', fontSize: 13, color: '#111' },
   slipPerson: { fontFamily: FONT.bold, textAlign: 'center', fontSize: 10, color: '#111' },
