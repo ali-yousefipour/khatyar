@@ -52,6 +52,8 @@ jobs:
           node --check app/assets/school-service-admin.js
           node --check app/assets/school-complaints-admin.js
           node tests/school_complaints_export_progress_test.cjs
+          node tests/school_complaints_wizard_pdf_test.cjs
+          node --check app/assets/school-complaints-pdf.js
           node tests/school_complaints_tables_accessibility_test.cjs
           node --check app/assets/dashboard-no-charts.js
           node --check app/assets/work-report-default-placement-ui.js
