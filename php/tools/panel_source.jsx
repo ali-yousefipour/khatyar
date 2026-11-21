@@ -11566,8 +11566,21 @@ function AccountPasswordDialog({onClose}){
   </Modal>;
 }
 
+function PanelStartupLoading({title="در حال آماده‌سازی پنل مدیریت",stage="دریافت اطلاعات و تنظیمات اولیه…"}){
+  return <div className="kh-login-startup" role="status" aria-live="polite" aria-label={title}>
+    <div className="kh-long-operation-card">
+      <span className="kh-long-operation-spinner" aria-hidden="true"></span>
+      <h3>{title}</h3>
+      <strong>در حال پردازش…</strong>
+      <progress aria-label="پیشرفت آماده‌سازی پنل"/>
+      <p>{stage}</p>
+    </div>
+  </div>;
+}
+
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [authError,setAuthError]=useState(''); const [authRetry,setAuthRetry]=useState(0); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState([]); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [settingsLoadedFor,setSettingsLoadedFor]=useState(null);
   const [navigationRestored,setNavigationRestored]=useState(false);
   useEffect(()=>{
     if(!me?.is_admin){setNavigationRestored(false);setV('dashboard');return;}
@@ -11607,8 +11620,25 @@ function App(){
   },[accountOpen]);
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ let active=true; setAuthError('');setAuthReady(false); db.restoreSession().then(u=>{if(active)setMe(u);}).catch(e=>{if(active)setAuthError(e.message||'ارتباط با سرور موقتاً برقرار نیست.');}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[authRetry]);
-  useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(e=>{console.warn('Panel settings temporarily unavailable:',e.message);}); } },[me]);
-  if(!authReady)return <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",color:"var(--muted)"}}>در حال بررسی نشست…</div>;
+  useEffect(()=>{
+    if(!me?.is_admin||me.must_change_pw){setSettingsLoadedFor(null);return;}
+    let live=true;
+    const identity=String(me.id)+':'+String(me.role_id);
+    setSettingsLoadedFor(null);
+    db.settings().then(s=>{
+      if(!live)return;
+      const all=s.role_perms||{};
+      const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id);
+      const rp=all[me.role_id];
+      setAllowed(has&&Array.isArray(rp)?rp:null);
+      const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""};
+      setBrand(b); document.title=b.title; window.__brandLogo=b.logo;
+    }).catch(e=>{
+      if(live)console.warn('Panel settings temporarily unavailable:',e.message);
+    }).finally(()=>{if(live)setSettingsLoadedFor(identity);});
+    return()=>{live=false;};
+  },[me?.id,me?.role_id,me?.is_admin,me?.must_change_pw]);
+  if(!authReady)return <PanelStartupLoading title="در حال بررسی نشست" stage="بررسی اعتبار ورود و اتصال به سرور…"/>;
   if(authError&&!me)return <div role="alert" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",padding:22,textAlign:"center"}}><div className="card-p" style={{maxWidth:470}}><h3>ارتباط موقت با سرور برقرار نیست</h3><p>{authError}</p><p className="muted">نشست شما حفظ شده است. پس از برقراری ارتباط دوباره تلاش کنید.</p><button type="button" className="btn p" onClick={()=>setAuthRetry(n=>n+1)}>تلاش مجدد</button></div></div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
   if(me.must_change_pw)return <FirstLoginPassword name={me.name} onDone={async()=>{const u=await db.restoreSession();if(!u)throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.');setMe(u);}} onLogout={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}/>;
@@ -11616,6 +11646,8 @@ function App(){
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
     <p style={{color:"var(--muted)",maxWidth:430,lineHeight:2,marginTop:8}}>ورود به سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی تنها برای نیروی اداری، نیروی اداری ارشد، رییس اداره بازرسی و مدیر کل مجاز است. برای کارهای میدانی از اپ موبایل/وب‌اپ استفاده کنید.</p>
     <button className="btn p" style={{marginTop:16}} onClick={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}>خروج</button></div></div>);
+  if(me.is_admin&&!me.must_change_pw&&(settingsLoadedFor!==String(me.id)+':'+String(me.role_id)||!navigationRestored))
+    return <PanelStartupLoading title="در حال آماده‌سازی پنل مدیریت" stage="بارگذاری تنظیمات، مجوزها و صفحات مدیریتی…"/>;
   const SECTIONS=PANEL_MENU_SECTIONS;
   const can=(k)=>!allowed||allowed.includes(k);
   const firstAllowed=SECTIONS.flatMap(([,keys])=>keys).find(k=>VIEWS[k]&&can(k));
