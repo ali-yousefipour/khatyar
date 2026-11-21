@@ -54,14 +54,14 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
   const init = normalizeInitial(initial, Math.min(today.jy, maxY));
   const [jy, setJy] = useState(init.jy);
   const [jm, setJm] = useState(init.jm);
-  const [jd, setJd] = useState(init.jd);
+  const [selectedDate, setSelectedDate] = useState(init);
   const [mode, setMode] = useState('day');
   useEffect(() => {
     if (visible) {
       const next = normalizeInitial(initial, Math.min(today.jy, maxY));
       setJy(Math.max(minYear, Math.min(maxY, next.jy)));
       setJm(Math.max(1, Math.min(12, next.jm)));
-      setJd(Math.max(1, Math.min(31, next.jd)));
+      setSelectedDate({jy:Math.max(minYear,Math.min(maxY,next.jy)),jm:Math.max(1,Math.min(12,next.jm)),jd:Math.max(1,Math.min(31,next.jd))});
       setMode('day');
     }
   }, [visible, initial, minYear, maxY]);
@@ -92,8 +92,8 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
           </View>
           {mode === 'day' && <ScrollView contentContainerStyle={s.grid}>
             {days.map((d) => (
-              <TouchableOpacity key={d} accessibilityRole="button" accessibilityLabel={`${fa(d)} ${J_MONTHS[safeJm - 1]}${safeJy === today.jy && safeJm === today.jm && d === today.jd ? '، امروز' : ''}`} accessibilityState={{selected:jd===d}} style={[s.day, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDay, jd===d && s.selected]} onPress={() => { setJd(d); onSelect({ jy: safeJy, jm: safeJm, jd: d, gStr: jToStr(safeJy, safeJm, d), label: jLabel(safeJy, safeJm, d) }); onClose && onClose(); }}>
-                <Text style={[s.dayTxt, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDayTxt, jd===d && s.selectedTxt]}>{fa(d)}</Text>
+              <TouchableOpacity key={d} accessibilityRole="button" accessibilityLabel={`${fa(d)} ${J_MONTHS[safeJm - 1]}${safeJy === today.jy && safeJm === today.jm && d === today.jd ? '، امروز' : ''}`} accessibilityState={{selected:selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d}} style={[s.day, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDay, selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d && s.selected]} onPress={() => { setSelectedDate({jy:safeJy,jm:safeJm,jd:d}); onSelect({ jy: safeJy, jm: safeJm, jd: d, gStr: jToStr(safeJy, safeJm, d), label: jLabel(safeJy, safeJm, d) }); onClose && onClose(); }}>
+                <Text style={[s.dayTxt, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDayTxt, selectedDate.jy===safeJy && selectedDate.jm===safeJm && selectedDate.jd===d && s.selectedTxt]}>{fa(d)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
