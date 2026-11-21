@@ -11019,7 +11019,7 @@ function SchoolComplaintsLauncher(){
   if(!document.querySelector('link[data-school-complaints]')){const css=document.createElement("link");css.rel="stylesheet";css.href="/assets/school-complaints-admin.css?v=20261121.3";css.dataset.schoolComplaints="1";document.head.appendChild(css);}
   const ready=()=>{if(alive&&typeof window.KhatyarSchoolComplaints==="function")setComponent(()=>window.KhatyarSchoolComplaints);else if(alive)setError("رابط شکایات بارگذاری نشد");};
   if(window.KhatyarSchoolComplaints){ready();return()=>{alive=false;};}
-  const script=document.createElement("script");script.src="/assets/school-complaints-admin.js?v=20261121.3";script.onload=ready;script.onerror=()=>{if(alive)setError("خطا در دریافت ماژول شکایات");};document.head.appendChild(script);
+  const script=document.createElement("script");script.src="/assets/school-complaints-admin.js?v=20261121.5";script.onload=ready;script.onerror=()=>{if(alive)setError("خطا در دریافت ماژول شکایات");};document.head.appendChild(script);
   return()=>{alive=false;script.onload=null;script.onerror=null;};
  },[]);
  return Component?<Component get={GET} send={SEND} DatePicker={JDate} ClockInput={ShiftClockInput}/>:<div className="card-p" role="status">{error||"در حال بارگذاری شکایات سرویس مدارس..."}</div>;
