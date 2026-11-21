@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState}from'react';
-import{Alert,BackHandler,ScrollView,StyleSheet,Text,TouchableOpacity,View}from'react-native';
+import{Alert,AppState,BackHandler,ScrollView,StyleSheet,Text,TouchableOpacity,View}from'react-native';
 import{useNavigation,useRoute,useIsFocused}from'@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AsyncStorage from'@react-native-async-storage/async-storage';
@@ -85,7 +85,8 @@ export default function PresenceCheckWizard(){
    };
    update();
    const timer=setInterval(update,1000);
-   return()=>clearInterval(timer);
+   const appState=AppState.addEventListener('change',state=>{if(state==='active')update();});
+   return()=>{clearInterval(timer);appState?.remove?.();};
  },[step,sending,deadlineMs]);
 
  const closeWizard=()=>{
