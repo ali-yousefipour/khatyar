@@ -21198,7 +21198,7 @@ function SchoolComplaintsLauncher() {
             return () => { alive = false; };
         }
         const script = document.createElement("script");
-        script.src = "/assets/school-complaints-admin.js?v=20261121.wizard2";
+        script.src = "/assets/school-complaints-admin.js?v=20261121.wizard3";
         script.onload = ready;
         script.onerror = () => { if (alive)
             setError("خطا در دریافت ماژول شکایات"); };
