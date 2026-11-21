@@ -17,4 +17,10 @@ assert.match(picker, /accessibilityLabel=\{'افزایش ' \+ label\} onPress=\{
 assert.match(picker, /arrow: \{ minHeight: 44/, 'spinner arrows meet Android touch target');
 assert.match(picker, /neighbor: \{ minHeight: 44/, 'adjacent time entries meet Android touch target');
 assert.match(picker, /behavior=\{Platform.OS === 'ios' \? 'padding' : 'height'\}/, 'keyboard avoidance works on Android');
+const jalali = fs.readFileSync(path.resolve(__dirname, '../src/components/JDatePicker.js'), 'utf8');
+assert.match(jalali, /const ascii =/, 'Jalali calendar normalizes Persian and Arabic initial digits');
+assert.match(jalali, /const parts = ascii\(initial\)/, 'initial string date uses normalized numerals');
+assert.match(jalali, /const insets = useSafeAreaInsets\(\)/, 'Jalali picker respects bottom system insets');
+assert.equal((jalali.match(/accessibilityRole="tab" accessibilityState=\{\{selected:mode===/g)||[]).length,3,'all calendar modes expose active tab');
+assert.match(jalali, /day: \{ width: '13%', minHeight:44/, 'day cells have usable touch height');
 console.log('PASS request time picker UX and HH:mm contract');
