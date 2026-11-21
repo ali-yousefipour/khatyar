@@ -12,4 +12,11 @@ assert.match(tile,/compactFavorite: \{ position: 'absolute', left: 5, top: 5, mi
 assert.match(tile,/category: \{ fontFamily: FONT\.regular/,'Keep dashboard category styling');
 assert.match(tile,/accessibilityLabel=\{label\}/,'Tool accessible names must be preserved');
 assert.match(tile,/accessibilityLabel=\{label \+ '، ' \+ faNum\(Number\(value\)\)\}/,'Metric accessible context must be preserved');
+const viewer=fs.readFileSync(path.resolve(__dirname,'../src/components/ImageViewer.js'),'utf8');
+assert.ok(parser.parse(viewer,{sourceType:'module',plugins:['jsx']}).program.body.length,'image gallery JSX must parse');
+assert.match(viewer,/const insets = useSafeAreaInsets\(\)/,'photo viewer respects system insets');
+assert.match(viewer,/top:topSafe/,'gallery close and counter must avoid status bar');
+assert.match(viewer,/bottom:bottomSafe/,'gallery thumbnails must avoid gesture navigation bar');
+assert.match(viewer,/accessibilityState=\{\{selected:i===safeIndex\}\}/,'gallery thumbnail active state must remain accessible');
+assert.match(viewer,/nav: \{ position: 'absolute', top: '42%', minWidth: 48, minHeight: 48/,'gallery navigation arrows need 48dp touch targets');
 console.log('PASS dashboard tile font accessibility and mobile width contracts');
