@@ -111,12 +111,13 @@
       if(!file.files?.length){state.textContent='فایل اکسل را انتخاب کنید';file.focus();return;}
       if(!/\.xlsx$/i.test(file.files[0].name)){state.textContent='فقط فایل xlsx پذیرفته می‌شود';file.focus();return;}
       const data=new FormData();data.append('file',file.files[0]);setBusy(true);state.textContent='در حال بررسی و ذخیره فایل…';state.focus();state.style.color='#173c34';
+      const progress=window.KhatyarLongOperation;const progressJob=progress?.begin('در حال بارگذاری فایل کارکرد',{delay:350,stage:'در حال اعتبارسنجی و ذخیره جایگذاری نیروها…'});
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',body:data});
         const result=await response.json();if(!response.ok)throw Error(result.error||result.message||'خطا در ذخیره: '+response.status);
         state.textContent='جایگذاری '+result.saved_count+' نیرو ذخیره شد. در پیش‌نمایش بعدی اعمال می‌شود.';
         hasPlacement=true;remove.disabled=false;
-      }catch(err){errorMessage(err);}finally{setBusy(false);save.disabled=false;}
+      }catch(err){errorMessage(err);}finally{if(progressJob!=null)progress.end(progressJob);setBusy(false);save.disabled=false;}
     };
     remove.onclick=async()=>{
       if(busy||!template)return;
