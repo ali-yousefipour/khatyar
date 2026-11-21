@@ -17,6 +17,7 @@ for (const relative of [
   'src/screens/InboxScreen.js',
   'src/screens/ReportsScreen.js',
   'src/components/ReportPersonPickerModal.js',
+  'src/components/ReportTextModal.js',
 ]) {
   const source = read(relative);
   const parsed = parser.parse(source, { sourceType: 'module', plugins: ['jsx'] });
@@ -71,4 +72,13 @@ assert.ok(!sent.includes('pickPdf'), 'PDF picker must be absent from new report 
 assert.ok(!sent.includes('افزودن PDF'), 'PDF attachment action must be absent');
 assert.ok(!sent.includes("expo-document-picker"), 'PDF picker dependency import must be absent');
 assert.ok(!sent.includes("application/pdf;base64"), 'No PDF attachment encoding in send report');
+const reportTextModal = read('src/components/ReportTextModal.js');
+assertAll(reportTextModal, [
+  '<ModalKeyboardView style={s.backdrop}>',
+  'maxHeight:\'90%\'',
+  'keyboardShouldPersistTaps="handled"',
+  'onRequestClose={busy ? () => {} : onClose}',
+  'accessibilityState={{ disabled:busy, busy }}',
+  'allowFontScaling',
+], 'Report text modal: Android keyboard, scroll, loading, font scaling');
 console.log('PASS report UX source contracts');
