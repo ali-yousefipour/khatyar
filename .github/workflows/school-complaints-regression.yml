@@ -52,6 +52,8 @@ jobs:
           node --check php/app/assets/school-complaints-portal.js
       - name: Verify deployed asset wiring and source/bundle consistency
         run: node php/tools/test_school_complaint_assets.cjs
+      - name: Verify redesigned registration wizard contracts
+        run: node php/tools/test_school_complaint_wizard.cjs
       - name: Verify QR structure and tracking payload
         run: node php/tools/test_school_complaint_qr.cjs
       - name: Verify independent PDF download
