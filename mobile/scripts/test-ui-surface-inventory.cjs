@@ -12,7 +12,7 @@ const files = folders.flatMap(folder =>
     fs.statSync(path.join(src, folder, file)).isFile()).map(file => folder + '/' + file)
 );
 const counts = {screens:0, components:0, modals:0, textInputs:0, buttons:0, accessibleLabels:0,
-  modalBackMissing:[], modalTextInputCandidates:[], files:[]};
+  modalBackMissing:[], modalTextInputCandidates:[], fontScaleSuppressed:[], iconOnlyControls:[], files:[]};
 
 const nameOf = element => {
   if (!element) return '';
@@ -42,6 +42,18 @@ for (const relative of files) {
     if (node.type !== 'JSXElement') return;
     const tag = nameOf(node.openingElement.name);
     if (tag === 'TextInput') inputs++;
+    if ((tag === 'Text' || tag === 'TextInput') && (node.openingElement.attributes || []).some(attr =>
+      attr.type === 'JSXAttribute' && attr.name?.name === 'allowFontScaling' &&
+      attr.value?.type === 'JSXExpressionContainer' && attr.value.expression?.value === false)) {
+      counts.fontScaleSuppressed.push(relative + ':' + node.loc.start.line);
+    }
+    if ((tag === 'TouchableOpacity' || tag === 'Pressable') && !hasAttr(node,'accessibilityLabel')) {
+      const visibleText = node.children.some(child => child.type === 'JSXText' && child.value.trim() ||
+        child.type === 'JSXElement' && nameOf(child.openingElement.name) === 'Text');
+      const hasIcon = node.children.some(child => child.type === 'JSXElement' &&
+        ['MaterialCommunityIcons','Ionicons','Feather','FontAwesome','MaterialIcons'].includes(nameOf(child.openingElement.name)));
+      if (hasIcon && !visibleText) counts.iconOnlyControls.push(relative + ':' + node.loc.start.line);
+    }
     if (tag === 'TouchableOpacity' || tag === 'Pressable') buttons++;
     if (hasAttr(node, 'accessibilityLabel')) labels++;
     if (tag !== 'Modal') return;
@@ -73,5 +85,6 @@ console.log('STATIC UI INVENTORY (not a runtime pass):', JSON.stringify({
   screens:counts.screens, components:counts.components, modalTags:counts.modals,
   textInputTags:counts.textInputs, touchableTags:counts.buttons, a11yLabelProps:counts.accessibleLabels,
   modalsMissingBack:counts.modalBackMissing, modalKeyboardReviewCandidates:counts.modalTextInputCandidates,
+  explicitFontScaleDisabled:counts.fontScaleSuppressed, iconOnlyWithoutLabelCandidates:counts.iconOnlyControls,
 }));
 console.log('PASS static JSX parsing and complete file inventory; unresolved candidates are not marked fixed.');
