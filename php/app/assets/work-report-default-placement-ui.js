@@ -67,10 +67,12 @@
     const controls=document.createElement('div');controls.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
     function button(label,primary){const el=document.createElement('button');el.type='button';el.textContent=label;el.style.cssText='border:1px solid #bad7ce;background:'+(primary?'#006852':'#fff')+';color:'+(primary?'white':'#006852')+';border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer';return el;}
     const save=button('بارگذاری و ذخیره',true),remove=button('حذف چیدمان ذخیره‌شده',false),close=button('بستن',false);
+    save.disabled=true;remove.disabled=true;
     controls.append(save,remove,close);box.append(heading,desc,file,state,controls);overlay.append(box);document.body.append(overlay);
     function errorMessage(err){state.textContent=err?.message||'عملیات انجام نشد';state.style.color='#aa2626';}
     const previousFocus=document.activeElement;
     let busy=false;
+    const setBusy=(value)=>{busy=value;box.setAttribute('aria-busy',value?'true':'false');file.disabled=value;close.disabled=value;save.disabled=value;remove.disabled=value;};
     const dismiss=()=>{
       if(busy)return;
       overlay.remove();
@@ -100,30 +102,30 @@
         if(!response.ok)throw Error('خطا در دریافت وضعیت ذخیره‌سازی');
         const data=await response.json();
         state.textContent=data.placement?'چیدمان فعلی: '+data.placement.source_filename+' | '+data.placement.count+' نیرو':'چیدمان پیش‌فرض قبلاً ذخیره نشده است.';
-        remove.disabled=!data.placement;
+        save.disabled=false;remove.disabled=!data.placement;
       }catch(err){errorMessage(err);save.disabled=true;remove.disabled=true;}
     })();
     save.onclick=async()=>{
       if(busy||!template)return;
-      if(!file.files?.length){state.textContent='فایل اکسل را انتخاب کنید';return;}
-      if(!/\.xlsx$/i.test(file.files[0].name)){state.textContent='فقط فایل xlsx پذیرفته می‌شود';return;}
-      const data=new FormData();data.append('file',file.files[0]);busy=true;file.disabled=true;close.disabled=true;save.disabled=true;remove.disabled=true;state.textContent='در حال بررسی و ذخیره فایل…';state.focus();state.style.color='#173c34';
+      if(!file.files?.length){state.textContent='فایل اکسل را انتخاب کنید';file.focus();return;}
+      if(!/\.xlsx$/i.test(file.files[0].name)){state.textContent='فقط فایل xlsx پذیرفته می‌شود';file.focus();return;}
+      const data=new FormData();data.append('file',file.files[0]);setBusy(true);state.textContent='در حال بررسی و ذخیره فایل…';state.focus();state.style.color='#173c34';
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',body:data});
         const result=await response.json();if(!response.ok)throw Error(result.error||result.message||'خطا در ذخیره: '+response.status);
         state.textContent='جایگذاری '+result.saved_count+' نیرو ذخیره شد. در پیش‌نمایش بعدی اعمال می‌شود.';
         remove.disabled=false;
-      }catch(err){errorMessage(err);}finally{busy=false;file.disabled=false;close.disabled=false;save.disabled=false;}
+      }catch(err){errorMessage(err);}finally{setBusy(false);save.disabled=false;}
     };
     remove.onclick=async()=>{
       if(busy||!template)return;
       if(!window.confirm('چیدمان پیش‌فرض حذف شود؟'))return;
-      busy=true;file.disabled=true;close.disabled=true;save.disabled=true;remove.disabled=true;state.focus();
+      setBusy(true);state.focus();
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'DELETE'});
         if(!response.ok)throw Error('حذف چیدمان انجام نشد');
-        state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';
-      }catch(err){errorMessage(err);remove.disabled=false;}finally{busy=false;file.disabled=false;close.disabled=false;save.disabled=false;}
+        state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';remove.disabled=true;
+      }catch(err){errorMessage(err);remove.disabled=false;}finally{setBusy(false);save.disabled=false;}
     };
   }
   function attach(){
