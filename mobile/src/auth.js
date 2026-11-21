@@ -101,7 +101,7 @@ async function appLoginOtpRequest(username){return requestAppLoginOtp(username,a
 async function appLoginOtpVerify(username,code){const device_id=await getDeviceId();const d=await verifyAppLoginOtp({username,code,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches(d.user?.id);await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function logout(){
   // Local sign-out must succeed even if the API is temporarily unavailable.
   // Never queue a delayed logout request: it could revoke a newer session.
-  try{await request('/auth/logout',{method:'POST',queueIfOffline:false,forceNetwork:true,timeoutMs:7000})}catch(e){console.warn('Remote logout unavailable; clearing local session:',e?.message||e)}
+  try{await request('/auth/logout',{method:'POST',queueIfOffline:false,forceNetwork:true,timeoutMs:7000,noStore:true})}catch(e){if(e?.status===403 && /خروج از حساب کاربری|سقف مجاز|سقف خروج/.test(String(e?.message||'')))throw e;console.warn('Remote logout unavailable; clearing local session:',e?.message||e)}
   try{sendTelemetry('session_end');stopTelemetry();stopVpnMonitor();stopHealthMonitor();stopNotifyPolling()}catch{}
   try{await stopTracking()}catch{}
   setSecurityExempt(false);
