@@ -141,6 +141,8 @@
   doc.addEventListener('visibilitychange', paint);
   const style = doc.createElement('style');
   style.textContent = `
+.kh-login-startup{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:16px;background:radial-gradient(circle at 90% 0%,#e6f3ec 0%,#f4f8f6 55%,#edf5f0 100%);direction:rtl;box-sizing:border-box}
+.kh-login-startup .kh-long-operation-card{width:min(420px,100%)}
 #kh-long-operation-progress[hidden]{display:none!important}
 #kh-long-operation-progress{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:16px;background:rgba(8,33,28,.46);font:14px Vazirmatn,Tahoma,sans-serif;direction:rtl}
 .kh-long-operation-card{width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box;background:#fff;color:#16352b;border:1px solid #d3e5dd;border-radius:22px;box-shadow:0 20px 70px #0004;padding:26px;text-align:center}
