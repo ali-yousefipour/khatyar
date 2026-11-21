@@ -42,4 +42,9 @@ assert.match(jalali,/const \[selectedDate, setSelectedDate\] = useState\(init\)/
 assert.match(jalali,/setSelectedDate\(\{jy:Math\.max\(minYear,/,'picker restores selected date when reopened');
 assert.match(jalali,/accessibilityState=\{\{selected:selectedDate\.jy===safeJy && selectedDate\.jm===safeJm && selectedDate\.jd===d\}\}/,'only selected day in selected month/year is announced');
 assert.match(jalali,/setSelectedDate\(\{jy:safeJy,jm:safeJm,jd:d\}\); onSelect/,'user selection updates highlighted day and keeps callback contract');
+assert.equal((jalali.match(/<Text allowFontScaling/g)||[]).length,12,'all shared Jalali calendar labels must follow Android system font scale');
+assert.match(jalali,/monthNavButton: \{ minWidth: 48, minHeight: 48/,'calendar month navigation needs accessible touch targets');
+assert.match(jalali,/month: \{ width: '31%', minHeight: 48, paddingVertical: 10/,'month options must grow with large fonts');
+assert.match(jalali,/year: \{ width: '22%', minHeight: 48, paddingVertical: 10/,'year options must grow with large fonts');
+assert.match(jalali,/todayAction: \{ flex: 1, minHeight: 48, paddingVertical: 10/,'today footer action must grow with large fonts');
 console.log('PASS request time picker UX and HH:mm contract');
