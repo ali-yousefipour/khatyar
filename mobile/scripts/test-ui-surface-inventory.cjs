@@ -67,6 +67,8 @@ for (const relative of files) {
 assert.ok(counts.screens >= 64, 'All active and hidden screen source files must be included');
 assert.ok(counts.components >= 22, 'All shared component source files must be included');
 assert.ok(counts.modals >= 50, 'Unexpected modal inventory reduction: review renamed or removed modals');
+assert.deepEqual(counts.modalBackMissing, [], 'Every literal JSX Modal must support Android Back');
+assert.deepEqual(counts.modalTextInputCandidates, [], 'Every literal JSX Modal containing a TextInput must contain keyboard avoidance');
 console.log('STATIC UI INVENTORY (not a runtime pass):', JSON.stringify({
   screens:counts.screens, components:counts.components, modalTags:counts.modals,
   textInputTags:counts.textInputs, touchableTags:counts.buttons, a11yLabelProps:counts.accessibleLabels,
