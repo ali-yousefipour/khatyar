@@ -881,6 +881,26 @@ function BirthdayCelebration({bdays}){
 function Dashboard(){
   const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]}); const [workersState,setWorkersState]=useState("idle");
   const [activeTab,setActiveTab]=useState('overview');
+  const tabOperation=useRef(null);
+  // Allow the browser to paint a real loader before mounting data-heavy tab
+  // contents; keyboard and mouse use the same route. Keep zero-delay fallback
+  // for non-browser render tests and older browsers.
+  const switchDashboardTab=key=>{
+    if(key===activeTab)return;
+    const progress=typeof window!=='undefined'?window.KhatyarLongOperation:null;
+    if(!progress||typeof window.requestAnimationFrame!=='function'){setActiveTab(key);return;}
+    if(tabOperation.current)progress.end(tabOperation.current);
+    const op=progress.begin('در حال آماده‌سازی تب داشبورد',{stage:'در حال بارگذاری و آماده‌سازی اطلاعات تب انتخاب‌شده…',delay:0});
+    tabOperation.current=op;
+    window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>{
+      setActiveTab(key);
+      // API-bound loaders continue independently through the fetch tracker.
+      window.requestAnimationFrame(()=>window.setTimeout(()=>{
+        if(tabOperation.current===op){progress.end(op);tabOperation.current=null;}
+      },260));
+    }));
+  };
+  useEffect(()=>()=>{if(tabOperation.current&&typeof window!=='undefined')window.KhatyarLongOperation?.end(tabOperation.current);},[]);
   const [bdays,setBdays]=useState(null);
   const [loadErr,setLoadErr]=useState("");
   const [loading,setLoading]=useState(true);
@@ -897,7 +917,7 @@ function Dashboard(){
   return(<div className="dashboard-page">
     <BirthdayCelebration bdays={bdays}/>
     <div className="dashboard-primary-tabs" role="tablist" aria-label="دسته‌بندی داشبورد مدیریت">
-      {[["overview","نمای کلی"],["personnel","ترکیب نیروها"],["attendance","حضور پرسنل"],["performance","کارایی نیروها"],["insights","تحلیل مدیریتی"]].map(([key,label])=><button type="button" role="tab" key={key} id={'dashboard-tab-'+key} aria-controls={'dashboard-content-'+key} aria-selected={activeTab===key} tabIndex={activeTab===key?0:-1} className={activeTab===key?'active':''} onClick={()=>setActiveTab(key)} onKeyDown={e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')];const i=tabs.indexOf(e.currentTarget);const j=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowLeft'?1:-1)+tabs.length)%tabs.length;tabs[j]?.focus();setActiveTab(['overview','personnel','attendance','performance','insights'][j]);}}>{label}</button>)}
+      {[["overview","نمای کلی"],["personnel","ترکیب نیروها"],["attendance","حضور پرسنل"],["performance","کارایی نیروها"],["insights","تحلیل مدیریتی"]].map(([key,label])=><button type="button" role="tab" key={key} id={'dashboard-tab-'+key} aria-controls={'dashboard-content-'+key} aria-selected={activeTab===key} tabIndex={activeTab===key?0:-1} className={activeTab===key?'active':''} onClick={()=>switchDashboardTab(key)} onKeyDown={e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')];const i=tabs.indexOf(e.currentTarget);const j=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowLeft'?1:-1)+tabs.length)%tabs.length;tabs[j]?.focus();switchDashboardTab(['overview','personnel','attendance','performance','insights'][j]);}}>{label}</button>)}
     </div>
     {activeTab==='overview'&&<section className="dashboard-overview" id="dashboard-content-overview" role="tabpanel" aria-labelledby="dashboard-tab-overview" aria-label="آمار کلی سامانه">
       <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">نمای کلی سامانه</span><h2>آمار و شاخص‌های اصلی</h2></div><span className="dashboard-section-caption">خلاصه وضعیت جاری خطیار</span></div>
@@ -7457,11 +7477,13 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
   const [to,setTo]=useState(attendanceInitialRange.to);
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
+  const attendanceRequest=useRef(0);
   const [reportError,setReportError]=useState("");
   const [openDay,setOpenDay]=useState(null);
   const [dayAudit,setDayAudit]=useState([]);
   const [canViewDayAudit,setCanViewDayAudit]=useState(false);
   useEffect(()=>{let alive=true;GET("/auth/me").then(r=>{const u=r?.user||r;if(alive)setCanViewDayAudit(Number(u?.level)===1&&Boolean(u?.is_admin));}).catch(()=>{if(alive)setCanViewDayAudit(false);});return()=>{alive=false};},[]);
+  useEffect(()=>()=>{attendanceRequest.current++;},[]);
   const [dayAuditBusy,setDayAuditBusy]=useState(false);
   const [dayAuditError,setDayAuditError]=useState("");
   const [dayAuditReload,setDayAuditReload]=useState(0);
@@ -7574,10 +7596,27 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
     if(Date.UTC(fg[0],fg[1]-1,fg[2])>Date.UTC(tg[0],tg[1]-1,tg[2])){alert("تاریخ «از» نباید بعد از تاریخ «تا» باشد");return;}
     if(from!==rangeFrom)setFrom(rangeFrom);
     if(to!==rangeTo)setTo(rangeTo);
+    const generation=++attendanceRequest.current;
+    const operation=typeof window!=='undefined'&&window.KhatyarLongOperation
+      ?window.KhatyarLongOperation.begin('در حال تهیه گزارش تردد',{stage:'دریافت و تحلیل اطلاعات تردد بازه انتخاب‌شده…',delay:0})
+      :null;
     setBusy(true); setReportError(""); setData(null); setOpenDay(null);
-    try{ const r=await db.attendanceReport(reportUserId,rangeFrom,rangeTo); setData(r); }
-    catch(e){ setReportError(e.message||"خطا در دریافت گزارش"); }
-    finally{ setBusy(false); }
+    try{
+      if(typeof window!=='undefined'&&typeof window.requestAnimationFrame==='function')
+        await new Promise(resolve=>window.requestAnimationFrame(()=>window.requestAnimationFrame(resolve)));
+      const result=await db.attendanceReport(reportUserId,rangeFrom,rangeTo);
+      if(generation===attendanceRequest.current)setData(result);
+    }
+    catch(e){if(generation===attendanceRequest.current)setReportError(e.message||"خطا در دریافت گزارش");}
+    finally{
+      if(generation===attendanceRequest.current)setBusy(false);
+      if(operation){
+        // Let React commit the table before hiding the progress surface.
+        if(typeof window.requestAnimationFrame==='function')
+          window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>window.KhatyarLongOperation?.end(operation)));
+        else window.KhatyarLongOperation?.end(operation);
+      }
+    }
   };
   useEffect(()=>{
     if(!initialUserId)return;
@@ -8564,7 +8603,7 @@ function ShiftReport(){
             }
         }catch(_){if(progressOp.current===op&&progressData.current)publishWork({...progressData.current,stage:"ارتباط با وضعیت پیشرفت برقرار نیست؛ پردازش اصلی ادامه دارد…"});}
         finally{polling=false;}};
-        if(id)progressTimer.current=setInterval(poll,1000);
+        if(id)progressTimer.current=setInterval(poll,2000);
         else publishWork({...progressData.current,stage:"در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست"});
         return op;
     };
