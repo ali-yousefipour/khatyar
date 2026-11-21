@@ -23,6 +23,12 @@ assert.equal((auth.match(/await resetAccountCaches\(d\.user\?\.id\);await setTok
 assert.match(access,/if\(epoch!==cacheEpoch\)return null/,'late access responses are discarded');
 assert.match(school,/if\(epoch!==cacheEpoch\)return null/,'late school bootstrap responses are discarded');
 assert.match(drawer,/photoActions: \{[^\n]+flexWrap: 'wrap'/,'photo modal actions wrap on small screens');
+const fontscale=read('mobile/src/fontscale.js');
+assert.match(fontscale,/const changes = useRef\(0\)/,'font preference must track local edits');
+assert.match(fontscale,/if \(!mounted \|\| changes\.current !== currentChange\) return/,'late preference reads cannot override a newer user choice');
+assert.match(fontscale,/return \(\) => \{ mounted = false; \}/,'font preference read cannot update an unmounted provider');
+assert.match(fontscale,/if \(!Number\.isFinite\(parsed\)\) return/,'invalid preference values must not poison font scaling');
+assert.match(fontscale,/changes\.current \+= 1/,'every local font adjustment invalidates pending preference load');
 const source=read('mobile/src/profilePhotoCache.js');
 const compiled=source.replace(/^import .*;\r?\n/gm,'').replace(/export (async function|function)/g,'$1')+'\nObject.assign(exports,{cacheProfilePhoto,readProfilePhotoCache});';
 const store=new Map(),files=new Map(),deleted=[];
