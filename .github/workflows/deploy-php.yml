@@ -66,6 +66,7 @@ jobs:
           node tests/panel_role_permissions_parity_test.cjs
           node tests/work_report_placement_modal_accessibility_test.cjs
           node tests/panel_visual_design_system_test.cjs
+          node tests/panel_deploy_asset_coverage_test.cjs
           grep -q 'schoolcomplaints' app/assets/panel.bundle.js
           php -l lib/Db.php
           php -l lib/Jwt.php
