@@ -12,7 +12,7 @@ class Http {
 }
 class Db {
  public static array $config=[
-  'receivers'=>[21],'reviewer'=>31,'supervisor'=>41,
+  'receivers'=>[21],'reviewer'=>31,'supervisor'=>41,'reporters'=>[51],
   'review_hours'=>24,'supervisor_hours'=>24,'require_supervisor'=>true,
  ];
  public static array $roles=['10'=>['schoolcomplaints']];
@@ -40,6 +40,9 @@ ok(!sc_access($person(55,10))['receive'],'Role viewer cannot register');
 ok(sc_access($person(21))['receive'],'Configured receiver can register');
 ok(sc_access($person(31))['review'],'Reviewer can access');
 ok(sc_access($person(41))['supervisor'],'Supervisor can access');
+ok(sc_access($person(51))['report'],'Explicit reporter can report');
+ok(!sc_access($person(55,10))['report'],'Module-only role cannot browse every case');
+ok(!sc_access($person(51))['receive'],'Reporter cannot register a complaint');
 ok(sc_access($person(1,99,true))['admin'],'Admin can manage');
 denied(static fn()=>sc_need($person(55),'allowed'),403);
 denied(static fn()=>sc_need($person(55,10),'receive'),403);
@@ -56,6 +59,9 @@ ok(sc_case(123,$person(21))['can_attach'],'Creator can attach before closing');
 ok(sc_case(123,$person(31))['can_act'],'Assigned reviewer can act');
 ok(!sc_case(123,$person(41))['can_act'],'Supervisor cannot act until assigned');
 ok(sc_case(123,$person(1,99,true))['id']===123,'Admin can view');
+ok(sc_case(123,$person(51))['id']===123,'Configured reporter can view unrelated case');
+ok(!sc_case(123,$person(51))['can_act'],'Reporter cannot change an unassigned case');
+ok(!sc_case(123,$person(51))['can_attach'],'Reporter cannot attach to unrelated case');
 $pending=sc_allowed_actions(Db::$case,$person(31));
 ok(in_array('start',$pending,true),'Pending can start');
 ok(in_array('escalate',$pending,true),'Pending can escalate');

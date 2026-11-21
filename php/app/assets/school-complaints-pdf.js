@@ -45,7 +45,7 @@ function pdfBytes(pages){
 }
 async function download(record,options={}){
  const receipt=!!options.receipt,code=clean(record.tracking_code);
- if(!/^SSC-[A-Fa-f0-9-]{8,64}$/.test(code))throw Error('شناسه پرونده برای PDF معتبر نیست');
+ if(!/^SSC-[A-Fa-f0-9-]{8,64}$/.test(code))throw Error('شناسه پرونده برای PDF نامعتبر است');
  if(document.fonts&&document.fonts.ready)await document.fonts.ready;
  const logo=await image('/brand-khatyar.png');
  const canvases=[];let canvas,ctx,y;

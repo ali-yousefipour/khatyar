@@ -35,7 +35,9 @@ function sc_access($u): array {
  $allowed=$admin||in_array('schoolcomplaints',(array)($perms[(string)$u['role_id']]??[]),true);
  $receive=$admin||in_array($id,array_map('intval',(array)($c['receivers']??[])),true);
  $review=$id===(int)($c['reviewer']??0);$super=$id===(int)($c['supervisor']??0);
- return ['allowed'=>$allowed||$receive||$review||$super,'receive'=>$receive,'review'=>$review,'supervisor'=>$super,'admin'=>$admin];
+ // Reporting is a separate, explicitly configured permission; role-based module access alone does not expose unrelated cases.
+ $report=$admin||in_array($id,array_map('intval',(array)($c['reporters']??[])),true);
+ return ['allowed'=>$allowed||$receive||$review||$super||$report,'receive'=>$receive,'review'=>$review,'supervisor'=>$super,'report'=>$report,'admin'=>$admin];
 }
 function sc_need($u,$cap='allowed'): array {
  $a=sc_access($u);if(empty($a[$cap]))Http::error('دسترسی مجاز نیست',403);return $a;
@@ -89,7 +91,7 @@ function sc_allowed_actions($r,$u): array {
 function sc_case($id,$u): array {
  $a=sc_need($u);$r=Db::one('SELECT * FROM school_complaints WHERE id=?',[$id]);
  if(!$r)Http::error('پرونده یافت نشد',404);
- if(!$a['admin']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
+ if(!$a['report']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
  $r['allowed_actions']=sc_allowed_actions($r,$u);
  $r['can_act']=!empty($r['allowed_actions']);
@@ -106,7 +108,7 @@ function sc_case($id,$u): array {
 function sc_list($u,$inbox=false,$summary=false): array {
  $a=sc_need($u);$w=['1=1'];$p=[];
  if($inbox){$w[]='(c.assigned_to=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id']);}
- elseif(!$a['admin']){$w[]='(c.created_by=? OR c.assigned_to=? OR c.supervisor_id=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id'],$u['id']);}
+ elseif(!$a['report']){$w[]='(c.created_by=? OR c.assigned_to=? OR c.supervisor_id=? OR EXISTS (SELECT 1 FROM school_complaint_events e WHERE e.complaint_id=c.id AND e.actor_id=?))';array_push($p,$u['id'],$u['id'],$u['id'],$u['id']);}
  foreach(['school_id','company_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  foreach(['first_name','last_name','phone'] as $k)if(!empty($_GET[$k])){$w[]="c.$k LIKE ?";$p[]='%'.sc_text($_GET[$k],100).'%';}
  foreach(['from'=>'>=','to'=>'<='] as $k=>$op)if(!empty($_GET[$k])){$w[]="c.received_at $op ?";$p[]=sc_date($_GET[$k]);}
@@ -150,12 +152,13 @@ route('GET','/api/school-complaints/settings',function($p,$b,$u){sc_need($u,'adm
 route('PUT','/api/school-complaints/settings',function($p,$b,$u){
  sc_need($u,'admin');$review=(int)($b['reviewer']??0);$super=(int)($b['supervisor']??0);
  $receivers=array_values(array_unique(array_filter(array_map('intval',(array)($b['receivers']??[])))));
+ $reporters=array_values(array_unique(array_filter(array_map('intval',(array)($b['reporters']??[])))));
  if(!$review||!$super||$review===$super||!$receivers)Http::error('مسئولان و دریافت‌کنندگان را تعیین کنید',422);
- foreach(array_unique(array_merge($receivers,[$review,$super])) as $id)if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('کاربر فعال یافت نشد',422);
+ foreach(array_unique(array_merge($receivers,$reporters,[$review,$super])) as $id)if(!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$id]))Http::error('کاربر فعال یافت نشد',422);
  $topics=[];foreach((array)($b['topics']??[]) as $topic)$topics[]=sc_text($topic,255);
  $rh=(int)($b['review_hours']??24);$sh=(int)($b['supervisor_hours']??24);
  if(min($rh,$sh)<1||max($rh,$sh)>8760)Http::error('مهلت نامعتبر است',422);
- $c=['reviewer'=>$review,'supervisor'=>$super,'receivers'=>$receivers,'topics'=>array_values(array_unique($topics)),'review_hours'=>$rh,'supervisor_hours'=>$sh,'require_supervisor'=>($b['require_supervisor']??true)===true];
+ $c=['reviewer'=>$review,'supervisor'=>$super,'receivers'=>$receivers,'reporters'=>$reporters,'topics'=>array_values(array_unique($topics)),'review_hours'=>$rh,'supervisor_hours'=>$sh,'require_supervisor'=>($b['require_supervisor']??true)===true];
  Db::run('INSERT INTO school_complaint_settings(id,config) VALUES(1,?) ON DUPLICATE KEY UPDATE config=VALUES(config)',[json_encode($c,JSON_UNESCAPED_UNICODE)]);return ['ok'=>true];
 });
 route('GET','/api/school-complaints/topics',function($p,$b,$u){sc_need($u);return array_values(array_unique(array_merge(sc_config()['topics']??[],['سایر'])));});
