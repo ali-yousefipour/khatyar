@@ -53,9 +53,13 @@ let rendered=render();
 const tabs=rendered.filter(el=>el.props.role==='tab');
 tabs[2].props.onClick();
 assert.equal(state[3],'attendance','click switches to attendance');
+// Re-render after the selected tab changes. React replaces the event
+// closures on commit; recycling the old element creates an impossible state.
+rendered=render();
+const freshTabs=rendered.filter(el=>el.props.role==='tab');
 let prevented=false,focused=-1;
-const fakeTabs=tabs.map((_,i)=>({focus(){focused=i;}}));
-tabs[2].props.onKeyDown({key:'Home',preventDefault(){prevented=true;},currentTarget:{parentElement:{querySelectorAll(){return fakeTabs;}},...fakeTabs[2]}});
+const fakeTabs=freshTabs.map((_,i)=>({focus(){focused=i;}}));
+freshTabs[2].props.onKeyDown({key:'Home',preventDefault(){prevented=true;},currentTarget:{parentElement:{querySelectorAll(){return fakeTabs;}},...fakeTabs[2]}});
 assert.ok(prevented,'keyboard navigation prevents page scroll');
 assert.equal(focused,0,'Home focuses first dashboard tab');
 assert.equal(state[3],'overview','Home selects first dashboard tab');
