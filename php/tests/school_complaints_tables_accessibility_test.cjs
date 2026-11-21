@@ -16,7 +16,7 @@ for(const term of ['sc-responsive-table',"'data-label':'نام'", "'data-label':
 assert.match(css, /\.sc-module \.sc-table\[role="region"\]:focus-visible/,'keyboard region requires a visible focus ring');
 assert.match(css, /max-width:390px/,'report card labels must work on narrow 320/375 screens');
 for(const text of [panel,built]){
- assert.match(text,/school-complaints-admin\.js\?v=20261121\.wizard3/,'lazy JS uses current version');
- assert.match(text,/school-complaints-admin\.css\?v=20261121\.wizard3/,'lazy CSS uses current version');
+ assert.match(text,/school-complaints-admin\.js\?v=20261121\.wizard4/,'lazy JS uses current version');
+ assert.match(text,/school-complaints-admin\.css\?v=20261121\.wizard4/,'lazy CSS uses current version');
 }
 console.log('PASS complaints tables responsive cards, keyboard scroll and versioned modules');
