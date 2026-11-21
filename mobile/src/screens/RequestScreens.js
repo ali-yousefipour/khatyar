@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Image, Linking, RefreshControl } from 'react-native';
 import * as Print from 'expo-print';
@@ -32,6 +32,8 @@ export function RequestInboxScreen() {
   const [rows, setRows] = useState(null);
   const [note, setNote] = useState({});
   const [busy, setBusy] = useState(0);
+  // A ref guards the request synchronously, before React can render disabled buttons.
+  const decisionInFlight = useRef(false);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -57,17 +59,19 @@ export function RequestInboxScreen() {
       (typeFilter==='all' || r.type===typeFilter) && (!from || date >= from) && (!to || date <= to);
   }).sort((a,b)=>normalizeJ(b.created_jdate || b.created_at || b.the_date || b.from_jdate).localeCompare(normalizeJ(a.created_jdate || a.created_at || a.the_date || a.from_jdate)));
   const decide = async (id, decision) => {
+    if (decisionInFlight.current) return;
     if (decision === 'reject' && !(note[id] || '').trim()) {
       Alert.alert('دلیل رد لازم است', 'برای رد درخواست، دلیل را در کادر یادداشت بنویسید.');
       return;
     }
+    decisionInFlight.current = true;
     setBusy(id);
     try {
-      await request(`/requests/${id}/decide`, { method: 'POST', body: { decision, note: note[id] || '' } });
+      await request(`/requests/${id}/decide`, { method: 'POST', queueIfOffline:false, body: { decision, note: note[id] || '' } });
       Alert.alert('انجام شد', decision === 'approve' ? 'درخواست تأیید شد.' : 'درخواست رد شد.');
       await load();
-    } catch (e) { Alert.alert('خطا', e.message); }
-    finally { setBusy(0); }
+    } catch (e) { Alert.alert('خطا', e?.message || 'ثبت تصمیم انجام نشد. دوباره تلاش کنید.'); }
+    finally { decisionInFlight.current = false; setBusy(0); }
   };
   return <ScrollView style={{backgroundColor:C.paper}} contentContainerStyle={{padding:14,paddingBottom:50}}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.brand}/>}>
@@ -97,7 +101,7 @@ export function RequestInboxScreen() {
           {(r.selfie_url || r.selfie_data) ? <Image source={imageSource(r.selfie_url || r.selfie_data)} style={s.selfie}/> : null}
           {r.attachment_name ? <Text style={[inboxStyle.meta,{color:C.brand}]}>پیوست: {r.attachment_name}</Text> : null}
           <TextInput style={s.note} multiline value={note[r.id]||''} onChangeText={(t)=>setNote(n=>({...n,[r.id]:t}))} placeholder="یادداشت تأیید یا دلیل رد درخواست..." placeholderTextColor={C.muted}/>
-          <View style={{flexDirection:'row-reverse',gap:9,marginTop:12}}><TouchableOpacity style={[s.ok,{minHeight:48,justifyContent:'center'},busy===r.id&&{opacity:.5}]} disabled={busy===r.id} onPress={()=>decide(r.id,'approve')}><Text style={s.okT}>تأیید درخواست</Text></TouchableOpacity><TouchableOpacity style={[s.no,{minHeight:48,justifyContent:'center'},busy===r.id&&{opacity:.5}]} disabled={busy===r.id} onPress={()=>decide(r.id,'reject')}><Text style={s.noT}>رد درخواست</Text></TouchableOpacity></View>
+          <View style={{flexDirection:'row-reverse',gap:9,marginTop:12}}><TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy!==0,busy:busy===r.id}} style={[s.ok,{minHeight:48,justifyContent:'center'},busy!==0&&{opacity:.5}]} disabled={busy!==0} onPress={()=>decide(r.id,'approve')}><Text style={s.okT}>{busy===r.id?'در حال ثبت...':'تأیید درخواست'}</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy!==0,busy:busy===r.id}} style={[s.no,{minHeight:48,justifyContent:'center'},busy!==0&&{opacity:.5}]} disabled={busy!==0} onPress={()=>decide(r.id,'reject')}><Text style={s.noT}>{busy===r.id?'در حال ثبت...':'رد درخواست'}</Text></TouchableOpacity></View>
         </> : null}
       </View>;
     })}
