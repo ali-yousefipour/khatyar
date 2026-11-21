@@ -15,6 +15,8 @@
   const excluded = /\/(?:health|auth\/me|session\/(?:renew|me)|radio|presence\/live|notifications?|ping|heartbeat)(?:\/|$)/i;
   const reports = /(?:export|download|report|excel|xlsx|csv|pdf|print|backup|statement|صورت.?وضعیت|گزارش)/i;
   const fileExtensions = /\.(?:xlsx?|csv|pdf)(?:$|\?)/i;
+  // Dashboard cards and their tabs must not appear frozen while API data is pending.
+  const dashboardData = /\/api\/admin\/(?:dashboard(?:[-\/]|$)|stats(?:\/|$)|top-workers(?:\/|$)|live-staff-dashboard(?:\/|$)|personnel-distribution(?:\/|$)|mission-dashboard(?:\/|$)|city-dashboard(?:\/|$))/i;
   const normalize = (input) => {
     try {
       const raw = typeof input === 'string' ? input : input && input.url;
@@ -29,9 +31,11 @@
     if (excluded.test(url.pathname)) return null;
     const report = reports.test(url.pathname) || fileExtensions.test(url.pathname);
     if (method !== 'GET' && !(method === 'POST' && report)) return null;
+    const dashboard = method === 'GET' && dashboardData.test(url.pathname);
     return {
-      title: report ? 'در حال تهیه گزارش یا خروجی' : 'در حال دریافت اطلاعات',
-      stage: report ? 'لطفاً تا آماده‌شدن نتیجه صبر کنید…' : 'دریافت اطلاعات از سامانه در حال انجام است…'
+      title: dashboard ? 'در حال بارگذاری داشبورد' : report ? 'در حال تهیه گزارش یا خروجی' : 'در حال دریافت اطلاعات',
+      stage: dashboard ? 'در حال دریافت اطلاعات کارت‌ها و تب‌های داشبورد…' : report ? 'لطفاً تا آماده‌شدن نتیجه صبر کنید…' : 'دریافت اطلاعات از سامانه در حال انجام است…',
+      delay: dashboard ? 350 : DELAY_MS
     };
   }
   function ensureHost() {
@@ -109,7 +113,7 @@
   win.fetch = function (input, init) {
     const detail = classify(input, init);
     if (!detail) return nativeFetch.apply(this, arguments);
-    const id = begin(detail);
+    const id = begin(detail, detail.delay);
     let request;
     try { request = nativeFetch.apply(this, arguments); }
     catch (error) { end(id); throw error; }
@@ -132,7 +136,7 @@
     XHR.prototype.send = function () {
       const details = xhrDetails.get(this);
       if (!details) return originalSend.apply(this, arguments);
-      const id = begin(details);
+      const id = begin(details, details.delay);
       this.addEventListener('loadend', () => end(id), { once: true });
       try { return originalSend.apply(this, arguments); }
       catch (error) { end(id); throw error; }
