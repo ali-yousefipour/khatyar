@@ -46,6 +46,7 @@ export default function CompanyPayrollHistory() {
   const [opening, setOpening] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const detailLock = useRef(false);
+  const issuanceLock = useRef(false);
   const slipRef = useRef(null);
   const [slip, setSlip] = useState(null);
   const [issuing, setIssuing] = useState(false);
@@ -102,22 +103,25 @@ export default function CompanyPayrollHistory() {
   };
 
   const issueSlip = async row => {
-    if (issuing) return;
+    if (issuing || issuanceLock.current) return;
     Alert.alert('دریافت تصویر فیش حقوق', 'دریافت تصویر فیش حقوق هر ماه حداکثر سه بار مجاز است. تصویر را پس از دریافت در گوشی ذخیره کنید.', [
       { text: 'انصراف', style: 'cancel' },
       { text: 'ادامه', onPress: async () => {
+        if (issuanceLock.current) return;
+        issuanceLock.current = true;
         setIssuing(true);
         try {
           await ensurePayrollFonts();
           const data = await request(`/my/payroll/${row.id}`, { noStore: true });
           setSlip(data);
         } catch (e) { Alert.alert('خطا', e.message || 'دریافت اطلاعات فیش ممکن نشد.'); }
-        finally { setIssuing(false); }
+        finally { issuanceLock.current = false; setIssuing(false); }
       } }
     ]);
   };
   const saveIssuedSlip = async () => {
-    if (!slipRef.current || !slip || issuing) return;
+    if (!slipRef.current || !slip || issuing || issuanceLock.current) return;
+    issuanceLock.current = true;
     setIssuing(true);
     try {
       // Never capture or consume an issuance while payroll fonts are unavailable.
@@ -140,7 +144,7 @@ export default function CompanyPayrollHistory() {
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(destination, { mimeType: 'image/png', dialogTitle: 'ذخیره تصویر فیش حقوق' });
       setSlip(null);
     } catch (e) { Alert.alert('صدور یا ذخیره ناموفق', e.message || 'عملیات انجام نشد.'); }
-    finally { setIssuing(false); }
+    finally { issuanceLock.current = false; setIssuing(false); }
   };
   return <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
