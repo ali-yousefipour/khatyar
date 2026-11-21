@@ -198,12 +198,20 @@ $day=_req_policy_date('1405-07-01');
 $base=$day->format('Y-m-d');
 $next=$day->modify('+1 day')->format('Y-m-d');
 Db::$attendance=[['id'=>1,'check_in'=>$base.' 06:00:00','check_out'=>$base.' 13:00:00']];
-foreach(['annual','mission','overtime'] as $type){
+foreach(['annual','mission'] as $type){
   denied(fn()=>_req_reject_attendance_overlap(12,hourly('1405-07-01','05:00','07:00',$type)),'partial attendance overlap '.$type);
   denied(fn()=>_req_reject_attendance_overlap(12,hourly('1405-07-01','08:00','09:00',$type)),'contained attendance overlap '.$type);
   _req_reject_attendance_overlap(12,hourly('1405-07-01','04:00','06:00',$type));
   _req_reject_attendance_overlap(12,hourly('1405-07-01','13:00','14:00',$type));
 }
+// Overtime requires completed attendance on the requested day. Existing
+// attendance is evidence for overtime, not a conflicting leave interval.
+_req_reject_attendance_overlap(12,hourly('1405-07-01','08:00','09:00','overtime'));
+_req_require_overtime_attendance(12,hourly('1405-07-01','08:00','09:00','overtime'));
+denied(fn()=>_req_require_overtime_attendance(12,hourly('1405-07-02','08:00','09:00','overtime')),'overtime without attendance');
+Db::$attendance=[['id'=>1,'check_in'=>$base.' 06:00:00','check_out'=>null]];
+denied(fn()=>_req_require_overtime_attendance(12,hourly('1405-07-01','08:00','09:00','overtime')),'overtime requires completed checkout');
+Db::$attendance=[['id'=>1,'check_in'=>$base.' 06:00:00','check_out'=>$base.' 13:00:00']];
 $manual=['type'=>'manual','the_date'=>'1405-07-01','manual_kind'=>'both','in_time'=>'05:00','out_time'=>'07:00'];
 denied(fn()=>_req_reject_attendance_overlap(12,$manual),'manual interval overlap');
 denied(fn()=>_req_reject_attendance_overlap(12,array_merge($manual,['manual_kind'=>'in','in_time'=>'08:00'])),'manual entry overlap');
