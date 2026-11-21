@@ -9,6 +9,7 @@ const auth = read('mobile/src/auth.js');
 const api = read('mobile/src/api.js');
 const checkinScreen = read('mobile/src/screens/CheckInScreen.js');
 const offline = read('mobile/src/offline.js');
+const radio = read('mobile/src/radio/RadioContext.js');
 
 async function testPermissionRevocation() {
   const storage = new Map();
@@ -95,6 +96,11 @@ async function testOfflineReplayConcurrency() {
   vm.runInContext(offline.replace(/^import .*;\s*$/gm, '').replace(/export /g, '') +
     '\nthis.queue={enqueue,pending,retryOne,flush};', ctx);
   await ctx.queue.enqueue({path:'/my/requests', client_uuid:'test-replay-23', body:{type:'manual'}});
+  user.id=24;
+  await assert.rejects(ctx.queue.enqueue({path:'/my/requests',client_uuid:'test-replay-23',body:{type:'manual'}}),/حساب یا مسیر دیگری/);
+  user.id=23;
+  await assert.rejects(ctx.queue.enqueue({path:'/my/checkout',client_uuid:'test-replay-23',body:{}}),/حساب یا مسیر دیگری/);
+  assert.equal((await ctx.queue.pending()).length,1,'duplicate UUID must preserve the original queue item');
   let finishManual;
   let sends = 0;
   const manual = ctx.queue.retryOne('test-replay-23', async () => {
@@ -146,6 +152,10 @@ async function testOfflineReplayConcurrency() {
   assert.match(offline, /if\(retryLocks\.has\(String\(item\.client_uuid\)\)\)continue/);
   assert.match(api, /body:sendBody,auth,retry:false,noStore,timeoutMs,queueIfOffline,forceNetwork/);
   assert.match(api, /if\(receivedHttpResponse\)throw firstError/);
+  assert.match(api,/queueIfOffline\&\&!responseReceived\&\&\(path===\x27\/my\/checkin\x27\|\|path===\x27\/my\/checkout\x27\)/,'ambiguous writes may be queued only for server-deduplicated attendance');
+  assert.match(radio,/takingRef\.current\|\|recordingRef\.current\|\|uploadingRef\.current/,'PTT acquisition must lock channel controls');
+  assert.match(radio,/talkGenerationRef\.current===activeTalkGeneration/,'old radio timers cannot stop newer recordings');
+  assert.match(radio,/finally\{if\(uri\)await FileSystem\.deleteAsync\(uri/,'failed radio uploads must delete transient audio');
 
   assert.match(api, /const id=String\(fields\?\.client_uuid\|\|/,'multipart queue must use original UUID');
   assert.match(api, /Only requests known offline BEFORE the first send enter the queue/);
