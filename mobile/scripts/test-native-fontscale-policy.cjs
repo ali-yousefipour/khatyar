@@ -18,4 +18,10 @@ assert.match(print, /position: 'absolute'/, 'print-only font exceptions belong t
 const screen = read('screens/CompanyPayrollHistory.js');
 assert.match(screen, /نسخه خوانای فیش حقوق/, 'print-only exception must have a readable alternative');
 assert.match(screen, /<Text allowFontScaling accessibilityRole="header" style=\{styles\.readableTitle\}>/, 'readable preview must scale with Android');
+const drawer = read('DrawerMenuScreen.js');
+assert.match(drawer,/item: \{ minHeight: 62, paddingVertical: 9/,'drawer rows must grow vertically when text scales');
+assert.match(drawer,/itemText: \{[^\n]+flexShrink: 1/,'drawer labels must avoid horizontal overflow');
+assert.match(drawer,/icon: \{ width: 44, height: 44, flexShrink: 0/,'drawer icons must not collapse');
+assert.match(drawer,/menuBadge: \{[^\n]+minHeight: 22/,'badge height must adapt to larger system text');
+assert.doesNotMatch(drawer,/itemText: \{[^\n]+lineHeight: 21/,'drawer labels must not force tiny fixed line height');
 console.log('PASS native Android font scaling is enabled; A5 print remains explicit exception with readable alternative');
