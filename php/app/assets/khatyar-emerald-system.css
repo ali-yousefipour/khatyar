@@ -403,3 +403,136 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
   .layout .page-content .kpi { transition: none; }
   .layout .navitem .kh-nav-svg,.layout .navitem,.layout .page-content :is(.btn,button),.layout .page-content table tbody tr { transition: none; }
 }
+
+
+/* WEB-UX-010: unified readable type, control rhythm and responsive constraints.
+   Applied only to the existing authenticated panel; print and embedded maps remain untouched. */
+:root {
+  --kh-type-body: 0.9375rem;
+  --kh-type-caption: 0.8125rem;
+  --kh-type-section: 1.125rem;
+  --kh-control-height: 44px;
+  --kh-focus: #087f67;
+  --kh-surface: #fff;
+  --kh-border: #ccded5;
+  --kh-text: #173b33;
+  --kh-text-muted: #4d665c;
+}
+.layout .main,
+.layout .page-content,
+.layout .page-content :is(input,textarea,select,button),
+.layout .modal,
+.layout .modal :is(input,textarea,select,button),
+.sc-module {
+  font-family: "Vazirmatn", Tahoma, sans-serif;
+}
+.layout .page-content,
+.layout .modal,
+.sc-module {
+  font-size: var(--kh-type-body);
+  line-height: 1.8;
+  color: var(--kh-text);
+}
+.layout .page-content :is(p,li,td,label,small),
+.layout .modal :is(p,li,label,small),
+.sc-module :is(p,li,td,label,small) {
+  line-height: 1.8;
+}
+.layout .page-content :is(h1,h2,h3,h4),
+.layout .modal :is(h2,h3,h4),
+.sc-module :is(h2,h3,h4) {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  color: var(--kh-text);
+}
+.layout .page-content :is(h2,h3),
+.layout .modal h3 { font-size: var(--kh-type-section); }
+.layout .page-content :is(.tf-l,.seg-lbl,.muted,.help),
+.layout .modal :is(.hint,.help),
+.sc-module :is(.sc-help,.sc-field>span) { color: var(--kh-text-muted); }
+.layout .page-content :is(.tf-l,.seg-lbl),
+.layout .modal :is(small,.hint),
+.sc-module .sc-help { font-size: var(--kh-type-caption); }
+.layout .page-content :is(.panel,.card,.card-p,.filters,.kpi),
+.layout .modal,
+.sc-module :is(.sc-card,.sc-header,.sc-toolbar,.sc-table) { min-width: 0; }
+.layout .page-content :is(.btn,button.tabbtn),
+.layout .modal :is(.btn,button),
+.sc-module :is(.btn,button:not(.sc-metric)) {
+  min-height: var(--kh-control-height);
+  font-size: max(0.875rem, 1em);
+  line-height: 1.55;
+}
+.layout .page-content :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea),
+.layout .modal :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea),
+.sc-module :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  min-height: var(--kh-control-height);
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--kh-text);
+  background-color: var(--kh-surface);
+  border-color: var(--kh-border);
+}
+.layout .page-content textarea,
+.layout .modal textarea,
+.sc-module textarea { resize: vertical; }
+.layout .page-content :is(input,textarea,select,button,[role="tab"]):focus-visible,
+.layout .modal :is(input,textarea,select,button):focus-visible,
+.sc-module :is(input,textarea,select,button,[role="tab"]):focus-visible {
+  outline: 2px solid var(--kh-focus);
+  outline-offset: 2px;
+}
+.layout .page-content :is(button,input,select,textarea):disabled,
+.layout .modal :is(button,input,select,textarea):disabled,
+.sc-module :is(button,input,select,textarea):disabled { cursor: not-allowed; }
+.layout .page-content .filters,
+.sc-module .sc-toolbar { align-items: end; gap: 12px; }
+.layout .page-content :is(.table-wrap,.attendance-report-table-scroll),
+.sc-module .sc-table {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.layout .page-content table,
+.sc-module .sc-table table { font-size: 0.875rem; line-height: 1.75; }
+.layout .page-content table :is(th,td),
+.sc-module .sc-table :is(th,td) { padding: 10px 12px; vertical-align: middle; }
+.layout .page-content table th,
+.sc-module .sc-table th { font-weight: 750; line-height: 1.65; }
+.layout .page-content table td,
+.sc-module .sc-table td { overflow-wrap: anywhere; }
+.layout .page-content :is(.tabbar,.dashboard-primary-tabs),
+.sc-module .sc-tabs { max-width: 100%; }
+.layout .page-content :is(.tabbtn,[role="tab"]),
+.sc-module .sc-tabs button { min-height: var(--kh-control-height); }
+.layout .modal { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
+.layout .page-content img,
+.sc-module img { max-width: 100%; }
+@media screen and (max-width: 768px) {
+  .layout .page-content .filters { display: flex; flex-wrap: wrap; }
+  .layout .page-content .filters > * { min-width: min(100%,160px); }
+  .layout .page-content :is(.tabbar,.dashboard-primary-tabs) {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+  }
+  .layout .page-content :is(.tabbtn,[role="tab"]) { flex-shrink: 0; }
+  .layout .page-content :is(.panel,.card,.card-p) { padding: clamp(12px,3vw,18px); }
+  .layout .modal { width: min(100%,640px); padding: clamp(12px,3vw,20px); overflow-y: auto; }
+}
+@media screen and (max-width: 430px) {
+  .layout .main { min-width: 0; padding-inline: 8px; }
+  .layout .page-content .filters > * { flex: 1 1 100%; }
+  .layout .page-content :is(.kpis,.dashboard-analysis-grid),
+  .sc-module .sc-grid { min-width: 0; }
+  .layout .page-content :is(.panel,.card,.card-p,.filters) { border-radius: 14px; }
+  .layout .modal { max-width: calc(100vw - 12px); max-height: calc(100dvh - 12px); }
+}
+@media print {
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll),
+  .sc-module .sc-table { overflow: visible; max-width: none; }
+  .layout .page-content table, .sc-module .sc-table table { font-size: inherit; }
+}
