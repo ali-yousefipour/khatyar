@@ -71,6 +71,26 @@ function harness() {
   assert.equal(nodes(tree, node => node.type === 'Modal')[0].props.visible, true);
   nodes(tree, node => node.type === 'TouchableOpacity' && node.props?.accessibilityLabel === 'بستن جزئیات')[0].props.onPress(); tree = test.render();
   assert.equal(nodes(tree, node => node.type === 'Modal')[0].props.visible, false);
+  // Open the printable A5 preview and verify that the separate readable section
+  // exposes actual data without consuming one of the limited server issuances.
+  const previewAction = nodes(tree, node => node.type === 'TouchableOpacity' && text(node).startsWith('دریافت تصویر فیش ·'))[0];
+  assert.ok(previewAction, 'issued slip preview action should be present');
+  previewAction.props.onPress();
+  const approval = test.alerts.at(-1)?.[2]?.find(action => action.text === 'ادامه');
+  assert.ok(approval, 'the existing issuance warning must stay in place');
+  await approval.onPress();
+  tree = test.render();
+  assert.equal(nodes(tree, node => node.type === 'Modal')[1].props.visible, true);
+  assert.match(text(tree), /نسخه خوانای فیش حقوق/);
+  assert.match(text(tree), /پرسنل آزمایشی/);
+  assert.match(text(tree), /اضافه کار/);
+  assert.match(text(tree), /8.5/);
+  assert.ok(nodes(tree, node => node.type === 'Text' && node.props?.allowFontScaling).length >= 5,
+    'readable preview must expose scalable text');
+  assert.ok(!test.calls.some(call => String(call[0]).endsWith('/issue')),
+    'reading the payroll preview must not consume an issuance');
+  nodes(tree, node => node.type === 'Modal')[1].props.onRequestClose();
+  tree = test.render();
   test.respond(async () => { throw Error('network failed'); });
   button(tree, 'تازه‌سازی').props.onPress(); test.render(); await settle(); tree = test.render();
   assert.match(text(tree), /network failed/); assert.ok(!text(tree).includes('پرسنل آزمایشی'), 'failed request cannot show stale rows');
