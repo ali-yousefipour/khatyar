@@ -31,7 +31,7 @@ function sc_overdue_scan(): int {
 }
 function sc_access($u): array {
  $c=sc_config();$id=(int)$u['id'];$admin=!empty($u['is_admin']);
- if(!empty($u['sc_only']))return ['allowed'=>true,'receive'=>!empty($u['sc_receive']),'review'=>false,'supervisor'=>false,'report'=>!empty($u['sc_report']),'admin'=>false];
+ if(!empty($u['sc_only']))return ['allowed'=>true,'receive'=>!empty($u['sc_receive']),'review'=>$id===(int)($c['reviewer']??0),'supervisor'=>$id===(int)($c['supervisor']??0),'report'=>!empty($u['sc_report']),'admin'=>false];
  $role=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms'");
  $perms=$role?json_decode($role['value'],true):[];
  $allowed=$admin||in_array('schoolcomplaints',(array)($perms[(string)$u['role_id']]??[]),true);
