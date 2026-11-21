@@ -2,21 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { C, FONT } from '../theme';
 import { jToday } from '../jdate';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const J_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
 const FA = '۰۱۲۳۴۵۶۷۸۹';
 const fa = (s) => String(s ?? '').replace(/[0-9]/g, (d) => FA[+d]);
+const ascii = (s) => String(s ?? '').replace(/[۰-۹]/g, d => String(FA.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 function normalizeInitial(initial, fallbackYear) {
   try {
     if (Array.isArray(initial)) {
-      const jy = Number(initial[0]); const jm = Number(initial[1]); const jd = Number(initial[2]);
+      const jy = Number(ascii(initial[0])); const jm = Number(ascii(initial[1])); const jd = Number(ascii(initial[2]));
       if (Number.isFinite(jy) && Number.isFinite(jm) && Number.isFinite(jd)) return { jy, jm, jd };
     }
     if (initial && typeof initial === 'object') {
-      const jy = Number(initial.jy ?? initial.year); const jm = Number(initial.jm ?? initial.month); const jd = Number(initial.jd ?? initial.day);
+      const jy = Number(ascii(initial.jy ?? initial.year)); const jm = Number(ascii(initial.jm ?? initial.month)); const jd = Number(ascii(initial.jd ?? initial.day));
       if (Number.isFinite(jy) && Number.isFinite(jm) && Number.isFinite(jd)) return { jy, jm, jd };
     }
     if (typeof initial === 'string' && initial.trim()) {
-      const parts = initial.replace(/[/.]/g, '-').split('-').map((x) => Number(x));
+      const parts = ascii(initial).replace(/[/.]/g, '-').split('-').map((x) => Number(x));
       if (parts.length === 3 && parts.every(Number.isFinite)) return { jy: parts[0], jm: parts[1], jd: parts[2] };
     }
   } catch (e) {}
@@ -43,6 +45,7 @@ function jMonthLen(jy, jm) { if (jm <= 6) return 31; if (jm <= 11) return 30; co
 export function jToStr(jy, jm, jd) { const [gy, gm, gd] = j2g(jy, jm, jd); const p = (n) => String(n).padStart(2, '0'); return `${gy}-${p(gm)}-${p(gd)}`; }
 export function jLabel(jy, jm, jd) { return `${fa(jy)}/${fa(String(jm).padStart(2, '0'))}/${fa(String(jd).padStart(2, '0'))}`; }
 export default function JDatePicker({ visible, onClose, onSelect, initial, minYear = 1300, maxYear }) {
+  const insets = useSafeAreaInsets();
   const todayArr = jToday();
   const today = { jy: Number(todayArr?.[0]) || 1405, jm: Number(todayArr?.[1]) || 1, jd: Number(todayArr?.[2]) || 1 };
   // برای تاریخ‌های اعتبار مدارک (گواهینامه، بیمه، معاینه فنی و موارد مشابه)
@@ -71,19 +74,19 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
   return (
     <Modal visible={!!visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.bg}>
-        <View style={s.card}>
+        <View style={[s.card, { paddingBottom: Math.max(18, insets.bottom + 12) }]}>
           <View style={s.head}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه قبل" accessibilityState={{ disabled: !canGoPrevious }} disabled={!canGoPrevious} onPress={() => { if (safeJm === 1) { setJm(12); setJy(safeJy - 1); } else setJm(safeJm - 1); }}><Text style={[s.nav, !canGoPrevious && s.navDisabled]}>‹</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setMode(mode === 'year' ? 'day' : 'year')}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب سال" onPress={() => setMode(mode === 'year' ? 'day' : 'year')}>
               <Text style={s.title}>{J_MONTHS[safeJm - 1]} {fa(safeJy)}</Text>
               <Text style={s.hint}>برای انتخاب سال لمس کنید</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="ماه بعد" accessibilityState={{ disabled: !canGoNext }} disabled={!canGoNext} onPress={() => { if (safeJm === 12) { setJm(1); setJy(safeJy + 1); } else setJm(safeJm + 1); }}><Text style={[s.nav, !canGoNext && s.navDisabled]}>›</Text></TouchableOpacity>
           </View>
           <View style={s.tabs}>
-            <TouchableOpacity style={[s.tab, mode === 'day' && s.tabOn]} onPress={() => setMode('day')}><Text style={[s.tabTxt, mode === 'day' && s.tabTxtOn]}>روز</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.tab, mode === 'month' && s.tabOn]} onPress={() => setMode('month')}><Text style={[s.tabTxt, mode === 'month' && s.tabTxtOn]}>ماه</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.tab, mode === 'year' && s.tabOn]} onPress={() => setMode('year')}><Text style={[s.tabTxt, mode === 'year' && s.tabTxtOn]}>سال</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='day'}} style={[s.tab, mode === 'day' && s.tabOn]} onPress={() => setMode('day')}><Text style={[s.tabTxt, mode === 'day' && s.tabTxtOn]}>روز</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='month'}} style={[s.tab, mode === 'month' && s.tabOn]} onPress={() => setMode('month')}><Text style={[s.tabTxt, mode === 'month' && s.tabTxtOn]}>ماه</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{selected:mode==='year'}} style={[s.tab, mode === 'year' && s.tabOn]} onPress={() => setMode('year')}><Text style={[s.tabTxt, mode === 'year' && s.tabTxtOn]}>سال</Text></TouchableOpacity>
           </View>
           {mode === 'day' && <ScrollView contentContainerStyle={s.grid}>
             {days.map((d) => (
@@ -94,14 +97,14 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
           </ScrollView>}
           {mode === 'month' && <ScrollView contentContainerStyle={s.grid}>
             {J_MONTHS.map((m, idx) => (
-              <TouchableOpacity key={m} style={[s.month, safeJm === idx + 1 && s.selected]} onPress={() => { setJm(idx + 1); setMode('day'); }}>
+              <TouchableOpacity key={m} accessibilityRole="button" accessibilityLabel={m} accessibilityState={{selected:safeJm===idx+1}} style={[s.month, safeJm === idx + 1 && s.selected]} onPress={() => { setJm(idx + 1); setMode('day'); }}>
                 <Text style={[s.dayTxt, safeJm === idx + 1 && s.selectedTxt]}>{m}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
           {mode === 'year' && <ScrollView contentContainerStyle={s.grid}>
             {years.map((y) => (
-              <TouchableOpacity key={y} style={[s.year, safeJy === y && s.selected]} onPress={() => { setJy(y); setMode('month'); }}>
+              <TouchableOpacity key={y} accessibilityRole="button" accessibilityLabel={'سال '+fa(y)} accessibilityState={{selected:safeJy===y}} style={[s.year, safeJy === y && s.selected]} onPress={() => { setJy(y); setMode('month'); }}>
                 <Text style={[s.dayTxt, safeJy === y && s.selectedTxt]}>{fa(y)}</Text>
               </TouchableOpacity>
             ))}
@@ -122,12 +125,12 @@ const s = StyleSheet.create({
   navDisabled: { opacity: 0.3 },
   actionDisabled: { opacity: 0.4 },
   tabs: { flexDirection: 'row-reverse', backgroundColor: '#eef1f7', borderRadius: 12, padding: 4, marginBottom: 10 },
-  tab: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
+  tab: { flex: 1, minHeight:44, justifyContent:'center', paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
   tabOn: { backgroundColor: C.brand },
   tabTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
   tabTxtOn: { color: '#fff' },
   grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start', paddingBottom: 8 },
-  day: { width: '13%', aspectRatio: 1, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  day: { width: '13%', minHeight:44, aspectRatio: 1, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   todayDay: { backgroundColor: '#e1f5e9', borderColor: C.brand, borderWidth: 2 },
   todayDayTxt: { color: C.brand },
   month: { width: '31%', height: 48, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
