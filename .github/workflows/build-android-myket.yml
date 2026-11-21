@@ -1,5 +1,5 @@
 name: build-android-myket
-# Release 2.0.5 includes presence, system camera, attendance persistence and fixed policy routing fixes.
+# Android 2.0.10 reliability release; built with existing Myket signing credentials.
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       version:
         description: "Version matching mobile/package.json"
         required: true
-        default: "2.0.5"
+        default: "2.0.10"
   push:
     branches:
       - "main"
