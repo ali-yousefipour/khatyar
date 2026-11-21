@@ -15,7 +15,15 @@ class Db {
     throw new LogicException('Unexpected query: '.$sql);
   }
   static function all($sql,$params=[]){
-    if(str_contains($sql,'FROM staff_attendance'))return self::$attendance;
+    if(str_contains($sql,'FROM staff_attendance')){
+      if(str_contains($sql,'check_in>=?') && count($params)>=3){
+        return array_values(array_filter(self::$attendance,static fn($row)=>
+          ($row['check_in']??'') >= $params[1] &&
+          ($row['check_in']??'') < $params[2] &&
+          !empty($row['check_out'])));
+      }
+      return self::$attendance;
+    }
     if(str_contains($sql,'AND type=? AND status')&&!str_contains($sql,'id<>?'))return self::$overlaps;
     if(!str_contains($sql,"status IN ('pending','approved')")||!str_contains($sql,'id<>?')) throw new LogicException('Quota query must exclude rejected/canceled/self');
     self::$exclude=$params[2]; return self::$rows;
