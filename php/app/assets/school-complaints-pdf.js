@@ -138,16 +138,23 @@ async function download(record,options={}){
    y+=9;
   }
  }else{section('راهنمای پیگیری');write('برای پیگیری شکایت، کد رهگیری فوق را نزد خود نگه دارید.');}
- const jpg=canvases.map((c,i)=>{
-  const context=c.getContext('2d');context.fillStyle='#607c69';
-  context.font='20px Vazirmatn,Tahoma,sans-serif';context.direction='rtl';context.textAlign='right';
+ // Convert one page at a time: yielding between pages keeps the progress UI responsive.
+ // The callback reports completed pages, not a fabricated time percentage.
+ const jpg=[];
+ for(let i=0;i<canvases.length;i++){
+  if(typeof options.onProgress==='function')options.onProgress(i,canvases.length);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const c=canvases[i],context=c.getContext('2d');
+  context.fillStyle='#607c69';context.font='20px Vazirmatn,Tahoma,sans-serif';
+  context.direction='rtl';context.textAlign='right';
   context.fillText('خطیار — صفحه '+fa(i+1)+' از '+fa(canvases.length),W-M,H-62);
   const url=c.toDataURL('image/jpeg',0.89);
   if(!url.startsWith('data:image/jpeg;base64,'))throw Error('تولید تصویر صفحه PDF ناموفق بود');
   const raw=atob(url.split(',')[1]);
   if(raw.length<4||raw.charCodeAt(0)!==255||raw.charCodeAt(1)!==216||raw.charCodeAt(raw.length-2)!==255||raw.charCodeAt(raw.length-1)!==217)throw Error('داده تصویری PDF معتبر نیست');
-  return Uint8Array.from(raw,c=>c.charCodeAt(0));
- });
+  jpg.push(Uint8Array.from(raw,char=>char.charCodeAt(0)));
+  if(typeof options.onProgress==='function')options.onProgress(i+1,canvases.length);
+ }
  const file=pdfBytes(jpg);const url=URL.createObjectURL(file);
  const a=document.createElement('a');a.href=url;a.download='khatyar-school-complaint-'+code+'.pdf';document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),10000);
