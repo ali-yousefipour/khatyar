@@ -141,7 +141,11 @@ const _cacheTTL = {
     '/lines': 180000, '/geofences': 300000, '/admin/zones': 300000, '/zones': 300000,
     '/notice-reasons': 300000, '/checklist/template': 300000, '/admin/settings': 60000,
     '/settings/public': 300000, '/admin/shifts': 120000, '/admin/user-shifts': 120000,
-    '/admin/holidays': 300000, '/admin/app-config': 60000
+    '/admin/holidays': 300000, '/admin/app-config': 60000,
+    // Short-lived in-memory reuse avoids repeated heavy queries when navigating
+    // between tabs or pressing report twice. SEND invalidates this cache.
+    '/admin/stats': 12000, '/admin/top-workers': 30000,
+    '/admin/attendance-report': 10000
 };
 function _cacheTtlFor(p) {
     for (const [prefix, ttl] of Object.entries(_cacheTTL))
