@@ -5,14 +5,39 @@
  * listen or transmit. Official/management roles (level 1–4) are exempt.
  */
 function kh_radio_shift_enabled(): bool {
-    // Mandatory policy: an old optional database setting cannot disable the
-    // attendance gate for any level 5–9 radio client.
+    // Missing or invalid setting retains the historical restricted default.
+    try {
+        $row=Db::one("SELECT value FROM app_settings WHERE `key`='radio_limit_to_shift' LIMIT 1");
+        if(!$row)return true;
+        $value=json_decode((string)$row['value'],true);
+        if(is_bool($value))return $value;
+        if($value===0||$value==='0')return false;
+        if($value===1||$value==='1')return true;
+    }catch(Throwable $e){error_log('Radio shift setting unavailable: '.$e->getMessage());}
     return true;
 }
 function kh_radio_shift_responsible(array $user): bool {
     $level=(int)($user['level']??99);
-    // Web/admin permissions must not override attendance for levels 5–9.
     return $level>=1 && $level<=4;
+}
+function kh_radio_shift_personal_limit(array $user): bool {
+    if(!kh_radio_shift_responsible($user))return false;
+    $uid=(int)($user['id']??0);
+    if($uid<=0)return false;
+    try {
+        $row=Db::one("SELECT shift_limit_enabled FROM radio_user_settings WHERE user_id=? LIMIT 1",[$uid]);
+        return $row!==null && !empty($row['shift_limit_enabled']);
+    }catch(Throwable $e){
+        // When the legacy table has not yet been migrated, keep management
+        // staff's former exemption until their feature is initialized.
+        error_log('Radio personal shift limit unavailable: '.$e->getMessage());
+        return false;
+    }
+}
+function kh_radio_shift_restricted(array $user): bool {
+    return kh_radio_shift_responsible($user)
+        ? kh_radio_shift_personal_limit($user)
+        : kh_radio_shift_enabled();
 }
 function kh_radio_shift_started_at(array $user): ?string {
     $uid=(int)($user['id']??0);
@@ -25,9 +50,9 @@ function kh_radio_shift_started_at(array $user): ?string {
         ? (string)$row['check_in'] : null;
 }
 function kh_radio_shift_allowed(array $user): bool {
-    if (kh_radio_shift_responsible($user)) return true;
     $uid=(int)($user['id']??0);
     if($uid<=0)return false;
+    if (!kh_radio_shift_restricted($user)) return true;
     // Inspect the latest punch (including checked-out rows). An older unclosed
     // row must never re-authorize someone who has already checked out.
     $row=Db::one("SELECT id,check_in,check_out FROM staff_attendance
