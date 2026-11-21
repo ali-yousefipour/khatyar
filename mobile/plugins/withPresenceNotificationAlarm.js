@@ -12,6 +12,10 @@ function patchPresenceAlarm(source) {
       try {
         val alarmIntent = android.content.Intent().setClassName(context.packageName, "ir.mashhad.taxicontrol.radio.PresenceAlarmService")
         alarmIntent.putExtra("presence_open", builtNotification.contentIntent)
+        val expiresAfterMinutes = (content.body?.optLong("window_minutes", 3L) ?: 3L).coerceIn(1L, 60L)
+        val scheduledSeconds = content.body?.optLong("ts", 0L) ?: 0L
+        val deadlineMs = if (scheduledSeconds > 0L) scheduledSeconds * 1000L + expiresAfterMinutes * 60000L else System.currentTimeMillis() + expiresAfterMinutes * 60000L
+        alarmIntent.putExtra("presence_deadline", deadlineMs)
         if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(alarmIntent) else context.startService(alarmIntent)
       } catch (error: Exception) {
         // OS may reject background service start; retain the channel-level fallback.
