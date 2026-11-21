@@ -16,11 +16,17 @@ for(const term of ['sc-responsive-table',"'data-label':'نام'", "'data-label':
 assert.match(css, /\.sc-module \.sc-table\[role="region"\]:focus-visible/,'keyboard region requires a visible focus ring');
 assert.match(css, /max-width:390px/,'report card labels must work on narrow 320/375 screens');
 const portal=fs.readFileSync(path.join(root,'app/school-complaints-portal.html'),'utf8');
-const versions=extension=>[panel,built,portal].map(text=>text.match(new RegExp('school-complaints-admin\\.'+extension+'\\?v=([\\w.-]+)'))?.[1]);
-for(const extension of ['js','css']){
- const found=versions(extension);
- assert.ok(found.every(Boolean),'versioned complaints '+extension+' is present in panel, bundle and standalone portal');
- assert.equal(new Set(found).size,1,'complaints '+extension+' asset cache keys must match across all entrypoints');
+const html=fs.readFileSync(path.join(root,'app/panel.html'),'utf8');
+const version=(text,ext)=>text.match(new RegExp('school-complaints-admin\\\\.'+ext+'\\\\?v=([\\\\w.-]+)'))?.[1];
+for (const ext of ['js','css']) {
+ const fallback=[panel,built].map(text=>version(text,ext));
+ assert.ok(fallback.every(Boolean),'legacy lazy-loader remains versioned: '+ext);
+ assert.equal(new Set(fallback).size,1,'source and compiled lazy loader match');
+ const active=[html,portal].map(text=>version(text,ext));
+ assert.ok(active.every(Boolean),'panel and portal load refreshed complaints asset: '+ext);
+ assert.equal(new Set(active).size,1,'panel and portal use same refreshed asset key');
+ assert.equal(active[0],'20261121.notify1','new complaints asset version must be cache-busted');
 }
-assert.equal(versions('js')[0],versions('css')[0],'JS and CSS should share a release key');
+assert.ok(html.indexOf('school-complaints-admin.js?v=20261121.notify1')<html.indexOf('panel.bundle.js'),
+ 'refreshed module must load before the compiled panel launcher');
 console.log('PASS complaints tables responsive cards, keyboard scroll and versioned modules');
