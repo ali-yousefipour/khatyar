@@ -1,4 +1,5 @@
 import {presenceDeadline} from './presencePresentation';
+import {presenceRemainingMs,clearPresenceClock} from './presenceDeadlineClock';
 import {onPresenceWizardState} from './presenceWizardLifecycle';
 import React,{useState,useEffect,useRef}from'react';
 import{AppState}from'react-native';
@@ -38,6 +39,8 @@ export default function PresenceGate({navigationRef}){
   if(!mountedRef.current)return;
   const previous=dueRef.current;
   dueRef.current=next;
+  if(previous&&(!next||previous.requestId!==next.requestId))clearPresenceClock(previous.requestId);
+  if(next)presenceRemainingMs(next.requestId,next.deadlineMs);
   // Begin the alert at the same transition that activates the countdown.
   // Navigation, React rendering and camera readiness are independent.
   if(next&&String(previous?.requestId||'')!==String(next.requestId||'')&&cfgRef.current?.alarm!==false)
