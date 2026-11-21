@@ -39,6 +39,8 @@ vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.e
   assert.equal(calls[0][0], 'begin');
   assert.ok(calls.some(v => v[0] === 'update' && /دریافت/.test(v[2].stage)));
   assert.ok(calls.some(v => v[0] === 'update' && /ساخت/.test(v[2].stage)));
+  assert.ok(calls.some(v => v[0] === 'update' && /آماده‌سازی/.test(v[2].stage)),'building Excel rows must show a real processing stage');
+  assert.ok(calls.some(v => v[0] === 'update' && /برگه‌های آماری/.test(v[2].stage)),'summarizing Excel sheets must report its phase');
   assert.equal(calls.at(-2)[0], 'write');
   assert.deepEqual(calls.at(-1), ['end', 17]);
   assert.ok(calls.every(v => v[0] !== 'update' || !Object.hasOwn(v[2], 'percent')), 'no fabricated percentage');
