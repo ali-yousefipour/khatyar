@@ -33,7 +33,7 @@ export function DashboardMetric({ label, value, icon, width }) {
       <MaterialCommunityIcons name={icon} size={22} color={C.brand} />
       <Text style={styles.value} allowFontScaling numberOfLines={1} adjustsFontSizeToFit>{faNum(Number(value))}</Text>
     </View>
-    <Text style={styles.metricLabel} allowFontScaling={false} numberOfLines={2} ellipsizeMode="tail">{label}</Text>
+    <Text style={styles.metricLabel} allowFontScaling>{label}</Text>
     <View style={styles.metricAccent} />
   </View>;
 }
