@@ -34,8 +34,8 @@ const moneyText = value => {
 const digits = value => String(value).replace(/[۰-۹]/g, character => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(character))).replace(/[٠-٩]/g, character => String('٠١٢٣٤٥٦٧٨٩'.indexOf(character))).replace(/\D/g, '');
 
 export default function CompanyPayrollHistory() {
-  const { width: screenWidth } = useWindowDimensions();
-  const detailColumns = screenWidth >= 600 ? 3 : 2;
+  const { width: screenWidth, fontScale: systemFontScale = 1 } = useWindowDimensions();
+  const detailColumns = systemFontScale >= 1.5 || screenWidth < 520 ? 1 : screenWidth >= 900 && systemFontScale <= 1.2 ? 3 : 2;
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
   const [filters, setFilters] = useState({ year: '', month: '', page: 1 });
@@ -188,15 +188,15 @@ export default function CompanyPayrollHistory() {
     <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)} statusBarTranslucent={false}>
       <SafeAreaView style={styles.root}>
         <View style={styles.detailTopBar}>
-          <Text style={styles.detailTopTitle}>جزئیات حقوق و کسورات</Text>
+          <Text allowFontScaling style={styles.detailTopTitle}>جزئیات حقوق و کسورات</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن جزئیات" style={styles.detailClose} onPress={() => setDetail(null)}><Text style={styles.detailCloseText}>✕  بستن</Text></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {detail && <>
             <View style={styles.detailHero}>
-              <Text style={styles.detailHeroPeriod}>حقوق {faNum(`${detail.row.period_jy}/${String(detail.row.period_jm).padStart(2,'0')}`)}</Text>
-              <Text style={styles.detailHeroName}>{detail.row.employee_name}</Text>
-              <Text style={styles.detailHeroNote}>اطلاعات اعلامی شرکت · مبالغ به ریال</Text>
+              <Text allowFontScaling style={styles.detailHeroPeriod}>حقوق {faNum(`${detail.row.period_jy}/${String(detail.row.period_jm).padStart(2,'0')}`)}</Text>
+              <Text allowFontScaling style={styles.detailHeroName}>{detail.row.employee_name}</Text>
+              <Text allowFontScaling style={styles.detailHeroNote}>اطلاعات اعلامی شرکت · مبالغ به ریال</Text>
             </View>
             {(detail.row.warnings || []).map((warning,index)=><Text key={index} style={styles.error}>{warning}</Text>)}
             {detailGroups.map(group => {
@@ -206,13 +206,13 @@ export default function CompanyPayrollHistory() {
               if(!items.length)return null;
               return <View key={group} style={styles.detailSection}>
                 <View style={styles.detailSectionHeader}><Text style={styles.detailSectionTitle}>{group}</Text><Text style={styles.detailSectionCount}>{faNum(items.length)} مورد</Text></View>
-                <View style={styles.detailsGrid}>{items.map(({field,label,index})=><View style={[styles.detailCell,{width:detailColumns===3?'31.8%':'48.5%'}]} key={String(field)+index}>
-                  <Text style={styles.detailTitle}>{label}</Text>
-                  <Text style={styles.detailValue} numberOfLines={3} adjustsFontSizeToFit>{index<7?faNum(String(detail.row.data?.[field]??'—')):integerMoneyFields.has(field)||(/شب.?کاری/.test(String(label))&&/مبلغ/.test(String(label)))?moneyText(detail.row.data?.[field]):amount(detail.row.data?.[field],6)}</Text>
+                <View style={styles.detailsGrid}>{items.map(({field,label,index})=><View style={[styles.detailCell,{width:detailColumns===3?'31.8%':detailColumns===2?'48.5%':'100%'}]} key={String(field)+index}>
+                  <Text allowFontScaling style={styles.detailTitle}>{label}</Text>
+                  <Text allowFontScaling style={styles.detailValue}>{index<7?faNum(String(detail.row.data?.[field]??'—')):integerMoneyFields.has(field)||(/شب.?کاری/.test(String(label))&&/مبلغ/.test(String(label)))?moneyText(detail.row.data?.[field]):amount(detail.row.data?.[field],6)}</Text>
                 </View>)}</View>
               </View>;
             })}
-            <View style={styles.netCard}><Text style={styles.netTitle}>خالص پرداختی</Text><Text style={styles.netValue} adjustsFontSizeToFit numberOfLines={1}>{moneyText(detail.row.data?.net??detail.row.net)} ریال</Text></View>
+            <View style={styles.netCard}><Text allowFontScaling style={styles.netTitle}>خالص پرداختی</Text><Text allowFontScaling style={styles.netValue}>{moneyText(detail.row.data?.net??detail.row.net)} ریال</Text></View>
           </>}
         </ScrollView>
       </SafeAreaView>
