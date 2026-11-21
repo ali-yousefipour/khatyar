@@ -41,7 +41,17 @@ function j2g(jy, jm, jd) {
   for (gm = 0; gm < 13 && gd > sal_a[gm]; gm++) gd -= sal_a[gm];
   return [gy, gm, gd];
 }
-function jMonthLen(jy, jm) { if (jm <= 6) return 31; if (jm <= 11) return 30; const isLeap = ((jy % 33) % 4) === 1; return isLeap ? 30 : 29; }
+function jMonthLen(jy, jm) {
+  if (jm <= 6) return 31;
+  if (jm <= 11) return 30;
+  // The Jalali calendar occasionally has a five-year leap gap; a simple
+  // 33-year modulo rule incorrectly rejects 1408/12/30 and accepts 1407/12/30.
+  // Match the conversion algorithm already used for the API date payload.
+  const [y1, m1, d1] = j2g(jy, 1, 1);
+  const [y2, m2, d2] = j2g(jy + 1, 1, 1);
+  const yearDays = (Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000;
+  return yearDays === 366 ? 30 : 29;
+}
 export function jToStr(jy, jm, jd) { const [gy, gm, gd] = j2g(jy, jm, jd); const p = (n) => String(n).padStart(2, '0'); return `${gy}-${p(gm)}-${p(gd)}`; }
 export function jLabel(jy, jm, jd) { return `${fa(jy)}/${fa(String(jm).padStart(2, '0'))}/${fa(String(jd).padStart(2, '0'))}`; }
 export default function JDatePicker({ visible, onClose, onSelect, initial, minYear = 1300, maxYear }) {
@@ -61,7 +71,7 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
       const next = normalizeInitial(initial, Math.min(today.jy, maxY));
       setJy(Math.max(minYear, Math.min(maxY, next.jy)));
       setJm(Math.max(1, Math.min(12, next.jm)));
-      setSelectedDate({jy:Math.max(minYear,Math.min(maxY,next.jy)),jm:Math.max(1,Math.min(12,next.jm)),jd:Math.max(1,Math.min(31,next.jd))});
+      setSelectedDate({jy:Math.max(minYear,Math.min(maxY,next.jy)),jm:Math.max(1,Math.min(12,next.jm)),jd:Math.max(1,Math.min(jMonthLen(Math.max(minYear,Math.min(maxY,next.jy)), Math.max(1,Math.min(12,next.jm))),next.jd))});
       setMode('day');
     }
   }, [visible, initial, minYear, maxY]);
