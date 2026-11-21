@@ -133,7 +133,7 @@ function getRestrictedScreenComponent(routeName, ScreenComponent) {
 function RestrictedScreen({routeName,Component,...props}){
   const {user}=useAuth();
   const [access,setAccess]=React.useState(null);
-  const scopeKey=[routeName,user?.id,user?.role_id,user?.level].map(value=>String(value??'')).join(':');
+  const scopeKey=[routeName,user?.id,user?.role_id,user?.level,user?.is_admin,user?.role_title].map(value=>String(value??'')).join(':');
   const [authorizedScope,setAuthorizedScope]=React.useState('');
   const [pending,setPending]=React.useState(true);
   const [failure,setFailure]=React.useState(false);
