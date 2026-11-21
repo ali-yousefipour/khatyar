@@ -226,7 +226,7 @@ function Module({get,send,DatePicker,ClockInput}){
      h('div',{className:'sc-wizard-hero'},
        h('div',null,h('span',{className:'sc-wizard-eyebrow'},'ثبت پرونده جدید سرویس مدارس'),
          h('h3',null,'ویزارد ثبت شکایت'),h('p',null,'ثبت مرحله‌ای، بررسی مشخصات و تأیید نهایی در یک فرایند روشن')),
-       h('div',{className:'sc-wizard-position',role:'status'},h('strong',null,fa(step+1)+' / '+fa(steps.length)),h('span',null,'مرحله')),
+       h('div',{className:'sc-wizard-position',role:'status'},h('strong',null,fa(step+1)+' / '+fa(steps.length)),h('span',null,'مرحله'))),
      h('div',{className:'sc-wizard-track',role:'progressbar','aria-valuemin':1,'aria-valuemax':5,'aria-valuenow':step+1,'aria-label':'پیشرفت ثبت شکایت'},
        h('span',{style:{width:(step/4*100)+'%'}})),
      stepsBar,
