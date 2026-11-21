@@ -10,7 +10,7 @@ let v=1;for(let i=0;i<255;i++){EXP[i]=v;LOG[v]=i;v<<=1;if(v&256)v^=285;}
 for(let i=255;i<512;i++)EXP[i]=EXP[i-255];
 const mul=(a,b)=>a&&b?EXP[LOG[a]+LOG[b]]:0;
 function blocks(text){
- if(!/^[\x20-\x7e]{1,53}$/.test(text))throw Error('کد رهگیری برای QR معتبر نیست');
+ if(!/^SSC-[A-F0-9-]{8,48}$/.test(text)||text.length>53)throw Error('کد رهگیری برای QR معتبر نیست');
  const bits=[];const add=(val,count)=>{for(let i=count-1;i>=0;i--)bits.push((val>>>i)&1);};
  add(4,4);add(text.length,8);for(let i=0;i<text.length;i++)add(text.charCodeAt(i),8);
  for(let i=0;i<Math.min(4,DATA*8-bits.length);i++)bits.push(0);
