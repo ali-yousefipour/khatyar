@@ -370,7 +370,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>کاربر: {stamp.operator || 'نامشخص'}  |  خط: {stamp.line || 'نامشخص'}</Text>
               <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>ایستگاه: {stamp.nearest || 'نامشخص'}</Text>
               <Text numberOfLines={2} ellipsizeMode="tail" style={s.stampGeo}>موقعیت: {faNum(stamp.coords)}  •  خیابان: {stamp.street || 'نامشخص'}</Text>
-              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap</Text> : null}
+              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
             </View>
           </View>
 
