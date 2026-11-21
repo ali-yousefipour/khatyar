@@ -26,4 +26,7 @@ assert.match(styles,/\.pva-display-car-cell/);
 assert.match(radio,/pttActive \? "پایان" : "PTT"/);
 assert.match(compact,/android:maxLines="1"/);
 assert.match(compact,/\?android:attr\/textColorPrimary/);
+assert.match(native,/<Text allowFontScaling style=\{\[s\.tabLabel,activeTab===key&&s\.tabLabelActive\]\}>/,'vehicle category tabs follow Android system font size');
+assert.match(native,/tab:\{flex:1,minHeight:48,paddingVertical:10/,'checklist category tab can expand and remains touch-accessible');
+assert.doesNotMatch(native,/allowFontScaling=\{false\}/,'vehicle checklist must not suppress system font size');
 console.log('PASS checklist plates/statuses and notification readability');
