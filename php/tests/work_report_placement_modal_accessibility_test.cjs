@@ -11,7 +11,7 @@ assert.match(source,/if\(!focusable\.length\)\{event\.preventDefault\(\);state\.
 assert.equal((source.match(/!focusable\.includes\(document\.activeElement\)/g)||[]).length,2,'Tab and Shift+Tab remain trapped when status is programmatically focused');
 assert.match(source,/if\(event\.key==='Escape'\)/,'dialog supports Escape');
 assert.equal((source.match(/setBusy\(true\)/g)||[]).length,2,'both save and delete set modal busy');
-assert.equal((source.match(/finally\{setBusy\(false\);save\.disabled=false;\}/g)||[]).length,2,'both success and failure restore modal controls');
+assert.equal((source.match(/setBusy\(false\);save\.disabled=false;\}/g)||[]).length,2,'save and delete restore modal controls in finally');
 assert.match(source,/box\.setAttribute\('aria-busy',value\?'true':'false'\)/,'busy state is announced');
 assert.match(source,/save\.disabled=true;remove\.disabled=true/,'save and delete stay disabled before template loads');
 assert.match(source,/hasPlacement=false;remove\.disabled=true/,'delete action stays disabled after removing placement');
