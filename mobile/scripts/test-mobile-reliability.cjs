@@ -45,6 +45,9 @@ async function testPermissionRevocation() {
 
 (async () => {
   await testPermissionRevocation();
+  assert.match(auth, /const me=await request\('\/auth\/me',\{noStore:true,timeoutMs:8000\}\)/);
+  assert.match(auth, /await invalidateAppItems\(user\.id\)/);
+  assert.match(permissionsSource, /if \(epoch !== \(epochs\.get\(key\) \|\| 0\)\) return null/);
   assert.match(auth, /resetAccountCaches\(d\.user\?\.id\)/);
   assert.match(auth, /invalidateAppItems\(normalized\.id\)/);
   assert.match(auth, /queueIfOffline:false,forceNetwork:true,timeoutMs:7000/);
