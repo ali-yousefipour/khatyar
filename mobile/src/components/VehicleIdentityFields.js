@@ -1,6 +1,8 @@
 import React,{useMemo,useRef,useState} from 'react';
 import {Modal,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 import {C,FONT} from '../theme';
+import ModalKeyboardView from './ModalKeyboardView';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const fa=value=>String(value??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const en=value=>String(value??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
@@ -13,6 +15,7 @@ function NumberCell({value,onChange,length,placeholder,inputRef,next,style,label
 }
 
 export function VehiclePlateInput({motor,data,set}){
+ const insets=useSafeAreaInsets();
  const[lettersOpen,setLettersOpen]=useState(false);
  const letterRef=useRef(null),threeRef=useRef(null),regionRef=useRef(null),motorBottomRef=useRef(null);
  if(motor)return <View style={st.motorWrap}>
@@ -40,10 +43,10 @@ export function VehiclePlateInput({motor,data,set}){
    </View>
   </View>
   <Modal visible={lettersOpen} transparent animationType="fade" onRequestClose={()=>setLettersOpen(false)}>
-   <View style={st.backdrop}><View style={st.sheet}>
+   <View style={st.backdrop}><View style={[st.sheet,{paddingBottom:Math.max(20,insets.bottom+12)}]}>
     <Text accessibilityRole="header" style={st.modalHeading}>انتخاب حرف پلاک</Text><Text style={st.help}>حروف مجاز پلاک‌های ایران</Text>
     <ScrollView style={{maxHeight:340,flexShrink:1}} contentContainerStyle={st.letterGrid} keyboardShouldPersistTaps="always">
-     {VEHICLE_PLATE_LETTERS.map(letter=><TouchableOpacity key={letter} style={[st.letterOption,data.plate_letter===letter&&st.optionSelected]} onPress={()=>{set('plate_letter',letter);setLettersOpen(false);setTimeout(()=>threeRef.current?.focus(),100)}}><Text style={[st.letterOptionText,data.plate_letter===letter&&st.selectedText]}>{letter}</Text></TouchableOpacity>)}
+     {VEHICLE_PLATE_LETTERS.map(letter=><TouchableOpacity key={letter} accessibilityRole="button" accessibilityLabel={'حرف '+letter} accessibilityState={{selected:data.plate_letter===letter}} style={[st.letterOption,data.plate_letter===letter&&st.optionSelected]} onPress={()=>{set('plate_letter',letter);setLettersOpen(false);setTimeout(()=>threeRef.current?.focus(),100)}}><Text style={[st.letterOptionText,data.plate_letter===letter&&st.selectedText]}>{letter}</Text></TouchableOpacity>)}
     </ScrollView>
     <TouchableOpacity style={st.closeButton} onPress={()=>setLettersOpen(false)}><Text style={st.closeText}>بستن</Text></TouchableOpacity>
    </View></View>
@@ -52,6 +55,7 @@ export function VehiclePlateInput({motor,data,set}){
 }
 
 export function VehicleYearPicker({years,value,onChange,motor}){
+ const insets=useSafeAreaInsets();
  const[open,setOpen]=useState(false),[query,setQuery]=useState('');
  const options=useMemo(()=>[...new Set((years||[]).map(Number).filter(Number.isInteger))].sort((a,b)=>b-a),[years]);
  const filtered=useMemo(()=>options.filter(y=>String(y).includes(digits(query,4))),[options,query]);
@@ -62,16 +66,16 @@ export function VehicleYearPicker({years,value,onChange,motor}){
    <View style={st.yearIcon}><Text style={st.yearIconText}>▦</Text></View>
   </TouchableOpacity>
   <Modal visible={open} transparent animationType="slide" onRequestClose={()=>setOpen(false)}>
-   <View style={st.backdrop}><View style={st.sheet}>
+   <ModalKeyboardView style={st.backdrop}><View style={[st.sheet,{paddingBottom:Math.max(20,insets.bottom+12)}]}>
     <Text accessibilityRole="header" style={st.modalHeading}>انتخاب سال ساخت {motor?'موتورسیکلت':'خودرو'}</Text>
     <Text style={st.help}>سال موردنظر را جستجو کنید یا از فهرست انتخاب کنید.</Text>
-    <TextInput style={st.search} keyboardType="number-pad" value={fa(query)} onChangeText={v=>setQuery(digits(v,4))} maxLength={4} placeholder="جستجوی سال، مثلاً ۱۴۰۲" placeholderTextColor="#94a3b8" textAlign="right"/>
+    <TextInput allowFontScaling accessibilityLabel="جستجوی سال ساخت" style={st.search} keyboardType="number-pad" value={fa(query)} onChangeText={v=>setQuery(digits(v,4))} maxLength={4} placeholder="جستجوی سال، مثلاً ۱۴۰۲" placeholderTextColor="#94a3b8" textAlign="right"/>
     <ScrollView style={{maxHeight:330,flexShrink:1}} keyboardShouldPersistTaps="always" contentContainerStyle={st.yearOptions}>
-     {filtered.map(y=><TouchableOpacity key={y} style={[st.yearOption,Number(value)===y&&st.optionSelected]} onPress={()=>{onChange(y);setOpen(false)}}><Text style={[st.yearOptionText,Number(value)===y&&st.selectedText]}>{fa(y)}</Text></TouchableOpacity>)}
+     {filtered.map(y=><TouchableOpacity key={y} accessibilityRole="button" accessibilityLabel={'سال '+fa(y)} accessibilityState={{selected:Number(value)===y}} style={[st.yearOption,Number(value)===y&&st.optionSelected]} onPress={()=>{onChange(y);setOpen(false)}}><Text style={[st.yearOptionText,Number(value)===y&&st.selectedText]}>{fa(y)}</Text></TouchableOpacity>)}
      {!filtered.length&&<Text style={st.empty}>سال موردنظر در فهرست مجاز نیست.</Text>}
     </ScrollView>
-    <TouchableOpacity style={st.closeButton} onPress={()=>setOpen(false)}><Text style={st.closeText}>انصراف</Text></TouchableOpacity>
-   </View></View>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel="انصراف از انتخاب سال" style={st.closeButton} onPress={()=>setOpen(false)}><Text allowFontScaling style={st.closeText}>انصراف</Text></TouchableOpacity>
+   </View></ModalKeyboardView>
   </Modal>
  </>;
 }
