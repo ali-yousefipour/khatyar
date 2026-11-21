@@ -27,6 +27,6 @@ assert.match(selfie, /if \(autoConfirm\) \{ await onCapture\(dataUrl\); return; 
 assert.match(station, /autoSubmissionStarted\.current = true;\s*confirm\(\)/, 'rear photo submits automatically after watermark is ready');
 assert.match(station, /processingOverlay/, 'rear photo is hidden behind a processing state');
 assert.doesNotMatch(station, /compressToDataUri\(shot,/, 'Station metadata may not be dropped on capture failure');
-assert.match(station, /موقعیت جغرافیایی:/);
+assert.match(station, /موقعیت:.*خیابان:/, 'compact stamp retains GPS coordinates alongside the road name');
 assert.match(station, /سامانه خطیار|خطیار \| صحت‌سنجی حضور/);
 console.log('PASS: presence wizard directly mounts native CameraView, keeps external fallback and preserves watermark');
