@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../src/presenceDeadlineClock.js'),'utf8').replace(/export\s+/g,'');
+const {presenceRemainingMs,clearPresenceClock}=new Function(src+';return {presenceRemainingMs,clearPresenceClock}')();
+assert.equal(presenceRemainingMs('first',10000,8000,100),2000,'initial countdown anchored to request deadline');
+assert.equal(presenceRemainingMs('first',10000,7000,600),1500,'rolling device clock backward does not extend active window');
+assert.equal(presenceRemainingMs('first',10000,12000,700),0,'moving wall clock forward fails closed');
+assert.equal(presenceRemainingMs('first',10000,7000,3000),0,'elapsed monotonic expiry cannot be bypassed by wall-clock rollback');
+assert.equal(presenceRemainingMs('second',12000,10000,3000),2000,'separate requests have isolated anchors');
+clearPresenceClock('first');
+assert.equal(presenceRemainingMs('first',10000,8500,5000),1500,'completed request clears prior monotonic anchor');
+const gate=fs.readFileSync(path.join(__dirname,'../src/PresenceGate.js'),'utf8');
+const wizard=fs.readFileSync(path.join(__dirname,'../src/PresenceCheckWizard.js'),'utf8');
+assert.match(gate,/if\(next\)presenceRemainingMs\(next.requestId,next.deadlineMs\)/,'monotonic clock starts with pending alert');
+assert.match(wizard,/presenceRemainingMs\(requestId,deadlineMs\)\s*<=\s*0/,'submit uses the same guarded deadline as timer');
+console.log('PASS presence monotonic timer: rollback resistance, expiry, independent requests and cleanup');
