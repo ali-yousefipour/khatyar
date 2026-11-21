@@ -1,8 +1,8 @@
 <?php
 /**
  * Server-side radio shift gate, shared by both radio API versions.
- * Only a current, open staff attendance session permits ordinary staff to
- * listen or transmit. Official/management roles (level 1–4) are exempt.
+ * The global site checkbox controls levels 5–9. Officials at levels 1–4
+ * can independently opt into the same active-attendance requirement.
  */
 function kh_radio_shift_enabled(): bool {
     // Missing or invalid setting retains the historical restricted default.
