@@ -20,7 +20,7 @@ const fakeUrl={createObjectURL(blob){file=blob;return 'blob:test'},revokeObjectU
 const sandbox={window:web,document:doc,Image:FakeImage,Blob,URL:fakeUrl,atob,Uint8Array,setTimeout(){}};
 vm.runInNewContext(source,sandbox);
 (async()=>{
- const record={tracking_code:'SSC-1234567890ABCDEF',first_name:'علی',last_name:'آزمایشی',phone:'09123456789',body:'متن شکایت',school_snapshot:{name:'مدرسه آزمایشی'},company_snapshot:{name:'شرکت آزمایشی'},events:[{action:'note',body:'رسیدگی'}]};
+ const record={tracking_code:'SSC-1234567890ABCDEF',first_name:'علی',last_name:'آزمایشی',phone:'09123456789',body:'متن شکایت',school_snapshot:{name:'مدرسه آزمایشی'},company_snapshot:{name:'شرکت آزمایشی'},attachments:[{filename:'report.pdf',byte_size:10240}],events:[{action:'note',body:'رسیدگی'}]};
  assert.equal(typeof web.KhatyarSchoolPdf.download,'function');
  const result=await web.KhatyarSchoolPdf.download(record);
  assert(result>100);
