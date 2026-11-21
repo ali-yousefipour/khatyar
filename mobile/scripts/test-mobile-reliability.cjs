@@ -121,9 +121,10 @@ async function testOfflineReplayConcurrency() {
     sends++;
     return {ok:true};
   });
+  const duplicateRejected = assert.rejects(delayedManual, /قبلاً ارسال شده است/);
   finishAutomatic({ok:true});
   await ongoingFlush;
-  await assert.rejects(delayedManual, /قبلاً ارسال شده است/);
+  await duplicateRejected;
   assert.equal(sends, 2, 'manual retry must not resubmit an automatically delivered item');
 }
 
