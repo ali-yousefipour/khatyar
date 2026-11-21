@@ -1,5 +1,6 @@
 <?php
 // Independent school complaint workflow. Existing personnel identity is authoritative.
+require_once __DIR__.'/SchoolComplaintNotifications.php';
 function sc_config(): array {
  $r=Db::one('SELECT config FROM school_complaint_settings WHERE id=1');
  return $r ? (json_decode($r['config'],true)?:[]) : [];
@@ -161,7 +162,7 @@ route('PUT','/api/school-complaints/settings',function($p,$b,$u){
  $topics=[];foreach((array)($b['topics']??[]) as $topic)$topics[]=sc_text($topic,255);
  $rh=(int)($b['review_hours']??24);$sh=(int)($b['supervisor_hours']??24);
  if(min($rh,$sh)<1||max($rh,$sh)>8760)Http::error('مهلت نامعتبر است',422);
- $c=['reviewer'=>$review,'supervisor'=>$super,'receivers'=>$receivers,'reporters'=>$reporters,'topics'=>array_values(array_unique($topics)),'review_hours'=>$rh,'supervisor_hours'=>$sh,'require_supervisor'=>($b['require_supervisor']??true)===true];
+ $c=['reviewer'=>$review,'supervisor'=>$super,'receivers'=>$receivers,'reporters'=>$reporters,'topics'=>array_values(array_unique($topics)),'review_hours'=>$rh,'supervisor_hours'=>$sh,'require_supervisor'=>($b['require_supervisor']??true)===true,'notifications'=>SchoolComplaintNotifications::normalize($b['notifications']??[])];
  Db::run('INSERT INTO school_complaint_settings(id,config) VALUES(1,?) ON DUPLICATE KEY UPDATE config=VALUES(config)',[json_encode($c,JSON_UNESCAPED_UNICODE)]);return ['ok'=>true];
 });
 route('GET','/api/school-complaints/topics',function($p,$b,$u){sc_need($u);return array_values(array_unique(array_merge(sc_config()['topics']??[],['سایر'])));});
@@ -209,7 +210,9 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  $db=Db::pdo();$db->beginTransaction();
  try{
  $id=Db::insert('INSERT INTO school_complaints(tracking_code,complainant_type,first_name,last_name,phone,address,school_id,company_id,school_snapshot,company_snapshot,subject,body,received_at,created_by,assigned_to,supervisor_id,review_hours,supervisor_hours,due_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[$code,$type,$first,$last,$phone,$address,$school['id'],$company['id'],json_encode($school,JSON_UNESCAPED_UNICODE),json_encode($company,JSON_UNESCAPED_UNICODE),$subject,$body,$received,$u['id'],$review,$super,$rh,$sh,sc_deadline($rh)]);
- Db::run("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);sc_notify($review,$id,'شکایت جدید سرویس مدارس');$db->commit();
+ $eventId=Db::insert("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);
+ SchoolComplaintNotifications::queue((int)$id,(int)$eventId,'created',$c);
+ sc_notify($review,$id,'شکایت جدید سرویس مدارس');$db->commit();
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();if($key!==null&&$e instanceof PDOException&&(int)($e->errorInfo[1]??0)===1062&&($existing=Db::one('SELECT id,tracking_code FROM school_complaints WHERE tracking_code=? AND created_by=?',[$code,$u['id']])))return $existing;throw $e;}
  return ['id'=>$id,'tracking_code'=>$code];
 });
@@ -280,7 +283,8 @@ route('POST','/api/school-complaints/{id}/action',function($p,$b,$u){
  if($act==='close'&&$r['status']==='escalated'&&(int)$r['supervisor_id']!==(int)$u['id']){$db->rollBack();Http::error('مختومه کردن فقط توسط مسئول واحد مجاز است',409);}
  if($act==='close'&&$r['status']!=='escalated'&&(sc_config()['require_supervisor']??true)){$db->rollBack();Http::error('تأیید مسئول واحد الزامی است',409);}
  if($act==='close')Db::run("UPDATE school_complaints SET status='closed',closed_at=NOW() WHERE id=?",[$id]);
- Db::run('INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,?,?)',[$id,$u['id'],$act,$note]);
+ $eventId=Db::insert('INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,?,?)',[$id,$u['id'],$act,$note]);
+ SchoolComplaintNotifications::queue($id,(int)$eventId,$act,sc_config());
  if($act==='escalate')sc_notify($r['supervisor_id'],$id,'ارجاع شکایت سرویس مدارس');
  if($act==='return')sc_notify($reviewer,$id,'بازگشت شکایت برای بررسی تکمیلی');
  if($act==='close')sc_notify($r['created_by'],$id,'مختومه شدن شکایت سرویس مدارس');
