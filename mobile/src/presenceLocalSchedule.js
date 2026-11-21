@@ -81,7 +81,7 @@ async function installLocalAlerts(schedule) {
     if(item.ts*1000<=now+1000||item.ts*1000>now+24*60*60*1000)continue;
     try {
       const identifier=await Notifications.scheduleNotificationAsync({
-        content:{title:'صحت‌سنجی حضور',body:'لطفاً عکس سلفی و تصویر ایستگاه را ثبت کنید.',sound:'presence_validation_alert.mp3',channelId:'presence_alarm',priority:Notifications.AndroidNotificationPriority.MAX,data:{type:'presence_check',random:true,local:true,slot:item.slot,request_id:item.request_id,ts:item.ts,window_minutes:item.window_minutes}},
+        content:{title:'صحت‌سنجی حضور',body:'لطفاً عکس سلفی و تصویر ایستگاه را ثبت کنید.',sound:'presence_validation_alert.mp3',channelId:PRESENCE_ALARM_CHANNEL,priority:Notifications.AndroidNotificationPriority.MAX,data:{type:'presence_check',random:true,local:true,slot:item.slot,request_id:item.request_id,ts:item.ts,window_minutes:item.window_minutes}},
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(item.ts*1000)}
       });
       item.notification_id=identifier;
