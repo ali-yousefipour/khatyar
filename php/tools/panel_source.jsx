@@ -361,7 +361,7 @@ const db = {
   stationExits: (since)=> GET('/admin/station-exits'+(since?('?since='+encodeURIComponent(since)):'')),
   noticeReasons: ()=> GET('/notice-reasons'),
   checklist: ()=> GET('/checklist/template'),
-  settings: ()=> GET('/admin/settings'),
+  settings: (opts)=> GET('/admin/settings',opts),
   publicSettings: ()=> GET('/settings/public'),
   report: (type,from,to,q)=> GET(`/admin/report?type=${type}&from=${from||''}&to=${to||''}&q=${encodeURIComponent(q||'')}`),
   userLines: (id)=> GET('/admin/users/'+id+'/lines'),
@@ -11609,6 +11609,7 @@ function App(){
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
   const [openSections,setOpenSections]=useState({});
   const [settingsLoadedFor,setSettingsLoadedFor]=useState(null);
+  const settingsLoadError=useRef('');
   const [accountOpen,setAccountOpen]=useState(false);
   const [passwordDialog,setPasswordDialog]=useState(false);
   const accountRef=useRef(null);
@@ -11625,7 +11626,8 @@ function App(){
     let live=true;
     const identity=String(me.id)+':'+String(me.role_id);
     setSettingsLoadedFor(null);
-    db.settings().then(s=>{
+    settingsLoadError.current='';
+    db.settings({timeoutMs:15000}).then(s=>{
       if(!live)return;
       const all=s.role_perms||{};
       const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id);
@@ -11638,6 +11640,7 @@ function App(){
         // Fail closed if role permissions cannot be loaded, especially after
         // switching accounts in the same browser session.
         setAllowed([]);
+        settingsLoadError.current=e?.message||'دریافت تنظیمات مدیریتی ناموفق بود.';
         console.warn('Panel settings temporarily unavailable:',e.message);
       }
     }).finally(()=>{if(live)setSettingsLoadedFor(identity);});
@@ -11653,6 +11656,11 @@ function App(){
     <button className="btn p" style={{marginTop:16}} onClick={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}>خروج</button></div></div>);
   if(me.is_admin&&!me.must_change_pw&&(settingsLoadedFor!==String(me.id)+':'+String(me.role_id)||!navigationRestored))
     return <PanelStartupLoading title="در حال آماده‌سازی پنل مدیریت" stage="بارگذاری تنظیمات، مجوزها و صفحات مدیریتی…"/>;
+  if(me.is_admin&&settingsLoadError.current)return <div role="alert" className="kh-login-startup"><div className="kh-long-operation-card">
+    <h3>دریافت تنظیمات پنل ناموفق بود</h3><p>{settingsLoadError.current}</p>
+    <p>برای حفظ امنیت، منوها و اطلاعات مدیریتی تا دریافت مجوزهای معتبر بارگذاری نمی‌شوند.</p>
+    <button type="button" className="btn p" onClick={()=>{settingsLoadError.current='';setAuthRetry(n=>n+1);}}>تلاش مجدد</button>
+  </div></div>;
   const SECTIONS=PANEL_MENU_SECTIONS;
   const can=(k)=>!allowed||allowed.includes(k);
   const firstAllowed=SECTIONS.flatMap(([,keys])=>keys).find(k=>VIEWS[k]&&can(k));
