@@ -7,6 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const permissionsSource = read('mobile/src/appItemPermissions.js');
 const auth = read('mobile/src/auth.js');
 const api = read('mobile/src/api.js');
+const checkinScreen = read('mobile/src/screens/CheckInScreen.js');
 const offline = read('mobile/src/offline.js');
 
 async function testPermissionRevocation() {
@@ -149,6 +150,7 @@ async function testOfflineReplayConcurrency() {
   assert.match(api, /const id=String\(fields\?\.client_uuid\|\|/,'multipart queue must use original UUID');
   assert.match(api, /Only requests known offline BEFORE the first send enter the queue/);
   assert.match(api, /Number\(item.owner_user_id\)===Number\(userId\)/,'offline checkout must be user scoped');
+  assert.match(checkinScreen, /hasPendingAttendanceCheckout\(user\?\.id\)/, 'check-in screen must pass current user to pending checkout verification');
   assert.match(api, /readEpoch!==userCacheEpoch\|\|isAttendanceRead\(path\)/,'asynchronous cache fallback must re-check session');
   assert.match(api, /Date.now\(\)-Number\(j.t\)<=CACHE_MAX_AGE_MS/,'offline cache must expire');
   assert.match(auth, /e\?\.status===403 && \/خروج از حساب کاربری/,'logout must respect explicit administrator policy');
