@@ -17,6 +17,7 @@ const context={
   React:{createElement:node},
   useState(value){const index=cursor++;if(!(index in state))state[index]=value;return [state[index],next=>{state[index]=typeof next==='function'?next(state[index]):next;}];},
   useEffect(){},
+  useRef(initial){return {current:initial};},
   db:{stats:async()=>stats,topWorkers:async()=>workers},
   GET:async()=>[],
   fa:String,
