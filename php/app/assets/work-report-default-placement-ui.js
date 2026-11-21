@@ -72,7 +72,8 @@
     function errorMessage(err){state.textContent=err?.message||'عملیات انجام نشد';state.style.color='#aa2626';}
     const previousFocus=document.activeElement;
     let busy=false;
-    const setBusy=(value)=>{busy=value;box.setAttribute('aria-busy',value?'true':'false');file.disabled=value;close.disabled=value;save.disabled=value;remove.disabled=value;};
+    let hasPlacement=false;
+    const setBusy=(value)=>{busy=value;box.setAttribute('aria-busy',value?'true':'false');file.disabled=value;close.disabled=value;save.disabled=value;remove.disabled=value||!hasPlacement;};
     const dismiss=()=>{
       if(busy)return;
       overlay.remove();
@@ -102,7 +103,7 @@
         if(!response.ok)throw Error('خطا در دریافت وضعیت ذخیره‌سازی');
         const data=await response.json();
         state.textContent=data.placement?'چیدمان فعلی: '+data.placement.source_filename+' | '+data.placement.count+' نیرو':'چیدمان پیش‌فرض قبلاً ذخیره نشده است.';
-        save.disabled=false;remove.disabled=!data.placement;
+        hasPlacement=!!data.placement;save.disabled=false;remove.disabled=!hasPlacement;
       }catch(err){errorMessage(err);save.disabled=true;remove.disabled=true;}
     })();
     save.onclick=async()=>{
@@ -114,7 +115,7 @@
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'POST',body:data});
         const result=await response.json();if(!response.ok)throw Error(result.error||result.message||'خطا در ذخیره: '+response.status);
         state.textContent='جایگذاری '+result.saved_count+' نیرو ذخیره شد. در پیش‌نمایش بعدی اعمال می‌شود.';
-        remove.disabled=false;
+        hasPlacement=true;remove.disabled=false;
       }catch(err){errorMessage(err);}finally{setBusy(false);save.disabled=false;}
     };
     remove.onclick=async()=>{
@@ -124,8 +125,8 @@
       try{
         const response=await authorizedFetch(ENDPOINT+encodeURIComponent(template.id)+'/default-placement',{method:'DELETE'});
         if(!response.ok)throw Error('حذف چیدمان انجام نشد');
-        state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';remove.disabled=true;
-      }catch(err){errorMessage(err);remove.disabled=false;}finally{setBusy(false);save.disabled=false;}
+        state.textContent='چیدمان پیش‌فرض حذف شد. جانمایی خودکار فعال است.';hasPlacement=false;remove.disabled=true;
+      }catch(err){errorMessage(err);remove.disabled=!hasPlacement;}finally{setBusy(false);save.disabled=false;}
     };
   }
   function attach(){
