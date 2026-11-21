@@ -163,8 +163,8 @@ export default function PresenceCheckWizard(){
    if(isFocused&&layoutReported.current&&!readyReported.current)acknowledgeVisible();
  },[isFocused]);
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst={false} onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst={false} onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst={false} onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/><View pointerEvents="none" style={[s.cameraTimer,{top:Math.max(60,insets.top+48)}]}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst={false} onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/><View pointerEvents="none" style={[s.cameraTimer,{top:Math.max(60,insets.top+48)}]}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
 
  return <View style={s.page} onLayout={acknowledgeVisible}>
    <View style={[s.header,{paddingTop:Math.max(16,insets.top+8)}]}>
