@@ -10,9 +10,10 @@ assert.match(source,/state\.tabIndex=-1/,'status is programmatically focusable d
 assert.match(source,/if\(!focusable\.length\)\{event\.preventDefault\(\);state\.focus\(\);return;\}/,'Tab cannot escape while controls are disabled');
 assert.equal((source.match(/!focusable\.includes\(document\.activeElement\)/g)||[]).length,2,'Tab and Shift+Tab remain trapped when status is programmatically focused');
 assert.match(source,/if\(event\.key==='Escape'\)/,'dialog supports Escape');
-const operations=[...source.matchAll(/busy=true;file\.disabled=true;close\.disabled=true;save\.disabled=true;remove\.disabled=true;/g)];
-assert.equal(operations.length,2,'save and remove disable the file while processing');
-const cleanups=[...source.matchAll(/finally\{busy=false;file\.disabled=false;close\.disabled=false;save\.disabled=false;\}/g)];
-assert.equal(cleanups.length,2,'both success and failure restore controls');
+assert.equal((source.match(/setBusy\(true\)/g)||[]).length,2,'both save and delete set modal busy');
+assert.equal((source.match(/finally\{setBusy\(false\);save\.disabled=false;\}/g)||[]).length,2,'both success and failure restore modal controls');
+assert.match(source,/box\.setAttribute\('aria-busy',value\?'true':'false'\)/,'busy state is announced');
+assert.match(source,/save\.disabled=true;remove\.disabled=true/,'save and delete stay disabled before template loads');
+assert.match(source,/hasPlacement=false;remove\.disabled=true/,'delete action stays disabled after removing placement');
 assert.match(source,/previousFocus\?\.isConnected/,'dismiss returns focus to its original target');
 console.log('PASS placement modal label, focus trap, busy and cleanup contracts');
