@@ -123,7 +123,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           ]);
           const row=address?.[0]||{};
           // Never mislabel a neighbourhood, city or landmark as a street.
-          const road=String(row.street||row.name||'').trim();
+          const road=String(row.street||'').trim();
           return road?{street:road,source:'device'}:null;
         }catch(_){return null}
       };
@@ -141,11 +141,25 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       // The device and rate-limited backend are independent. Parallel lookup
       // avoids waiting for a geocoder that hangs on a particular Android build.
       const [deviceRoad,serverRoad]=await Promise.all([deviceLookup(),serverLookup()]);
-      const resolved=deviceRoad||serverRoad||lastRoad;
+      let mapRoad=null;
+      if(!deviceRoad&&!serverRoad){
+        // Existing Neshan endpoint gives a road-name fallback where OSM has
+        // no data or its globally shared Nominatim budget is exhausted.
+        try{
+          const geo=await request('/geo/reverse?lat='+
+            encodeURIComponent(lat.toFixed(6))+'&lng='+
+            encodeURIComponent(lng.toFixed(6)),{
+              noStore:true,timeoutMs:4500,queueIfOffline:false
+            });
+          const road=String(geo?.street||'').trim();
+          if(road)mapRoad={street:road,source:'neshan'};
+        }catch(_){}
+      }
+      const resolved=deviceRoad||serverRoad||mapRoad||lastRoad;
       if(resolved){
         street=String(resolved.street).slice(0,120);
         source=resolved.source||'device';
-        if(deviceRoad||serverRoad)await AsyncStorage.setItem(cacheKey,JSON.stringify({
+        if(deviceRoad||serverRoad||mapRoad)await AsyncStorage.setItem(cacheKey,JSON.stringify({
           lat,lng,street,source,saved_at:Date.now()
         })).catch(()=>{});
       }
@@ -171,7 +185,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         if(!nearestName&&nearest)nearestName=String(nearest?.name||nearest?.title||nearest?.station_name||'');
       }catch{}
       let dist = '';
-      if (nearest?.center_lat != null && station?.center_lng != null) {
+      if (nearest?.center_lat != null && nearest?.center_lng != null) {
         try {
           const d = haversine(lat, lng, Number(nearest.center_lat??nearest.lat??nearest.latitude), Number(nearest.center_lng??nearest.lng??nearest.longitude));
           const edge = nearest.radius_m ? Math.max(0, d - (+nearest.radius_m)) : d;
