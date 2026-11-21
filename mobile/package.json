@@ -16,7 +16,8 @@
     "prebuild:android": "node scripts/prepare-android-release.js",
     "build:android:release": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-release.ps1 -NoPause",
     "validate:phase5": "node scripts/validate-phase5.js",
-    "validate:babel": "node scripts/validate-babel.js"
+    "validate:babel": "node scripts/validate-babel.js",
+    "test:reliability": "node scripts/test-mobile-reliability.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "15.0.2",
