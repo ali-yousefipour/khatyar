@@ -1354,8 +1354,8 @@ function shiftIntervals(day){
   return segments.map((segment,index)=>{
     const x=Array.isArray(segment)?{start:segment[0],end:segment[1]}:segment;
     if(!x||typeof x!=='object')return null;
-    const start=x.start??x.from??x.start_time??x.in??x.check_in??x.entry_time;
-    const end=x.end??x.to??x.end_time??x.out??x.check_out??x.exit_time;
+    const start=x.start??x.s??x.from??x.start_time??x.in??x.check_in??x.entry_time;
+    const end=x.end??x.e??x.to??x.end_time??x.out??x.check_out??x.exit_time;
     if(start==null&&end==null)return null;
     return {key:String(x.id??index),start,end,label:x.title??x.name??x.label??('بازه '+faNum(index+1))};
   }).filter(Boolean);
@@ -1431,15 +1431,19 @@ function CheckInShiftTab(){
     </View>
     {shiftType?<Text style={s.shiftTypeHint}>نوع شیفت: {String(data?.shift?.title??data?.shift_title??shiftType)}</Text>:null}
     {shiftMissing?<View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}><Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text><Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد.'}</Text></View>:days.map((d,index)=>{
-      const intervals=shiftIntervals(d);
+      const ownIntervals=shiftIntervals(d);
       const coverageDay=coverage[shiftCoverageJdate(d.date)]||{};
       const leaveCaption=shiftCoverageCaption(coverageDay);
       const fullDayLeave=!!coverageDay.leave?.some(v=>v.unit!=='hourly');
       const coverNames=[...new Set((coverageDay.cover||[]).map(v=>v.absent_name).filter(Boolean))];
       const coverCaption=coverNames.length?'جایگزین: '+coverNames.join('، '):null;
+      const requesterShift=coverageDay.cover?.[0]?.shift||null;
+      const sourceIntervals=shiftIntervals(requesterShift);
+      const intervals=coverCaption?sourceIntervals:ownIntervals;
       const active=expanded[d.date]??!!d.is_today;
       const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
-      const kind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
+      const ownKind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
+      const kind=coverCaption?(requesterShift?.title||'شیفت جایگزینی؛ جزئیات نامشخص'):ownKind;
       return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard,leaveCaption&&s.shiftLeaveCard,coverCaption&&s.shiftCoverCard]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${leaveCaption||coverCaption||kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
           <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{leaveCaption||coverCaption||(d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind)}</Text></View>
@@ -1448,10 +1452,10 @@ function CheckInShiftTab(){
         </TouchableOpacity>
         {active?<View style={s.shiftDetails}>
           {leaveCaption?<View style={s.shiftLeaveNotice}><Text style={s.shiftLeaveNoticeTitle}>{leaveCaption}</Text><Text style={s.shiftLeaveNoticeText}>درخواست مرخصی برای این تاریخ تأیید شده است.</Text>{(coverageDay.leave||[]).filter(v=>v.unit==='hourly').map((v,i)=><Text key={'hourly-'+i} style={s.shiftLeaveNoticeText}>بازه مرخصی: {shiftTimeFa(v.from_time)} تا {shiftTimeFa(v.to_time)}</Text>)}</View>:null}
-          {coverCaption?<View style={s.shiftCoverNotice}><Text style={s.shiftCoverNoticeTitle}>مأموریت جایگزینی تأییدشده</Text><Text style={s.shiftCoverNoticeText}>در این تاریخ به جای: {coverNames.join('، ')}</Text><Text style={s.shiftCoverNoticeText}>شیفت مؤثر شخص مرخصی‌گیرنده: {kind}</Text><Text style={s.shiftCoverNoticeText}>ساعت‌های ورود و خروج جایگزینی در بخش زیر نمایش داده می‌شوند.</Text></View>:null}
+          {coverCaption?<View style={s.shiftCoverNotice}><Text style={s.shiftCoverNoticeTitle}>مأموریت جایگزینی تأییدشده</Text><Text style={s.shiftCoverNoticeText}>در این تاریخ به جای: {coverNames.join('، ')}</Text><Text style={s.shiftCoverNoticeText}>شیفت نیروی مرخصی‌گیرنده: {kind}</Text><Text style={s.shiftCoverNoticeText}>ساعت‌های شیفت درخواست‌دهنده در بخش زیر نمایش داده می‌شوند؛ اگر برنامه ثبت نشده باشد، ساعت ساختگی نمایش داده نمی‌شود.</Text></View>:null}
           <Text style={s.shiftDetailHeading}>نوع شیفت: {kind}</Text>
-          {d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج در پاسخ برنامه شیفت مشخص نشده است.</Text>}
-          <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {d.is_off?'—':fmtMinFa(d.minutes)}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
+          {!coverCaption&&d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج شیفت تأییدشده در پاسخ سرور مشخص نشده است.</Text>}
+          <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {coverCaption?(requesterShift?.minutes==null?'—':fmtMinFa(requesterShift.minutes)):(d.is_off?'—':fmtMinFa(d.minutes))}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
         </View>:null}
       </View>;
     })}
