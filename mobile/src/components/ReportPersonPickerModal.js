@@ -48,7 +48,7 @@ export default function ReportPersonPickerModal({ visible, targets = [], selecte
             return <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={`${t.first_name || ''} ${t.last_name || ''}، ${t.role_title || 'بدون سمت'}`}
-              accessibilityState={{ selected }}
+              accessibilityState={{selected}}
               style={[s.item, selected && s.itemOn]}
               onPress={() => onSelect(t)}
             >
