@@ -133,18 +133,20 @@ function getRestrictedScreenComponent(routeName, ScreenComponent) {
 function RestrictedScreen({routeName,Component,...props}){
   const {user}=useAuth();
   const [access,setAccess]=React.useState(null);
+  const scopeKey=[routeName,user?.id,user?.role_id,user?.level].map(value=>String(value??'')).join(':');
+  const [authorizedScope,setAuthorizedScope]=React.useState('');
   const [pending,setPending]=React.useState(true);
   const [failure,setFailure]=React.useState(false);
   const [attempt,setAttempt]=React.useState(0);
   React.useEffect(()=>{
     if(!user?.id||routeName==='Dashboard')return undefined;
     let active=true;
-    setAccess(null);setPending(true);setFailure(false);
-    (async()=>{const cached=await readAppItems(user.id);if(!active)return;if(cached!==null){setAccess(cached);setPending(false);}try{const fresh=await refreshAppItems(user.id);if(active){setAccess(fresh);setPending(false);setFailure(false);}}catch(_){if(active&&cached===null){setAccess([]);setFailure(true);setPending(false);}}})();
+    setAccess(null);setAuthorizedScope('');setPending(true);setFailure(false);
+    (async()=>{const cached=await readAppItems(user.id);if(!active)return;if(cached!==null){setAccess(cached);setAuthorizedScope(scopeKey);setPending(false);}try{const fresh=await refreshAppItems(user.id);if(active){setAccess(fresh);setAuthorizedScope(scopeKey);setPending(false);setFailure(false);}}catch(_){if(active&&cached===null){setAccess([]);setAuthorizedScope(scopeKey);setFailure(true);setPending(false);}}})();
     return()=>{active=false};
-  },[routeName,user?.id,user?.role_id,attempt]);
+  },[scopeKey,attempt]);
   if(routeName==='Dashboard')return <Component {...props}/>;
-  if(pending)return <View style={{flex:1,backgroundColor:C.paper,justifyContent:'center',alignItems:'center',padding:24}}><ActivityIndicator size="large" color={C.brand}/><Text style={{fontFamily:FONT.regular,color:C.muted,marginTop:14,textAlign:'center'}}>در حال بررسی دسترسی این بخش…</Text></View>;
+  if(pending||authorizedScope!==scopeKey)return <View style={{flex:1,backgroundColor:C.paper,justifyContent:'center',alignItems:'center',padding:24}}><ActivityIndicator size="large" color={C.brand}/><Text style={{fontFamily:FONT.regular,color:C.muted,marginTop:14,textAlign:'center'}}>در حال بررسی دسترسی این بخش…</Text></View>;
   if(!access?.includes(routeName))return <View style={{flex:1,backgroundColor:C.paper,alignItems:'center',justifyContent:'center',padding:24}}><Text style={{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'center'}}>{failure?'بررسی دسترسی ممکن نشد.':'دسترسی به این بخش برای سمت شما فعال نیست.'}</Text><Text style={{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'center',marginTop:8}}>{failure?'اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.':'در صورت نیاز، مدیر سامانه می‌تواند دسترسی این آیتم را از تنظیمات سمت‌ها فعال کند.'}</Text>{failure?<TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(x=>x+1)} style={{marginTop:20,minHeight:48,minWidth:150,borderRadius:12,backgroundColor:C.brand,alignItems:'center',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:'#fff'}}>تلاش دوباره</Text></TouchableOpacity>:null}</View>;
   return <Component {...props}/>;
 }
