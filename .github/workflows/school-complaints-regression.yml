@@ -6,6 +6,10 @@ on:
     paths:
       - 'php/lib/school_complaints_routes.php'
       - 'php/lib/school_complaint_accounts.php'
+      - 'php/lib/SchoolComplaintNotifications.php'
+      - 'php/app/cron_bale.php'
+      - 'php/migrations/20261121_school_complaint_notification_outbox.sql'
+      - 'php/tests/school_complaint_notifications_test.php'
       - 'php/app/index.php'
       - 'php/app/school-complaints-portal.html'
       - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
@@ -19,6 +23,10 @@ on:
     paths:
       - 'php/lib/school_complaints_routes.php'
       - 'php/lib/school_complaint_accounts.php'
+      - 'php/lib/SchoolComplaintNotifications.php'
+      - 'php/app/cron_bale.php'
+      - 'php/migrations/20261121_school_complaint_notification_outbox.sql'
+      - 'php/tests/school_complaint_notifications_test.php'
       - 'php/app/index.php'
       - 'php/app/school-complaints-portal.html'
       - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
@@ -47,6 +55,8 @@ jobs:
         run: |
           php -l php/lib/school_complaints_routes.php
           php -l php/lib/school_complaint_accounts.php
+          php -l php/lib/SchoolComplaintNotifications.php
+          php -l php/app/cron_bale.php
           php -l php/app/index.php
       - name: Validate JavaScript syntax
         run: |
@@ -72,5 +82,7 @@ jobs:
         run: |
           php php/tools/test_school_complaint_permissions.php
           php php/tools/test_school_complaint_isolated_accounts.php
+      - name: Verify notification event rules and idempotent queue
+        run: php php/tests/school_complaint_notifications_test.php
       - name: Verify full case lifecycle and role enforcement
         run: php php/tools/test_school_complaint_workflow.php
