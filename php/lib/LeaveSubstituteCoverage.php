@@ -104,6 +104,27 @@ final class LeaveSubstituteCoverage {
             return self::status((int)$user['id']);
         });
     }
+    private static function requesterShift(int $userId,string $date): ?array {
+        // Resolve the absent employee's OWN effective shift; never infer from
+        // the substitute employee's permanent shift.
+        if($userId<=0||!function_exists('_active_user_shift_assignment'))return null;
+        $shift=_active_user_shift_assignment($userId,$date);
+        if(!is_array($shift))return null;
+        $title=trim((string)($shift['title']??$shift['shift_title']??$shift['type']??''));
+        $result=['title'=>$title,'type'=>(string)($shift['type']??''),'segments'=>[],'minutes'=>null];
+        $sid=(int)($shift['shift_id']??$shift['id']??0);
+        if($sid>0&&function_exists('_shift_day_row')){
+            $row=_shift_day_row($sid,$date);
+            if(is_array($row)){
+                $segments=$row['segments']??($row['day_config']['segments']??[]);
+                if(is_string($segments))$segments=json_decode($segments,true);
+                if(is_array($segments))$result['segments']=array_slice($segments,0,10);
+                $minute=$row['duty_min']??($row['day_config']['duty_min']??null);
+                if(is_numeric($minute))$result['minutes']=(int)$minute;
+            }
+        }
+        return $result;
+    }
     public static function status(int $uid): array {
         $input=explode(',',(string)($_GET['dates']??''));
         $dates=[];
@@ -128,7 +149,7 @@ final class LeaveSubstituteCoverage {
             }
         }
         $covers=Db::all("SELECT sa.from_date,sa.to_date,r.id AS request_id,
-                TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
+                sa.absent_user_id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
            FROM substitute_assignments sa
            JOIN requests r ON r.id=sa.request_id AND r.status='approved'
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
@@ -141,7 +162,7 @@ final class LeaveSubstituteCoverage {
             if(!$a||!$b)continue;
             foreach($keys as $day){
                 if($day<$a||$day>$b)continue;
-                $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_name'=>$cover['absent_name']];
+                $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_name'=>$cover['absent_name'],'shift'=>self::requesterShift((int)$cover['absent_user_id'],$day)];
             }
         }
         return ['days'=>$output,'from'=>$from,'to'=>$to];
