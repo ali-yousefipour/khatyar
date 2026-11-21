@@ -161,13 +161,9 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
     // never cause a second multipart write via XHR. The server may have
     // committed the operation already.
     if(receivedHttpResponse)throw firstError;
-    // A failed fetch without an HTTP response is ambiguous: the server may
-    // already have committed the upload. Replaying via XHR would duplicate it.
-    // Only queue when the network is definitively offline, using the same UUID.
-    let currentNet=net;
-    try{currentNet=await Network.getNetworkStateAsync()}catch(_){}
-    if(opts.queueIfOffline!==false&&(currentNet?.isConnected===false||currentNet?.isInternetReachable===false))
-      return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
+    // No HTTP response is ambiguous. The server may already have committed
+    // this upload; neither automatic XHR replay nor offline queuing is safe.
+    // Only requests known offline BEFORE the first send enter the queue.
     throw firstError;
 
   }
