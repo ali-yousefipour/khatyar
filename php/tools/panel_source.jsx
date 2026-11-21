@@ -11034,7 +11034,7 @@ function SchoolComplaintsLauncher(){
  const [Component,setComponent]=useState(null),[error,setError]=useState("");
  useEffect(()=>{
   let alive=true;
-  if(!document.querySelector('link[data-school-complaints]')){const css=document.createElement("link");css.rel="stylesheet";css.href="/assets/school-complaints-admin.css?v=20261121.wizard2";css.dataset.schoolComplaints="1";document.head.appendChild(css);}
+  if(!document.querySelector('link[data-school-complaints]')){const css=document.createElement("link");css.rel="stylesheet";css.href="/assets/school-complaints-admin.css?v=20261121.wizard3";css.dataset.schoolComplaints="1";document.head.appendChild(css);}
   const ready=()=>{if(alive&&typeof window.KhatyarSchoolComplaints==="function")setComponent(()=>window.KhatyarSchoolComplaints);else if(alive)setError("رابط شکایات بارگذاری نشد");};
   if(window.KhatyarSchoolComplaints){ready();return()=>{alive=false;};}
   const script=document.createElement("script");script.src="/assets/school-complaints-admin.js?v=20261121.wizard3";script.onload=ready;script.onerror=()=>{if(alive)setError("خطا در دریافت ماژول شکایات");};document.head.appendChild(script);
