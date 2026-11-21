@@ -73,6 +73,24 @@ final class LeaveSubstituteCoverage {
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
     }
+    private static function guardApprovedEdit(array $params,array $body,$user,callable $original) {
+        $id=(int)($params['id']??0);
+        if($id<=0)return $original($params,$body,$user);
+        $row=Db::one('SELECT id,type,unit,substitute_user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE id=?',[$id]);
+        if(!$row||$row['status']!=='approved')return $original($params,$body,$user);
+        // Do not block a text-only correction; canonical editor handles validation.
+        if(!array_intersect(['substitute_user_id','from_jdate','to_jdate','the_date'],array_keys($body)))
+            return $original($params,$body,$user);
+        $next=array_replace($row,array_intersect_key($body,array_flip(['substitute_user_id','from_jdate','to_jdate','the_date'])));
+        if(!self::eligible($next)||empty($next['substitute_user_id']))return $original($params,$body,$user);
+        $subId=(int)$next['substitute_user_id'];$range=self::range($next);
+        if(!$range)return $original($params,$body,$user);
+        self::lock($subId);
+        try{
+            self::ensureAvailable($subId,$range[0],$range[1],$id);
+            return $original($params,$body,$user);
+        }finally{self::unlock($subId);}
+    }
     private static function listSubstitutes(array $params,array $body,$user,callable $original) {
         $answer=$original($params,$body,$user);
         if(!is_array($answer)||!isset($answer['substitutes'])||!is_array($answer['substitutes']))return $answer;
@@ -98,6 +116,8 @@ final class LeaveSubstituteCoverage {
                 $route['fn']=static fn($params,$body,$user)=>self::guardRegistration($body,$original,$params,$user);
             elseif($m==='POST'&&in_array($p,['/api/requests/{id}/decide','/api/admin/requests/{id}/decision'],true))
                 $route['fn']=static fn($params,$body,$user)=>self::guardApproval($params,$body,$user,$original);
+            elseif($m==='PUT'&&$p==='/api/admin/requests/{id}')
+                $route['fn']=static fn($params,$body,$user)=>self::guardApprovedEdit($params,$body,$user,$original);
         }
         unset($route);
         route('GET','/api/my/shift-cover-status',static function($params,$body,$user){
