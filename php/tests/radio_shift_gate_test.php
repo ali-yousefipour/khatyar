@@ -53,6 +53,10 @@ verify(strpos($legacy,'kh_radio_shift_require($u)')!==false,'Legacy voice guard 
 verify(strpos($legacy,'lock_until<DATE_SUB(NOW(),INTERVAL 30 SECOND)')!==false,'Legacy cleanup preserves upload grace');
 verify(strpos($v2,'AS upload_window_valid')!==false,'V2 checks upload lease against DB time');
 verify(strpos($v2,'AS active_lease')!==false,'V2 checks take lease against DB time');
+verify(strpos($v2,'COALESCE(MAX(id),0)+1 n FROM radio_messages')===false,'Radio IDs must never use MAX(id)+1');
+verify(strpos($v2,'INSERT INTO radio_messages(channel_id,sender_id')!==false,'Radio message ID must be allocated by database');
+verify(strpos($v2,'lastInsertId()')!==false,'Radio must retrieve allocated ID');
+verify(strpos($v2,'$pdo->rollBack()')!==false,'Failed uploads must roll back');
 verify(strpos($v2,"'مجوز صحبت شما منقضی شده است'")!==false,'Expired speaking lease remains a separate error from shift rule');
 $panel=file_get_contents(__DIR__.'/../tools/panel_source.jsx');
 verify(strpos($panel,'checked={shiftLimit}')!==false,'Admin setting checkbox is rendered');
