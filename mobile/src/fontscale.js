@@ -1,21 +1,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Text, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'fontScale';
 let FONT_SCALE = 1;
 export const getFontScale = () => FONT_SCALE;
 
-// Keep the fixed-size operational UI independent of Android system font size.
-// RN's public defaultProps are used (not private render/JSX monkey-patching);
-// individual accessible text fields can still opt in with allowFontScaling.
-try {
-  Text.defaultProps = { ...(Text.defaultProps || {}), allowFontScaling: false };
-  TextInput.defaultProps = { ...(TextInput.defaultProps || {}), allowFontScaling: false };
-} catch (e) {
-  console.warn('[fontscale] Could not configure default text scaling', e?.message || e);
-}
-
+// Native Text and TextInput must inherit Android accessibility font scaling.
+// Do not mutate React Native defaultProps: it silently disables user font settings.
+// The coordinate-based A5 payslip renderer explicitly opts out on its print nodes.
 const Ctx = createContext({ scale: 1, setScale: () => {} });
 export const useFontScale = () => useContext(Ctx);
 
