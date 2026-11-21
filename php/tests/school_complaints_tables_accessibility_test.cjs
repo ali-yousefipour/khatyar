@@ -17,7 +17,11 @@ assert.match(css, /\.sc-module \.sc-table\[role="region"\]:focus-visible/,'keybo
 assert.match(css, /max-width:390px/,'report card labels must work on narrow 320/375 screens');
 const portal=fs.readFileSync(path.join(root,'app/school-complaints-portal.html'),'utf8');
 const html=fs.readFileSync(path.join(root,'app/panel.html'),'utf8');
-const version=(text,ext)=>text.match(new RegExp('school-complaints-admin\\\\.'+ext+'\\\\?v=([\\\\w.-]+)'))?.[1];
+const version=(content,ext)=>{
+ const marker='school-complaints-admin.'+ext+'?v=';
+ const start=content.indexOf(marker);
+ return start<0?null:content.slice(start+marker.length).match(/^[a-zA-Z0-9._-]+/)?.[0]||null;
+};
 for (const ext of ['js','css']) {
  const fallback=[panel,built].map(text=>version(text,ext));
  assert.ok(fallback.every(Boolean),'legacy lazy-loader remains versioned: '+ext);
