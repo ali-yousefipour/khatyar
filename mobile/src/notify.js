@@ -11,17 +11,19 @@ let seenAlerts = new Set();
 let seenMsgs = new Set();
 let primed = false;
 let primedMsg = false;
+// A new channel ID is required because Android does not update existing DND bypass settings.
+export const PRESENCE_ALARM_CHANNEL = 'presence_alarm_v2';
 
 export async function ensurePresenceChannel() {
   try {
-    await Notifications.setNotificationChannelAsync('presence_alarm', {
+    await Notifications.setNotificationChannelAsync(PRESENCE_ALARM_CHANNEL, {
       name: 'هشدار صحت‌سنجی حضور',
       description: 'هشدارهای الزامی صحت‌سنجی حضور',
       importance: Notifications.AndroidImportance.MAX,
       sound: 'presence_validation_alert.mp3',
       vibrationPattern: [0, 700, 300, 700, 300, 1000],
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
+      bypassDnd: false,
       enableVibrate: true,
       enableLights: true,
     });
@@ -39,14 +41,14 @@ export async function notify(title, body, data = {}) {
         sound: notificationSoundNameByType(data?.type),
         priority: isPresence ? Notifications.AndroidNotificationPriority.MAX : Notifications.AndroidNotificationPriority.HIGH,
         data: data || {},
-        channelId: isPresence ? 'presence_alarm' : (data?.type === 'message' || data?.type === 'chat' ? 'messages' : (data?.type === 'report' || data?.type === 'inbox_report' ? 'reports' : 'default')),
+        channelId: isPresence ? PRESENCE_ALARM_CHANNEL : (data?.type === 'message' || data?.type === 'chat' ? 'messages' : (data?.type === 'report' || data?.type === 'inbox_report' ? 'reports' : 'default')),
         sticky: false,
       },
       trigger: null,
     });
     // در حالت foreground صدای اختصاصی را هم پخش می‌کنیم؛ در background/lockscreen
     // صدای کانال Android مسئول هشدار است.
-    playSound(soundKeyByNotification(title, body, data)).catch(() => {});
+    if (!isPresence) playSound(soundKeyByNotification(title, body, data)).catch(() => {});
   } catch (e) {}
 }
 
