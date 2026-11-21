@@ -6,8 +6,15 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../app/asse
 let completion;
 let timerId = 0;
 const scheduled = new Map();
+class FakeXHR {
+  constructor(){this.listeners={};}
+  open(method,url){this.method=method;this.url=url;}
+  send(){this.sent=true;}
+  addEventListener(type,handler){this.listeners[type]=handler;}
+  complete(){if(this.listeners.loadend)this.listeners.loadend();}
+}
 const windowMock = {
-  URL,
+  URL, XMLHttpRequest: FakeXHR,
   location: {href:'https://khat-yar.ir/panel',origin:'https://khat-yar.ir'},
   setTimeout(fn){const id=++timerId;scheduled.set(id,fn);return id;},
   clearTimeout(id){scheduled.delete(id);},
@@ -38,6 +45,13 @@ assert.equal(api.classify('/api/health'),null);
 assert.equal(api.classify('/api/admin/users',{method:'DELETE'}),null);
 assert.equal(api.classify('https://evil.example/api/admin/users'),null);
 assert.equal(api.classify('/assets/logo.png'),null);
+const xhr=new windowMock.XMLHttpRequest();
+xhr.open('GET','/api/admin/shift-report/export');
+xhr.send();
+for(const fn of [...scheduled.values()])fn();
+assert.equal(nodes.get('kh-long-operation-progress').hidden,false,'slow XHR must show shared progress');
+xhr.complete();
+assert.equal(nodes.get('kh-long-operation-progress').hidden,true,'completed XHR must clear its progress');
 const request=windowMock.fetch('/api/admin/users');
 const overlay=nodes.get('kh-long-operation-progress');
 assert.ok(!overlay || overlay.hidden,'fast requests should not open progress immediately');
