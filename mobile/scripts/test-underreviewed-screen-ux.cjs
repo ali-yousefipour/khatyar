@@ -27,6 +27,8 @@ assert.match(subscription, /generation\.current/);
 assert.match(subscription, /accessibilityState=\{\{disabled:loading\}\}/);
 assert.match(subscription, /pendingBox/);
 const picker = fs.readFileSync(path.resolve(__dirname, '../src/components/ReportPersonPickerModal.js'), 'utf8');
+assert.match(picker, /<FlatList/, 'person picker virtualizes long result lists');
+assert.doesNotMatch(picker, /\.slice\(0,\s*100\)/, 'person picker must not silently truncate candidates');
 assert.match(picker, /useSafeAreaInsets\(\)/, 'person sheet respects gesture navigation safe area');
 assert.match(picker, /rolesScroll:\{maxHeight:118,flexGrow:0\}/, 'long role filter wraps inside bounded scrollable region');
 assert.match(picker, /accessibilityState=\{\{selected:role===x\}\}/, 'role selection is exposed to TalkBack');
