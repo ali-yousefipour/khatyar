@@ -95,7 +95,7 @@ export default function PersonalPhotoCapture({
     setMessage('در حال بازکردن دوربین گوشی…');
     try {
       // Release any active CameraView before launching the phone camera app.
-      if (useInlineCamera && !(await waitForCameraRelease())) throw new Error('camera_still_in_use');
+      if (!(await waitForCameraRelease())) throw new Error('camera_still_in_use');
       const access = await requestCameraAccess();
       if (!access?.granted) throw new Error('camera_permission_denied');
       const result = await launchCamera({
