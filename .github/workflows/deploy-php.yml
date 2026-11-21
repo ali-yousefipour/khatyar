@@ -687,7 +687,9 @@ jobs:
               $scAccountsSql=file_get_contents($scAccountsPath);
               if($scAccountsSql===false)throw new RuntimeException('School operator accounts migration unreadable');
               $pdo->exec($scAccountsSql);
-              $pdo->query("SELECT id,username,display_name,password_hash,can_receive,can_report,is_active,token_version,failed_attempts,locked_until FROM school_complaint_accounts LIMIT 0");
+              $mobileColumn=$pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='school_complaint_accounts' AND column_name='mobile'")->fetchColumn();
+              if((int)$mobileColumn===0)$pdo->exec("ALTER TABLE school_complaint_accounts ADD COLUMN mobile VARCHAR(20) NOT NULL DEFAULT '' AFTER display_name");
+              $pdo->query("SELECT id,username,display_name,mobile,password_hash,can_receive,can_report,is_active,token_version,failed_attempts,locked_until FROM school_complaint_accounts LIMIT 0");
               // Complaint delivery outbox must exist before notification toggles are used.
               $scNotificationsMigration=dirname(__DIR__,2).'/migrations/20261121_school_complaint_notification_outbox.sql';
               if(!is_file($scNotificationsMigration))throw new RuntimeException('Complaint notification migration missing');
