@@ -536,3 +536,30 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
   .sc-module .sc-table { overflow: visible; max-width: none; }
   .layout .page-content table, .sc-module .sc-table table { font-size: inherit; }
 }
+
+/* Same navigation and heading scale across every canonical panel view. */
+.layout .side :is(.navitem,.navsec-head) {
+  font-family: "Vazirmatn", Tahoma, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.layout .side .navlabel { min-width: 0; overflow-wrap: anywhere; }
+.layout .main > .top :is(h1,h2),
+.layout .page-content .page-head :is(h1,h2),
+.layout .page-content .page-header :is(h1,h2) {
+  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.5rem);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.layout .page-content .kpi .n {
+  font-size: clamp(1.375rem, 1rem + 1vw, 2rem);
+  font-variant-numeric: tabular-nums;
+}
+.layout .page-content :is(.tabbar,.dashboard-primary-tabs) button {
+  font-family: "Vazirmatn", Tahoma, sans-serif;
+  line-height: 1.65;
+}
+@media screen and (max-width: 430px) {
+  .layout .main > .top :is(h1,h2) { min-width: 0; }
+  .layout .side .navitem { min-height: 44px; }
+}
