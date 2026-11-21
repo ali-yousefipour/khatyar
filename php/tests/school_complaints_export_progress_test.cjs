@@ -12,6 +12,7 @@ const section = (from, to) => {
 const calls = [];
 let fail = false;
 let failWrite = false;
+let invalidTotal = null;
 const progress = {
   begin(title, options) { calls.push(['begin', title, options]); return 17; },
   update(id, details) { calls.push(['update', id, details]); },
@@ -29,7 +30,7 @@ const xlsx = {
 const context = {
   window: { KhatyarLongOperation: progress, KhatyarSchoolPdf: { download: async () => { calls.push(['pdf']); if (fail) throw Error('pdf failed'); } }, XLSX: xlsx },
   perform: fn => fn(), base: '/school-complaints', tab: 'inbox', query: p => 'page=' + p,
-  get: async () => { if (fail) throw Error('network failed'); return { total: 1, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
+  get: async () => { if (fail) throw Error('network failed'); return { total: invalidTotal === null ? 1 : invalidTotal, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
   labels: { pending: 'در انتظار' }, name: () => 'کاربر نمونه', date: () => '۱۴۰۵/۰۸/۳۰',
   files: [], M: () => {}, setTimeout: cb => cb(), XLSX: xlsx, Map, Error
 };
@@ -53,6 +54,17 @@ vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.e
   await assert.rejects(context.exportRows(), /xlsx write failed/);
   assert.equal(calls.at(-1)[0], 'end', 'Excel serialization error must close spinner');
   failWrite = false;
+  calls.length = 0;
+  invalidTotal = Number.NaN;
+  await assert.rejects(context.exportRows(), /تعداد ردیف‌های گزارش معتبر نیست/);
+  assert.equal(calls.some(v => v[0] === 'write'), false, 'invalid total cannot create incomplete file');
+  assert.equal(calls.at(-1)[0], 'end', 'invalid total closes operation loader');
+  invalidTotal = 10001;
+  calls.length = 0;
+  await assert.rejects(context.exportRows(), /حداکثر ده هزار ردیف/);
+  assert.equal(calls.some(v => v[0] === 'write'), false, 'oversized export is rejected before serialization');
+  assert.equal(calls.at(-1)[0], 'end');
+  invalidTotal = null;
   calls.length = 0;
   fail = true;
   await assert.rejects(context.exportRows(), /network failed/);
