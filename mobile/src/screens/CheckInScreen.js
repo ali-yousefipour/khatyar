@@ -1386,6 +1386,8 @@ function shiftCoverageCaption(day){
 }
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
+  const [coverage,setCoverage]=useState({});
+  const [coverageError,setCoverageError]=useState('');
   const [busy,setBusy]=useState(true);
   const [err,setErr]=useState('');
   const [expanded,setExpanded]=useState({});
