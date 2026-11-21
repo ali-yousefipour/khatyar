@@ -136,11 +136,13 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
   const definitelyOffline=net.isConnected===false||net.isInternetReachable===false;
   if(opts.queueIfOffline!==false&&definitelyOffline)return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
   const timeout=opts.timeoutMs||60000;
+  let receivedHttpResponse=false;
   const doFetch=async()=>{
     const fd=new FormData();
     for(const[k,v]of Object.entries(sendFields)){if(v!=null)fd.append(k,String(v))}
     if(fileUri)fd.append(fileField,{uri:fileUri,name:fileName,type:mimeType});
     let r=await fetchTimeout(base+path,{method:'POST',headers:{...(accessToken?{Authorization:'Bearer '+accessToken,'X-Access-Token':accessToken}:{}),...(opts.clientUuid?{'X-Client-UUID':opts.clientUuid}:{})},body:fd},timeout);
+    receivedHttpResponse=true;
     if(r.status===401&&await refreshAccess()){
       const fd2=new FormData();
       for(const[k,v]of Object.entries(sendFields)){if(v!=null)fd2.append(k,String(v))}
@@ -155,6 +157,10 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
   try{
     return await doFetch();
   }catch(firstError){
+    // A received HTTP response (including 4xx, 5xx or malformed JSON) must
+    // never cause a second multipart write via XHR. The server may have
+    // committed the operation already.
+    if(receivedHttpResponse)throw firstError;
     // اگر اتصال واقعاً برقرار است، خطای شبکه نباید باعث انتقال کاذب بازدید به صف آفلاین شود.
     // برای Android یک مسیر multipart مبتنی بر XHR نیز امتحان می‌کنیم.
     try{
