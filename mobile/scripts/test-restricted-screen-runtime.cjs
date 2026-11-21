@@ -9,7 +9,7 @@ const start=source.indexOf('function RestrictedScreen(');
 const end=source.indexOf('function MainStack(',start);
 assert.ok(start>=0&&end>start,'RestrictedScreen exists');
 const compiled=babel.transformSync(source.slice(start,end),{
-  presets:[require.resolve('babel-preset-expo')],babelrc:false,configFile:false
+  filename:path.resolve(__dirname,'../App.js'),presets:[require.resolve('babel-preset-expo')],babelrc:false,configFile:false
 }).code;
 const jsx=(type,props)=>({type,props:props||{}});
 const SECRET=()=>null;
