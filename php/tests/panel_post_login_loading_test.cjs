@@ -21,7 +21,7 @@ assert.match(source, /if\(me\.is_admin&&!me\.must_change_pw&&\(settingsLoadedFor
 assert.match(source, /if\(!live\)return;/, 'stale settings response is ignored');
 assert.match(source, /setAllowed\(\[\]\);[\s\S]*console\.warn\('Panel settings temporarily unavailable:/, 'role permissions fail closed on initial settings error');
 assert.match(source, /\.finally\(\(\)=>\{if\(live\)setSettingsLoadedFor\(identity\);\}\)/, 'loading clears on success or failure');
-assert.match(source, /\[me\?\.id,me\?\.role_id,me\?\.is_admin,me\?\.must_change_pw\]/, 'settings reload is scoped to authenticated identity');
+assert.match(source, /\[me\?\.id,me\?\.role_id,me\?\.is_admin,me\?\.must_change_pw,authRetry\]/, 'settings reload is scoped to identity and retry');
 assert.match(progress, /\.kh-login-startup\{/, 'shared loading stylesheet includes post-login layout');
 assert.match(progress, /\.kh-long-operation-spinner/, 'visual uses the same spinner');
 assert.match(shell, /panel-long-operation-progress\.js/, 'progress stylesheet loads before React app');
