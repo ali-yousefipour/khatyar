@@ -11580,7 +11580,6 @@ function PanelStartupLoading({title="در حال آماده‌سازی پنل م
 
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [authError,setAuthError]=useState(''); const [authRetry,setAuthRetry]=useState(0); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState([]); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
-  const [settingsLoadedFor,setSettingsLoadedFor]=useState(null);
   const [navigationRestored,setNavigationRestored]=useState(false);
   useEffect(()=>{
     if(!me?.is_admin){setNavigationRestored(false);setV('dashboard');return;}
@@ -11609,6 +11608,7 @@ function App(){
   const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
   const [openSections,setOpenSections]=useState({});
+  const [settingsLoadedFor,setSettingsLoadedFor]=useState(null);
   const [accountOpen,setAccountOpen]=useState(false);
   const [passwordDialog,setPasswordDialog]=useState(false);
   const accountRef=useRef(null);
