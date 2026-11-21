@@ -13,7 +13,7 @@ assert.match(radio, /onAccessTokenChanged\(token=>/);
 assert.match(radio, /syncNative\(\{initialized:true\}\)/);
 assert.match(radio, /lastRecentRefreshAtRef\.current>=15000/);
 assert.match(radio, /lastPresenceAtRef\.current>=20000/);
-assert.match(server, /if\(in_array\(\$op,\['channels','settings'\],true\)\)/);
+assert.match(server, /if\(in_array\(\$op,\['channels','settings','shift-limit-set'\],true\)\)/);
 const dispatchStart=server.indexOf("$op=$_GET['op']");
 assert.ok(dispatchStart>0,'radio dispatch must exist');
 const hotPath=server.slice(dispatchStart,server.indexOf("if($op==='channels'"));
