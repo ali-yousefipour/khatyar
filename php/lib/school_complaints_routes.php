@@ -83,7 +83,7 @@ function sc_allowed_actions($r,$u): array {
  if(in_array($status,['pending','in_progress','returned','escalated'],true))$actions[]='reply';
  if(in_array($status,['pending','in_progress','answered','returned'],true))$actions[]='escalate';
  if($status==='escalated'&&(int)$r['supervisor_id']===(int)$u['id']){$actions[]='return';$actions[]='close';}
- elseif($status!=='escalated'&&!(sc_config()['require_supervisor']??true))$actions[]='close';
+ elseif($status==='answered'&&!(sc_config()['require_supervisor']??true))$actions[]='close';
  return $actions;
 }
 function sc_case($id,$u): array {
