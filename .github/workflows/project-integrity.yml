@@ -125,6 +125,7 @@ jobs:
           node mobile/scripts/test-presence-wizard-lifecycle.cjs
           node mobile/scripts/test-presence-monotonic-clock.cjs
           node mobile/scripts/test-presence-offline-fallback.cjs
+          node mobile/scripts/test-presence-offline-assets.cjs
           node mobile/scripts/test-presence-local-scheduling.cjs
           node mobile/scripts/test-manual-attendance-offline.cjs
           node php/tests/selfie_ui_test.cjs
