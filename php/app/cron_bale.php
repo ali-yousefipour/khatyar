@@ -8,6 +8,8 @@ $ROOT = dirname(__DIR__);
 require $ROOT.'/lib/Db.php';
 require $ROOT.'/lib/Http.php';
 require $ROOT.'/lib/Bale.php';
+require $ROOT.'/lib/Sms.php';
+require $ROOT.'/lib/SchoolComplaintNotifications.php';
 require $ROOT.'/lib/BaleReportTools.php';
 
 $isCli = php_sapi_name() === 'cli';
@@ -44,6 +46,11 @@ try {
   } catch (Throwable $e) { $log['retry_error']=$e->getMessage(); }
   $log['failed_messages_retried']=$retried;
   $log['maintenance_only']=$maintenanceOnly;
+  // Complaint delivery is opt-in and transactional. Never dispatch during maintenance-only.
+  if (!$maintenanceOnly) {
+    try { $log['school_complaint_notifications']=SchoolComplaintNotifications::dispatch(25); }
+    catch (Throwable $e) { $log['school_complaint_notifications_error']='صف اعلان شکایات آماده نیست؛ وضعیت Migration و تنظیمات بررسی شود'; }
+  }
 } catch (Throwable $e) {
   $log['ok']=false; $log['error']=$e->getMessage();
 }
