@@ -9,6 +9,7 @@ on:
       - 'mobile/scripts/test-mobile-reliability.cjs'
       - 'mobile/scripts/test-native-fontscale-policy.cjs'
       - 'mobile/scripts/test-route-grant-scope.cjs'
+      - 'mobile/scripts/test-restricted-screen-runtime.cjs'
       - 'mobile/scripts/test-role-app-items-contract.cjs'
       - 'mobile/package.json'
       - 'mobile/package-lock.json'
@@ -45,6 +46,7 @@ jobs:
         run: |
           node scripts/test-native-fontscale-policy.cjs
           node scripts/test-route-grant-scope.cjs
+          node scripts/test-restricted-screen-runtime.cjs
           node scripts/test-role-app-items-contract.cjs
         working-directory: mobile
       - name: Verify Babel and React Native syntax
