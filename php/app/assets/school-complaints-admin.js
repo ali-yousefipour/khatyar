@@ -36,7 +36,8 @@ function Lookup({get,path,label,display,onPick,min=0,initial='',extra='',seed=[]
   return()=>document.removeEventListener('pointerdown',outside);
  },[open]);
  useEffect(()=>{if(!open)return;let live=true;if(q.length<min){setRows([]);setLoading(false);return;}setLoading(true);const t=setTimeout(()=>get(base+'/'+path+'?q='+encodeURIComponent(q)+extra).then(v=>{if(live){setRows(Array.isArray(v)?v:[]);setErr('');}}).catch(e=>{if(live){setErr(errorText(e));setRows([]);}}).finally(()=>{if(live)setLoading(false);}),300);return()=>{live=false;clearTimeout(t);};},[q,extra,open,path]);
- const dismiss=()=>{setOpen(false);inputRef.current?.focus();};
+ const suppressFocus=useRef(false);
+ const dismiss=()=>{setOpen(false);if(inputRef.current&&document.activeElement!==inputRef.current){suppressFocus.current=true;inputRef.current.focus();suppressFocus.current=false;}};
  const onInputKey=e=>{
   if(e.key==='Escape'){e.preventDefault();dismiss();}
   if(e.key==='ArrowDown'&&open&&rows.length&&!loading){e.preventDefault();boxRef.current?.querySelector('.sc-results [role="option"]')?.focus();}
@@ -52,7 +53,7 @@ function Lookup({get,path,label,display,onPick,min=0,initial='',extra='',seed=[]
  return h('div',{className:'sc-lookup',ref:boxRef},
   field(label,{value:q,ref:inputRef,role:'combobox','aria-controls':listId.current,'aria-haspopup':'listbox',
     'aria-expanded':open,'aria-autocomplete':'list','aria-busy':loading,autoComplete:'off',
-    onFocus:()=>setOpen(true),onChange:e=>{setQ(e.target.value);setOpen(true);},onKeyDown:onInputKey}),
+    onFocus:()=>{if(!suppressFocus.current)setOpen(true);},onChange:e=>{setQ(e.target.value);setOpen(true);},onKeyDown:onInputKey}),
   open&&h('div',{className:'sc-results',id:listId.current,role:'listbox','aria-label':'نتایج '+label},
    loading?h('p',{role:'status'},'در حال جستجو…'):err?h('p',{role:'alert'},err):
    rows.length?rows.map((x,i)=>h('button',{key:x.id||x.national_code||i,type:'button',role:'option','aria-selected':false,
