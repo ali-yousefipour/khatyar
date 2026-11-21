@@ -143,6 +143,11 @@ jobs:
           node --check php/app/assets/android-app-ui.js
           node --version
           node --check php/app/assets/panel.bundle.js
+          node --check php/app/assets/school-complaints-admin.js
+          node php/tests/school_complaints_lookup_table_ux_test.cjs
+          node php/tests/school_complaints_export_progress_test.cjs
+          node php/tests/school_complaints_tables_accessibility_test.cjs
+          node php/tests/panel_shared_modal_focus_test.cjs
           node php/tests/personnel_dashboard_modal_test.cjs
           node php/tests/live_staff_kpi_modal_test.cjs
           node php/tests/panel_navigation_ui_test.cjs
