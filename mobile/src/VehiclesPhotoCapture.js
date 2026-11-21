@@ -35,10 +35,16 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [useInlineCamera] = useState(!systemCameraFirst);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
+  const permissionPromptStarted=useRef(false);
   const autoSubmissionStarted = useRef(false);
   const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen && useInlineCamera);
 
   useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
+  useEffect(()=>{
+    if(!perm||perm.granted||!perm.canAskAgain||permissionPromptStarted.current)return;
+    permissionPromptStarted.current=true;
+    requestPerm().catch(()=>setError('دسترسی دوربین صادر نشد؛ مجوز را در تنظیمات گوشی بررسی کنید.'));
+  },[perm?.granted,perm?.canAskAgain]);
   // Some Android devices report a mounted camera without delivering preview frames.
   // Recreate the native camera once if its ready event never arrives.
   const previewRetryRef = useRef(0);
