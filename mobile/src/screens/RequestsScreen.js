@@ -225,7 +225,13 @@ function NewRequest({ onDone, initialType, initialDate }) {
     setSubLoading(true);
     try {
       const r = await request(`/my/substitutes?from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`);
-      setSubs(r.substitutes || []);
+      const fresh=Array.isArray(r.substitutes)?r.substitutes:[];
+      setSubs(fresh);
+      setSub(prev=>{
+        if(!prev)return null;
+        const next=fresh.find(x=>Number(x.id)===Number(prev.id));
+        return next||{...prev,available:false,reason:'این نیرو دیگر در بازه انتخابی در فهرست جایگزین‌های مجاز نیست'};
+      });
     } catch (e) { setSubs([]); }
     finally { setSubLoading(false); }
   };
