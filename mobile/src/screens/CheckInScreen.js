@@ -1378,6 +1378,14 @@ function shiftCoverageJdate(raw){
   const j=gregorian_to_jalali_client(y,m,d);
   return j[0]+'-'+String(j[1]).padStart(2,'0')+'-'+String(j[2]).padStart(2,'0');
 }
+function shiftCurrentJalaliMonthDates(){
+  // Use Tehran time so an employee viewing the app abroad still sees the
+  // operational month. Extra month-end dates are harmless read-only probes.
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tehran',year:'numeric',month:'numeric',day:'numeric'}).formatToParts(new Date());
+  const value=key=>Number(parts.find(x=>x.type===key)?.value)||0;
+  const g=gregorian_to_jalali_client(value('year'),value('month'),value('day'));
+  return Array.from({length:31},(_,i)=>g[0]+'-'+String(g[1]).padStart(2,'0')+'-'+String(i+1).padStart(2,'0'));
+}
 function shiftCoverageCaption(day){
   const leaves=day?.leave||[];
   if(!leaves.length)return null;
@@ -1401,7 +1409,8 @@ function CheckInShiftTab(){
       if(seq===requestSeq.current&&cached&&Array.isArray(cached.days))setData(cached);
       const fresh=await request(cacheKey,{timeoutMs:12000,noStore:true});
       if(seq===requestSeq.current)setData(fresh||{shift:null,days:[],message:'پاسخ برنامه شیفت خالی است.'});
-      const dates=[...new Set((fresh?.days||[]).map(d=>shiftCoverageJdate(d.date)).filter(Boolean))];
+      const scheduleDates=[...new Set((fresh?.days||[]).map(d=>shiftCoverageJdate(d.date)).filter(Boolean))];
+      const dates=scheduleDates.length?scheduleDates:shiftCurrentJalaliMonthDates();
       if(dates.length){
         try {
           const related=await request('/my/shift-cover-status?dates='+encodeURIComponent(dates.join(',')),{
@@ -1417,7 +1426,11 @@ function CheckInShiftTab(){
   };
   useEffect(()=>{loadSchedule();return()=>{requestSeq.current++}},[]);
   if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
-  const days=Array.isArray(data?.days)?data.days:[];
+  const scheduled=Array.isArray(data?.days)?data.days:[];
+  // Show confirmed leave/cover events even for staff without a permanent shift.
+  const days=scheduled.length?scheduled:Object.keys(coverage).sort().map(date=>({
+    date,weekday:'روز',is_off:true,minutes:0,shift_title:'بدون شیفت دائمی'
+  }));
   // A temporary substitute can have dated shifts even without a permanent assignment.
   const shiftMissing=days.length===0;
   const total=days.reduce((sum,d)=>sum+Math.max(0,Number(d.minutes)||0),0);
