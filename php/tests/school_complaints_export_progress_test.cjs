@@ -13,6 +13,9 @@ const calls = [];
 let fail = false;
 let failWrite = false;
 let invalidTotal = null;
+let partialResult = false;
+let bulkResult = false;
+let fetchCalls = 0;
 const progress = {
   begin(title, options) { calls.push(['begin', title, options]); return 17; },
   update(id, details) { calls.push(['update', id, details]); },
@@ -30,7 +33,7 @@ const xlsx = {
 const context = {
   window: { KhatyarLongOperation: progress, KhatyarSchoolPdf: { download: async () => { calls.push(['pdf']); if (fail) throw Error('pdf failed'); } }, XLSX: xlsx },
   perform: fn => fn(), base: '/school-complaints', tab: 'inbox', query: p => 'page=' + p,
-  get: async () => { if (fail) throw Error('network failed'); return { total: invalidTotal === null ? 1 : invalidTotal, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
+  get: async () => { if (fail) throw Error('network failed'); fetchCalls++; if (partialResult) return { total: 2, rows: fetchCalls === 1 ? [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] : [] }; if (bulkResult) return { total: 501, rows: Array.from({ length: 501 }, (_, i) => ({ tracking_code: 'SSC-' + i, phone: '0912', status: 'pending' })) }; return { total: invalidTotal === null ? 1 : invalidTotal, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
   labels: { pending: 'در انتظار' }, name: () => 'کاربر نمونه', date: () => '۱۴۰۵/۰۸/۳۰',
   files: [], M: () => {}, setTimeout: cb => cb(), XLSX: xlsx, Map, Error
 };
@@ -65,6 +68,21 @@ vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.e
   assert.equal(calls.some(v => v[0] === 'write'), false, 'oversized export is rejected before serialization');
   assert.equal(calls.at(-1)[0], 'end');
   invalidTotal = null;
+  partialResult = true;
+  fetchCalls = 0;
+  calls.length = 0;
+  await assert.rejects(context.exportRows(), /دریافت همه ردیف‌های گزارش کامل نشد/);
+  assert.equal(calls.some(v => v[0] === 'write'), false, 'partial API pages cannot create an Excel file');
+  assert.equal(calls.at(-1)[0], 'end', 'partial export must close progress');
+  partialResult = false;
+  bulkResult = true;
+  calls.length = 0;
+  await context.exportRows();
+  const stages = calls.filter(v => v[0] === 'update').map(v => v[2].stage);
+  assert.ok(stages.some(stage => /آماده‌سازی 250 از 501/.test(stage)), 'large Excel exports yield after a real chunk');
+  assert.ok(stages.some(stage => /آماده‌سازی 501 از 501/.test(stage)), 'large Excel exports report actual prepared row counts');
+  assert.equal(calls.at(-1)[0], 'end');
+  bulkResult = false;
   calls.length = 0;
   fail = true;
   await assert.rejects(context.exportRows(), /network failed/);
