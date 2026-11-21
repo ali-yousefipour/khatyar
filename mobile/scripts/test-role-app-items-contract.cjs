@@ -24,7 +24,8 @@ assert.doesNotMatch(route.match(/route\('GET', '\/api\/my\/app-items'[\s\S]*?\},
 for (const key of ['Dashboard', 'Radio', 'CheckIn', 'StationCapture', 'MyStations', 'LineLocation', 'Requests']) {
   assert.ok(keys(adminItems).includes(key), `Missing canonical permission key: ${key}`);
 }
-assert.match(app, /if\(pending\)return <View/, 'Restricted pages must wait for authorization');
+assert.match(app, /if\(pending\|\|authorizedScope!==scopeKey\)return <View/, 'Restricted pages must wait for current account and role authorization');
+assert.match(app, /const scopeKey=\[routeName,user\?\.id,user\?\.role_id,user\?\.level\]/, 'Permission scope must follow current route and identity');
 assert.match(app, /if\(!access\?\.includes\(routeName\)\)/, 'Page access must be denied when permission is absent');
 assert.match(app, /refreshAppItems\(user.id\)/);
 assert.match(permissions, /forceNetwork:\s*true,\s*queueIfOffline:\s*false/, 'Page permissions must be retrieved from the current server state');
