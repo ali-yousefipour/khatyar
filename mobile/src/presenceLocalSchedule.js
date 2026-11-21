@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import {ensurePresenceChannel} from './notify';
+import {ensurePresenceChannel,PRESENCE_ALARM_CHANNEL} from './notify';
 import {tehranGregorianParts} from './jdate';
 
 export const PRESENCE_LOCAL_SCHEDULE_KEY = 'presence_local_schedule_v2';
@@ -14,7 +14,7 @@ async function scheduleFixedAlerts(policy){
   if(!policy?.enabled||!policy?.assigned||policy?.random_enabled||!policy?.slots?.length)return;
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(FIXED_KEY)||'null')}catch{}
-  if(existing?.version===2&&existing?.user_id===policy.user_id&&existing?.day===policy.day&&existing?.window_minutes===policy.window_minutes&&JSON.stringify(existing?.slots)===JSON.stringify(policy.slots))return;
+  if(existing?.version===3&&existing?.user_id===policy.user_id&&existing?.day===policy.day&&existing?.window_minutes===policy.window_minutes&&JSON.stringify(existing?.slots)===JSON.stringify(policy.slots))return;
   for(const item of existing?.items||[])if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
   await ensurePresenceChannel();
   const items=[];
@@ -24,7 +24,7 @@ async function scheduleFixedAlerts(policy){
     if(!Number.isFinite(ts)||ts<=Date.now())continue;
     try{
       const notification_id=await Notifications.scheduleNotificationAsync({
-        content:{title:'صحت‌سنجی حضور',body:'زمان ثبت سلفی و تصویر ایستگاه فرا رسیده است.',sound:'presence_validation_alert.mp3',channelId:'presence_alarm',priority:Notifications.AndroidNotificationPriority.MAX,
+        content:{title:'صحت‌سنجی حضور',body:'زمان ثبت سلفی و تصویر ایستگاه فرا رسیده است.',sound:'presence_validation_alert.mp3',channelId:PRESENCE_ALARM_CHANNEL,priority:Notifications.AndroidNotificationPriority.MAX,
           data:{type:'presence_check',slot,request_id:policy.day+'_'+slot,ts:Math.floor(ts/1000),window_minutes:policy.window_minutes}},
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(ts)}
       });
@@ -32,7 +32,7 @@ async function scheduleFixedAlerts(policy){
       await AsyncStorage.setItem('presence_notified:'+policy.day+':'+slot,'1');
     }catch{}
   }
-  await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({version:2,user_id:policy.user_id,day:policy.day,window_minutes:policy.window_minutes,slots:policy.slots,items}));
+  await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({version:3,user_id:policy.user_id,day:policy.day,window_minutes:policy.window_minutes,slots:policy.slots,items}));
 }
 export async function cachedPresencePolicy(userId) {
   try { const p=JSON.parse(await AsyncStorage.getItem(MODE_KEY)||'null'); return Number(p?.user_id)===Number(userId)?p:null; } catch { return null; }
@@ -95,7 +95,15 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
   // The clock-in epoch (not the temporary/server database ID) survives offline sync.
   const id=String(Math.floor(open.start/1000));
-  if(Number(existing?.user_id)===Number(userId)&&existing?.attendance_id===id&&existing?.items?.length)return existing;
+  if(Number(existing?.user_id)===Number(userId)&&existing?.attendance_id===id&&existing?.items?.length){
+    if(existing.notification_channel_version===2)return existing;
+    // Upgrade today's pending notifications off the old DND-bypass channel.
+    for(const item of existing.items)if(item.notification_id){await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});delete item.notification_id;}
+    await installLocalAlerts(existing);
+    existing.notification_channel_version=2;
+    await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(existing));
+    return existing;
+  }
   if(existing?.items?.length)for(const item of existing.items)if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
   const items=[];
   for(let block=0;block<2;block++) {
@@ -108,7 +116,7 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
       items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
     }
   }
-  const schedule={user_id:Number(userId),attendance_id:id,start:open.start,items:items.slice(0,MAX_RANDOM_PER_SESSION),created_at:Date.now()};
+  const schedule={user_id:Number(userId),attendance_id:id,start:open.start,items:items.slice(0,MAX_RANDOM_PER_SESSION),created_at:Date.now(),notification_channel_version:2};
   await installLocalAlerts(schedule);
   await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(schedule));
   return schedule;
