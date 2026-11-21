@@ -37,7 +37,23 @@ export default function PersonalPhotoCapture({
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
   const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!permission?.granted && !preview && useInlineCamera && !systemCameraOpen);
+  const previewRetryRef=useRef(0);
+  const cameraGenerationRef=useRef(cameraKey);
+  cameraGenerationRef.current=cameraKey;
   useEffect(() => { if (!cameraActive) setReady(false); }, [cameraActive]);
+  useEffect(()=>{
+    if(!cameraActive||ready||preview||systemCameraOpen)return undefined;
+    // Timeout is an error detector, not a startup delay: CameraView mounts immediately.
+    const timer=setTimeout(()=>{
+      if(previewRetryRef.current<2){
+        previewRetryRef.current++;
+        setMessage('پیش‌نمایش دوربین آماده نشد؛ تلاش مجدد برای اتصال…');
+        restartCamera();
+      }else setMessage('دوربین آماده نشد. دوربین گوشی را باز کنید یا راه‌اندازی مجدد را بزنید.');
+    },6500);
+    return()=>clearTimeout(timer);
+  },[cameraActive,ready,preview,systemCameraOpen,cameraKey]);
+  useEffect(()=>{if(ready)previewRetryRef.current=0},[ready]);
   useEffect(() => () => { captureGeneration.current += 1; }, []);
 
   useEffect(() => {
@@ -191,10 +207,18 @@ export default function PersonalPhotoCapture({
         facing={facing === 'back' ? 'back' : 'front'}
         mode="picture"
         active
-        onCameraReady={() => { setReady(true); setMessage(instruction); }}
+        onCameraReady={() => {
+          if(cameraGenerationRef.current!==cameraKey)return;
+          setReady(true); setMessage(instruction);
+        }}
         onMountError={(event) => {
+          if(cameraGenerationRef.current!==cameraKey)return;
           setReady(false);
-          setMessage(event?.message || 'دوربین آماده نشد. یک‌بار از صفحه خارج و دوباره وارد شوید.');
+          if(previewRetryRef.current<2){
+            previewRetryRef.current++;
+            setMessage('اتصال دوربین قطع شد؛ در حال بازیابی…');
+            restartCamera();
+          }else setMessage(event?.message || 'دوربین آماده نشد. راه‌اندازی دوباره یا دوربین گوشی را انتخاب کنید.');
         }}
       />}
 
