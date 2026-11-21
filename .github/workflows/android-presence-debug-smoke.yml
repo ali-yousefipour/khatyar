@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/android-presence-debug-smoke.yml'
+      - 'mobile/src/VehiclesPhotoCapture.js'
+      - 'mobile/scripts/test-presence-watermark-compact.cjs'
 permissions:
   contents: read
 concurrency:
@@ -59,6 +61,7 @@ jobs:
           node scripts/test-presence-wizard-lifecycle.cjs
           node scripts/test-presence-offline-fallback.cjs
           node scripts/test-presence-offline-assets.cjs
+          node scripts/test-presence-watermark-compact.cjs
       - name: Generate complete Expo Android project with native alarm plugin
         working-directory: mobile
         timeout-minutes: 15
