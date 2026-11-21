@@ -43,6 +43,8 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          node --check app/assets/panel-long-operation-progress.js
+          node tests/panel_long_operation_progress_test.cjs
           node tests/panel_read_dedup_test.cjs
           grep -Eiq 'gps' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver control missing from compiled bundle'; exit 1; }
           node --check app/assets/school-service-admin.js
