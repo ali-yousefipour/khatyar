@@ -33,6 +33,14 @@ function sc_operator_auth(array $jwt): array {
 function sc_operator_name(string $value,int $max=200): string {
  return sc_text($value,$max);
 }
+function sc_operator_mobile($raw): string {
+ $str=strtr(trim((string)$raw),['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);
+ $digits=preg_replace('/\\D+/','',$str);
+ if($digits==='')return '';
+ if(strlen($digits)===12&&str_starts_with($digits,'98'))$digits='0'.substr($digits,2);
+ if(!preg_match('/^09\\d{9}$/D',$digits))Http::error('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود',422);
+ return $digits;
+}
 function sc_operator_password($value): string {
  if(!is_string($value)||strlen($value)<12||strlen($value)>128)
    Http::error('رمز عبور باید بین ۱۲ تا ۱۲۸ کاراکتر باشد',422);
@@ -40,7 +48,7 @@ function sc_operator_password($value): string {
 }
 function sc_account_view(array $r): array {
  return ['id'=>(int)$r['id'],'sc_id'=>(int)$r['id']*-1,'username'=>$r['username'],
-  'display_name'=>$r['display_name'],'can_receive'=>(bool)$r['can_receive'],
+  'display_name'=>$r['display_name'],'mobile'=>(string)($r['mobile']??''),'can_receive'=>(bool)$r['can_receive'],
   'can_report'=>(bool)$r['can_report'],'is_active'=>(bool)$r['is_active']];
 }
 route('POST','/api/school-complaints/portal/login',function($p,$b,$u){
@@ -67,7 +75,7 @@ route('GET','/api/school-complaints/portal/me',function($p,$b,$u){
 });
 route('GET','/api/school-complaints/accounts',function($p,$b,$u){
  sc_need($u,'admin');
- return array_map('sc_account_view',Db::all('SELECT id,username,display_name,can_receive,can_report,is_active FROM school_complaint_accounts ORDER BY id DESC LIMIT 500'));
+ return array_map('sc_account_view',Db::all('SELECT id,username,display_name,mobile,can_receive,can_report,is_active FROM school_complaint_accounts ORDER BY id DESC LIMIT 500'));
 });
 route('POST','/api/school-complaints/accounts',function($p,$b,$u){
  sc_need($u,'admin');
@@ -75,9 +83,10 @@ route('POST','/api/school-complaints/accounts',function($p,$b,$u){
  if(!preg_match('/^[a-zA-Z][a-zA-Z0-9._-]{3,99}$/D',$username))Http::error('نام کاربری باید با حرف لاتین شروع شود و حداقل ۴ نویسه داشته باشد',422);
  $name=sc_operator_name($b['display_name']??'');
  $password=sc_operator_password($b['password']??null);
+ $mobile=sc_operator_mobile($b['mobile']??'');
  try {
-  $id=Db::insert('INSERT INTO school_complaint_accounts(username,display_name,password_hash,can_receive,can_report) VALUES(?,?,?,?,?)',
-    [$username,$name,password_hash($password,PASSWORD_BCRYPT),!empty($b['can_receive'])?1:0,!empty($b['can_report'])?1:0]);
+  $id=Db::insert('INSERT INTO school_complaint_accounts(username,display_name,password_hash,can_receive,can_report,mobile) VALUES(?,?,?,?,?,?)',
+    [$username,$name,password_hash($password,PASSWORD_BCRYPT),!empty($b['can_receive'])?1:0,!empty($b['can_report'])?1:0,$mobile]);
  }catch(PDOException $e){
   if((int)($e->errorInfo[1]??0)===1062)Http::error('این نام کاربری قبلاً ثبت شده است',409);
   throw $e;
@@ -89,9 +98,10 @@ route('PUT','/api/school-complaints/accounts/{id}',function($p,$b,$u){
  $id=(int)$p['id'];
  if($id<=0||!Db::one('SELECT id FROM school_complaint_accounts WHERE id=?',[$id]))Http::error('حساب یافت نشد',404);
  $name=sc_operator_name($b['display_name']??'');
+ $mobile=sc_operator_mobile($b['mobile']??'');
  $password=$b['password']??'';
- $args=[$name,!empty($b['can_receive'])?1:0,!empty($b['can_report'])?1:0,!empty($b['is_active'])?1:0];
- $query='UPDATE school_complaint_accounts SET display_name=?,can_receive=?,can_report=?,is_active=?,token_version=token_version+1,failed_attempts=0,locked_until=NULL';
+ $args=[$name,!empty($b['can_receive'])?1:0,!empty($b['can_report'])?1:0,!empty($b['is_active'])?1:0,$mobile];
+ $query='UPDATE school_complaint_accounts SET display_name=?,can_receive=?,can_report=?,is_active=?,mobile=?,token_version=token_version+1,failed_attempts=0,locked_until=NULL';
  if($password!==''){$args[]=password_hash(sc_operator_password($password),PASSWORD_BCRYPT);$query.=',password_hash=?';}
  $args[]=$id;
  Db::run($query.' WHERE id=?',$args);
