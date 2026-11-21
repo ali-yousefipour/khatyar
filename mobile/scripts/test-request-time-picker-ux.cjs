@@ -12,4 +12,9 @@ assert.match(picker, /onSelect\(formatTime\(hour, m\)\)/, 'API must receive unch
 assert.match(requests, /label=\{label\} onSelect=\{onPick\}/, 'picker identifies start or end time');
 assert.match(picker, /columns: \{ flexDirection: 'row-reverse'/, 'Picker columns retain RTL Android layout');
 assert.ok(picker.indexOf('<SpinnerColumn label="دقیقه"') < picker.indexOf('<SpinnerColumn label="ساعت"'), 'With row-reverse on RTL Android, hour appears on the left and minute on the right');
+assert.match(picker, /accessibilityLabel=\{'کاهش ' \+ label\} onPress=\{\(\) => change\(-1\)\}/, 'upper spinner control moves to preceding value');
+assert.match(picker, /accessibilityLabel=\{'افزایش ' \+ label\} onPress=\{\(\) => change\(1\)\}/, 'lower spinner control moves to following value');
+assert.match(picker, /arrow: \{ minHeight: 44/, 'spinner arrows meet Android touch target');
+assert.match(picker, /neighbor: \{ minHeight: 44/, 'adjacent time entries meet Android touch target');
+assert.match(picker, /behavior=\{Platform.OS === 'ios' \? 'padding' : 'height'\}/, 'keyboard avoidance works on Android');
 console.log('PASS request time picker UX and HH:mm contract');
