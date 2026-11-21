@@ -12,6 +12,7 @@ on:
       - 'php/tools/panel_source.jsx'
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
+      - 'php/tests/school_complaints_date_ui_test.cjs'
       - '.github/workflows/school-complaints-regression.yml'
   pull_request:
     paths:
@@ -23,6 +24,7 @@ on:
       - 'php/tools/panel_source.jsx'
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
+      - 'php/tests/school_complaints_date_ui_test.cjs'
       - '.github/workflows/school-complaints-regression.yml'
 
 permissions:
@@ -50,6 +52,8 @@ jobs:
           node --check php/app/assets/school-complaints-qr.js
           node --check php/app/assets/school-complaints-pdf.js
           node --check php/app/assets/school-complaints-portal.js
+      - name: Verify complaint timestamps and lookup loading state
+        run: node php/tests/school_complaints_date_ui_test.cjs
       - name: Verify deployed asset wiring and source/bundle consistency
         run: node php/tools/test_school_complaint_assets.cjs
       - name: Verify redesigned registration wizard contracts
