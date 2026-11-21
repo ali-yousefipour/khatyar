@@ -1299,6 +1299,35 @@ function Dashboard() {
     const [tw, setTw] = useState({ top: [], bottom: [] });
     const [workersState, setWorkersState] = useState("idle");
     const [activeTab, setActiveTab] = useState('overview');
+    const tabOperation = useRef(null);
+    // Allow the browser to paint a real loader before mounting data-heavy tab
+    // contents; keyboard and mouse use the same route. Keep zero-delay fallback
+    // for non-browser render tests and older browsers.
+    const switchDashboardTab = key => {
+        if (key === activeTab)
+            return;
+        const progress = typeof window !== 'undefined' ? window.KhatyarLongOperation : null;
+        if (!progress || typeof window.requestAnimationFrame !== 'function') {
+            setActiveTab(key);
+            return;
+        }
+        if (tabOperation.current)
+            progress.end(tabOperation.current);
+        const op = progress.begin('در حال آماده‌سازی تب داشبورد', { stage: 'در حال بارگذاری و آماده‌سازی اطلاعات تب انتخاب‌شده…', delay: 0 });
+        tabOperation.current = op;
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            setActiveTab(key);
+            // API-bound loaders continue independently through the fetch tracker.
+            window.requestAnimationFrame(() => window.setTimeout(() => {
+                if (tabOperation.current === op) {
+                    progress.end(op);
+                    tabOperation.current = null;
+                }
+            }, 260));
+        }));
+    };
+    useEffect(() => () => { var _a; if (tabOperation.current && typeof window !== 'undefined')
+        (_a = window.KhatyarLongOperation) === null || _a === void 0 ? void 0 : _a.end(tabOperation.current); }, []);
     const [bdays, setBdays] = useState(null);
     const [loadErr, setLoadErr] = useState("");
     const [loading, setLoading] = useState(true);
@@ -1325,8 +1354,8 @@ function Dashboard() {
     const K = [["راننده فعال", s.drivers, "کاربران فعال ناوگان"], ["خط فعال", s.lines, "خطوط در حال بهره‌برداری"], ["حضور امروز", s.today_attendance, "تردد ثبت‌شده امروز"], ["فیش پرداخت‌نشده", s.unpaid_bills, "نیازمند پیگیری"], ["تذکر این ماه", s.notices_month, "موارد ثبت‌شده ماه جاری"]];
     return (React.createElement("div", { className: "dashboard-page" },
         React.createElement(BirthdayCelebration, { bdays: bdays }),
-        React.createElement("div", { className: "dashboard-primary-tabs", role: "tablist", "aria-label": "\u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0645\u062F\u06CC\u0631\u06CC\u062A" }, [["overview", "نمای کلی"], ["personnel", "ترکیب نیروها"], ["attendance", "حضور پرسنل"], ["performance", "کارایی نیروها"], ["insights", "تحلیل مدیریتی"]].map(([key, label]) => React.createElement("button", { type: "button", role: "tab", key: key, id: 'dashboard-tab-' + key, "aria-controls": 'dashboard-content-' + key, "aria-selected": activeTab === key, tabIndex: activeTab === key ? 0 : -1, className: activeTab === key ? 'active' : '', onClick: () => setActiveTab(key), onKeyDown: e => { var _a; if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key))
-                return; e.preventDefault(); const tabs = [...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')]; const i = tabs.indexOf(e.currentTarget); const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowLeft' ? 1 : -1) + tabs.length) % tabs.length; (_a = tabs[j]) === null || _a === void 0 ? void 0 : _a.focus(); setActiveTab(['overview', 'personnel', 'attendance', 'performance', 'insights'][j]); } }, label))),
+        React.createElement("div", { className: "dashboard-primary-tabs", role: "tablist", "aria-label": "\u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0645\u062F\u06CC\u0631\u06CC\u062A" }, [["overview", "نمای کلی"], ["personnel", "ترکیب نیروها"], ["attendance", "حضور پرسنل"], ["performance", "کارایی نیروها"], ["insights", "تحلیل مدیریتی"]].map(([key, label]) => React.createElement("button", { type: "button", role: "tab", key: key, id: 'dashboard-tab-' + key, "aria-controls": 'dashboard-content-' + key, "aria-selected": activeTab === key, tabIndex: activeTab === key ? 0 : -1, className: activeTab === key ? 'active' : '', onClick: () => switchDashboardTab(key), onKeyDown: e => { var _a; if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key))
+                return; e.preventDefault(); const tabs = [...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')]; const i = tabs.indexOf(e.currentTarget); const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowLeft' ? 1 : -1) + tabs.length) % tabs.length; (_a = tabs[j]) === null || _a === void 0 ? void 0 : _a.focus(); switchDashboardTab(['overview', 'personnel', 'attendance', 'performance', 'insights'][j]); } }, label))),
         activeTab === 'overview' && React.createElement("section", { className: "dashboard-overview", id: "dashboard-content-overview", role: "tabpanel", "aria-labelledby": "dashboard-tab-overview", "aria-label": "\u0622\u0645\u0627\u0631 \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647" },
             React.createElement("div", { className: "dashboard-section-head" },
                 React.createElement("div", null,
@@ -12830,6 +12859,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
     const [to, setTo] = useState(attendanceInitialRange.to);
     const [data, setData] = useState(null);
     const [busy, setBusy] = useState(false);
+    const attendanceRequest = useRef(0);
     const [reportError, setReportError] = useState("");
     const [openDay, setOpenDay] = useState(null);
     const [dayAudit, setDayAudit] = useState([]);
@@ -12837,6 +12867,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
     useEffect(() => { let alive = true; GET("/auth/me").then(r => { const u = (r === null || r === void 0 ? void 0 : r.user) || r; if (alive)
         setCanViewDayAudit(Number(u === null || u === void 0 ? void 0 : u.level) === 1 && Boolean(u === null || u === void 0 ? void 0 : u.is_admin)); }).catch(() => { if (alive)
         setCanViewDayAudit(false); }); return () => { alive = false; }; }, []);
+    useEffect(() => () => { attendanceRequest.current++; }, []);
     const [dayAuditBusy, setDayAuditBusy] = useState(false);
     const [dayAuditError, setDayAuditError] = useState("");
     const [dayAuditReload, setDayAuditReload] = useState(0);
@@ -12981,6 +13012,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
         }
     };
     const run = async (reportUserId = uid, overrideFrom = null, overrideTo = null) => {
+        var _a;
         if (!reportUserId) {
             alert("پرسنل را انتخاب کنید");
             return;
@@ -13007,19 +13039,35 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
             setFrom(rangeFrom);
         if (to !== rangeTo)
             setTo(rangeTo);
+        const generation = ++attendanceRequest.current;
+        const operation = typeof window !== 'undefined' && window.KhatyarLongOperation
+            ? window.KhatyarLongOperation.begin('در حال تهیه گزارش تردد', { stage: 'دریافت و تحلیل اطلاعات تردد بازه انتخاب‌شده…', delay: 0 })
+            : null;
         setBusy(true);
         setReportError("");
         setData(null);
         setOpenDay(null);
         try {
-            const r = await db.attendanceReport(reportUserId, rangeFrom, rangeTo);
-            setData(r);
+            if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
+                await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+            const result = await db.attendanceReport(reportUserId, rangeFrom, rangeTo);
+            if (generation === attendanceRequest.current)
+                setData(result);
         }
         catch (e) {
-            setReportError(e.message || "خطا در دریافت گزارش");
+            if (generation === attendanceRequest.current)
+                setReportError(e.message || "خطا در دریافت گزارش");
         }
         finally {
-            setBusy(false);
+            if (generation === attendanceRequest.current)
+                setBusy(false);
+            if (operation) {
+                // Let React commit the table before hiding the progress surface.
+                if (typeof window.requestAnimationFrame === 'function')
+                    window.requestAnimationFrame(() => window.requestAnimationFrame(() => { var _a; return (_a = window.KhatyarLongOperation) === null || _a === void 0 ? void 0 : _a.end(operation); }));
+                else
+                    (_a = window.KhatyarLongOperation) === null || _a === void 0 ? void 0 : _a.end(operation);
+            }
         }
     };
     useEffect(() => {
@@ -15225,7 +15273,7 @@ function ShiftReport() {
             }
         };
         if (id)
-            progressTimer.current = setInterval(poll, 1000);
+            progressTimer.current = setInterval(poll, 2000);
         else
             publishWork({ ...progressData.current, stage: "در حال پردازش؛ درصد پیشرفت در این مرورگر در دسترس نیست" });
         return op;
