@@ -209,3 +209,19 @@
 @media(max-width:390px){.sc-module .sc-wizard-step-label{font-size:9px}.sc-module .sc-wizard-aside dl{grid-template-columns:1fr}.sc-module .sc-wizard-panel{padding:12px}.sc-module .sc-wizard-selection-header .btn{width:100%}}
 @media print{.sc-module .sc-wizard-stepper,.sc-module .sc-wizard-track,.sc-module .sc-wizard-aside,.sc-module .sc-wizard-actions{display:none!important}.sc-module .sc-wizard-panel{box-shadow:none}.sc-module .sc-wizard-review-card{break-inside:avoid}}
 @media(prefers-reduced-motion:reduce){.sc-module .sc-wizard-track span{transition:none}}
+
+
+/* Stage 4: keyboard-accessible scroll regions and readable responsive report cards. */
+.sc-module .sc-table[role="region"] { scroll-padding-inline: 12px; overscroll-behavior-inline: contain; }
+.sc-module .sc-table[role="region"]:focus-visible { outline: 3px solid #087f67; outline-offset: 3px; }
+.sc-module .sc-table .sc-responsive-table :is(th,td) { line-height: 1.8; }
+@media screen and (max-width:900px) {
+  .sc-module .sc-responsive-table tbody tr { box-shadow: 0 2px 12px rgba(8,58,45,.06); }
+  .sc-module .sc-responsive-table td::before { color: #35594c; font-size: .875rem; line-height: 1.7; }
+  .sc-module .sc-responsive-table td { min-width: 0; align-items: start; }
+}
+@media screen and (max-width:390px) {
+  .sc-module .sc-responsive-table td { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .sc-module .sc-responsive-table td small { grid-column: 1; }
+  .sc-module .sc-responsive-table td::before { font-weight: 750; }
+}
