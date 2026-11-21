@@ -22,6 +22,7 @@ export default function PresenceGate({navigationRef}){
  const cfgRef=useRef(null);
  const mountedRef=useRef(false);
  const openedRef=useRef(false);
+ const wizardReadyRef=useRef(false);
  const wizardWasActiveRef=useRef(false);
  const RANDOM_CACHE_KEY='presence_local_schedule_v2';
  const checkingRef=useRef(false);
@@ -110,7 +111,7 @@ export default function PresenceGate({navigationRef}){
   const openFromNotification=async(raw={})=>{
    const data=notificationData(raw);
    if(data?.type!=='presence_check'||!alive)return;
-   if(navigationRef?.getCurrentRoute?.()?.name==='PresenceCheckWizard'){stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});return;}
+   if(navigationRef?.getCurrentRoute?.()?.name==='PresenceCheckWizard')return; // Route presence alone does not prove an interactive wizard.
    const immediate=data.immediate===true||data.immediate==='true'||data.immediate===1||data.immediate==='1';
    if(dueRef.current)return;
    let cfg=cfgRef.current||{};
@@ -165,9 +166,10 @@ export default function PresenceGate({navigationRef}){
    if(wizardWasActiveRef.current){
     wizardWasActiveRef.current=false;
     openedRef.current=false;
-    dueRef.current=null;
-    if(mountedRef.current)setDue(null);
-    stopPresenceAlarm().catch(()=>{});
+    wizardReadyRef.current=false;
+    // A still-pending request must not lose its sound merely because navigation changed.
+    if(dueRef.current&&Date.now()<dueRef.current.deadlineMs)
+      startPresenceAlarm(dueRef.current.deadlineMs).catch(()=>{});
    }
   };
   const sub=navigationRef.addListener?.('state',onState);
@@ -179,6 +181,7 @@ export default function PresenceGate({navigationRef}){
 
   openedRef.current=true;
   wizardWasActiveRef.current=false;
+  wizardReadyRef.current=false;
   let alive=true;
   (async()=>{try{
    const startKey='presence_wizard_started:'+userId+':'+due.requestId;
@@ -189,7 +192,7 @@ export default function PresenceGate({navigationRef}){
    navigationRef.navigate('PresenceCheckWizard',{
     slot:due.slot,
     windowMinutes:due.windowMinutes,
-    deadlineMs:presenceDeadline(startedAt,due.windowMinutes),
+    deadlineMs:Number(due.deadlineMs)||presenceDeadline(startedAt,due.windowMinutes),
     day:due.day,
     key:due.key,
     expiredKey:due.expiredKey,
@@ -199,15 +202,18 @@ export default function PresenceGate({navigationRef}){
    });
   }catch(e){
    openedRef.current=false;
-   startPresenceAlarm().catch(()=>{});
+   startPresenceAlarm(due.deadlineMs).catch(()=>{});
   }})();
   return()=>{alive=false;};
  },[due,navigationRef,appActive]);
 
  useEffect(()=>{
   const alarmOn=cfgRef.current?cfgRef.current.alarm!==false:true;
-  if(due&&alarmOn&&!openedRef.current)startPresenceAlarm().catch(()=>{});else stopPresenceAlarm().catch(()=>{});
-  return()=>{stopPresenceAlarm().catch(()=>{})};
+  if(due&&alarmOn&&!wizardReadyRef.current)
+    startPresenceAlarm(due.deadlineMs).catch(()=>{});
+  else if(!due)stopPresenceAlarm().catch(()=>{});
+  // Do not stop a native foreground alarm on a navigation-effect cleanup.
+  return()=>{};
  },[due]);
 
  return null;
