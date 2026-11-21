@@ -7,7 +7,7 @@ const html=fs.readFileSync(path.join(__dirname,'../app/panel.html'),'utf8');
 const marker=css.indexOf('WEB-UX-010');
 assert.ok(marker>=0,'shared design improvements must exist in canonical emerald stylesheet');
 const layer=css.slice(marker);
-assert.match(html,/khatyar-emerald-system\.css\?v=20261121\.unified2/,'the new style version is cache busted');
+assert.match(html,/khatyar-emerald-system\.css\?v=20261121\.audit34/,'the new style version is cache busted');
 assert.ok(html.indexOf('panel.bundle.css')<html.indexOf('khatyar-emerald-system.css'),'canonical design layer overrides base panel styles');
 for(const key of ['--kh-type-body','--kh-type-caption','--kh-control-height','--kh-text','--kh-border','--kh-focus']){
  assert.ok(layer.includes(key),'design token missing: '+key);
@@ -32,4 +32,8 @@ for(const character of withoutComments){
  assert.ok(depth>=0,'CSS closing brace without opening brace');
 }
 assert.equal(depth,0,'all CSS blocks must be balanced');
+for (const marker of ['WEB-UX-012','WEB-UX-013']) assert.ok(css.includes(marker), 'missing audit phase marker: '+marker);
+const phase34=css.slice(css.indexOf('/* WEB-UX-012'));
+for(const pattern of [/table thead th/,/position: sticky/,/:focus-within/,/:focus-visible/,/overscroll-behavior: contain/,/max-height: calc\\(100dvh - 24px\\)/,/@media screen and \\(max-width: 430px\\)/,/@media \\(prefers-reduced-motion: reduce\\)/]) assert.match(phase34,pattern,'table and modal behavior contract');
+assert.ok(!phase34.includes('@media print'),'responsive rules must not modify print behavior');
 console.log('PASS shared typography, controls, focus, tables, modal and responsive CSS contracts');
