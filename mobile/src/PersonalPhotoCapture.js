@@ -73,7 +73,7 @@ export default function PersonalPhotoCapture({
       });
       if (!photo?.uri) throw new Error('camera_empty_result');
 
-      await getAppConfig();
+      await getAppConfig().catch(()=>null); // Cached configuration is optional after the photo is already captured.
       const dataUrl = await compressToDataUri(photo.uri);
       if (!dataUrl) throw new Error('camera_base64_missing');
       setReady(false);
