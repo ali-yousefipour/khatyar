@@ -9,6 +9,7 @@ import PersonalPhotoCapture from'./PersonalPhotoCapture';
 import VehiclesPhotoCapture from'./VehiclesPhotoCapture';
 import{playSound}from'./soundFx';
 import{stopPresenceAlarm}from'./presenceAlarm';
+import{emitPresenceWizardState}from'./presenceWizardLifecycle';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {markLocalPresenceCompleted} from './presenceLocalSchedule';
 import {useAuth} from './auth';
@@ -36,8 +37,13 @@ export default function PresenceCheckWizard(){
  const coordsRef=useRef(null);
  const finishedRef=useRef(false);
  const allowExitRef=useRef(false);
+ const readyReported=useRef(false);
+ const terminalRef=useRef(false);
 
- useEffect(()=>{stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});getAppConfig().catch(()=>{});},[]);
+ useEffect(()=>{
+   getAppConfig().catch(()=>{});
+   return()=>{if(!terminalRef.current)emitPresenceWizardState(requestId,'hidden');};
+ },[requestId]);
  useEffect(()=>{
    if(step==='selfie')playSound('presenceSelfie').catch(()=>{});
    if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});
@@ -67,8 +73,10 @@ export default function PresenceCheckWizard(){
      setSecs(remaining);
      if(remaining===0&&!finishedRef.current&&!sending){
        setExpired(true);
+       terminalRef.current=true;
+       emitPresenceWizardState(requestId,'expired');
        setStep('expired');
-       stopPresenceAlarm().catch(()=>{});
+       stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
      }
    };
    update();
@@ -110,6 +118,8 @@ export default function PresenceCheckWizard(){
      if(!r?.ok||(!r?.queued&&(!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)))throw new Error('ثبت یا ذخیره در صف تأیید نشد.');
      setQueued(!!r.queued);
      finishedRef.current=true;
+     terminalRef.current=true;
+     emitPresenceWizardState(requestId,'completed');
      if(doneKey)await AsyncStorage.setItem(doneKey,'1');
      await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done',{slot,day,immediate,user_id:Number(user?.id||0)});
      await stopPresenceAlarm();
@@ -126,6 +136,8 @@ export default function PresenceCheckWizard(){
  }
 
  const expire=async()=>{
+   terminalRef.current=true;
+   emitPresenceWizardState(requestId,'expired');
    if(expiredKey&&!immediate)try{await AsyncStorage.setItem(expiredKey,'1')}catch(_){}
    await stopPresenceAlarm();
    closeWizard();
@@ -133,11 +145,17 @@ export default function PresenceCheckWizard(){
 
  const mm=String(Math.floor(secs/60)).padStart(2,'0');
  const ss=String(secs%60).padStart(2,'0');
+ const timeFa=(mm+':'+ss).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+ const acknowledgeVisible=()=>{
+   if(readyReported.current)return;
+   readyReported.current=true;
+   emitPresenceWizardState(requestId,'ready');
+ };
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst={false} onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst={false} onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
 
- return <View style={s.page}>
+ return <View style={s.page} onLayout={acknowledgeVisible}>
    <View style={s.header}>
      <MaterialCommunityIcons name="shield-check-outline" size={29} color="#f5d89d" />
      <Text style={s.headerTitle}>صحت‌سنجی حضور</Text>
@@ -147,7 +165,7 @@ export default function PresenceCheckWizard(){
      {step==='intro'&&<>
        <MaterialCommunityIcons name="camera-account" size={54} color="#075f51" style={s.icon} />
        <Text style={s.title}>آماده انجام صحت‌سنجی هستید؟</Text>
-       <Text style={s.timer}>{mm}:{ss}</Text>
+       <Text style={s.timer} accessibilityRole="timer">{timeFa}</Text>
        <Text style={s.body}>برای تأیید حضور در محل کار، باید ظرف این مدت یک «عکس سلفی» و سپس یک «عکس از خودروهای حاضر در خط» ارسال کنید.</Text>
        <View style={s.stepsBox}>
          <Text style={s.stepLine}>۱  سلفی با دوربین جلو (با لباس فرم)</Text>
@@ -155,7 +173,7 @@ export default function PresenceCheckWizard(){
          <Text style={s.stepLine}>۳  ثبت خودکار تاریخ، ساعت و موقعیت</Text>
        </View>
        {!!error&&<Text style={s.error}>{error}</Text>}
-       <TouchableOpacity style={s.btn} activeOpacity={0.85} onPress={()=>{stopPresenceAlarm().catch(()=>{});setStep('selfie')}}>
+       <TouchableOpacity style={s.btn} activeOpacity={0.85} accessibilityRole="button" onPress={()=>setStep('selfie')}>
          <Text style={s.btnTxt}>مرحله ۱ — گرفتن سلفی</Text>
        </TouchableOpacity>
      </>}
@@ -183,6 +201,8 @@ const s=StyleSheet.create({
  headerTitle:{width:'100%',color:'#fff',fontFamily:FONT.bold,fontSize:20,textAlign:'right',writingDirection:'rtl'},
  headerSub:{width:'100%',color:'#dcefe9',fontFamily:FONT.regular,fontSize:12,textAlign:'right',writingDirection:'rtl',marginTop:4},
  stage:{flex:1,width:'100%',height:'100%',backgroundColor:'#000'},
+ cameraTimer:{position:'absolute',top:12,alignSelf:'center',backgroundColor:'rgba(5,48,42,.94)',paddingHorizontal:16,paddingVertical:7,borderRadius:13,zIndex:8},
+ cameraTimerText:{fontFamily:FONT.bold,fontSize:18,color:'#fff',textAlign:'center'},
  scroll:{flex:1,width:'100%'},
  content:{flexGrow:1,width:'100%',alignItems:'center',justifyContent:'center',paddingHorizontal:22,paddingVertical:28},
  icon:{fontSize:54,marginBottom:10,textAlign:'center'},
