@@ -15,4 +15,9 @@ assert.match(screen, /accessibilityLabel="به‌روزرسانی بی‌صدا�
 assert.match(screen, /marginRight: 8, minHeight: 48, justifyContent: 'center'/,
   'Stale attendance refresh must meet the minimum Android touch target');
 
+assert.match(screen,/accessibilityLabel=\{\`\$\{d\.weekday\}، \$\{shiftJalaliFa\(d\.date\)\}، \$\{kind\}\`\} accessibilityState=\{\{expanded:active\}\}/,'daily shift card must announce label and expansion');
+const inbox=fs.readFileSync(path.resolve(__dirname,'../src/screens/RequestScreens.js'),'utf8');
+assert.match(inbox,/accessibilityLabel=\{\`درخواست \$\{r\.requester/, 'inbox request card must announce requester and kind');
+assert.match(inbox,/accessibilityState=\{\{expanded:open\}\} onPress=\{\(\)=>setExpanded/,'inbox request card must announce expansion state');
+assert.match(inbox,/accessibilityLabel="پاک کردن جستجوی درخواست"/,'inbox search clear icon needs an accessible label');
 console.log('PASS check-in accessibility: tabs, reminder, methods, location and retry');
