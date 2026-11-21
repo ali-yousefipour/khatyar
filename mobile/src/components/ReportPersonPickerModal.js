@@ -14,8 +14,9 @@ export default function ReportPersonPickerModal({ visible, targets = [], selecte
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
     >
       <View style={[s.sheet, { paddingBottom: Math.max(22, insets.bottom + 12) }]}>
-        <View style={s.head}><Text style={s.title}>{title}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن انتخاب شخص" onPress={onClose} style={s.close}><Text style={s.closeTxt}>✕</Text></TouchableOpacity></View>
+        <View style={s.head}><Text allowFontScaling style={s.title}>{title}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن انتخاب شخص" onPress={onClose} style={s.close}><Text allowFontScaling style={s.closeTxt}>✕</Text></TouchableOpacity></View>
         <TextInput
+          allowFontScaling
           style={s.search}
           accessibilityLabel="جستجوی نام یا سمت شخص"
           value={query}
@@ -26,8 +27,8 @@ export default function ReportPersonPickerModal({ visible, targets = [], selecte
           returnKeyType="search"
         />
         <ScrollView style={s.rolesScroll} contentContainerStyle={s.roles} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-          <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:!role}} style={[s.role,!role&&s.roleOn]} onPress={()=>setRole('')}><Text style={[s.roleTxt,!role&&s.roleTxtOn]}>همه سمت‌ها</Text></TouchableOpacity>
-          {roles.map(x=><TouchableOpacity key={x} accessibilityRole="button" accessibilityState={{selected:role===x}} style={[s.role,role===x&&s.roleOn]} onPress={()=>setRole(role===x?'':x)}><Text style={[s.roleTxt,role===x&&s.roleTxtOn]}>{x}</Text></TouchableOpacity>)}
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:!role}} style={[s.role,!role&&s.roleOn]} onPress={()=>setRole('')}><Text allowFontScaling style={[s.roleTxt,!role&&s.roleTxtOn]}>همه سمت‌ها</Text></TouchableOpacity>
+          {roles.map(x=><TouchableOpacity key={x} accessibilityRole="button" accessibilityState={{selected:role===x}} style={[s.role,role===x&&s.roleOn]} onPress={()=>setRole(role===x?'':x)}><Text allowFontScaling style={[s.roleTxt,role===x&&s.roleTxtOn]}>{x}</Text></TouchableOpacity>)}
         </ScrollView>
         <ScrollView
           style={s.list}
@@ -35,10 +36,10 @@ export default function ReportPersonPickerModal({ visible, targets = [], selecte
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
         >
-          {list.map(t=>{const selected=String(selectedId)===String(t.id);return <TouchableOpacity key={t.id} accessibilityRole="button" accessibilityLabel={`${t.first_name||''} ${t.last_name||''}، ${t.role_title||'بدون سمت'}`} accessibilityState={{selected}} style={[s.item,selected&&s.itemOn]} onPress={()=>onSelect(t)}><View style={{flex:1}}><Text style={[s.name,selected&&s.nameOn]}>{t.first_name} {t.last_name}</Text><Text style={s.meta}>{t.role_title||'بدون سمت'}</Text></View>{selected?<Text style={s.check}>✓</Text>:null}</TouchableOpacity>})}
-          {!list.length?<Text style={s.empty}>شخصی با این مشخصات پیدا نشد.</Text>:null}
+          {list.map(t=>{const selected=String(selectedId)===String(t.id);return <TouchableOpacity key={t.id} accessibilityRole="button" accessibilityLabel={`${t.first_name||''} ${t.last_name||''}، ${t.role_title||'بدون سمت'}`} accessibilityState={{selected}} style={[s.item,selected&&s.itemOn]} onPress={()=>onSelect(t)}><View style={{flex:1}}><Text allowFontScaling style={[s.name,selected&&s.nameOn]}>{t.first_name} {t.last_name}</Text><Text allowFontScaling style={s.meta}>{t.role_title||'بدون سمت'}</Text></View>{selected?<Text allowFontScaling style={s.check}>✓</Text>:null}</TouchableOpacity>})}
+          {!list.length?<Text allowFontScaling style={s.empty}>شخصی با این مشخصات پیدا نشد.</Text>:null}
         </ScrollView>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="انصراف از انتخاب شخص" style={s.cancel} onPress={onClose}><Text style={s.cancelTxt}>انصراف</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="انصراف از انتخاب شخص" style={s.cancel} onPress={onClose}><Text allowFontScaling style={s.cancelTxt}>انصراف</Text></TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   </Modal>;
