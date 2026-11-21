@@ -1402,7 +1402,7 @@ function CheckInShiftTab(){
   const requestSeq=useRef(0);
   const loadSchedule=async()=>{
     const seq=++requestSeq.current;
-    setBusy(true);setErr('');setCoverageError('');
+    setBusy(true);setErr('');setCoverageError('');setCoverage({});
     try{
       const cacheKey='/my/shift-schedule?scope=current-month';
       const cached=await cachedValue(cacheKey);
