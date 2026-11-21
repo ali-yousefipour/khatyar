@@ -61,8 +61,8 @@ async function testConcurrentPermissionCacheWrites() {
     request: async () => ({ items: [++fetchCount === 1 ? 'OldRole' : 'NewRole'] }),
   };
   vm.createContext(ctx);
-  vm.runInContext(permissionsSource.replace(/^import .*;\\s*$/gm, '').replace(/export /g, '') +
-    '\\nthis.api={readAppItems,refreshAppItems,invalidateAppItems};', ctx);
+  vm.runInContext(permissionsSource.replace(/^import .*;\s*$/gm, '').replace(/export /g, '') +
+    '\nthis.api={readAppItems,refreshAppItems,invalidateAppItems};', ctx);
   const first = ctx.api.refreshAppItems(14);
   for (let i = 0; i < 10 && !releaseFirstWrite; i++) await Promise.resolve();
   assert.equal(typeof releaseFirstWrite, 'function');
