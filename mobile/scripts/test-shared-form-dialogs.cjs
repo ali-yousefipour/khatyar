@@ -8,6 +8,17 @@ const read = p => fs.readFileSync(path.resolve(__dirname, '../src/components', p
 
 const vehicle = read('VehicleIdentityFields.js');
 const signature = read('SignaturePad.js');
+const school = fs.readFileSync(path.resolve(__dirname, '../src/screens/SchoolServiceScreen.js'), 'utf8');
+assert.ok(parser.parse(school, {sourceType:'module',plugins:['jsx']}).program.body.length, 'school inspection JSX must parse');
+assert.match(school,/const submitInFlight=React\.useRef\(false\)/,'inspection submission needs a synchronous lock');
+assert.match(school,/const submit=async\(\)=>\{if\(submitInFlight\.current\|\|saving\)return;/,'rapid duplicate inspection taps must be rejected');
+assert.match(school,/submitInFlight\.current=true;setSaving\(true\);try\{/,'lock must be acquired before async work');
+assert.match(school,/finally\{submitInFlight\.current=false;setSaving\(false\)\}/,'failed submissions must unlock');
+assert.match(school,/queueIfOffline:true/,'school inspection offline queue contract must remain intact');
+assert.match(school,/visible=\{reviewOpen\} transparent animationType="slide" onRequestClose=\{\(\)=>\{if\(!saving\)setReviewOpen\(false\)\}\}/,'hardware Back cannot abandon pending submission');
+assert.match(school,/<ScrollView style=\{s\.reviewScroll\} contentContainerStyle=\{s\.reviewContent\}>/,'large review text must scroll');
+assert.match(school,/await loadRecent\(\);setReviewOpen\(false\);/,'only successful save path closes review and resets form');
+
 for (const [name, source] of [['VehicleIdentityFields', vehicle], ['SignaturePad', signature]]) {
   assert.ok(parser.parse(source, {sourceType:'module',plugins:['jsx']}).program.body.length, name + ' JSX must parse');
 }
