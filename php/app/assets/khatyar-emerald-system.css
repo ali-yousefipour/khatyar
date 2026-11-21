@@ -563,3 +563,11 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
   .layout .main > .top :is(h1,h2) { min-width: 0; }
   .layout .side .navitem { min-height: 44px; }
 }
+
+/* WEB-UX-011: preserve contrast in semantic colored surfaces.
+   The shared heading token must not turn the complaints' white hero title dark. */
+.sc-module .sc-header :is(h2,h3,h4,p),
+.layout .page-content .sc-module .sc-header :is(h2,h3,h4,p) {
+  color: #fff;
+}
+.sc-module .sc-header p { opacity: .94; }
