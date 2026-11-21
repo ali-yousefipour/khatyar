@@ -103,31 +103,51 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
 
       let street = '';
       let source = '';
-      try {
-        // Native geocoder occasionally hangs on Android without returning a road.
-        // Continue to the OSM backend fallback after a short bounded wait.
-        const address = await Promise.race([
-          Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }),
-          new Promise((resolve) => setTimeout(() => resolve([]), 2500))
-        ]);
-        // Prefer an actual street label; place names and districts are not street names.
-        street = String(address?.[0]?.street || '').trim();
-        if (street) source = 'device';
-      } catch (_) {}
-      if (!street) {
-        // The backend enforces Nominatim's global 1-request/sec limit and caches
-        // results across devices. Never contact its public API per handset.
-        try {
-          const osm = await request('/my/reverse-geocode?lat=' +
-            encodeURIComponent(lat.toFixed(6)) + '&lng=' +
-            encodeURIComponent(lng.toFixed(6)), {
-              noStore: true, timeoutMs: 6500
+      // Offline fallback is restricted to an actual nearby road resolved in the
+      // last 24 hours; never display a road name from another station.
+      const cacheKey='presence_last_street_v2';
+      let lastRoad=null;
+      try{
+        const stored=JSON.parse(await AsyncStorage.getItem(cacheKey)||'null');
+        if(stored?.street && Number(stored.lat) && Number(stored.lng) &&
+           Date.now()-Number(stored.saved_at)<24*60*60*1000 &&
+           haversine(lat,lng,Number(stored.lat),Number(stored.lng))<=75){
+          lastRoad=stored;
+        }
+      }catch(_){}
+      const deviceLookup=async()=>{
+        try{
+          const address=await Promise.race([
+            Location.reverseGeocodeAsync({latitude:lat,longitude:lng}),
+            new Promise(resolve=>setTimeout(()=>resolve([]),3500))
+          ]);
+          const row=address?.[0]||{};
+          // Never mislabel a neighbourhood, city or landmark as a street.
+          const road=String(row.street||row.name||'').trim();
+          return road?{street:road,source:'device'}:null;
+        }catch(_){return null}
+      };
+      const serverLookup=async()=>{
+        try{
+          const result=await request('/my/reverse-geocode?lat='+
+            encodeURIComponent(lat.toFixed(6))+'&lng='+
+            encodeURIComponent(lng.toFixed(6)),{
+              noStore:true,timeoutMs:5500,queueIfOffline:false
             });
-          if (osm?.street) {
-            street = String(osm.street).trim();
-            source = 'openstreetmap';
-          }
-        } catch (_) {}
+          const road=String(result?.street||'').trim();
+          return road?{street:road,source:'openstreetmap'}:null;
+        }catch(_){return null}
+      };
+      // The device and rate-limited backend are independent. Parallel lookup
+      // avoids waiting for a geocoder that hangs on a particular Android build.
+      const [deviceRoad,serverRoad]=await Promise.all([deviceLookup(),serverLookup()]);
+      const resolved=deviceRoad||serverRoad||lastRoad;
+      if(resolved){
+        street=String(resolved.street).slice(0,120);
+        source=resolved.source||'device';
+        if(deviceRoad||serverRoad)await AsyncStorage.setItem(cacheKey,JSON.stringify({
+          lat,lng,street,source,saved_at:Date.now()
+        })).catch(()=>{});
       }
 
       let lineName='',nearestName='';
@@ -328,17 +348,18 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
             <Image source={{ uri: shot }} style={s.shotImg} resizeMode="contain"
               onLoad={() => setImageReady(true)}
               onError={() => { setImageReady(false); setError('نمایش عکس انجام نشد. دوباره عکس بگیرید.'); }} />
-            <View style={s.stampBox}>
-              <View style={s.stampHeader}><Text style={s.stampBrand}>خطیار | صحت‌سنجی حضور</Text><Text style={s.stampTag}>ثبت میدانی</Text></View>
-              <Text style={s.stampDate}>{stamp.date}</Text>
-              <View style={s.stampDivider}/>
-              <Text style={s.stampTxt}>موقعیت جغرافیایی: {stamp.coords}</Text>
-              <Text style={s.stampTxt}>کاربر: {stamp.operator || 'نامشخص'}</Text>
-              <Text style={s.stampTxt}>خط فعالیت: {stamp.line || 'نامشخص'}</Text>
-              <Text style={s.stampTxt}>نزدیک‌ترین ایستگاه: {stamp.nearest || 'نامشخص'}</Text>
-              {stamp.street ? <Text style={s.stampTxt}>نشانی: {stamp.street}</Text> : null}
-              {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
-              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
+            <View style={s.stampBox} accessible accessibilityLabel={['خطیار، صحت‌سنجی حضور',stamp.date,'کاربر '+(stamp.operator||'نامشخص'),'خط '+(stamp.line||'نامشخص'),'ایستگاه '+(stamp.nearest||'نامشخص'),'خیابان '+(stamp.street||'نامشخص'),'مختصات '+stamp.coords].join('، ')}>
+              <View style={s.stampHeader}>
+                <Text numberOfLines={1} style={s.stampBrand}>خطیار • صحت‌سنجی حضور</Text>
+                <Text numberOfLines={1} style={s.stampDate}>{stamp.date}</Text>
+              </View>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>کاربر: {stamp.operator || 'نامشخص'}  |  خط: {stamp.line || 'نامشخص'}</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>ایستگاه: {stamp.nearest || 'نامشخص'}</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={s.stampTxt}>خیابان: {stamp.street || 'نامشخص'}</Text>
+              <View style={s.stampFooter}>
+                <Text numberOfLines={1} style={s.stampCoords}>{faNum(stamp.coords)}</Text>
+                {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OSM</Text> : null}
+              </View>
             </View>
           </View>
 
@@ -438,14 +459,19 @@ const s = StyleSheet.create({
   title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 8, textAlign: 'center' },
   shotBox: { width: '100%', borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   shotImg: { width: '100%', height: '100%' },
-  stampBox: { position: 'absolute', bottom: 8, left: 8, right: 8, backgroundColor: 'rgba(5,29,26,0.88)', borderRadius: 13, borderWidth: 1, borderColor: 'rgba(167,243,208,0.48)', paddingHorizontal: 12, paddingVertical: 10 },
-  stampHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-  stampTag: { color: '#e6fff5', fontFamily: FONT.regular, fontSize: 9, backgroundColor: '#13775f', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  stampDate: { color: '#d0fce9', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', marginTop: 5 },
-  stampDivider: { backgroundColor: 'rgba(167,243,208,0.28)', height: 1, marginVertical: 6 },
-  stampTxt: { color: '#fff', fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', lineHeight: 18 },
-  stampBrand: { color: '#f5d58a', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
-  attribution: { color: '#fff', fontSize: 9, textAlign: 'right' },
+  // Five compact information lines instead of the old oversized translucent card.
+  stampBox: { position:'absolute', bottom:5, left:5, right:5, backgroundColor:'rgba(3,29,26,0.87)',
+    borderRadius:8, borderWidth:0.5, borderColor:'rgba(166,243,207,0.36)',
+    paddingHorizontal:7, paddingVertical:5, gap:1 },
+  stampHeader: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'space-between', gap:6 },
+  stampDate: { color:'#defced', fontFamily:FONT.bold, fontSize:9, textAlign:'left', flexShrink:0, lineHeight:13 },
+  stampTxt: { color:'#fff', fontFamily:FONT.regular, fontSize:9, textAlign:'right', writingDirection:'rtl',
+    lineHeight:13, includeFontPadding:false },
+  stampBrand: { color:'#f4d18a', fontFamily:FONT.bold, fontSize:9.5, textAlign:'right', flexShrink:1,
+    lineHeight:14, includeFontPadding:false },
+  stampFooter: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'space-between', gap:5 },
+  stampCoords: { color:'#e4f7ef', fontFamily:FONT.regular, fontSize:8.5, textAlign:'right', lineHeight:12 },
+  attribution: { color:'#d2e8dc', fontSize:7, textAlign:'left', lineHeight:11 },
   metaLoading: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'center', marginTop: 8 },
   previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 8 },
   error: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 6 },
