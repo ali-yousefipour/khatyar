@@ -55,6 +55,7 @@ jobs:
           node --check app/assets/dashboard-no-charts.js
           node --check app/assets/work-report-default-placement-ui.js
           node tests/dashboard_live_presence_accessibility_test.cjs
+          node tests/panel_dashboard_management_tabs_test.cjs
           node tests/work_report_placement_modal_accessibility_test.cjs
           grep -q 'schoolcomplaints' app/assets/panel.bundle.js
           php -l lib/Db.php
