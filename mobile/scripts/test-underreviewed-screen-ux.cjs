@@ -35,4 +35,5 @@ assert.match(picker, /role:\{minHeight:44/, 'role chips have minimum accessible 
 assert.match(picker, /item:\{minHeight:48/, 'person entries have accessible touch height');
 assert.ok((picker.match(/<Text allowFontScaling/g)||[]).length>=8, 'person selector labels, roles and entries must opt into Android font scaling');
 assert.match(picker, /<TextInput\s+allowFontScaling/, 'person search must opt into Android font scaling');
+assert.match(picker,/useEffect\(\(\) => \{ if \(visible\) \{ setQuery\(''\); setRole\(''\); \} \}, \[visible\]\)/,'reopening person picker must discard previous search and role filters');
 console.log('PASS under-reviewed screens: stale-response guards, recoverability, icons, accessibility and responsive layout');
