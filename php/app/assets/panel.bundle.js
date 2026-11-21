@@ -2625,7 +2625,7 @@ function Modal({ title, onClose, children, style }) {
                 e.preventDefault();
                 last.focus();
             }
-            else if (!e.shiftKey && document.activeElement === last) {
+            else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
                 e.preventDefault();
                 first.focus();
             }
