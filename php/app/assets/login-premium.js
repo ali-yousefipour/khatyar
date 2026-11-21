@@ -51,9 +51,14 @@
       links.setAttribute('aria-label','پیوندهای راهنما');
       const home=document.createElement('a');home.href='/';home.textContent='بازگشت به صفحه نخست';
       const contact=document.createElement('a');contact.href='/contact';contact.textContent='پشتیبانی و تماس با ما';
-      links.append(home,contact);
+      const complaints=document.createElement('a');
+      complaints.href='/school-complaints-portal';
+      complaints.className='kh-complaints-login-link';
+      complaints.textContent='ورود اختصاصی رسیدگی به شکایات سرویس مدارس';
+      complaints.setAttribute('aria-label','ورود کاربران اختصاصی شکایات سرویس مدارس');
+      links.append(home,contact,complaints);
       const note=document.createElement('p');note.className='login-support-label';
-      note.textContent='ورود فقط برای کاربران مجاز سازمانی امکان‌پذیر است.';
+      note.textContent='ورود سازمانی و ورود اختصاصی شکایات دارای دسترسی‌های مستقل هستند.';
       card.append(links,note);
     }
   }
