@@ -22,6 +22,7 @@ assert.match(layer,/:focus-visible/,'keyboard focus remains visible');
 assert.match(layer,/@media screen and \(max-width: 768px\)/,'tablet/mobile layout covered');
 assert.match(layer,/@media screen and \(max-width: 430px\)/,'small-screen layout covered');
 assert.match(layer,/@media print/,'print exports are not forced into scrolling tables');
+assert.match(css,/WEB-UX-011[\s\S]*?\.sc-module \.sc-header :is\(h2,h3,h4,p\)[\s\S]*?color: #fff;/,'complaints green header must retain white readable titles after shared type rules');
 assert.doesNotMatch(layer,/\!important/,'shared style must not rely on force overrides');
 const withoutComments=layer.replace(/\/\*[\s\S]*?\*\//g,'');
 let depth=0;
