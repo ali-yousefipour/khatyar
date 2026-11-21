@@ -10,6 +10,18 @@ export function isCameraInUse() {
   return owner !== null || Date.now() < availableAt;
 }
 
+// Wait for the actual shared-camera owner to release before opening an
+// Android camera Intent. A native CameraX hand-off grace period is only used
+// after a real owner releases the lens, never as an unconditional UI delay.
+export async function waitForCameraRelease(timeoutMs=4000) {
+  const end=Date.now()+Math.max(100,timeoutMs);
+  while(isCameraInUse()) {
+    if(Date.now()>=end)return false;
+    await new Promise(resolve=>setTimeout(resolve,Math.min(50,Math.max(1,end-Date.now()))));
+  }
+  return true;
+}
+
 export function useCameraSession(enabled) {
   const token = useRef(Symbol('camera'));
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
