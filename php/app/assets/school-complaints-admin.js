@@ -28,8 +28,36 @@ const select=(label,value,onChange,options)=>h('label',{className:'sc-field'},h(
 const errorText=e=>e?.message||'خطا در ارتباط با سرور';
 function Lookup({get,path,label,display,onPick,min=0,initial='',extra='',seed=[]}){
  const [q,setQ]=useState(initial),[rows,setRows]=useState(seed),[err,setErr]=useState(''),[loading,setLoading]=useState(false),[open,setOpen]=useState(false);
+ const boxRef=useRef(null),inputRef=useRef(null),listId=useRef('sc-lookup-results-'+Math.random().toString(36).slice(2));
+ useEffect(()=>{
+  if(!open)return;
+  const outside=e=>{if(boxRef.current&&!boxRef.current.contains(e.target))setOpen(false);};
+  document.addEventListener('pointerdown',outside);
+  return()=>document.removeEventListener('pointerdown',outside);
+ },[open]);
  useEffect(()=>{if(!open)return;let live=true;if(q.length<min){setRows([]);setLoading(false);return;}setLoading(true);const t=setTimeout(()=>get(base+'/'+path+'?q='+encodeURIComponent(q)+extra).then(v=>{if(live){setRows(Array.isArray(v)?v:[]);setErr('');}}).catch(e=>{if(live){setErr(errorText(e));setRows([]);}}).finally(()=>{if(live)setLoading(false);}),300);return()=>{live=false;clearTimeout(t);};},[q,extra,open,path]);
- return h('div',{className:'sc-lookup'},field(label,{value:q,onFocus:()=>setOpen(true),onChange:e=>{setQ(e.target.value);setOpen(true);},onKeyDown:e=>{if(e.key==='Escape')setOpen(false);},'aria-expanded':open,'aria-autocomplete':'list',autoComplete:'off'}),open&&h('div',{className:'sc-results'},loading?h('p',null,'در حال جستجو…'):err?h('p',{role:'alert'},err):rows.length?rows.map((x,i)=>h('button',{key:x.id||x.national_code||i,type:'button',onClick:()=>{onPick(x);setQ(display(x));setOpen(false);}},display(x))):h('p',null,'موردی یافت نشد')));
+ const dismiss=()=>{setOpen(false);inputRef.current?.focus();};
+ const onInputKey=e=>{
+  if(e.key==='Escape'){e.preventDefault();dismiss();}
+  if(e.key==='ArrowDown'&&open&&rows.length&&!loading){e.preventDefault();boxRef.current?.querySelector('.sc-results [role="option"]')?.focus();}
+ };
+ const onOptionKey=e=>{
+  if(e.key==='Escape'){e.preventDefault();dismiss();return;}
+  if(!['ArrowDown','ArrowUp'].includes(e.key))return;
+  e.preventDefault();
+  const choices=[...boxRef.current.querySelectorAll('.sc-results [role="option"]')];
+  const index=choices.indexOf(e.currentTarget);
+  choices[(index+(e.key==='ArrowDown'?1:-1)+choices.length)%choices.length]?.focus();
+ };
+ return h('div',{className:'sc-lookup',ref:boxRef},
+  field(label,{value:q,ref:inputRef,role:'combobox','aria-controls':listId.current,'aria-haspopup':'listbox',
+    'aria-expanded':open,'aria-autocomplete':'list','aria-busy':loading,autoComplete:'off',
+    onFocus:()=>setOpen(true),onChange:e=>{setQ(e.target.value);setOpen(true);},onKeyDown:onInputKey}),
+  open&&h('div',{className:'sc-results',id:listId.current,role:'listbox','aria-label':'نتایج '+label},
+   loading?h('p',{role:'status'},'در حال جستجو…'):err?h('p',{role:'alert'},err):
+   rows.length?rows.map((x,i)=>h('button',{key:x.id||x.national_code||i,type:'button',role:'option','aria-selected':false,
+    onKeyDown:onOptionKey,onClick:()=>{onPick(x);setQ(display(x));dismiss();}},display(x))):
+   h('p',{role:'status'},'موردی یافت نشد')));
 }
 function Snapshot({value,fields,onChange}){
  return h('div',{className:'sc-grid'},...fields.map(([key,label])=>field(label,{key,value:value[key]??'',readOnly:!onChange||!['address','educational_district','education_level','school_type','phone','manager_name','manager_mobile','landline_phone'].includes(key),onChange:e=>onChange?.({...value,[key]:e.target.value})})));
