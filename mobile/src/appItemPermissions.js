@@ -21,9 +21,11 @@ export async function invalidateAppItems(userId) {
 export async function readAppItems(userId) {
   if (!userId) return null;
   const key = keyFor(userId);
+  const epoch = epochs.get(key) || 0;
   if (memo.has(key)) return memo.get(key).slice();
   try {
     const raw = await AsyncStorage.getItem(key);
+    if (epoch !== (epochs.get(key) || 0)) return null;
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.every(x => typeof x === 'string')) return null;
@@ -45,6 +47,11 @@ export async function refreshAppItems(userId) {
     if (epoch !== (epochs.get(key) || 0)) throw new Error('مجوزهای قدیمی به دلیل تغییر نشست کنار گذاشته شدند.');
     memo.set(key, items);
     await AsyncStorage.setItem(key, JSON.stringify(items)).catch(() => {});
+    if (epoch !== (epochs.get(key) || 0)) {
+      memo.delete(key);
+      await AsyncStorage.removeItem(key).catch(() => {});
+      throw new Error('مجوزهای قدیمی به دلیل تغییر نشست کنار گذاشته شدند.');
+    }
     return items.slice();
   })();
   pending.set(key, task);
