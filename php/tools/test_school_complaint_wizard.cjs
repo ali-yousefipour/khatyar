@@ -22,6 +22,10 @@ const cssVersion=source.match(/school-complaints-admin\.css\?v=([\w.-]+)/)?.[1];
 const jsVersion=source.match(/school-complaints-admin\.js\?v=([\w.-]+)/)?.[1];
 assert.ok(cssVersion&&jsVersion,'Panel source versioned complaint assets must exist');
 assert.equal(cssVersion,jsVersion,'Complaint CSS and JavaScript must use matching version keys');
-assert(portal.includes('school-complaints-admin.css?v='+cssVersion),'Portal CSS cache key differs from panel');
-assert(portal.includes('school-complaints-admin.js?v='+jsVersion),'Portal JS cache key differs from panel');
+const panel=read('app/panel.html');
+for(const ext of ['css','js']){
+ assert(panel.includes('school-complaints-admin.'+ext+'?v=20261121.notify1'),'Current panel missing refreshed complaint '+ext);
+ assert(portal.includes('school-complaints-admin.'+ext+'?v=20261121.notify1'),'Current portal missing refreshed complaint '+ext);
+}
+assert(panel.indexOf('school-complaints-admin.js?v=20261121.notify1')<panel.indexOf('panel.bundle.js'),'Module override should load before panel bundle');
 console.log('School complaints redesigned wizard checks passed');
