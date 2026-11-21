@@ -14,8 +14,9 @@ import{startNotifyPolling,stopNotifyPolling}from'./notify';
 import{registerPush}from'./push';
 import{saveVerifiedUser,readVerifiedUser,clearVerifiedUser}from'./offlineSession';
 import{clearAccessCache}from'./accessCache';
+import { invalidateAppItems } from './appItemPermissions';
 import{clearSchoolServiceCache}from'./schoolServiceCache';
-async function resetAccountCaches(){await clearUserScopedApiCache();await clearAccessCache();await clearSchoolServiceCache();}
+async function resetAccountCaches(userId){await clearUserScopedApiCache();await clearAccessCache();await clearSchoolServiceCache();if(userId)await invalidateAppItems(userId);}
 
 const AuthCtx=createContext(null);export const useAuth=()=>useContext(AuthCtx);
 function roleStars(user={}){const role=String(user.role??user.role_name??user.role_title??user.position??user.position_name??user.job_title??user.job??user.post??user.title??user.rank_name??user.degree??user.semat??'').trim();if(!role)return 0;if(role.includes('سربازرس'))return 4;if(role.includes('بازرس'))return 2;if(role.includes('سرپرست خط')||role.includes('ناظر خط')||role.includes('اپراتور')||role.includes('مسئول خط'))return 1;return 0;}
@@ -40,10 +41,12 @@ else {setSecurityExempt(false);setOfflineSession(true);}}}}catch{}finally{setLoa
     (async()=>{
       try{stopTelemetry();stopVpnMonitor();stopHealthMonitor();stopNotifyPolling()}catch{}
       try{await stopTracking()}catch{}
+      const previousUser = await readVerifiedUser().catch(()=>null);
       await clearTokens().catch(()=>{});
       await clearVerifiedUser().catch(()=>{});
       await clearAccessCache().catch(()=>{});
       await clearSchoolServiceCache().catch(()=>{});
+      if(previousUser?.id)await invalidateAppItems(previousUser.id).catch(()=>{});
       setSecurityExempt(false);
       if(live){setUser(null);setOfflineSession(false);}
     })().catch(()=>{});
@@ -72,10 +75,10 @@ useEffect(()=>{
   validate().catch(()=>{});
   return()=>{alive=false;clearInterval(interval);sub.remove()};
 },[user?.id]);
-async function login(username,password,remember){const device_id=await getDeviceId();const d=await loginRequest({username,password,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches();await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function loginOtpRequest(mobile){await requestLoginOtp(mobile)}async function loginOtpVerify(mobile,code){const device_id=await getDeviceId();const d=await verifyLoginOtp({mobile,code,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches();await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);beginActivity();return d.user;}
+async function login(username,password,remember){const device_id=await getDeviceId();const d=await loginRequest({username,password,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches(d.user?.id);await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function loginOtpRequest(mobile){await requestLoginOtp(mobile)}async function loginOtpVerify(mobile,code){const device_id=await getDeviceId();const d=await verifyLoginOtp({mobile,code,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches(d.user?.id);await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);beginActivity();return d.user;}
 async function appLoginConfig(){return getAppLoginConfig()}
 async function appLoginOtpRequest(username){return requestAppLoginOtp(username,await getDeviceId())}
-async function appLoginOtpVerify(username,code){const device_id=await getDeviceId();const d=await verifyAppLoginOtp({username,code,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches();await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function logout(){
+async function appLoginOtpVerify(username,code){const device_id=await getDeviceId();const d=await verifyAppLoginOtp({username,code,device_id,device_type:'android',device_model:getDeviceModel()});await resetAccountCaches(d.user?.id);await setTokens(d.access,d.refresh);await SecureStore.setItemAsync('remember','1');const normalized=normalizeUser(d.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);beginActivity();return d.user;}async function logout(){
   // Local sign-out must succeed even if the API is temporarily unavailable.
   // Never queue a delayed logout request: it could revoke a newer session.
   try{await request('/auth/logout',{method:'POST',queueIfOffline:false,forceNetwork:true,timeoutMs:7000})}catch(e){console.warn('Remote logout unavailable; clearing local session:',e?.message||e)}
@@ -86,7 +89,8 @@ async function appLoginOtpVerify(username,code){const device_id=await getDeviceI
     await clearVerifiedUser().catch(()=>{});
     await clearAccessCache().catch(()=>{});
     await clearSchoolServiceCache().catch(()=>{});
+    if(user?.id)await invalidateAppItems(user.id).catch(()=>{});
     await SecureStore.setItemAsync('remember','0').catch(()=>{});
     setUser(null);setOfflineSession(false);
   }
-}async function refreshUser(){try{const me=await request('/auth/me');const normalized=normalizeUser(me.user);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);return normalized}catch{return null}}return <AuthCtx.Provider value={{user,loading,offlineSession,login,loginOtpRequest,loginOtpVerify,appLoginConfig,appLoginOtpRequest,appLoginOtpVerify,logout,refreshUser}}>{children}</AuthCtx.Provider>;}
+}async function refreshUser(){try{const me=await request('/auth/me');const normalized=normalizeUser(me.user);if(user?.id===normalized?.id && (String(user.role_id)!==String(normalized.role_id)||String(user.level)!==String(normalized.level)))await invalidateAppItems(normalized.id);applySecurityExemption(normalized);setUser(normalized);setOfflineSession(false);await saveVerifiedUser(normalized);return normalized}catch{return null}}return <AuthCtx.Provider value={{user,loading,offlineSession,login,loginOtpRequest,loginOtpVerify,appLoginConfig,appLoginOtpRequest,appLoginOtpVerify,logout,refreshUser}}>{children}</AuthCtx.Provider>;}
