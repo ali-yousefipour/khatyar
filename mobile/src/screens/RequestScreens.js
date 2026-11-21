@@ -21,11 +21,11 @@ function InboxDate({ label, value, onChange }) {
   const [visible, setVisible] = useState(false);
   return <View style={{flex:1}}>
     <Text style={inboxStyle.label}>{label}</Text>
-    <TouchableOpacity accessibilityRole="button" style={inboxStyle.dateButton} onPress={()=>setVisible(true)}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} accessibilityHint="انتخاب تاریخ شمسی" style={inboxStyle.dateButton} onPress={()=>setVisible(true)}>
       <MaterialCommunityIcons name="calendar-month-outline" size={19} color={C.brand}/>
       <Text style={inboxStyle.dateText}>{value ? faNum(value.replace(/-/g,'/')) : 'انتخاب تاریخ'}</Text>
     </TouchableOpacity>
-    <JDatePicker visible={visible} onClose={()=>setVisible(false)} initial={null} onSelect={(d)=>onChange(`${d.jy}-${String(d.jm).padStart(2,'0')}-${String(d.jd).padStart(2,'0')}`)}/>
+    <JDatePicker visible={visible} onClose={()=>setVisible(false)} initial={value || null} onSelect={(d)=>onChange(`${d.jy}-${String(d.jm).padStart(2,'0')}-${String(d.jd).padStart(2,'0')}`)}/>
   </View>;
 }
 export function RequestInboxScreen() {
