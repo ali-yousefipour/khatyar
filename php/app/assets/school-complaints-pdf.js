@@ -134,7 +134,7 @@ async function download(record,options={}){
   }
  }else{section('راهنمای پیگیری');write('برای پیگیری شکایت، کد رهگیری فوق را نزد خود نگه دارید.');}
  const jpg=canvases.map((c,i)=>{
-  const context=c.getContext('2d');context.fillStyle='#607c69';font.call(null,20);
+  const context=c.getContext('2d');context.fillStyle='#607c69';
   context.font='20px Vazirmatn,Tahoma,sans-serif';context.direction='rtl';context.textAlign='right';
   context.fillText('خطیار — صفحه '+fa(i+1)+' از '+fa(canvases.length),W-M,H-62);
   const url=c.toDataURL('image/jpeg',0.89);
