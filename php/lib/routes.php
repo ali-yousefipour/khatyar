@@ -5127,7 +5127,7 @@ function _req_require_overtime_attendance(int $uid,array $request): void {
 // Reject time already covered by a real or provisional attendance interval.
 function _req_reject_attendance_overlap(int $uid,array $request): void {
   $type=$request['type']??'';
-  if($type!=='manual'&&(!in_array($type,['annual','mission','overtime'],true)||($request['unit']??'daily')!=='hourly'))return;
+  if($type!=='manual'&&(!in_array($type,['annual','mission'],true)||($request['unit']??'daily')!=='hourly'))return;
   $date=_req_policy_date($request['the_date']??$request['from_jdate']??null);
   if(!$date)return; // Existing request validation handles malformed dates.
   $at=static function($value)use($date){
