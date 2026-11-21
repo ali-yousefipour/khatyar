@@ -29,11 +29,11 @@ export default function PlateSearch({ onSearch, onClear, regionCode = '12' }) {
     <View style={s.box}>
       <View style={s.plateWrap}>
         <View style={s.plateBody}>
-          <TextInput style={s.plateInput} value={p1}
+          <TextInput accessibilityLabel="دو رقم ابتدایی پلاک تاکسی" style={s.plateInput} value={p1}
             onChangeText={(v) => { const d=faToEn(v).slice(0,2); setP1(d); if (d.length >= 2) p3ref.current && p3ref.current.focus(); }}
             keyboardType="number-pad" maxLength={2} placeholder="۱۲" placeholderTextColor="#b8a000" />
           <Text style={s.plateLetter}>ت</Text>
-          <TextInput ref={p3ref} style={[s.plateInput, { width: 70 }]} value={p3}
+          <TextInput ref={p3ref} accessibilityLabel="سه رقم بعد از حرف ت پلاک تاکسی" style={[s.plateInput, { width: 70 }]} value={p3}
             onChangeText={(v)=>setP3(faToEn(v).slice(0,3))} keyboardType="number-pad" maxLength={3} placeholder="۸۷۹" placeholderTextColor="#b8a000" />
           <View style={s.plateRegion}>
             <Text style={s.plateRegionNum}>{faNum(regionCode)}</Text>
@@ -46,8 +46,8 @@ export default function PlateSearch({ onSearch, onClear, regionCode = '12' }) {
         </View>
       </View>
       <View style={s.btnRow}>
-        <TouchableOpacity style={s.btn} onPress={doSearch}><Text style={s.btnTxt}>جستجوی پلاک</Text></TouchableOpacity>
-        <TouchableOpacity style={s.btnClear} onPress={clear}><Text style={s.btnClearTxt}>پاک کردن</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="جستجوی پلاک تاکسی" style={s.btn} onPress={doSearch}><Text allowFontScaling style={s.btnTxt}>جستجوی پلاک</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک کردن شماره پلاک" style={s.btnClear} onPress={clear}><Text allowFontScaling style={s.btnClearTxt}>پاک کردن</Text></TouchableOpacity>
       </View>
     </View>
   );
@@ -65,9 +65,9 @@ const s = StyleSheet.create({
   plateFlag: { backgroundColor: '#0a3d91', width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
   plateFlagIR: { color: '#fff', fontFamily: FONT.bold, fontSize: 9 },
   plateFlagIran: { color: '#fff', fontFamily: FONT.regular, fontSize: 9, marginTop: 2 },
-  btnRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 10 },
-  btn: { backgroundColor: C.brand, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 20 },
+  btnRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  btn: { minHeight: 48, backgroundColor: C.brand, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
-  btnClear: { backgroundColor: '#eef1f6', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16 },
+  btnClear: { minHeight: 48, backgroundColor: '#eef1f6', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   btnClearTxt: { color: C.slate, fontFamily: FONT.bold, fontSize: 13 },
 });
