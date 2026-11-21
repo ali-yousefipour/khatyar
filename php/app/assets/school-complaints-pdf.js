@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const W=1240,H=1754,M=90,BOTTOM=145;
+const W=1240,H=1754,M=90,BOTTOM=145,MAX_PAGES=80;
 const clean=x=>String(x??'—');
 const fa=x=>clean(x).replace(/[0-9]/g,n=>'۰۱۲۳۴۵۶۷۸۹'[+n]);
 const labelStatus={pending:'در انتظار بررسی',in_progress:'در حال بررسی',answered:'پاسخ داده‌شده',escalated:'ارجاع به مسئول واحد',returned:'بررسی تکمیلی',closed:'مختومه'};
@@ -51,6 +51,7 @@ async function download(record,options={}){
  const canvases=[];let canvas,ctx,y;
  const font=(size=26,bold=false)=>{ctx.font=(bold?'700 ':'400 ')+size+'px Vazirmatn,Tahoma,sans-serif';ctx.direction='rtl';ctx.textAlign='right';ctx.textBaseline='alphabetic';};
  const newPage=()=>{
+  if(canvases.length>=MAX_PAGES)throw Error('گزارش بیش از حد طولانی است؛ بازه اطلاعات را محدود کنید');
   canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;ctx=canvas.getContext('2d');
   if(!ctx)throw Error('امکان ساخت فایل PDF در این مرورگر وجود ندارد');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
@@ -138,7 +139,10 @@ async function download(record,options={}){
   context.font='20px Vazirmatn,Tahoma,sans-serif';context.direction='rtl';context.textAlign='right';
   context.fillText('خطیار — صفحه '+fa(i+1)+' از '+fa(canvases.length),W-M,H-62);
   const url=c.toDataURL('image/jpeg',0.89);
-  const raw=atob(url.split(',')[1]);return Uint8Array.from(raw,c=>c.charCodeAt(0));
+  if(!url.startsWith('data:image/jpeg;base64,'))throw Error('تولید تصویر صفحه PDF ناموفق بود');
+  const raw=atob(url.split(',')[1]);
+  if(raw.length<4||raw.charCodeAt(0)!==255||raw.charCodeAt(1)!==216||raw.charCodeAt(raw.length-2)!==255||raw.charCodeAt(raw.length-1)!==217)throw Error('داده تصویری PDF معتبر نیست');
+  return Uint8Array.from(raw,c=>c.charCodeAt(0));
  });
  const file=pdfBytes(jpg);const url=URL.createObjectURL(file);
  const a=document.createElement('a');a.href=url;a.download='khatyar-school-complaint-'+code+'.pdf';document.body.appendChild(a);a.click();a.remove();
