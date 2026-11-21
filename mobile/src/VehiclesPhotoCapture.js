@@ -10,7 +10,7 @@ import ActivityIndicator from './components/PulseLoadingIndicator';
 import { getImageConfig, compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCameraSession } from './cameraSession';
+import { useCameraSession, waitForCameraRelease } from './cameraSession';
 import { launchCamera, ImagePicker } from './cameraLock';
 import { request, cachedValue } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,7 +32,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
-  const [useInlineCamera, setUseInlineCamera] = useState(false);
+  const [useInlineCamera] = useState(!systemCameraFirst);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
   const autoSubmissionStarted = useRef(false);
@@ -168,7 +168,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     const generation = ++captureGeneration.current;
     try {
       // Release CameraX surface before asking the OS camera application to open.
-      if (useInlineCamera) await new Promise(resolve => setTimeout(resolve, 1200));
+      if (useInlineCamera && !(await waitForCameraRelease())) throw new Error('camera_still_in_use');
       const result = await launchCamera({
         mediaTypes: ['images'],
         cameraType: ImagePicker.CameraType?.back || 'back',
@@ -194,7 +194,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   useEffect(() => {
-    if (manualSystemCamera || !perm?.granted || autoCameraStarted.current) return;
+    if (!systemCameraFirst || manualSystemCamera || !perm?.granted || autoCameraStarted.current) return;
     autoCameraStarted.current = true;
     openSystemCamera();
   }, [systemCameraFirst, perm?.granted]);
