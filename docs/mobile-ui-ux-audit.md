@@ -29,6 +29,10 @@
 
 | UI-05 | P2 | `mobile/src/components/DetailPageHeader.js` | عنوان هدر با `numberOfLines={2}` حتی در متن طولانی بریده می‌شد و فونت اندروید را رعایت نمی‌کرد | فعال‌سازی `allowFontScaling` و حذف محدودیت دو خط در `cd1802a3` | رگرسیون ایستا در `3dc357f3`؛ دستگاه تأیید نشده |
 
+| UI-06 | P2 | `mobile/src/components/AccountFormHeader.js` | متن‌های هدر حساب کاربری از `allowFontScaling` پیروی نمی‌کردند؛ `lineHeight` ثابت برای توضیحات | فعال‌سازی اندازه فونت Android و حذف خط‌ارتفاع ثابت در `49ed6929` | رگرسیون ایستا `2eea6e89`، تست گوشی باقی‌مانده |
+| UI-07 | P2 | `mobile/src/components/AppAlertHost.js` | Alert سراسری با متن بزرگ و دکمه‌های متعدد ممکن بود از فضای نمایش خارج شود | ارتفاع محدود و ناحیه اسکرول پیام/اقدامات، Safe Area و مقیاس فونت در `8511c8d0` | رگرسیون ایستا `2eea6e89`، تست گوشی باقی‌مانده |
+| UI-08 | P2 | `mobile/src/components/ReportPersonPickerModal.js` | با وجود اسکرول و Safe Area، متن‌های شخص/سمت و جستجو بزرگ‌نمایی Android را رعایت نمی‌کردند | opt-in موضعی Text/TextInput در `ae3d3b10` | رگرسیون ایستا `d2a878cb`، تست گوشی باقی‌مانده |
+
 ## فهرست واقعی (پوشش ممیزی)
 
 | عنوان/شناسه | مسیر واقعی | نقش مجاز | UI | RTL | فونت | واکنش‌گرایی | فرم | مودال | دسترس‌پذیری | API | اولویت | اصلاح | کامیت | آزمون |
@@ -155,3 +159,11 @@
 
 - `mobile/src/components/DetailPageHeader.js`: removed fixed two-line truncation; title now opts into Android system font scaling. Header height is content-driven. Core navigation actions and branding unchanged.
 - `mobile/scripts/test-detail-header-branding.cjs`: added non-truncation regression assertions. Actual 125/150/200% visual testing remains pending.
+
+## مرحلهٔ بعدی فونت و مودال‌های مشترک — ۲۰۲۶-۱۱-۲۱
+
+- `AccountFormHeader.js`: پشتیبانی موضعی از Font Scaling و حذف ارتفاع خط ثابت توضیحات.
+- `AppAlertHost.js`: رعایت inset بالایی/پایینی، محتوای قابل اسکرول برای خطاهای طولانی و دکمه‌ها، نمایش متن بزرگ‌شده. قرارداد `Alert.alert` و ترتیب callbacks حفظ شد.
+- `ReportPersonPickerModal.js`: متن، جستجو و گزینه‌ها با `allowFontScaling` قابل بزرگ‌نمایی شدند؛ الگوریتم فیلتر و انتخاب ثابت ماند.
+- `fontscale.js`: override سراسری هنوز وجود دارد؛ تغییر ناگهانی در تمام صفحات فاقد اعتبارسنجی ۱۲۵٪، ۱۵۰٪ و ۲۰۰٪ خطر شکست چیدمان دارد. این محدودیت به‌عنوان P2 باز نگه داشته شد.
+- تغییر در backend، نقش‌ها، Radio، attendance و version انجام نشد؛ تأیید بصری و TalkBack واقعی هنوز نیاز است.
