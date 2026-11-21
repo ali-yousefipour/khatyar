@@ -40,6 +40,13 @@ const api=windowMock.KhatyarLongOperation;
 assert.ok(api);
 assert.ok(api.classify('/api/admin/shift-report/export'));
 assert.ok(api.classify('/api/admin/users'));
+for(const endpoint of ['/api/admin/stats','/api/admin/dashboard-discipline?days=30','/api/admin/dashboard','/api/admin/live-staff-dashboard','/api/admin/top-workers']){
+  const dashboard=api.classify(endpoint);
+  assert.equal(dashboard.title,'در حال بارگذاری داشبورد','dashboard API has specific feedback');
+  assert.equal(dashboard.delay,350,'dashboard cards and tabs have shorter feedback delay');
+}
+assert.equal(api.classify('/api/admin/stats',{method:'POST'}),null,'dashboard writes must not trigger read loading');
+assert.equal(api.classify('https://external.example/api/admin/dashboard'),null,'dashboard loading ignores external origins');
 assert.ok(api.classify('/api/admin/complaints/report',{method:'POST'}));
 assert.equal(api.classify('/api/health'),null);
 assert.equal(api.classify('/api/admin/users',{method:'DELETE'}),null);
