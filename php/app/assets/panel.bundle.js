@@ -259,25 +259,35 @@ async function GET(p, opts) {
     }
 }
 async function downloadProtectedFile(path, filename) {
-    const r = await fetch(API_BASE + path, { headers: tok(), cache: 'no-store' });
-    if (!r.ok) {
-        let m = 'خطا در دریافت خروجی';
-        try {
-            const j = await r.json();
-            m = j.error || j.message || m;
+    // The generic network indicator ends when headers arrive; keep this job
+    // active until the actual report body has been received and handed to the browser.
+    const progress = window.KhatyarLongOperation;
+    const job = progress === null || progress === void 0 ? void 0 : progress.begin('در حال دریافت فایل گزارش', { stage: 'در حال دریافت و آماده‌سازی فایل…', delay: 400 });
+    try {
+        const r = await fetch(API_BASE + path, { headers: tok(), cache: 'no-store' });
+        if (!r.ok) {
+            let m = 'خطا در دریافت خروجی';
+            try {
+                const j = await r.json();
+                m = j.error || j.message || m;
+            }
+            catch (_) { }
+            throw new Error(m);
         }
-        catch (_) { }
-        throw new Error(m);
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'report.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
     }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || 'report.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    finally {
+        if (job != null)
+            progress.end(job);
+    }
 }
 function exportXlsx(rows, sheetName, filename) {
     if (typeof XLSX === 'undefined')
