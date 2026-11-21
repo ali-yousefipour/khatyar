@@ -6505,20 +6505,43 @@ function RadioSettings() {
     const [busy, setBusy] = useState(false);
     const [loadErr, setLoadErr] = useState('');
     const [loading, setLoading] = useState(true);
+    const [shiftLimit, setShiftLimit] = useState(true);
+    const [shiftSaving, setShiftSaving] = useState(false);
     const [form, setForm] = useState({ id: 0, name: '', code: '', description: '', channel_type: 'region', match_mode: 'OR', max_talk_ms: 25000, priority: 0, is_active: true, rules: { regions: [], users: [], roles: [] } });
     const api = async (op, opt = {}) => { const r = await fetch(`/api/radio-admin-api.php?op=${op}`, { ...opt, headers: { ...(opt.headers || {}), Authorization: `Bearer ${localStorage.token || ''}`, 'Content-Type': 'application/json' }, cache: 'no-store' }); const d = await r.json().catch(() => null); if (!r.ok || !d || d.ok === false)
         throw Error((d && d.error) || `خطای سرور (کد ${r.status})`); return d; };
     /* خطیار: قبلاً فقط alert() نشان داده می‌شد که ممکن بود دیده/بسته شود بدون توجه؛ حالا خطای بارگذاری
        به‌صورت دائمی و واضح در خودِ صفحه نمایش داده می‌شود تا علت واقعیِ خالی‌بودن این تب مشخص شود. */
-    const load = async () => { setLoading(true); setLoadErr(''); try {
-        setData(await api('bootstrap'));
-    }
-    catch (e) {
-        setLoadErr(e.message || 'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');
-    }
-    finally {
-        setLoading(false);
-    } };
+    const load = async () => {
+        setLoading(true);
+        setLoadErr('');
+        try {
+            const [bootstrap, gate] = await Promise.all([api('bootstrap'), api('shift-limit-get')]);
+            setData(bootstrap);
+            setShiftLimit(!!gate.radio_limit_to_shift);
+        }
+        catch (e) {
+            setLoadErr(e.message || 'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const saveShiftLimit = async (next) => {
+        if (shiftSaving)
+            return;
+        setShiftSaving(true);
+        try {
+            const saved = await api('shift-limit-set', { method: 'POST', body: JSON.stringify({ radio_limit_to_shift: next }) });
+            setShiftLimit(!!saved.radio_limit_to_shift);
+        }
+        catch (e) {
+            alert(e.message || 'ذخیره محدودیت بی‌سیم ناموفق بود.');
+        }
+        finally {
+            setShiftSaving(false);
+        }
+    };
     useEffect(() => { load(); }, []);
     const save = async () => { setBusy(true); try {
         await api('save', { method: 'POST', body: JSON.stringify(form) });
@@ -6545,8 +6568,11 @@ function RadioSettings() {
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0627\u06A9\u0646\u0648\u0646 \u0628\u062E\u0634\u06CC \u0627\u0632 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0635\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u0627\u0633\u062A. \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         !loading && !loadErr && React.createElement("div", { className: "panel", style: { marginTop: 12 } },
             React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645"),
-            React.createElement("p", { style: { color: 'var(--brand)', fontWeight: 700 } }, "\u25CF \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062D\u0636\u0648\u0631 \u0628\u0631\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0641\u0639\u0627\u0644 \u0648 \u0627\u0644\u0632\u0627\u0645\u06CC \u0627\u0633\u062A."),
-            React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 2, marginTop: 8 } }, "\u062A\u0645\u0627\u0645 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0633\u0637\u062D \u06F5 \u062A\u0627 \u06F9 (\u062D\u062A\u06CC \u062F\u0627\u0631\u0646\u062F\u06AF\u0627\u0646 \u062F\u0633\u062A\u0631\u0633\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC) \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u062F\u0631 \u00AB\u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0645\u0646\u00BB \u0648 \u062A\u0627 \u0642\u0628\u0644 \u0627\u0632 \u062B\u0628\u062A \u062E\u0631\u0648\u062C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u0646\u062F \u0635\u062F\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0631\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A \u06CC\u0627 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u0646\u062F. \u0641\u0642\u0637 \u0633\u0637\u0648\u062D \u06F1 \u062A\u0627 \u06F4 \u0645\u0633\u062A\u062B\u0646\u0627 \u0647\u0633\u062A\u0646\u062F\u061B \u0627\u06CC\u0646 \u0642\u0627\u0646\u0648\u0646 \u0627\u0632 \u0633\u0645\u062A \u0633\u0631\u0648\u0631 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0642\u0627\u0628\u0644 \u062E\u0627\u0645\u0648\u0634\u200C\u06A9\u0631\u062F\u0646 \u0646\u06CC\u0633\u062A.")),
+            React.createElement("label", { className: "row", style: { gap: 10, alignItems: 'center', cursor: shiftSaving ? 'wait' : 'pointer', fontWeight: 700, color: 'var(--brand)' } },
+                React.createElement("input", { type: "checkbox", checked: shiftLimit, disabled: shiftSaving, onChange: e => saveShiftLimit(e.target.checked) }),
+                React.createElement("span", null, "\u0627\u0639\u0645\u0627\u0644 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062D\u0636\u0648\u0631 \u0628\u0631\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0633\u0637\u062D \u06F5 \u062A\u0627 \u06F9")),
+            React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 2, marginTop: 8 } }, "\u062F\u0631 \u062D\u0627\u0644\u062A \u0641\u0639\u0627\u0644\u060C \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0633\u0637\u0648\u062D \u06F5 \u062A\u0627 \u06F9 (\u062D\u062A\u06CC \u0645\u062F\u06CC\u0631\u0627\u0646 \u062F\u0627\u0631\u0627\u06CC \u0633\u0637\u062D \u06F5 \u062A\u0627 \u06F9) \u0641\u0642\u0637 \u0628\u06CC\u0646 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u0646\u062F \u0635\u062F\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0631\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u0646\u062F. \u062F\u0631 \u062D\u0627\u0644\u062A \u063A\u06CC\u0631\u0641\u0639\u0627\u0644\u060C \u0627\u0644\u0632\u0627\u0645 \u062D\u0636\u0648\u0631 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0633\u0637\u0648\u062D \u0628\u0631\u062F\u0627\u0634\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0645\u062C\u0648\u0632 \u06A9\u0627\u0646\u0627\u0644 \u0648 \u0627\u062D\u0631\u0627\u0632 \u0647\u0648\u06CC\u062A \u0647\u0645\u0686\u0646\u0627\u0646 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A. \u0633\u0637\u0648\u062D \u06F1 \u062A\u0627 \u06F4 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u0646\u062F \u0627\u0632 \u062F\u0627\u062E\u0644 \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631\u060C \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0634\u062E\u0635\u06CC \u062E\u0648\u062F \u0631\u0627 \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647 \u0631\u0648\u0634\u0646 \u06CC\u0627 \u062E\u0627\u0645\u0648\u0634 \u06A9\u0646\u0646\u062F."),
+            shiftSaving && React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631 \u062D\u0627\u0644 \u0630\u062E\u06CC\u0631\u0647\u2026")),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645\u2026") : null,
         loadErr ? React.createElement("div", { className: "panel", style: { borderColor: '#e23b54', background: '#fdeef0' } },
             React.createElement("b", { style: { color: '#e23b54' } }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"),
