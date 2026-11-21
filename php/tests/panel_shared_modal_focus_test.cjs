@@ -17,7 +17,9 @@ const dialog={
  contains(item){return item===this||item===first||item===last;},
  querySelectorAll(){return [first,last];}
 };
+let dialogs=[dialog];
 const documentMock={
+ querySelectorAll(){return dialogs;},
  get activeElement(){return active;},
  addEventListener(type,cb){if(type==='keydown')handler=cb;},
  removeEventListener(type,cb){if(type==='keydown'&&handler===cb)handler=null;}
@@ -40,6 +42,10 @@ active=outsider;assert.ok(send('Tab'),'Tab from outside is trapped');assert.equa
 active=outsider;assert.ok(send('Tab',true),'Shift+Tab from outside is trapped');assert.equal(active,last);
 assert.ok(send('Tab'),'Tab from last wraps to first');assert.equal(active,first);
 assert.ok(send('Tab',true),'Shift+Tab from first wraps to last');assert.equal(active,last);
-assert.ok(send('Escape'),'Escape is handled');assert.equal(closed,1);
+dialogs=[dialog,{role:'dialog'}];
+assert.equal(send('Escape'),false,'underlying dialog must not handle keyboard events while a child is on top');
+assert.equal(closed,0,'underlying dialog must not close when another dialog is above it');
+dialogs=[dialog];
+assert.ok(send('Escape'),'Escape is handled by topmost modal');assert.equal(closed,1);
 cleanup();assert.equal(active,outsider,'dialog teardown restores previous focus');
 console.log('PASS compiled shared modal keyboard trapping, Escape and focus restoration');
