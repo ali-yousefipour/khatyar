@@ -22223,7 +22223,7 @@ function App() {
         }).finally(() => { if (live)
             setSettingsLoadedFor(identity); });
         return () => { live = false; };
-    }, [me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.role_id, me === null || me === void 0 ? void 0 : me.is_admin, me === null || me === void 0 ? void 0 : me.must_change_pw]);
+    }, [me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.role_id, me === null || me === void 0 ? void 0 : me.is_admin, me === null || me === void 0 ? void 0 : me.must_change_pw, authRetry]);
     if (!authReady)
         return React.createElement(PanelStartupLoading, { title: "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A", stage: "\u0628\u0631\u0631\u0633\u06CC \u0627\u0639\u062A\u0628\u0627\u0631 \u0648\u0631\u0648\u062F \u0648 \u0627\u062A\u0635\u0627\u0644 \u0628\u0647 \u0633\u0631\u0648\u0631\u2026" });
     if (authError && !me)
