@@ -34,7 +34,16 @@ export default function PresenceGate({navigationRef}){
  const openNotificationRef=useRef(null);
  const userId=Number(user?.id||0);
 
- const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
+ const setDueStable=next=>{
+  if(!mountedRef.current)return;
+  const previous=dueRef.current;
+  dueRef.current=next;
+  // Begin the alert at the same transition that activates the countdown.
+  // Navigation, React rendering and camera readiness are independent.
+  if(next&&String(previous?.requestId||'')!==String(next.requestId||'')&&cfgRef.current?.alarm!==false)
+    startPresenceAlarm(next.deadlineMs).catch(()=>{});
+  setDue(next);
+ };
 
  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;dueRef.current=null}},[]);
  useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
