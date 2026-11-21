@@ -11,6 +11,7 @@ import VehiclesPhotoCapture from'./VehiclesPhotoCapture';
 import{playSound}from'./soundFx';
 import{stopPresenceAlarm}from'./presenceAlarm';
 import{emitPresenceWizardState}from'./presenceWizardLifecycle';
+import {presenceRemainingMs} from './presenceDeadlineClock';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {markLocalPresenceCompleted} from './presenceLocalSchedule';
 import {useAuth} from './auth';
@@ -32,7 +33,7 @@ export default function PresenceCheckWizard(){
  const deadlineMs=Number(p.deadlineMs)||Date.now()+windowMinutes*60000;
  const[step,setStep]=useState('intro');
  const[selfie,setSelfie]=useState(null);
- const[secs,setSecs]=useState(Math.max(0,Math.ceil((deadlineMs-Date.now())/1000)));
+ const[secs,setSecs]=useState(Math.max(0,Math.ceil(presenceRemainingMs(requestId,deadlineMs)/1000)));
  const[sending,setSending]=useState(false);
  const[error,setError]=useState('');
  const[expired,setExpired]=useState(false);
@@ -73,7 +74,7 @@ export default function PresenceCheckWizard(){
  useEffect(()=>{
    if(['done','expired'].includes(step))return;
    const update=()=>{
-     const remaining=Math.max(0,Math.ceil((deadlineMs-Date.now())/1000));
+     const remaining=Math.max(0,Math.ceil(presenceRemainingMs(requestId,deadlineMs)/1000));
      setSecs(remaining);
      if(remaining===0&&!finishedRef.current&&!sending){
        setExpired(true);
@@ -95,7 +96,7 @@ export default function PresenceCheckWizard(){
  };
 
  async function submit(vehiclesUrl,coords){
-   if(finishedRef.current||sending||Date.now()>=deadlineMs){
+   if(finishedRef.current||sending||presenceRemainingMs(requestId,deadlineMs)<=0){
      setExpired(true);terminalRef.current=true;emitPresenceWizardState(requestId,'expired');setStep('expired');return;
    }
    coordsRef.current=coords||coordsRef.current;
