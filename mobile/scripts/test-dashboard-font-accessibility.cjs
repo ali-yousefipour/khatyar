@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const parser=require('@babel/parser');
+const tile=fs.readFileSync(path.resolve(__dirname,'../src/components/DashboardTiles.js'),'utf8');
+assert.ok(parser.parse(tile,{sourceType:'module',plugins:['jsx']}).program.body.length);
+assert.equal((tile.match(/allowFontScaling\b/g)||[]).length,4,'All dashboard labels and numeric values allow Android text scaling');
+assert.doesNotMatch(tile,/allowFontScaling=\{false\}/,'Dashboard must not suppress system font size');
+assert.doesNotMatch(tile,/numberOfLines=\{2\}/,'Tool and metric labels must not truncate at 2 lines');
+assert.match(tile,/compactFavorite: \{ position: 'absolute', left: 5, top: 5, minWidth: 44, minHeight: 44/,'Favorite star needs at least 44dp target');
+assert.match(tile,/category: \{ fontFamily: FONT\.regular/,'Keep dashboard category styling');
+assert.match(tile,/accessibilityLabel=\{label\}/,'Tool accessible names must be preserved');
+assert.match(tile,/accessibilityLabel=\{label \+ '، ' \+ faNum\(Number\(value\)\)\}/,'Metric accessible context must be preserved');
+console.log('PASS dashboard tile font accessibility and mobile width contracts');
