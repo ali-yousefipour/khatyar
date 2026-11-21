@@ -21162,7 +21162,7 @@ function SchoolComplaintsLauncher() {
             return () => { alive = false; };
         }
         const script = document.createElement("script");
-        script.src = "/assets/school-complaints-admin.js?v=20261121.5";
+        script.src = "/assets/school-complaints-admin.js?v=20261121.6";
         script.onload = ready;
         script.onerror = () => { if (alive)
             setError("خطا در دریافت ماژول شکایات"); };
