@@ -50,6 +50,9 @@ async function testPermissionRevocation() {
   assert.match(auth, /queueIfOffline:false,forceNetwork:true,timeoutMs:7000/);
   assert.match(offline, /if\(!owner\?\.id\)throw new Error/);
   assert.match(offline, /!item\.owner_user_id \|\| String\(item\.owner_user_id\)!==String\(owner\.id\)/);
+  assert.match(offline, /if\(retryLocks\.has\(key\)\)return retryLocks\.get\(key\)/);
+  assert.match(offline, /if\(flushPromise\)await flushPromise/);
+  assert.match(offline, /if\(retryLocks\.has\(String\(item\.client_uuid\)\)\)continue/);
   assert.match(api, /body:sendBody,auth,retry:false,noStore,timeoutMs,queueIfOffline,forceNetwork/);
   assert.match(api, /if\(receivedHttpResponse\)throw firstError/);
   console.log('Mobile reliability regression checks passed.');
