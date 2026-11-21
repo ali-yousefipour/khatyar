@@ -34,6 +34,7 @@ assert.match(vehicle, /accessibilityState=\{\{selected:data\.plate_letter===lett
 const functions = signature.match(/  async function capture\(\) \{[\s\S]*?\n  \}\n\n  function clear\(\) \{[\s\S]*?\n  \}/);
 assert.ok(functions, 'signature capture and clear methods should be available for isolated regression');
 assert.match(signature, /onPanResponderGrant: \(e\) => \{\s*captureGeneration\.current \+= 1/, 'new signature strokes must invalidate in-flight capture');
+assert.match(signature, /onPanResponderGrant: \(e\) => \{\s*captureGeneration\.current \+= 1;[\s\S]*?onChangeRef\.current\(''\)/, 'new ink must immediately invalidate previous submittable PNG');
 assert.match(signature, /mounted\.current = true;[\s\S]*?return \(\) => \{ mounted\.current = false; captureGeneration\.current \+= 1; \}/, 'capture cleanup must handle React strict effect replay');
 assert.match(signature, /accessibilityLabel="پاک کردن امضا"/, 'clear action must be accessible');
 
