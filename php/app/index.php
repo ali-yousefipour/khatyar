@@ -371,6 +371,11 @@ if (preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*
   }
   unset($formsRoute);
 }
+// Reserve pending substitutes and expose confirmed leave/coverage to the shift calendar.
+if (is_file("$ROOT/lib/LeaveSubstituteCoverage.php")) {
+  require_once "$ROOT/lib/LeaveSubstituteCoverage.php";
+  LeaveSubstituteCoverage::register($routes);
+}
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   try {
