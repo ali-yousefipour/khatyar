@@ -293,3 +293,11 @@
 - **تقویت CI:** `Mobile Reliability QA` اکنون تغییر `mobile/App.js` و تست‌های امنیتی نقش و فونت را نیز پوشش می‌دهد و پیش از `expo export` بررسی می‌کند. کامیت `09f06f38`.
 - **ماتریس دستگاه:** `docs/mobile-ui-device-validation.md` ایجاد شد، شامل سناریوهای ۱۰۰، ۱۲۵، ۱۵۰ و ۲۰۰٪، TalkBack، RTL، ثبت حضور، رادیو، مدارس، فیش حقوق، تغییر نقش و معیارهای پذیرش. تهیه این سند **به معنی اجرای آزمون دستگاه نیست**.
 - **خارج از تأیید:** نبود دستگاه Android و حساب‌های تست نقش‌های واقعی مانع اعلام موفقیت بصری ۲۰۰٪، امنیت endpointها و سنجش عملی performance است. تا آن زمان انتشار APK جدید مجاز دانسته نمی‌شود.
+
+## تکمیل آزمون رفتاری مجوز صفحه و گیت انتشار — ۲۰۲۶-۱۱-۲۱
+
+- **UI-29، آزمون واقعی منطق React (بدون دستگاه):** `mobile/scripts/test-restricted-screen-runtime.cjs` خود تابع `RestrictedScreen` از `mobile/App.js` را با Babel کامپایل می‌کند و با mockهای React تغییر کاربر، نقش و وضعیت مدیریتی را *قبل از اجرای اثر بعدی* بازآفرینی می‌کند. بررسی می‌شود محتوای محدودشده با مجوز قدیمی رندر نشود؛ سپس پس از دریافت مجوز تازه فقط مسیر مجاز رندر شود. کامیت `bb441863` و اصلاح تنظیم Babel در `16a6bcb0`.
+- **گیت CI:** اجرای `Mobile Reliability QA` به آزمون رفتاری افزوده شد (`4d7ecebb`). شکست موقت به‌خاطر کمبود `filename` در فراخوانی Babel، در `16a6bcb0` رفع شد؛ این شکست از منطق مجوز واقعی نبود.
+- **شواهد آخرین کد:** `Project Integrity` موفق [44907009949](https://github.com/ali-yousefipour/khatyar/actions/runs/44907009949)، `Mobile Regression Isolation` موفق با **۶۷ اسکریپت و صفر شکست** [44907010000](https://github.com/ali-yousefipour/khatyar/actions/runs/44907010000)، `Mobile Reliability QA` شامل ساخت JS bundle اندروید موفق [44907009952](https://github.com/ali-yousefipour/khatyar/actions/runs/44907009952).
+- **مرز اعتبار:** ۶۷ آزمون روی سورس/JS و bundle هستند، نه ۶۷ آزمون روی گوشی. برای تأیید ۱۰۰–۲۰۰٪، TalkBack، RTL در تمام صفحات و مجوزهای PHP لازم است سناریوهای `docs/mobile-ui-device-validation.md` با دستگاه واقعی و حساب نقش آزمایشی اجرا شوند.
+- **انتشار:** ساخت APK امضاشده `build-android-myket` روی کامیت‌های عادی به‌درستی `skipped` مانده است؛ هیچ انتشار جدیدی انجام نشده.
