@@ -5,7 +5,11 @@ on:
     branches: [main]
     paths:
       - 'mobile/src/**'
+      - 'mobile/App.js'
       - 'mobile/scripts/test-mobile-reliability.cjs'
+      - 'mobile/scripts/test-native-fontscale-policy.cjs'
+      - 'mobile/scripts/test-route-grant-scope.cjs'
+      - 'mobile/scripts/test-role-app-items-contract.cjs'
       - 'mobile/package.json'
       - 'mobile/package-lock.json'
       - '.github/workflows/mobile-reliability-qa.yml'
@@ -36,6 +40,12 @@ jobs:
         working-directory: mobile
       - name: Test offline reliability and permissions
         run: npm run test:reliability
+        working-directory: mobile
+      - name: Enforce scalable fonts and identity-scoped navigation access
+        run: |
+          node scripts/test-native-fontscale-policy.cjs
+          node scripts/test-route-grant-scope.cjs
+          node scripts/test-role-app-items-contract.cjs
         working-directory: mobile
       - name: Verify Babel and React Native syntax
         run: npm run validate:babel
