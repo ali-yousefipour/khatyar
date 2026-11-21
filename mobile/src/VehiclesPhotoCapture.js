@@ -138,13 +138,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           return road?{street:road,source:'openstreetmap'}:null;
         }catch(_){return null}
       };
-      // The device and rate-limited backend are independent. Parallel lookup
-      // avoids waiting for a geocoder that hangs on a particular Android build.
-      const [deviceRoad,serverRoad]=await Promise.all([deviceLookup(),serverLookup()]);
-      let mapRoad=null;
-      if(!deviceRoad&&!serverRoad){
-        // Existing Neshan endpoint gives a road-name fallback where OSM has
-        // no data or its globally shared Nominatim budget is exhausted.
+      const neshanLookup=async()=>{
         try{
           const geo=await request('/geo/reverse?lat='+
             encodeURIComponent(lat.toFixed(6))+'&lng='+
@@ -152,9 +146,16 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               noStore:true,timeoutMs:4500,queueIfOffline:false
             });
           const road=String(geo?.street||'').trim();
-          if(road)mapRoad={street:road,source:'neshan'};
-        }catch(_){}
-      }
+          return road?{street:road,source:'neshan'}:null;
+        }catch(_){return null}
+      };
+      // Resolve independent providers in parallel. The previous sequential
+      // fallback could finish AFTER the photo metadata timeout and silently
+      // discard a valid map street. Reuse a nearby cached road without an
+      // unnecessary Neshan call; fresh native/OSM results remain preferable.
+      const [deviceRoad,serverRoad,mapRoad]=await Promise.all([
+        deviceLookup(),serverLookup(),lastRoad?Promise.resolve(null):neshanLookup()
+      ]);
       const resolved=deviceRoad||serverRoad||mapRoad||lastRoad;
       if(resolved){
         street=String(resolved.street).slice(0,120);
