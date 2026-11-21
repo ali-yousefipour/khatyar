@@ -101,12 +101,14 @@ function harness() {
   assert.match(source, /<View accessible accessibilityLabel=\{\x60\$\{label\}/, 'readable payroll fields need full text labels for screen readers');
   assert.match(source, /readableRow: \{ minHeight: 48, paddingVertical: 9/, 'readable payroll rows need scalable layout');
   assert.match(source, /در تصویر فیش A5 ذخیره نمی‌شود/, 'reading panel must identify that printed layout is unchanged');
+  assert.match(source, /if \(issuanceLock\.current\) return;/, 'preview fetch must be protected from repeated taps');
+  assert.match(source, /if \(!slipRef\.current \|\| !slip \|\| issuing \|\| issuanceLock\.current\) return;/, 'issuance must have immediate reentrancy guard');
   const saveStart = source.indexOf('  const saveIssuedSlip = async () => {');
   const saveEnd = source.indexOf('\n  return <View', saveStart);
   for (const mode of ['success', 'queued', 'network-error']) {
     const events = [];
     const context = {
-      slipRef: { current: {} }, slip: { row: { id: 8, period_jy: 1405, period_jm: 6 } }, issuing: false,
+      slipRef: { current: {} }, slip: { row: { id: 8, period_jy: 1405, period_jm: 6 } }, issuing: false, issuanceLock: { current: false },
       payrollFontsReady: true,
       FONT: { payrollHoma: 'Payroll-BHoma', payrollNazanin: 'Payroll-BNazanin' },
       Font: { isLoaded: name => ['Payroll-BHoma', 'Payroll-BNazanin'].includes(name) },
@@ -124,7 +126,9 @@ function harness() {
     };
     vm.createContext(context);
     vm.runInContext(source.slice(saveStart, saveEnd) + '\nrunIssuance=saveIssuedSlip;', context);
-    await context.runIssuance();
+    await Promise.all([context.runIssuance(), context.runIssuance()]);
+    assert.equal(events.filter(event => event[0] === 'copied').length, 1, 'rapid taps must not capture or issue twice');
+    assert.equal(context.issuanceLock.current, false, 'issuance lock must release after success or failure');
     assert.equal(events.some(event => event[0] === 'issued'), mode === 'success', 'only a durable server response issues a slip');
     assert.equal(events.some(event => event[0] === 'deleted'), mode !== 'success', 'unconfirmed preview is cleaned up');
   }
