@@ -78,6 +78,7 @@ export async function enqueue(item={}) {
     const clientUuid=typeof item.client_uuid==='string'&&item.client_uuid.trim()?item.client_uuid:uuid();
     if(queue.some(x=>String(x.client_uuid||'')===String(clientUuid)))return clientUuid;
     const owner=await readVerifiedUser().catch(()=>null);
+    if(!owner?.id)throw new Error('برای ثبت آفلاین، ابتدا با حساب کاربری تأییدشده وارد شوید.');
     let stored;
     const created=[];
     try {
@@ -115,6 +116,6 @@ export async function flush(send,{force=false}={}){if(flushPromise)return flushP
 
 export async function retryOne(clientUuid,send){const queue=await pending();const item=queue.find(x=>String(x?.client_uuid||'')===String(clientUuid||''));if(!item)throw new Error('این مورد دیگر در صف ارسال نیست.');
   const owner=await readVerifiedUser().catch(()=>null);
-  if(!owner?.id || (item.owner_user_id && String(item.owner_user_id)!==String(owner.id)))
+  if(!owner?.id || !item.owner_user_id || String(item.owner_user_id)!==String(owner.id))
     throw new Error('این مورد مربوط به حساب دیگری است یا ورود شما تأیید نشده است.');
   try{const res=await send(item);if(res?.queued)throw new Error('هنوز ارتباط با سرور برقرار نیست.');await removeSynced([item.client_uuid]);return res}catch(e){await updateItem(item,{attempts:Number(item.attempts||0)+1,last_attempt_at:Date.now(),last_error:String(e?.message||e).slice(0,500)});throw e}}
