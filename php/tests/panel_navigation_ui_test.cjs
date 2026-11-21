@@ -34,11 +34,12 @@ function harness(source, initial) {
     GET: async () => [], URLSearchParams, setTimeout: fn => fn(), console
   });
   vm.runInContext(menuSource, context);
+  vm.runInContext(extract('PanelStartupLoading'), context);
   vm.runInContext(source, context);
   return { states, effects, listeners, evaluate: expression => vm.runInContext(expression,context), render: (name, args = '') => { cursor = 0; effects.length = 0; return vm.runInContext(`${name}(${args})`, context); } };
 }
 const admin = { name: 'کاربر آزمایشی', is_admin: true, role_id: 1 };
-const app = harness(extract('App'), [admin, true, '', 0, 'dashboard', null, false, {}, false, '', false, {}]);
+const app = harness(extract('App'), [admin, true, '', 0, 'dashboard', null, false, {}, true, '', false, {}, 'undefined:1']);
 let tree = app.render('App');
 const menu = tree => nodes(tree).filter(n => n.type === 'button' && (n.props.className || '').startsWith('navitem '));
 assert.ok(menu(tree).length > 50, 'All permitted pages remain available');
