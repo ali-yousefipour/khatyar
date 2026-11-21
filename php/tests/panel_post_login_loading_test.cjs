@@ -13,6 +13,7 @@ assert.match(source, /if\(!me\)return <Login/, 'failed or absent session still d
 assert.match(source, /if\(authError&&!me\)return/, 'network error state remains reachable');
 assert.match(source, /if\(me\.is_admin&&!me\.must_change_pw&&\(settingsLoadedFor!==String\(me\.id\)/, 'admin route waits for matching settings');
 assert.match(source, /if\(!live\)return;/, 'stale settings response is ignored');
+assert.match(source, /setAllowed\(\[\]\);[\s\S]*console\.warn\('Panel settings temporarily unavailable:/, 'role permissions fail closed on initial settings error');
 assert.match(source, /\.finally\(\(\)=>\{if\(live\)setSettingsLoadedFor\(identity\);\}\)/, 'loading clears on success or failure');
 assert.match(source, /\[me\?\.id,me\?\.role_id,me\?\.is_admin,me\?\.must_change_pw\]/, 'settings reload is scoped to authenticated identity');
 assert.match(progress, /\.kh-login-startup\{/, 'shared loading stylesheet includes post-login layout');
