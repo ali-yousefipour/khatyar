@@ -10,6 +10,7 @@ on:
       - 'php/app/cron_bale.php'
       - 'php/migrations/20261121_school_complaint_notification_outbox.sql'
       - 'php/tests/school_complaint_notifications_test.php'
+      - 'php/tests/school_complaints_notification_ui_test.cjs'
       - 'php/app/index.php'
       - 'php/app/school-complaints-portal.html'
       - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
@@ -27,6 +28,7 @@ on:
       - 'php/app/cron_bale.php'
       - 'php/migrations/20261121_school_complaint_notification_outbox.sql'
       - 'php/tests/school_complaint_notifications_test.php'
+      - 'php/tests/school_complaints_notification_ui_test.cjs'
       - 'php/app/index.php'
       - 'php/app/school-complaints-portal.html'
       - 'php/migrations/2026_11_21_school_complaint_accounts.sql'
@@ -83,6 +85,8 @@ jobs:
           php php/tools/test_school_complaint_permissions.php
           php php/tools/test_school_complaint_isolated_accounts.php
       - name: Verify notification event rules and idempotent queue
-        run: php php/tests/school_complaint_notifications_test.php
+        run: |
+          php php/tests/school_complaint_notifications_test.php
+          node php/tests/school_complaints_notification_ui_test.cjs
       - name: Verify full case lifecycle and role enforcement
         run: php php/tools/test_school_complaint_workflow.php
