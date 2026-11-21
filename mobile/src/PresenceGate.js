@@ -1,4 +1,5 @@
 import {presenceDeadline} from './presencePresentation';
+import {onPresenceWizardState} from './presenceWizardLifecycle';
 import React,{useState,useEffect,useRef}from'react';
 import{AppState}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
@@ -33,6 +34,24 @@ export default function PresenceGate({navigationRef}){
 
  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;dueRef.current=null}},[]);
  useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
+ useEffect(()=>onPresenceWizardState(({requestId,state})=>{
+   const active=dueRef.current;
+   if(!active||String(active.requestId||'')!==requestId)return;
+   if(state==='ready'){
+     wizardReadyRef.current=true;
+     stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+   } else if(state==='completed'||state==='expired'){
+     wizardReadyRef.current=false;
+     openedRef.current=false;
+     setDueStable(null);
+     stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+   } else if(state==='hidden'){
+     wizardReadyRef.current=false;
+     openedRef.current=false;
+     if(Date.now()<Number(active.deadlineMs))
+       startPresenceAlarm(active.deadlineMs).catch(()=>{});
+   }
+ }),[]);
 
  // زمان‌بندی عادی فقط وقتی ویزارد باز نیست polling می‌شود.
  // وجود یک ویزارد باز نباید با پاسخ موقت/ناقص تنظیمات باعث unmount شدن آن شود.
