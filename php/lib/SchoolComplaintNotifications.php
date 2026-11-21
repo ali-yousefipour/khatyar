@@ -6,7 +6,7 @@
  */
 final class SchoolComplaintNotifications {
   public const EVENTS = ['created','start','reply','escalate','return','close'];
-  public const AUDIENCES = ['complainant','company','reviewer','supervisor'];
+  public const AUDIENCES = ['complainant','company','operator','reviewer','supervisor'];
   public const CHANNELS = ['sms','bale'];
 
   public static function normalize($input): array {
@@ -31,13 +31,14 @@ final class SchoolComplaintNotifications {
       if (!empty($methods['sms'])||!empty($methods['bale'])) { $hasEnabled=true; break; }
     }
     if (!$hasEnabled) return;
-    $r=Db::one('SELECT tracking_code,phone,company_snapshot,assigned_to,supervisor_id FROM school_complaints WHERE id=?',[$caseId]);
+    $r=Db::one('SELECT tracking_code,phone,company_snapshot,created_by,assigned_to,supervisor_id FROM school_complaints WHERE id=?',[$caseId]);
     if (!$r) return;
     $company=json_decode((string)($r['company_snapshot']??'{}'),true);
     $company=is_array($company)?$company:[];
     $mobiles=[
       'complainant'=>(string)($r['phone']??''),
       'company'=>(string)($company['manager_mobile']??''),
+      'operator'=>self::userPhone((int)($r['created_by']??0)),
       'reviewer'=>self::userPhone((int)$r['assigned_to']),
       'supervisor'=>self::userPhone((int)$r['supervisor_id']),
     ];
@@ -46,10 +47,12 @@ final class SchoolComplaintNotifications {
       $stage=Db::one('SELECT actor_id FROM school_complaint_events WHERE id=?',[$eventId]);
       $mobiles['reviewer']=self::userPhone((int)($stage['actor_id']??0));
     }
+    $seen=[];
     foreach (self::AUDIENCES as $audience) foreach (self::CHANNELS as $channel) {
       if (empty($rules[$event][$audience][$channel])) continue;
       $mobile=self::mobile($mobiles[$audience]);
-      if (!$mobile) continue;
+      if (!$mobile || isset($seen[$channel.':'.$mobile])) continue;
+      $seen[$channel.':'.$mobile]=true;
       $labels=['created'=>'ثبت شد','start'=>'در حال رسیدگی است','reply'=>'پاسخ رسیدگی ثبت شد','escalate'=>'به مسئول واحد ارجاع شد','return'=>'برای بررسی تکمیلی بازگشت','close'=>'مختومه شد'];
       $text='خطیار - شکایات سرویس مدارس'."\n".'پرونده '.(string)$r['tracking_code'].' '.($labels[$event]??'به‌روزرسانی شد').'.';
       // The content deliberately excludes claimant identity, complaint text, and internal notes.
@@ -85,7 +88,7 @@ final class SchoolComplaintNotifications {
           $out=Sms::send($row['mobile'],$row['message'],'school_complaint',null);
           $ok=!empty($out['ok']);
         } else {
-          $out=BaleBot::sendToMobile($row['mobile'],$row['message'],'school_complaint',(string)$id);
+          $out=BaleBot::isEnabled() ? BaleBot::sendToMobile($row['mobile'],$row['message'],'school_complaint',(string)$id) : ['ok'=>false,'error'=>'ربات بله در تنظیمات اصلی غیرفعال است'];
           $ok=!empty($out['ok']);
         }
         $error=$ok?'':mb_substr((string)($out['error']??'ارسال ناموفق بود'),0,255);
