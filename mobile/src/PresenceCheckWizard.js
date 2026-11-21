@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState}from'react';
 import{Alert,BackHandler,ScrollView,StyleSheet,Text,TouchableOpacity,View}from'react-native';
-import{useNavigation,useRoute}from'@react-navigation/native';
+import{useNavigation,useRoute,useIsFocused}from'@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import AsyncStorage from'@react-native-async-storage/async-storage';
 import{request}from'./api';
 import{C,FONT}from'./theme';
@@ -16,6 +17,8 @@ import {useAuth} from './auth';
 
 export default function PresenceCheckWizard(){
  const navigation=useNavigation();
+ const isFocused=useIsFocused();
+ const insets=useSafeAreaInsets();
  const {user}=useAuth();
  const route=useRoute();
  const p=route.params||{};
@@ -38,6 +41,7 @@ export default function PresenceCheckWizard(){
  const finishedRef=useRef(false);
  const allowExitRef=useRef(false);
  const readyReported=useRef(false);
+ const layoutReported=useRef(false);
  const terminalRef=useRef(false);
 
  useEffect(()=>{
@@ -91,7 +95,7 @@ export default function PresenceCheckWizard(){
 
  async function submit(vehiclesUrl,coords){
    if(finishedRef.current||sending||Date.now()>=deadlineMs){
-     setExpired(true);setStep('expired');return;
+     setExpired(true);terminalRef.current=true;emitPresenceWizardState(requestId,'expired');setStep('expired');return;
    }
    coordsRef.current=coords||coordsRef.current;
    setError('');
@@ -119,10 +123,10 @@ export default function PresenceCheckWizard(){
      setQueued(!!r.queued);
      finishedRef.current=true;
      terminalRef.current=true;
-     emitPresenceWizardState(requestId,'completed');
      if(doneKey)await AsyncStorage.setItem(doneKey,'1');
      await markLocalPresenceCompleted(requestId,r?.queued?'queued':'done',{slot,day,immediate,user_id:Number(user?.id||0)});
-     await stopPresenceAlarm();
+     emitPresenceWizardState(requestId,'completed');
+     await stopPresenceAlarm({dismissNotifications:true});
      setSending(false);
      setStep('done');
    }catch(e){
@@ -147,21 +151,27 @@ export default function PresenceCheckWizard(){
  const ss=String(secs%60).padStart(2,'0');
  const timeFa=(mm+':'+ss).replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
  const acknowledgeVisible=()=>{
-   if(readyReported.current)return;
+   layoutReported.current=true;
+   if(!isFocused||readyReported.current)return;
    readyReported.current=true;
    emitPresenceWizardState(requestId,'ready');
+   // Also stop native playback if notification delivery preceded gate hydration.
+   stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
  };
+ useEffect(()=>{
+   if(isFocused&&layoutReported.current&&!readyReported.current)acknowledgeVisible();
+ },[isFocused]);
 
  if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst={false} onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
  if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst={false} onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/><View pointerEvents="none" style={s.cameraTimer}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
 
  return <View style={s.page} onLayout={acknowledgeVisible}>
-   <View style={s.header}>
+   <View style={[s.header,{paddingTop:Math.max(16,insets.top+8)}]}>
      <MaterialCommunityIcons name="shield-check-outline" size={29} color="#f5d89d" />
      <Text style={s.headerTitle}>صحت‌سنجی حضور</Text>
      <Text style={s.headerSub}>مرحله‌ای و تمام‌صفحه</Text>
    </View>
-   <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+   <ScrollView style={s.scroll} contentContainerStyle={[s.content,{paddingBottom:Math.max(28,insets.bottom+20)}]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
      {step==='intro'&&<>
        <MaterialCommunityIcons name="camera-account" size={54} color="#075f51" style={s.icon} />
        <Text style={s.title}>آماده انجام صحت‌سنجی هستید؟</Text>
