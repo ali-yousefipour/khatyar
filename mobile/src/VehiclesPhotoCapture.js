@@ -174,7 +174,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     const generation = ++captureGeneration.current;
     try {
       // Release CameraX surface before asking the OS camera application to open.
-      if (useInlineCamera && !(await waitForCameraRelease())) throw new Error('camera_still_in_use');
+      if (!(await waitForCameraRelease())) throw new Error('camera_still_in_use');
       const result = await launchCamera({
         mediaTypes: ['images'],
         cameraType: ImagePicker.CameraType?.back || 'back',
