@@ -157,7 +157,7 @@ const noticeStages=[
  ['return','بازگشت برای تکمیل','پس از ارجاع دوباره پرونده به رسیدگی‌کننده'],
  ['close','مختومه شدن','بعد از بسته‌شدن پرونده']
 ];
-const noticeRecipients=[['complainant','شاکی'],['company','شرکت سرویس‌دهنده'],['reviewer','رسیدگی‌کننده'],['supervisor','مسئول رسیدگی']];
+const noticeRecipients=[['complainant','شاکی'],['company','شرکت سرویس‌دهنده'],['operator','کاربر ثبت و دریافت شکایت'],['reviewer','کارشناس رسیدگی'],['supervisor','مسئول واحد']];
 function NotificationSettings({value,onChange}){
  const current=value||{};
  const toggle=(stage,recipient,channel,checked)=>{
