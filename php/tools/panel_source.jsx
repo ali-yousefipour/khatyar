@@ -3703,11 +3703,19 @@ function RoleAppItems(){
 
 function RadioSettings(){
   const [data,setData]=useState({channels:[],users:[],roles:[],regions:[],retention_days:1,retention_hours:24});
-  const [busy,setBusy]=useState(false); const [loadErr,setLoadErr]=useState(''); const [loading,setLoading]=useState(true); const [form,setForm]=useState({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}});
+  const [busy,setBusy]=useState(false); const [loadErr,setLoadErr]=useState(''); const [loading,setLoading]=useState(true);
+  const [shiftLimit,setShiftLimit]=useState(true);const [shiftSaving,setShiftSaving]=useState(false); const [form,setForm]=useState({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}});
   const api=async(op,opt={})=>{const r=await fetch(`/api/radio-admin-api.php?op=${op}`,{...opt,headers:{...(opt.headers||{}),Authorization:`Bearer ${localStorage.token||''}`,'Content-Type':'application/json'},cache:'no-store'});const d=await r.json().catch(()=>null);if(!r.ok||!d||d.ok===false)throw Error((d&&d.error)||`خطای سرور (کد ${r.status})`);return d;};
   /* خطیار: قبلاً فقط alert() نشان داده می‌شد که ممکن بود دیده/بسته شود بدون توجه؛ حالا خطای بارگذاری
      به‌صورت دائمی و واضح در خودِ صفحه نمایش داده می‌شود تا علت واقعیِ خالی‌بودن این تب مشخص شود. */
-  const load=async()=>{setLoading(true);setLoadErr('');try{setData(await api('bootstrap'));}catch(e){setLoadErr(e.message||'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');}finally{setLoading(false);}}; useEffect(()=>{load()},[]);
+  const load=async()=>{setLoading(true);setLoadErr('');try{
+    const [bootstrap,gate]=await Promise.all([api('bootstrap'),api('shift-limit-get')]);
+    setData(bootstrap);setShiftLimit(!!gate.radio_limit_to_shift);
+  }catch(e){setLoadErr(e.message||'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');}finally{setLoading(false);}};
+  const saveShiftLimit=async(next)=>{if(shiftSaving)return;setShiftSaving(true);try{
+    const saved=await api('shift-limit-set',{method:'POST',body:JSON.stringify({radio_limit_to_shift:next})});
+    setShiftLimit(!!saved.radio_limit_to_shift);
+  }catch(e){alert(e.message||'ذخیره محدودیت بی‌سیم ناموفق بود.');}finally{setShiftSaving(false);}}; useEffect(()=>{load()},[]);
   const save=async()=>{setBusy(true);try{await api('save',{method:'POST',body:JSON.stringify(form)});setForm({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}});await load();}catch(e){alert(e.message)}finally{setBusy(false)}};
   const edit=c=>setForm({...c,rules:c.rules||{regions:[],users:[],roles:[]},max_talk_ms:Number(c.max_talk_ms||25000)});
   const del=async(id)=>{if(!confirm('این کانال حذف شود؟'))return;try{await api('delete',{method:'POST',body:JSON.stringify({id})});await load()}catch(e){alert(e.message)}};
@@ -3715,8 +3723,12 @@ function RadioSettings(){
   return <div className="radio-settings-module"><p className="muted" style={{fontSize:12}}>تنظیمات بی‌سیم اکنون بخشی از تنظیمات اصلی سامانه است. مدیریت کانال‌ها و نگهداری آرشیو از همین تب انجام می‌شود.</p>
   {!loading&&!loadErr&&<div className="panel" style={{marginTop:12}}>
     <h3>محدودیت دسترسی بی‌سیم</h3>
-    <p style={{color:'var(--brand)',fontWeight:700}}>● محدودیت حضور برای بی‌سیم فعال و الزامی است.</p>
-    <p className="muted" style={{fontSize:12,lineHeight:2,marginTop:8}}>تمام نیروهای سطح ۵ تا ۹ (حتی دارندگان دسترسی مدیریتی) فقط پس از ثبت ورود در «ثبت حضور من» و تا قبل از ثبت خروج می‌توانند صدای بی‌سیم را دریافت یا ارسال کنند. فقط سطوح ۱ تا ۴ مستثنا هستند؛ این قانون از سمت سرور اجرا می‌شود و قابل خاموش‌کردن نیست.</p>
+    <label className="row" style={{gap:10,alignItems:'center',cursor:shiftSaving?'wait':'pointer',fontWeight:700,color:'var(--brand)'}}>
+      <input type="checkbox" checked={shiftLimit} disabled={shiftSaving} onChange={e=>saveShiftLimit(e.target.checked)}/>
+      <span>اعمال محدودیت حضور برای بی‌سیم نیروهای سطح ۵ تا ۹</span>
+    </label>
+    <p className="muted" style={{fontSize:12,lineHeight:2,marginTop:8}}>در حالت فعال، نیروهای سطوح ۵ تا ۹ (حتی مدیران دارای سطح ۵ تا ۹) فقط بین ثبت ورود و خروج می‌توانند صدای بی‌سیم را دریافت و ارسال کنند. در حالت غیرفعال، الزام حضور برای این سطوح برداشته می‌شود؛ مجوز کانال و احراز هویت همچنان برقرار است. سطوح ۱ تا ۴ می‌توانند از داخل بی‌سیم نرم‌افزار، محدودیت شخصی خود را مستقل از این گزینه روشن یا خاموش کنند.</p>
+    {shiftSaving&&<span className="muted" style={{fontSize:12}}>در حال ذخیره…</span>}
   </div>}
 
   {loading?<p className="muted">در حال بارگذاری تنظیمات بی‌سیم…</p>:null}
