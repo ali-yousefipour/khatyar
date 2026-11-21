@@ -54,4 +54,10 @@ $out=substr($source,$checkoutStart,$nextRoute-$checkoutStart);
 insist(strpos($in,'FOR UPDATE')!==false && strpos($in,"_attendance_save_reply((int)".chr(36)."u['id'],'checkin'")!==false,'Checkin receipt must be inserted under lock');
 insist(strpos($out,'AND check_out IS NULL')!==false && strpos($out,"_attendance_save_reply((int)".chr(36)."u['id'],'checkout'")!==false,'Checkout must atomically guard the close and store receipt');
 insist(strpos($out,'$pdo->commit();')!==false,'Checkout receipt must commit before response');
+insist(strpos($out,"'auto_closed'=>true")!==false && strpos($out,"_attendance_save_reply((int)".chr(36)."u['id'],'checkout'")!==false,'Auto-closed checkout must persist an idempotent acknowledgement');
+$logoutStart=strpos($source,"route('POST', '/api/auth/logout'");
+$logoutEnd=strpos($source,"route('POST', '/api/me/forget-checkin'",$logoutStart);
+$logout=substr($source,$logoutStart,$logoutEnd-$logoutStart);
+insist(strpos($logout,"['id'], ".chr(36)."eventAt")===false,'Logout SQL must not bind an undefined event time');
+
 echo "Attendance replay receipts: isolated tests passed\n";
