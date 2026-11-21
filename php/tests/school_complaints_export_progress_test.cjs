@@ -32,8 +32,8 @@ const context = {
   labels: { pending: 'در انتظار' }, name: () => 'کاربر نمونه', date: () => '۱۴۰۵/۰۸/۳۰',
   files: [], M: () => {}, setTimeout: cb => cb(), Map, Error
 };
-vm.runInNewContext(section('const savePdf=', '\\n const exportRows=') + '\\nthis.savePdf=savePdf;', context);
-vm.runInNewContext(section('const exportRows=', '\\n const content=') + '\\nthis.exportRows=exportRows;', context);
+vm.runInNewContext(section('const savePdf=', '\n const exportRows=') + '\nthis.savePdf=savePdf;', context);
+vm.runInNewContext(section('const exportRows=', '\n const content=') + '\nthis.exportRows=exportRows;', context);
 (async () => {
   await context.exportRows();
   assert.equal(calls[0][0], 'begin');
