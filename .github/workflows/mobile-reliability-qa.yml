@@ -32,7 +32,7 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
         working-directory: mobile
       - name: Test offline reliability and permissions
         run: npm run test:reliability
