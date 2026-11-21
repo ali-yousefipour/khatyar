@@ -135,9 +135,44 @@ async function testOfflineReplayConcurrency() {
   assert.equal(sends, 2, 'manual retry must not resubmit an automatically delivered item');
 }
 
+
+async function testMultipartQueueDuplicateSafety() {
+  const files=new Map([['file:///source-a','A'],['file:///source-b','B']]);
+  const records=[];
+  const deleted=[];
+  let failEnqueue=false;
+  const fsMock={
+    documentDirectory:'file:///permanent/',
+    copyAsync:async ({from,to})=>{files.set(to,files.get(from));},
+    deleteAsync:async uri=>{deleted.push(uri);files.delete(uri);},
+  };
+  const source=api.slice(api.indexOf('async function queueMultipart('),api.indexOf('\nasync function uploadMultipartXHR'));
+  const context={FileSystem:fsMock,
+    enqueue:async item=>{
+      if(failEnqueue)throw new Error('queue persistence failed');
+      if(!records.some(x=>x.client_uuid===item.client_uuid))records.push(item);
+    },
+    pendingOfflineItems:async()=>records,
+  };
+  vm.createContext(context);
+  vm.runInContext(source+'\nthis.queueMultipart=queueMultipart;',context);
+  await context.queueMultipart('/media',{client_uuid:'q_photo_duplicate_1'},'file','file:///source-a','photo.jpg','image/jpeg');
+  const original=records[0].fileUri;
+  assert.equal(files.get(original),'A');
+  await context.queueMultipart('/media',{client_uuid:'q_photo_duplicate_1'},'file','file:///source-b','photo.jpg','image/jpeg');
+  assert.equal(records.length,1,'duplicate UUID must not add an extra queued upload');
+  assert.equal(files.get(original),'A','duplicate upload must not overwrite the original attachment');
+  assert.equal(files.size,3,'the duplicate temporary attachment must be removed');
+  failEnqueue=true;
+  await assert.rejects(context.queueMultipart('/media',{client_uuid:'q_photo_failure_2'},'file','file:///source-b','photo.jpg','image/jpeg'),/queue persistence failed/);
+  assert.equal(files.size,3,'failed enqueue must not leak a copied file');
+  assert.ok(deleted.length>=2,'duplicate and failed uploads must clean up copied files');
+}
+
 (async () => {
   await testPermissionRevocation();
   await testOfflineReplayConcurrency();
+  await testMultipartQueueDuplicateSafety();
   await testConcurrentPermissionCacheWrites();
   assert.match(auth, /const me=await request\('\/auth\/me',\{noStore:true,timeoutMs:8000\}\)/);
   assert.match(auth, /await invalidateAppItems\(user\.id\)/);
