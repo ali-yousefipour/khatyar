@@ -6,7 +6,7 @@
   function ensureStyle(){
     if(document.getElementById(STYLE_ID))return;
     var st=document.createElement('style');st.id=STYLE_ID;
-    st.textContent='body.kh-hide-dashboard-charts [data-khatyar-chart-tab],body.kh-hide-dashboard-charts [data-view="presentchart"],body.kh-hide-dashboard-charts [data-key="presentchart"]{display:none!important}.khatyar-live-presence-collapsed>*:not(.khatyar-live-presence-toggle):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6){display:none!important}.khatyar-live-presence-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:#f5f7fa;color:inherit;border-radius:10px;padding:9px 12px;margin-bottom:8px;font:inherit;font-weight:700;cursor:pointer;direction:rtl}';
+    st.textContent='body.kh-hide-dashboard-charts [data-khatyar-chart-tab],body.kh-hide-dashboard-charts [data-view="presentchart"],body.kh-hide-dashboard-charts [data-key="presentchart"]{display:none!important}.khatyar-live-presence-collapsed>*:not(.khatyar-live-presence-toggle):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6){display:none!important}.khatyar-live-presence-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:#f5f7fa;color:inherit;border-radius:10px;padding:9px 12px;margin-bottom:8px;font:inherit;font-weight:700;cursor:pointer;direction:rtl;min-height:44px;text-align:right;line-height:1.8}.khatyar-live-presence-toggle:focus-visible{outline:3px solid #087f5b;outline-offset:2px}';
     document.head.appendChild(st);
   }
   function isDashboard(){
@@ -31,7 +31,11 @@
     if(panel.getAttribute('data-khatyar-live-presence')==='1')return;
     panel.setAttribute('data-khatyar-live-presence','1');
     var btn=document.createElement('button');btn.type='button';btn.className='khatyar-live-presence-toggle';btn.textContent='نمایش وضعیت لحظه‌ای حضور';
-    btn.onclick=function(){var c=panel.classList.toggle('khatyar-live-presence-collapsed');btn.textContent=c?'نمایش وضعیت لحظه‌ای حضور':'پنهان کردن وضعیت لحظه‌ای حضور';};
+    btn.setAttribute('aria-expanded','false');
+    // Keep the dashboard DOM and data operations unchanged while exposing disclosure state.
+    if(!panel.id)panel.id='kh-live-presence-panel';
+    btn.setAttribute('aria-controls',panel.id);
+    btn.onclick=function(){var c=panel.classList.toggle('khatyar-live-presence-collapsed');btn.textContent=c?'نمایش وضعیت لحظه‌ای حضور':'پنهان کردن وضعیت لحظه‌ای حضور';btn.setAttribute('aria-expanded',String(!c));};
     panel.insertBefore(btn,panel.firstChild);panel.classList.add('khatyar-live-presence-collapsed');
   }
 
