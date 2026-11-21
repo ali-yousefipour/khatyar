@@ -145,5 +145,13 @@ async function testOfflineReplayConcurrency() {
   assert.match(offline, /if\(retryLocks\.has\(String\(item\.client_uuid\)\)\)continue/);
   assert.match(api, /body:sendBody,auth,retry:false,noStore,timeoutMs,queueIfOffline,forceNetwork/);
   assert.match(api, /if\(receivedHttpResponse\)throw firstError/);
+
+  assert.match(api, /const id=String\(fields\?\.client_uuid\|\|/,'multipart queue must use original UUID');
+  assert.match(api, /Only requests known offline BEFORE the first send enter the queue/);
+  assert.match(api, /Number\(item.owner_user_id\)===Number\(userId\)/,'offline checkout must be user scoped');
+  assert.match(api, /readEpoch!==userCacheEpoch\|\|isAttendanceRead\(path\)/,'asynchronous cache fallback must re-check session');
+  assert.match(api, /Date.now\(\)-Number\(j.t\)<=CACHE_MAX_AGE_MS/,'offline cache must expire');
+  assert.match(auth, /e\?\.status===403 && \/خروج از حساب کاربری/,'logout must respect explicit administrator policy');
+
   console.log('Mobile reliability regression checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
