@@ -118,6 +118,26 @@
       error => { end(id); throw error; }
     );
   };
+  // Some older panel modules and libraries use XMLHttpRequest instead of fetch.
+  // Observe only duration; do not inspect or modify request/response payloads.
+  const XHR = win.XMLHttpRequest;
+  if (XHR && XHR.prototype && typeof XHR.prototype.open === 'function' && typeof XHR.prototype.send === 'function') {
+    const originalOpen = XHR.prototype.open;
+    const originalSend = XHR.prototype.send;
+    const xhrDetails = new WeakMap();
+    XHR.prototype.open = function (method, url) {
+      xhrDetails.set(this, classify(url, { method }));
+      return originalOpen.apply(this, arguments);
+    };
+    XHR.prototype.send = function () {
+      const details = xhrDetails.get(this);
+      if (!details) return originalSend.apply(this, arguments);
+      const id = begin(details);
+      this.addEventListener('loadend', () => end(id), { once: true });
+      try { return originalSend.apply(this, arguments); }
+      catch (error) { end(id); throw error; }
+    };
+  }
   doc.addEventListener('visibilitychange', paint);
   const style = doc.createElement('style');
   style.textContent = `
