@@ -46,6 +46,8 @@ route('POST','/api/requests/{id}/decide',function($p,$b,$user){
  Db::$requests[(int)$p['id']]['status']=$b['status'];
  return ['ok'=>true];
 });
+function _active_user_shift_assignment($uid,$day){return ['shift_id'=>17,'title'=>'شیفت صبح نیروی مرخصی‌گیرنده','type'=>'advanced'];}
+function _shift_day_row($id,$day){return ['segments'=>[['s'=>'06:00','e'=>'14:00']],'day_config'=>['duty_min'=>480]];}
 require __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 LeaveSubstituteCoverage::register($routes);
 function runRoute($method,$path,$p=[],$b=[],$user=['id'=>5]){
@@ -81,8 +83,12 @@ conflict(fn()=>runRoute('POST','/api/my/requests',[],$leave,['id'=>7]));
 check(!Db::$locks,'no locks remain after conflict');
 Db::$coverage=[['id'=>12,'user_id'=>5,'type'=>'annual','unit'=>'daily','status'=>'approved','from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-02','the_date'=>null,'from_time'=>null,'to_time'=>null],
 ['id'=>13,'user_id'=>5,'type'=>'annual','unit'=>'daily','status'=>'pending','from_jdate'=>'1405-09-03','to_jdate'=>'1405-09-03','the_date'=>null,'from_time'=>null,'to_time'=>null]];
+Db::$assignments=[['request_id'=>4,'absent_name'=>'نیروی مرخصی‌گیرنده','absent_user_id'=>5,'from_date'=>'1405-09-02','to_date'=>'1405-09-02']];
 $_GET=['dates'=>'1405-09-02,1405-09-03'];
 $calendar=runRoute('GET','/api/my/shift-cover-status');
 check(count($calendar['days']['1405-09-02']['leave'])===1,'approved leave shown');
 check(!isset($calendar['days']['1405-09-03']['leave']),'pending leave does not display as approved');
+check($calendar['days']['1405-09-02']['cover'][0]['absent_name']==='نیروی مرخصی‌گیرنده','replacement subject name returned');
+check($calendar['days']['1405-09-02']['cover'][0]['shift']['title']==='شیفت صبح نیروی مرخصی‌گیرنده','shift belongs to absent employee');
+check($calendar['days']['1405-09-02']['cover'][0]['shift']['segments'][0]['s']==='06:00','original shift hours returned');
 echo "PASS pending substitute reservations, conflicts, release and approved-only calendar\n";
