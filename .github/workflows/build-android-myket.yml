@@ -1,5 +1,5 @@
 name: build-android-myket
-# Android 2.0.10 reliability release; built with existing Myket signing credentials.
+# Android 2.0.11 signed release; built with existing Myket signing credentials.
 
 on:
   workflow_dispatch:
