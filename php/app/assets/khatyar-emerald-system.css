@@ -571,3 +571,90 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
   color: #fff;
 }
 .sc-module .sc-header p { opacity: .94; }
+
+
+/* WEB-UX-012 — audit phase 3: administrative data grids.
+   Scope to existing table wrappers: no changes to Excel/print rendering or data flow. */
+@media screen {
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll),
+  .sc-module .sc-table {
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: #8aada0 #eef5f1;
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll):focus-visible,
+  .sc-module .sc-table:focus-visible {
+    outline: 3px solid var(--kh-focus);
+    outline-offset: 2px;
+  }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) table,
+  .sc-module .sc-table table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) table thead th,
+  .sc-module .sc-table table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #e2f0e8;
+    box-shadow: inset 0 -1px 0 #bbd8c8;
+  }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) tbody tr:focus-within,
+  .sc-module .sc-table tbody tr:focus-within {
+    background: #e7f3ec;
+    outline: 1px solid #a0cbbb;
+    outline-offset: -1px;
+  }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) :is(th,td) :is(button,a,input,select):focus-visible,
+  .sc-module .sc-table :is(th,td) :is(button,a,input,select):focus-visible {
+    outline: 2px solid var(--kh-focus);
+    outline-offset: 2px;
+  }
+}
+@media screen and (max-width: 768px) {
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) table,
+  .sc-module .sc-table table { min-width: max-content; }
+  .layout .page-content :is(.table-wrap,.attendance-report-table-scroll) :is(th,td),
+  .sc-module .sc-table :is(th,td) { max-width: 320px; }
+}
+
+/* WEB-UX-013 — audit phase 4: shared dialogs, focus, small screens and long content.
+   Keep native/dialog JS focus handling intact and do not interfere with report-progress. */
+@media screen {
+  .layout .modal,
+  .layout [role="dialog"].modal {
+    box-sizing: border-box;
+    min-width: 0;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .layout .modal :is(.modal-body,.modal-content,form),
+  .layout [role="dialog"].modal :is(.modal-body,.modal-content,form) {
+    min-width: 0;
+  }
+  .layout .modal :is(img,video,canvas,table),
+  .layout [role="dialog"].modal :is(img,video,canvas,table) { max-width: 100%; }
+  .layout .modal :is(button,a,[role="button"]):focus-visible {
+    outline: 3px solid var(--kh-focus);
+    outline-offset: 2px;
+  }
+  .layout .modal :is(input,textarea,select),
+  .layout [role="dialog"].modal :is(input,textarea,select) { box-sizing: border-box; }
+}
+@media screen and (max-width: 430px) {
+  .layout .modal,
+  .layout [role="dialog"].modal {
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    border-radius: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .layout .modal,
+  .layout .modal * { scroll-behavior: auto; }
+}
