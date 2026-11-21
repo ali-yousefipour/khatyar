@@ -186,6 +186,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   const [sub, setSub] = useState(null);          // جایگزین انتخاب‌شده
   const [subOpen, setSubOpen] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
+  const substituteLoadEpoch=React.useRef(0);
   const [leaveStatusOpen, setLeaveStatusOpen] = useState(false);
   const [leaveBalance, setLeaveBalance] = useState(null);
   const [leaveBalanceLoading, setLeaveBalanceLoading] = useState(false);
@@ -219,12 +220,14 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
   // وقتی بازهٔ تاریخ مشخص شد، نیروهای جایگزینِ در دسترس را برای آن بازه می‌گیریم
   const loadSubs = async () => {
+    const seq=++substituteLoadEpoch.current;
     const f = unit === 'hourly' ? theDate : fromJ;
     const t = unit === 'hourly' ? theDate : toJd;
     if (!needsSubstitute || !f || !t) return;
     setSubLoading(true);
     try {
       const r = await request(`/my/substitutes?from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`);
+      if(seq!==substituteLoadEpoch.current)return;
       const fresh=Array.isArray(r.substitutes)?r.substitutes:[];
       setSubs(fresh);
       setSub(prev=>{
@@ -232,11 +235,11 @@ function NewRequest({ onDone, initialType, initialDate }) {
         const next=fresh.find(x=>Number(x.id)===Number(prev.id));
         return next||{...prev,available:false,reason:'این نیرو دیگر در بازه انتخابی در فهرست جایگزین‌های مجاز نیست'};
       });
-    } catch (e) { setSubs([]); }
-    finally { setSubLoading(false); }
+    } catch (e) { if(seq===substituteLoadEpoch.current){setSubs([]);setSub(prev=>prev?{...prev,available:false,reason:'دسترس‌پذیری جایگزین تأیید نشد'}:null);} }
+    finally { if(seq===substituteLoadEpoch.current)setSubLoading(false); }
   };
   useEffect(() => {
-    if (!needsSubstitute) { setSub(null); setSubs([]); setSubOpen(false); return; }
+    if (!needsSubstitute) { substituteLoadEpoch.current++;setSub(null); setSubs([]); setSubOpen(false); return; }
     loadSubs(); /* eslint-disable-next-line */
   }, [type, unit, fromJ, toJd, theDate, needsSubstitute]);
 
