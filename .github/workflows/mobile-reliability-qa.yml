@@ -1,0 +1,42 @@
+name: Mobile Reliability QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/src/**'
+      - 'mobile/scripts/test-mobile-reliability.cjs'
+      - 'mobile/package.json'
+      - 'mobile/package-lock.json'
+      - '.github/workflows/mobile-reliability-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-reliability-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: mobile
+      - name: Test offline reliability and permissions
+        run: npm run test:reliability
+        working-directory: mobile
+      - name: Verify Babel and React Native syntax
+        run: npm run validate:babel
+        working-directory: mobile
