@@ -24,6 +24,8 @@ export default function SignaturePad({ value, onChange, height = 160 }) {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
         captureGeneration.current += 1;
+        // The previous PNG must not remain submittable while new ink is being drawn.
+        onChangeRef.current('');
         currentRef.current = [{ x: e.nativeEvent.locationX, y: e.nativeEvent.locationY }];
         setStrokes((s) => [...s, currentRef.current]);
       },
