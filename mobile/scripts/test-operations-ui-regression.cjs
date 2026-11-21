@@ -19,6 +19,13 @@ assert.match(school,/accessibilityLabel="ثبت بازدید و بازرسی ج�
 assert.match(dashboard,/خطای ذخیره ترتیب/);
 assert.match(dashboard,/moveBtn: \{ width: 42, height: 48/);
 assert.match(dashboard,/dragHandle: \{ width: 44, height: 48/);
+const datePicker=fs.readFileSync(path.join(__dirname,'../src/components/JDatePicker.js'),'utf8');
+assert.match(datePicker,/const canGoPrevious = safeJy > minYear \|\| safeJm > 1/,'previous month must respect minimum year');
+assert.match(datePicker,/const canGoNext = safeJy < maxY \|\| safeJm < 12/,'next month must respect maximum year');
+assert.match(datePicker,/disabled=\{!canGoPrevious\}/,'previous navigation must be disabled at minimum boundary');
+assert.match(datePicker,/disabled=\{!canGoNext\}/,'next navigation must be disabled at maximum boundary');
+assert.match(datePicker,/const todayAllowed = today.jy >= minYear && today.jy <= maxY/,'today action must respect year limits');
+assert.match(datePicker,/disabled=\{!todayAllowed\}/,'invalid today selection must be unavailable');
 const requestScreens=read('RequestScreens.js');
 assert.match(requestScreens,/initial=\{value \|\| null\}/,'Jalali date filter reopens at selected date');
 assert.match(requestScreens,/accessibilityLabel=\{label\} accessibilityHint="انتخاب تاریخ شمسی"/,'date filters announce their purpose');
