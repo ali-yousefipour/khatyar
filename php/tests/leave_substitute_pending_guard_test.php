@@ -46,6 +46,11 @@ route('POST','/api/requests/{id}/decide',function($p,$b,$user){
  Db::$requests[(int)$p['id']]['status']=$b['status'];
  return ['ok'=>true];
 });
+route('PUT','/api/admin/requests/{id}',function($p,$body,$user){
+ $id=(int)$p['id'];
+ Db::$requests[$id]=array_replace(Db::$requests[$id],$body);
+ return ['ok'=>true];
+});
 function _active_user_shift_assignment($uid,$day){return ['shift_id'=>17,'title'=>'شیفت صبح نیروی مرخصی‌گیرنده','type'=>'advanced'];}
 function _shift_day_row($id,$day){return ['segments'=>[['s'=>'06:00','e'=>'14:00']],'day_config'=>['duty_min'=>480]];}
 require __DIR__.'/../lib/LeaveSubstituteCoverage.php';
@@ -81,6 +86,15 @@ check($d['id']===4,'rejected request releases pending reservation');
 runRoute('POST','/api/requests/{id}/decide',['id'=>4],['status'=>'approved']);
 conflict(fn()=>runRoute('POST','/api/my/requests',[],$leave,['id'=>7]));
 check(!Db::$locks,'no locks remain after conflict');
+Db::$requests[3]['status']='approved'; // Legacy approved case with another replacement.
+conflict(fn()=>runRoute('PUT','/api/admin/requests/{id}',['id'=>3],['substitute_user_id'=>42]));
+check(Db::$requests[3]['substitute_user_id']===43,'conflicting approved edit must roll back before write');
+runRoute('PUT','/api/admin/requests/{id}',['id'=>3],['reason'=>'اصلاح توضیحات']);
+check(!Db::$locks,'text-only approval edits must not retain a reservation lock');
+runRoute('PUT','/api/admin/requests/{id}',['id'=>3],[
+ 'substitute_user_id'=>42,'from_jdate'=>'1405-09-06','to_jdate'=>'1405-09-07'
+]);
+check(Db::$requests[3]['substitute_user_id']===42,'non-overlapping substitute edit allowed');
 Db::$coverage=[['id'=>12,'user_id'=>5,'type'=>'annual','unit'=>'daily','status'=>'approved','from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-02','the_date'=>null,'from_time'=>null,'to_time'=>null],
 ['id'=>13,'user_id'=>5,'type'=>'annual','unit'=>'daily','status'=>'pending','from_jdate'=>'1405-09-03','to_jdate'=>'1405-09-03','the_date'=>null,'from_time'=>null,'to_time'=>null]];
 Db::$assignments=[['request_id'=>4,'absent_name'=>'نیروی مرخصی‌گیرنده','absent_user_id'=>5,'from_date'=>'1405-09-02','to_date'=>'1405-09-02']];
