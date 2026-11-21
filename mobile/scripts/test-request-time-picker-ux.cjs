@@ -38,4 +38,8 @@ const arabic = sandbox.normalizeInitial('١٤٠٥-٠٨-٣٠', 1405);
 assert.equal(arabic.jy, 1405);
 assert.equal(arabic.jm, 8);
 assert.equal(arabic.jd, 30);
+assert.match(jalali,/const \[selectedDate, setSelectedDate\] = useState\(init\)/,'picker remembers the complete selected Jalali date');
+assert.match(jalali,/setSelectedDate\(\{jy:Math\.max\(minYear,/,'picker restores selected date when reopened');
+assert.match(jalali,/accessibilityState=\{\{selected:selectedDate\.jy===safeJy && selectedDate\.jm===safeJm && selectedDate\.jd===d\}\}/,'only selected day in selected month/year is announced');
+assert.match(jalali,/setSelectedDate\(\{jy:safeJy,jm:safeJm,jd:d\}\); onSelect/,'user selection updates highlighted day and keeps callback contract');
 console.log('PASS request time picker UX and HH:mm contract');
