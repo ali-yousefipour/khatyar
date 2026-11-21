@@ -11634,7 +11634,12 @@ function App(){
       const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""};
       setBrand(b); document.title=b.title; window.__brandLogo=b.logo;
     }).catch(e=>{
-      if(live)console.warn('Panel settings temporarily unavailable:',e.message);
+      if(live){
+        // Fail closed if role permissions cannot be loaded, especially after
+        // switching accounts in the same browser session.
+        setAllowed([]);
+        console.warn('Panel settings temporarily unavailable:',e.message);
+      }
     }).finally(()=>{if(live)setSettingsLoadedFor(identity);});
     return()=>{live=false;};
   },[me?.id,me?.role_id,me?.is_admin,me?.must_change_pw]);
