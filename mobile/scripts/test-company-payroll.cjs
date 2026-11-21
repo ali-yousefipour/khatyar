@@ -102,6 +102,12 @@ function harness() {
   assert.match(source, /readableRow: \{ minHeight: 48, paddingVertical: 9/, 'readable payroll rows need scalable layout');
   assert.match(source, /در تصویر فیش A5 ذخیره نمی‌شود/, 'reading panel must identify that printed layout is unchanged');
   assert.match(source,/const detailColumns = systemFontScale >= 1\.5 \|\| screenWidth < 520 \? 1/,'payroll details need single-column layout on narrow or large-font screens');
+  const columnExpression = source.match(/const detailColumns = ([^;]+);/)?.[1];
+  assert.ok(columnExpression, 'payroll responsive columns formula should be present');
+  for (const [screenWidth, systemFontScale, expected] of [[390,1,1],[700,1,2],[1000,1,3],[700,1.5,1],[1000,2,1]]) {
+    assert.equal(vm.runInNewContext(columnExpression, {screenWidth,systemFontScale}),expected,
+      `payroll columns at ${screenWidth}dp and font scale ${systemFontScale}`);
+  }
   assert.match(source,/width:detailColumns===3\?'31\.8%':detailColumns===2\?'48\.5%':'100%'/,'payroll detail cells adapt to one, two or three columns');
   assert.match(source,/<Text allowFontScaling style=\{styles\.detailValue\}>/,'payroll detail values must grow without truncating');
   assert.match(source,/<Text allowFontScaling style=\{styles\.netValue\}>/,'net pay must remain fully readable at large text sizes');
