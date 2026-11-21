@@ -7,6 +7,7 @@ const source=fs.readFileSync(path.join(__dirname,'../app/assets/panel.bundle.js'
 const begin=source.indexOf('function Modal('),end=source.indexOf('function seniorityEn(',begin);
 assert.ok(begin>=0&&end>begin,'use production compiled shared modal');
 let active,handler,cleanup,closed=0;
+const effects=[];
 const outsider={isConnected:true,focus(){active=this;}};
 active=outsider;
 const first={getClientRects(){return [1];},focus(){active=this;}};
@@ -24,11 +25,12 @@ const documentMock={
 const context={
  React:{createElement(type,props,...children){if(props&&props.role==='dialog'&&props.ref)props.ref.current=dialog;return {type,props,children};}},
  useRef(initial){return {current:initial};},
- useEffect(fn){cleanup=fn();},
+ useEffect(fn){effects.push(fn);},
  document:documentMock,Math
 };
 vm.runInNewContext(source.slice(begin,end)+'\nthis.Modal=Modal;',context);
 context.Modal({title:'آزمون',onClose(){closed++;},children:'محتوا'});
+cleanup=effects[0]();
 assert.equal(active,dialog,'opening focuses modal');
 assert.equal(typeof handler,'function','modal installs keyboard handler');
 let prevented=false;
