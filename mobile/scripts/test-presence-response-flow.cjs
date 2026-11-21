@@ -8,6 +8,17 @@ const now=1_800_000_000_000;
 assert.equal(presenceDeadline(null,3,now),now+180000,'Delayed delivery gives a full first-open window');
 assert.equal(presenceDeadline(now,3,now+120000),now+180000,'Reopening must not reset the deadline');
 assert.ok(presenceDeadline(now,3,now+240000)<now+240000,'Expired opened request stays expired');
+// A fixed-slot deadline is anchored to the minute boundary, not the second
+// at which the app discovers the already-active request.
+const gateSource=fs.readFileSync(path.join(root,'src/PresenceGate.js'),'utf8');
+const deadlineFn=gateSource.match(/function fixedSlotDeadline\([\s\S]*?\n\}/)?.[0];
+assert.ok(deadlineFn,'fixed-slot deadline helper is present');
+const fixedSlotDeadline=new Function(deadlineFn+';return fixedSlotDeadline;')();
+const discoveredAt=12*60*60000+30*60000+48000; // 12:30:48
+assert.equal(fixedSlotDeadline(750,3,750,discoveredAt),12*60*60000+33*60000,
+  'discovering a fixed slot 48 seconds late must not grant extra time');
+assert.equal(fixedSlotDeadline(750,3,754,discoveredAt),discoveredAt,
+  'expired fixed slot is immediately due, not restarted');
 const day='2026-11-18';
 const done={user_id:7,day,slot:'12:30',immediate:true,status:'queued'};
 let rows=mergePresenceRows([{id:'urgent-1',slot:'12:30',status:'missed'}],[],{'urgent-1':done},7,day);
