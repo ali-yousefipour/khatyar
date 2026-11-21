@@ -1223,6 +1223,8 @@ function CheckInPerformanceTab(){
   const navigation=useNavigation();
   const [date,setDate]=useState(null);
   const [data,setData]=useState(null);
+  const [coverage,setCoverage]=useState({});
+  const [coverageError,setCoverageError]=useState('');
   const [busy,setBusy]=useState(true);
   const [err,setErr]=useState('');
   const requestSeq=useRef(0);
@@ -1277,6 +1279,7 @@ function CheckInPerformanceTab(){
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
+    {coverageError?<Text style={s.warnText}>{coverageError}</Text>:null}
     <View style={s.perfNav}>
       <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(1)} disabled={busy}><Text style={[s.perfNavTxt,busy&&{opacity:.5}]}>روز بعد ›</Text></TouchableOpacity>
       <Text style={s.perfDate}>{data?.weekday||''} {'('}{faNum(data?.date||'')}{')'}</Text>
@@ -1367,6 +1370,20 @@ function shiftJalaliFa(value){
   }
   return faNum(v);
 }
+function shiftCoverageJdate(raw){
+  const value=String(raw||'').replace(/\//g,'-');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const [y,m,d]=value.split('-').map(Number);
+  if(y<1700)return value;
+  const j=gregorian_to_jalali_client(y,m,d);
+  return j[0]+'-'+String(j[1]).padStart(2,'0')+'-'+String(j[2]).padStart(2,'0');
+}
+function shiftCoverageCaption(day){
+  const leaves=day?.leave||[];
+  if(!leaves.length)return null;
+  if(leaves.some(v=>v.unit!=='hourly'))return 'مرخصی تأییدشده';
+  return 'مرخصی ساعتی تأییدشده';
+}
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(true);
@@ -1375,13 +1392,24 @@ function CheckInShiftTab(){
   const requestSeq=useRef(0);
   const loadSchedule=async()=>{
     const seq=++requestSeq.current;
-    setBusy(true);setErr('');
+    setBusy(true);setErr('');setCoverageError('');
     try{
       const cacheKey='/my/shift-schedule?scope=current-month';
       const cached=await cachedValue(cacheKey);
       if(seq===requestSeq.current&&cached&&Array.isArray(cached.days))setData(cached);
       const fresh=await request(cacheKey,{timeoutMs:12000,noStore:true});
       if(seq===requestSeq.current)setData(fresh||{shift:null,days:[],message:'پاسخ برنامه شیفت خالی است.'});
+      const dates=[...new Set((fresh?.days||[]).map(d=>shiftCoverageJdate(d.date)).filter(Boolean))];
+      if(dates.length){
+        try {
+          const related=await request('/my/shift-cover-status?dates='+encodeURIComponent(dates.join(',')),{
+            noStore:true,forceNetwork:true,queueIfOffline:false,timeoutMs:10000
+          });
+          if(seq===requestSeq.current){setCoverage(related?.days||{});setCoverageError('');}
+        } catch(cause){
+          if(seq===requestSeq.current){setCoverage({});setCoverageError('وضعیت مرخصی و جایگزینی بارگذاری نشد؛ دوباره به‌روزرسانی کنید.');}
+        }
+      } else if(seq===requestSeq.current){setCoverage({});setCoverageError('');}
     }catch(e){if(seq===requestSeq.current)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.');}
     finally{if(seq===requestSeq.current)setBusy(false);}
   };
@@ -1402,16 +1430,23 @@ function CheckInShiftTab(){
     {shiftType?<Text style={s.shiftTypeHint}>نوع شیفت: {String(data?.shift?.title??data?.shift_title??shiftType)}</Text>:null}
     {shiftMissing?<View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}><Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text><Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد.'}</Text></View>:days.map((d,index)=>{
       const intervals=shiftIntervals(d);
+      const coverageDay=coverage[shiftCoverageJdate(d.date)]||{};
+      const leaveCaption=shiftCoverageCaption(coverageDay);
+      const fullDayLeave=!!coverageDay.leave?.some(v=>v.unit!=='hourly');
+      const coverNames=[...new Set((coverageDay.cover||[]).map(v=>v.absent_name).filter(Boolean))];
+      const coverCaption=coverNames.length?'جایگزین: '+coverNames.join('، '):null;
       const active=expanded[d.date]??!!d.is_today;
       const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
       const kind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
-      return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard]}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
-          <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind}</Text></View>
-          <View style={s.shiftModernPill}><Text style={s.shiftModernPillText}>{d.is_off?'استراحت':fmtMinFa(d.minutes)}</Text></View>
+      return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard,leaveCaption&&s.shiftLeaveCard,coverCaption&&s.shiftCoverCard]}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${leaveCaption||coverCaption||kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
+          <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{leaveCaption||coverCaption||(d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind)}</Text></View>
+          <View style={s.shiftModernPill}><Text style={s.shiftModernPillText}>{fullDayLeave?'مرخصی':coverCaption?'جایگزینی':d.is_off?'استراحت':fmtMinFa(d.minutes)}</Text></View>
           <MaterialCommunityIcons name={active?'chevron-up':'chevron-down'} size={22} color={C.brand}/>
         </TouchableOpacity>
         {active?<View style={s.shiftDetails}>
+          {leaveCaption?<View style={s.shiftLeaveNotice}><Text style={s.shiftLeaveNoticeTitle}>{leaveCaption}</Text><Text style={s.shiftLeaveNoticeText}>درخواست مرخصی برای این تاریخ تأیید شده است.</Text>{(coverageDay.leave||[]).filter(v=>v.unit==='hourly').map((v,i)=><Text key={'hourly-'+i} style={s.shiftLeaveNoticeText}>بازه مرخصی: {shiftTimeFa(v.from_time)} تا {shiftTimeFa(v.to_time)}</Text>)}</View>:null}
+          {coverCaption?<View style={s.shiftCoverNotice}><Text style={s.shiftCoverNoticeTitle}>مأموریت جایگزینی تأییدشده</Text><Text style={s.shiftCoverNoticeText}>در این تاریخ به جای: {coverNames.join('، ')}</Text><Text style={s.shiftCoverNoticeText}>شیفت مؤثر شخص مرخصی‌گیرنده: {kind}</Text><Text style={s.shiftCoverNoticeText}>ساعت‌های ورود و خروج جایگزینی در بخش زیر نمایش داده می‌شوند.</Text></View>:null}
           <Text style={s.shiftDetailHeading}>نوع شیفت: {kind}</Text>
           {d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج در پاسخ برنامه شیفت مشخص نشده است.</Text>}
           <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {d.is_off?'—':fmtMinFa(d.minutes)}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
@@ -1648,6 +1683,14 @@ const s = StyleSheet.create({
   shiftSummaryLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,marginTop:5},
   shiftTypeHint:{fontFamily:FONT.bold,color:C.ink,textAlign:'right',marginVertical:9,fontSize:13},
   shiftModernCard:{backgroundColor:'#fff',borderRadius:19,borderWidth:1,borderColor:'#dceae2',marginBottom:11,overflow:'hidden',elevation:1},
+  shiftLeaveCard:{borderColor:'#c89b3c',borderWidth:1.5},
+  shiftCoverCard:{borderColor:'#13866d',borderWidth:1.5},
+  shiftLeaveNotice:{backgroundColor:'#fff6de',borderColor:'#eacb78',borderWidth:1,borderRadius:12,padding:12,gap:4},
+  shiftLeaveNoticeTitle:{fontFamily:FONT.bold,color:'#80530c',fontSize:14,textAlign:'right'},
+  shiftLeaveNoticeText:{fontFamily:FONT.regular,color:'#80530c',fontSize:12,textAlign:'right',lineHeight:22},
+  shiftCoverNotice:{backgroundColor:'#eaf8f2',borderColor:'#9dcfbc',borderWidth:1,borderRadius:12,padding:12,gap:4},
+  shiftCoverNoticeTitle:{fontFamily:FONT.bold,color:'#08694c',fontSize:14,textAlign:'right'},
+  shiftCoverNoticeText:{fontFamily:FONT.regular,color:'#12664d',fontSize:12,textAlign:'right',lineHeight:22},
   shiftTodayCard:{borderColor:C.brand,borderWidth:1.5},
   shiftModernHead:{flexDirection:'row-reverse',alignItems:'center',padding:13,gap:10,minHeight:76},
   shiftModernDate:{fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},
