@@ -1,12 +1,14 @@
 <?php
 class Db {
-  public static $enabled=false;
+  public static $enabled=true;
+  public static $personal=false;
   public static $open=false;
   public static $checkedOut=false;
   public static $calls=[];
   public static function one($sql,$params=[]){
     self::$calls[]=[$sql,$params];
     if(strpos($sql,'app_settings')!==false)return ['value'=>self::$enabled?'1':'0'];
+    if(strpos($sql,'shift_limit_enabled')!==false)return ['shift_limit_enabled'=>self::$personal?1:0];
     if(strpos($sql,'staff_attendance')!==false)return self::$open?['id'=>10,'check_out'=>self::$checkedOut?'2026-10-28 11:05:00':null]:null;
     return null;
   }
@@ -16,34 +18,33 @@ function verify($cond,$label){if(!$cond)throw new RuntimeException($label);}
 $staff=['id'=>14,'level'=>6,'is_admin'=>0];
 $manager=['id'=>2,'level'=>3,'is_admin'=>0];
 $admin=['id'=>1,'level'=>8,'is_admin'=>1];
-Db::$enabled=false;Db::$open=false;
-verify(kh_radio_shift_enabled(),'Shift restriction is mandatory regardless of legacy disabled setting');
-verify(!kh_radio_shift_allowed($staff),'Radio cannot be unrestricted when setting is off');
-Db::$enabled=true;
-verify(!kh_radio_shift_allowed($staff),'Ordinary staff without open check-in blocked');
+Db::$enabled=true;Db::$open=false;
+verify(kh_radio_shift_enabled(),'Global radio shift restriction defaults on');
+verify(!kh_radio_shift_allowed($staff),'Restricted staff cannot listen without check-in');
 Db::$open=true;
-verify(kh_radio_shift_allowed($staff),'Staff with open check-in allowed');
+verify(kh_radio_shift_allowed($staff),'Staff with active check-in allowed');
 Db::$checkedOut=true;
-verify(!kh_radio_shift_allowed($staff),'Latest checked-out punch must revoke radio even if a stale open record exists');
+verify(!kh_radio_shift_allowed($staff),'Checkout revokes radio');
 Db::$checkedOut=false;Db::$open=false;
-verify(kh_radio_shift_allowed($manager),'Responsible level 1-4 exempt');
-verify(!kh_radio_shift_allowed($admin),'An admin permission does not exempt level eight');
-foreach([5,6,7,8,9] as $level) {
-  verify(!kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Level '.$level.' requires check-in regardless of admin privileges');
-}
+verify(kh_radio_shift_allowed($manager),'Level 1–4 default exemption');
+verify(!kh_radio_shift_allowed($admin),'Admin grant must not exempt level eight');
+foreach([5,6,7,8,9] as $level)
+  verify(!kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Restricted level '.$level.' blocked');
+Db::$enabled=false;
+verify(!kh_radio_shift_enabled(),'Global checkbox can disable shift restriction');
+foreach([5,6,7,8,9] as $level)
+  verify(kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Global off releases level '.$level);
+verify(!kh_radio_shift_allowed(['id'=>0,'level'=>6]),'Unknown user denied regardless of global setting');
+Db::$personal=true;
+verify(!kh_radio_shift_allowed($manager),'Official personal restriction applies even when global gate is off');
 Db::$open=true;
-foreach([5,6,7,8,9] as $level) {
-  verify(kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Level '.$level.' can use radio after check-in');
-}
+verify(kh_radio_shift_allowed($manager),'Restricted official allowed with check-in');
 Db::$checkedOut=true;
-foreach([5,6,7,8,9] as $level) {
-  verify(!kh_radio_shift_allowed(['id'=>14,'level'=>$level,'is_admin'=>1]),'Level '.$level.' radio stops after checkout');
-}
-Db::$open=false;Db::$checkedOut=false;
-foreach([1,2,3,4] as $level) {
-  verify(kh_radio_shift_allowed(['id'=>2,'level'=>$level,'is_admin'=>0]),'Level '.$level.' is exempt');
-}
-verify(!kh_radio_shift_allowed(['id'=>0,'level'=>6,'is_admin'=>0]),'Unknown user must be blocked');
+verify(!kh_radio_shift_allowed($manager),'Restricted official denied on checkout');
+Db::$checkedOut=false;Db::$open=false;Db::$personal=false;
+verify(kh_radio_shift_allowed($manager),'Official can disable personal restriction');
+Db::$enabled=true;
+verify(!kh_radio_shift_allowed($staff),'Global restriction restored');
 $queries=array_filter(Db::$calls,static fn($c)=>strpos($c[0],'staff_attendance')!==false);
 verify(count($queries)>0,'Attendance checked on server');
 foreach($queries as $call)verify(strpos($call[0],'ORDER BY check_in DESC,id DESC LIMIT 1')!==false && strpos($call[0],'check_in<=NOW()')!==false,'Open and nonfuture check-in required');
@@ -57,8 +58,13 @@ verify(strpos($v2,"?radio_audio_signed_user():au();")!==false,'Signed audio must
 verify(strpos($v2,"if(\$op==='audio'&&\$method==='GET'){kh_radio_shift_require(\$u);")!==false,'Signed audio needs shift check after user resolution');
 verify(strpos($legacy,'kh_radio_shift_require($u)')!==false,'Legacy voice guard missing');
 $panel=file_get_contents(__DIR__.'/../tools/panel_source.jsx');
-verify(strpos($panel,'محدودیت حضور برای بی‌سیم فعال و الزامی است')!==false,'Admin must display mandatory radio gate');
-verify(strpos($panel,'checked={shiftLimit}')===false,'Admin cannot disable mandatory radio gate');
+verify(strpos($panel,'checked={shiftLimit}')!==false,'Admin setting checkbox is rendered');
+verify(strpos($panel,"api('shift-limit-set'")!==false,'Admin setting checkbox saves on server');
 $adminApi=file_get_contents(__DIR__.'/../app/radio-admin-api.php');
-verify(strpos($adminApi,'محدودیت حضور برای بی‌سیم اجباری است')!==false,'Legacy admin API must reject disabling the gate');
-echo "PASS mandatory shift-only radio: levels 1-4 exempt, levels 5-9 require open check-in regardless of settings, protected voice routes\n";
+verify(strpos($adminApi,"'radio_limit_to_shift'")!==false,'Admin setting must be persisted');
+verify(strpos($v2,"'shift_limit_toggle_allowed'")!==false,'Level 1-4 toggle flag must be exposed');
+verify(strpos($v2,"'shift-limit-set'")!==false,'Personal shift restriction endpoint must exist');
+verify(strpos($v2,"if(!canListenAll(\$u))")!==false,'Personal toggle must be restricted by effective role level');
+$mobile=file_get_contents(__DIR__.'/../../mobile/src/screens/RadioScreen.js');
+verify(strpos($mobile,'shiftLimitToggleAllowed && <SettingToggle')!==false,'Restricted radio control must appear only for managers');
+echo "PASS configurable radio shift restriction, personal level 1-4 control and guarded voice routes\n";
