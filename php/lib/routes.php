@@ -2528,8 +2528,37 @@ function _attendance_checkin_traffic($userId,$eventAt){
   $result=ShiftCalc::checkTrafficWindow($dayRow,$timestamp);
   if(empty($result['ok']))Http::error($result['reason'],422);
 }
+// Durable receipts make an ACK lost after a committed attendance action safe to retry.
+// No schema modification runs in this HTTP path; deploy the matching migration first.
+function _attendance_receipts_ready(): bool {
+  static $ready=null;
+  if($ready!==null)return $ready;
+  try {
+    $row=Db::one("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='attendance_action_receipts'");
+    return $ready=((int)($row['n']??0)>0);
+  }catch(Throwable $e){error_log('attendance receipts lookup unavailable: '.get_class($e));return $ready=false;}
+}
+function _attendance_request_uuid(array $body): string {
+  $uuid=trim((string)($body['client_uuid']??''));
+  if($uuid!=='' && !preg_match('/^[A-Za-z0-9_-]{12,120}$/D',$uuid)) Http::error('شناسه یکتای ثبت تردد نامعتبر است.',422);
+  return $uuid;
+}
+function _attendance_saved_reply(int $uid,string $action,string $uuid): ?array {
+  if($uuid==='' || !_attendance_receipts_ready())return null;
+  $row=Db::one('SELECT response_json FROM attendance_action_receipts WHERE user_id=? AND action_name=? AND client_uuid=?',[$uid,$action,$uuid]);
+  if(!$row)return null;
+  $data=json_decode((string)$row['response_json'],true);
+  return is_array($data) && !empty($data['ok']) ? array_merge($data,['duplicate'=>true]) : null;
+}
+function _attendance_save_reply(int $uid,string $action,string $uuid,int $attendanceId,array $reply): void {
+  if($uuid==='' || !_attendance_receipts_ready())return;
+  Db::run('INSERT INTO attendance_action_receipts(user_id,action_name,client_uuid,attendance_id,response_json) VALUES(?,?,?,?,?)',[$uid,$action,$uuid,$attendanceId,json_encode($reply,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+}
+
 // ثبت ورود
 route('POST', '/api/my/checkin', function($p,$b,$u){
+  $clientUuid=_attendance_request_uuid($b);
+  if($replay=_attendance_saved_reply((int)$u['id'],'checkin',$clientUuid))return $replay;
   $eventAt = _app_client_time($b);
   _attendance_auto_close_stale((int)$u['id']);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
@@ -2646,10 +2675,12 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   try{
     // Serialize concurrent check-ins for this employee and repeat the guard before inserting.
     Db::one("SELECT id FROM users WHERE id=? FOR UPDATE",[(int)$u['id']]);
+    if($replay=_attendance_saved_reply((int)$u['id'],'checkin',$clientUuid)){$pdo->commit();return $replay;}
     if(Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL LIMIT 1",[(int)$u['id']]))Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.',409);
     _attendance_reentry_guard((int)$u['id'],$eventAt);
     $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
       [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+    _attendance_save_reply((int)$u['id'],'checkin',$clientUuid,(int)$id,['ok'=>true,'id'=>$id,'check_in'=>$eventAt]);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   if (_gps_work_required() && $lat !== null && $lng !== null) {
@@ -2663,6 +2694,8 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
 
 // ثبت خروج
 route('POST', '/api/my/checkout', function($p,$b,$u){
+  $clientUuid=_attendance_request_uuid($b);
+  if($replay=_attendance_saved_reply((int)$u['id'],'checkout',$clientUuid))return $replay;
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
   $autoClosed = _attendance_auto_close_stale((int)$u['id']);
@@ -2703,7 +2736,18 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     catch (Throwable $e) { error_log('GPS checkout verification event failed: '.$e->getMessage()); }
   }
 
-  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, out_line_id=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $outLineId ?: null, $now, $open['id']]);
+  $outLineCode = $outLineId ? (Db::one("SELECT code FROM `lines` WHERE id=?",[$outLineId])['code'] ?? null) : null;
+  $checkoutReply=['ok'=>true,'check_out'=>$now,'checkout_line_id'=>$outLineId ?: null,'checkout_line_code'=>$outLineCode,'checkout_station'=>$outStation];
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try {
+    Db::one("SELECT id FROM users WHERE id=? FOR UPDATE",[(int)$u['id']]);
+    if($replay=_attendance_saved_reply((int)$u['id'],'checkout',$clientUuid)){$pdo->commit();return $replay;}
+    $changed=Db::exec("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, out_line_id=?, client_check_out=? WHERE id=? AND check_out IS NULL",
+      [$now,$lat,$lng,$outStation,$outLineId ?: null,$now,$open['id']]);
+    if($changed!==1)Http::error('این تردد قبلاً بسته شده است؛ اطلاعات حضور را بروزرسانی کنید.',409);
+    _attendance_save_reply((int)$u['id'],'checkout',$clientUuid,(int)$open['id'],$checkoutReply);
+    $pdo->commit();
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
@@ -2714,8 +2758,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  $outLineCode = $outLineId ? (Db::one("SELECT code FROM `lines` WHERE id=?",[$outLineId])['code'] ?? null) : null;
-  return ['ok'=>true, 'check_out'=>$now, 'checkout_line_id'=>$outLineId ?: null, 'checkout_line_code'=>$outLineCode, 'checkout_station'=>$outStation];
+  return $checkoutReply;
 });
 
 // تحویل شیفت با QR Code: تحویل‌دهنده توکن می‌سازد، تحویل‌گیرنده اسکن می‌کند؛ خروج اولی و ورود دومی ثبت می‌شود.
