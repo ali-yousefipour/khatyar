@@ -15,5 +15,7 @@ assert.equal((source.match(/finally\{setBusy\(false\);save\.disabled=false;\}/g)
 assert.match(source,/box\.setAttribute\('aria-busy',value\?'true':'false'\)/,'busy state is announced');
 assert.match(source,/save\.disabled=true;remove\.disabled=true/,'save and delete stay disabled before template loads');
 assert.match(source,/hasPlacement=false;remove\.disabled=true/,'delete action stays disabled after removing placement');
+assert.match(source,/KhatyarLongOperation/,'large file uploads show the shared long-operation feedback');
+assert.match(source,/finally\{if\(progressJob!=null\)progress\.end\(progressJob\);setBusy\(false\)/,'upload progress always closes after success or error');
 assert.match(source,/previousFocus\?\.isConnected/,'dismiss returns focus to its original target');
 console.log('PASS placement modal label, focus trap, busy and cleanup contracts');
