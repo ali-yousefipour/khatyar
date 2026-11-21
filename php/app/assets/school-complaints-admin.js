@@ -180,7 +180,7 @@ function NotificationSettings({value,onChange}){
              h('label',{key:channel,className:'sc-notification-switch'},
                h('input',{type:'checkbox',checked:current[stage]?.[recipient]?.[channel]===true,
                  onChange:e=>toggle(stage,recipient,channel,e.target.checked),'aria-label':title+'، '+label+'، '+method}),
-               h('span',null,method)))))))),
+               h('span',null,method))))))))),
    h('p',{className:'sc-help sc-notification-footnote'},'ارسال فقط برای شماره موبایل معتبر انجام می‌شود. دریافت پیام بله به اتصال قبلی شماره به ربات نیاز دارد. پیام‌ها فاقد متن محرمانه شکایت هستند و وضعیت ارسال در صف ثبت می‌شود.'));
 }
 function Module({get,send,DatePicker,ClockInput}){
