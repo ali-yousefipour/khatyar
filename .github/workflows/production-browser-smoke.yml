@@ -46,10 +46,16 @@ jobs:
                 await page.waitForFunction(()=>{const loader=document.getElementById('kh-initial-loader');return !loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).display==='none'||getComputedStyle(loader).visibility==='hidden';},{},{timeout:45000});
                 assert.equal(errors.length,0,errors.join('\n'));
                 assert.equal(blocked.length,0,'External runtime requests: '+blocked.join(','));
+                // The login component can mount asynchronously after React root hydration.
+                await page.waitForFunction(() => [...document.querySelectorAll('input,button,select,textarea,a[href],[tabindex]')].some(el => {
+                  const box=el.getBoundingClientRect();
+                  const style=getComputedStyle(el);
+                  return box.width>0 && box.height>0 && style.visibility!=='hidden' && style.display!=='none' && !el.disabled && Number(el.tabIndex)>=0;
+                }), null, {timeout:15000}).catch(() => console.warn('FOCUSABLE_TIMEOUT',viewport));
                 const ui = await page.evaluate(() => {
                   const root=document.getElementById('root');
                   const loader=document.getElementById('kh-initial-loader');
-                  const focusable=[...document.querySelectorAll('input,button,select,textarea,a[href]')].filter(x=>x.getClientRects().length);
+                  const focusable=[...document.querySelectorAll('input,button,select,textarea,a[href],[tabindex]')].filter(x=>x.getClientRects().length && x.tabIndex>=0 && !x.disabled);
                   const overflowing=document.documentElement.scrollWidth-innerWidth;
                   return {direction:document.documentElement.dir,rootVisible:!!root?.getClientRects().length,
                     loaderHidden:!loader||loader.classList.contains('kh-loader-hide')||getComputedStyle(loader).visibility==='hidden',
@@ -58,11 +64,11 @@ jobs:
                 assert.equal(ui.direction,'rtl','Login must preserve right-to-left direction');
                 assert.ok(ui.rootVisible,'Login root should be visible');
                 assert.ok(ui.loaderHidden,'Initial boot loader must leave the screen');
-                assert.ok(ui.focusable>0,'Login needs keyboard-accessible controls');
-                // Record horizontal overflow for follow-up without changing production styles.
-                if (ui.overflowing>2) console.warn('RESPONSIVE_OVERFLOW',viewport,ui.overflowing);
                 await page.screenshot({path:'browser-smoke/login-'+viewport.width+'.png',fullPage:true});
                 console.log('RESPONSIVE_RESULT',JSON.stringify(ui));
+                assert.ok(ui.focusable>0,'Login needs keyboard-accessible controls at '+viewport.width+'px');
+                // Record horizontal overflow for follow-up without changing production styles.
+                if (ui.overflowing>2) console.warn('RESPONSIVE_OVERFLOW',viewport,ui.overflowing);
                 console.log('PASS rendered login',viewport,await page.evaluate(()=>({react:window.React?.version ?? null,domReady:performance.getEntriesByType('navigation')[0].domContentLoadedEventEnd})));
                 await page.close();
               }
