@@ -25,5 +25,6 @@ assert.ok(picker.includes('length={24}') && picker.includes('length={60}'), 'Whe
 assert.ok(picker.includes("m > 59") && picker.includes("m = editingMinute ? Number(typed) : minute"), 'Custom minutes must be validated');
 assert.ok(picker.includes('formatTime(hour, m)') && picker.includes("two(hour) + ':' + two(minute)"), 'Selected time must retain the 24-hour HH:mm format');
 assert.ok(picker.includes("key: 'now'") && picker.includes("key: 'eight'"), 'Time picker must keep functional quick presets');
-assert.ok(picker.includes('allowFontScaling={false}'), 'Picker must not break under Android system font scaling');
+assert.ok(picker.includes('allowFontScaling') && !picker.includes('allowFontScaling={false}'), 'Picker must honor Android system font scaling');
+assert.ok(picker.includes("actions: { flexDirection: 'row-reverse', flexWrap: 'wrap'") && picker.includes("minuteRow: { flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap'"), 'Picker actions and minute input must adapt to large fonts');
 console.log('PASS request approval history and 24-hour picker contract');
