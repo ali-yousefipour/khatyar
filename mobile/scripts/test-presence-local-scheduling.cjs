@@ -36,9 +36,9 @@ const tehranGregorianParts=()=>{
   return{year:get('year'),month:get('month'),day:get('day')};
 };
 const script=source.replace(/^import[^\n]*\n/gm,'').replace(/\bexport\s+/g,'');
-const localModule=new Function('AsyncStorage','Notifications','ensurePresenceChannel','tehranGregorianParts',script+
+const localModule=new Function('AsyncStorage','Notifications','ensurePresenceChannel','PRESENCE_ALARM_CHANNEL','tehranGregorianParts',script+
  '\nreturn {scheduleFixedAlerts,currentPresencePolicy,storePresencePolicy,ensureLocalRandomSchedule,localAttendanceSession,markLocalPresenceCompleted,localPresenceCompletions,clearLocalRandomSchedule};')(
- AsyncStorage,Notifications,async()=>{},tehranGregorianParts
+ AsyncStorage,Notifications,async()=>{},'presence_alarm_v2',tehranGregorianParts
 );
 (async()=>{
   let fetched=0;
@@ -54,6 +54,8 @@ const localModule=new Function('AsyncStorage','Notifications','ensurePresenceCha
   const open=await localModule.localAttendanceSession(42);
   const schedule=await localModule.ensureLocalRandomSchedule(42,open,3);
   assert.equal(schedule.items.length,6,'Three checks per four-hour block, six per shift/day');
+  assert.equal(schedule.notification_channel_version,2,'new notifications use DND-respecting channel');
+  assert.ok(notifications.filter(x=>x.content).every(x=>x.content.channelId==='presence_alarm_v2'),'all local scheduled alerts use new notification channel');
   for(let i=0;i<schedule.items.length;i++){
     const row=schedule.items[i],block=Math.floor(i/3);
     assert.ok(row.ts*1000>=start+block*4*3600000,'Random check must follow clock-in');
