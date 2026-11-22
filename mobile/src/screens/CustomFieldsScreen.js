@@ -237,7 +237,7 @@ export default function CustomFieldsScreen({ navigation }) {
   const save = async () => {
     if(!editingAllowed){Alert.alert('فقط مشاهده','مدیر سامانه امکان ویرایش اطلاعات تکمیلی را غیرفعال کرده است.');return;}
     const merged={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))};
-    const missing = (fields || []).filter((f) => {const st=profileFieldState(f.profile_definition||f,merged);return st.visible&&st.enabled&&st.required&&f.user_editable&&!st.readonly&&
+    const missing = (fields || []).filter((f) => {const st=profileFieldState(f.profile_definition||f,merged);return !['file','image'].includes(f.ftype)&&st.visible&&st.enabled&&st.required&&f.user_editable&&!st.readonly&&
       profileCanEdit(f.profile_definition||f,profile)&&!String(vals[f.id]??'').trim();});
     if (missing.length) { Alert.alert('تکمیل الزامی', `این موارد الزامی‌اند: ${missing.map((m) => m.label).join('، ')}`); return; }
     for(const field of fields||[]){
