@@ -4,7 +4,17 @@ require_once __DIR__.'/UserProfileRules.php';
 final class UserProfileFormValues {
   private const SELF_EDIT=['email','mobile','address','national_code','marital_status','children_count','birth_date'];
   private static function fail(string $message): never {throw new InvalidArgumentException($message);}
-  public static function plan(array $schema,array $submitted,array $stored,bool $selfEdit=true): array {
+  private static function permitted(array $field,array $context): bool {
+    $uid=(int)($context['id']??0);$role=(int)($context['role_id']??0);
+    $denyUsers=array_map('intval',(array)($field['deny_users']??[]));
+    $denyRoles=array_map('intval',(array)($field['deny_roles']??[]));
+    if(in_array($uid,$denyUsers,true)||in_array($role,$denyRoles,true))return false;
+    $users=array_map('intval',(array)($field['edit_users']??[]));
+    $roles=array_map('intval',(array)($field['edit_roles']??[]));
+    if(!$users&&!$roles)return true;
+    return $uid>0&&in_array($uid,$users,true)||$role>0&&in_array($role,$roles,true);
+  }
+  public static function plan(array $schema,array $submitted,array $stored,bool $selfEdit=true,array $context=[]): array {
     $fields=[];
     foreach($schema['sections']??[] as $section)foreach($section['fields']??[] as $field) {
       if(!empty($field['key']))$fields[$field['key']]=$field;
@@ -24,6 +34,7 @@ final class UserProfileFormValues {
       $state=UserProfileRules::state($field,$effective);
       $has=array_key_exists($key,$submitted);
       if($has){
+        if($selfEdit&&!self::permitted($field,$context))self::fail('مجوز ویرایش این فیلد برای نقش یا کاربر صادر نشده است');
         if(!$state['visible']||!$state['enabled']||$state['readonly'])
           self::fail('ویرایش این فیلد در وضعیت فعلی مجاز نیست: '.($field['label']??$key));
         if(($field['binding']??null)==='system' && ($selfEdit&&!in_array($key,self::SELF_EDIT,true)))
