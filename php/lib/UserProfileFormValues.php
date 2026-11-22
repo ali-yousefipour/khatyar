@@ -56,6 +56,8 @@ final class UserProfileFormValues {
   }
   private static function validateValue(array $field,$value): mixed {
     $type=$field['type']??'text';
+    if(in_array($type,['file','image','calculated','description','divider','heading'],true))
+      self::fail('این فیلد با درخواست متنی قابل ثبت نیست؛ مسیر امن اختصاصی لازم است');
     if($value===null||$value==='')return null;
     if(is_array($value)){
       if($type!=='multiselect')self::fail('این فیلد چندانتخابی نیست');
