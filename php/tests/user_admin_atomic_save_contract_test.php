@@ -12,6 +12,7 @@ foreach([
  '$result=$originalHandler($params,$body,$user)',
  '_save_custom_values($targetId,$custom,false)',
  "if(!empty(\$updates))Db::run",
+ 'password_hash($newPassword,PASSWORD_BCRYPT)',
  '$pdo->commit()',
  '$pdo->rollBack()',
  'information_schema.columns',
@@ -25,6 +26,7 @@ $editor=substr($panel,$source,25000);
 if(!str_contains($editor,"custom_values:customChanges")||
    !str_contains($editor,"customSaveRef.current('payload')"))
   throw new RuntimeException('Panel still submits user and custom values separately');
+if(!str_contains($editor,'new_password:pw'))throw new RuntimeException('Password reset must share the atomic request');
 if(str_contains($editor,"const customSaved=await customSaveRef.current()"))
   throw new RuntimeException('Legacy second save request still active');
 echo "PASS unified admin personnel update transaction contract\n";
