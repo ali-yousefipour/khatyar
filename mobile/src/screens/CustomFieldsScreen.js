@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { request,uploadFile } from '../api';
 import * as DocumentPicker from 'expo-document-picker';
@@ -43,6 +43,7 @@ function PrivateProfileAttachment({field}){
   const [status,setStatus]=useState(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const uploadLock=useRef(false);
   const fieldId=Number(field.id);
   const path='/me/profile-attachment/'+fieldId;
   const reload=async()=>setStatus(await request(path+'/status',{noStore:true}));
@@ -54,7 +55,8 @@ function PrivateProfileAttachment({field}){
     return()=>{active=false;};
   },[fieldId]);
   const select=async()=>{
-    if(busy)return;
+    if(busy||uploadLock.current)return;
+    uploadLock.current=true;
     setError('');
     try{
       const result=await DocumentPicker.getDocumentAsync({
@@ -69,10 +71,11 @@ function PrivateProfileAttachment({field}){
       const response=await uploadFile(path,{},'file',asset.uri,asset.name||'profile-document',
         asset.mimeType||'application/octet-stream',{queueIfOffline:false,timeoutMs:60000});
       if(!response?.ok||response?.queued)throw new Error('ثبت قطعی مدرک توسط سرور تأیید نشد');
-      await reload();
+      setStatus({exists:true,name:response.name||asset.name||'فایل خصوصی'});
+      await reload().catch(e=>setError(e.message||'وضعیت مدرک به‌روز نشد؛ ثبت فایل موفق بود'));
       Alert.alert('ثبت شد','مدرک در فضای خصوصی سامانه ذخیره شد.');
     }catch(e){setError(e.message||'بارگذاری مدرک انجام نشد');}
-    finally{setBusy(false);}
+    finally{uploadLock.current=false;setBusy(false);}
   };
   return <View style={{gap:8}}>
     <Text style={s.muted}>{status?.exists?'مدرک ثبت‌شده: '+(status.name||'فایل خصوصی'):'مدرکی برای این فیلد ثبت نشده است.'}</Text>
