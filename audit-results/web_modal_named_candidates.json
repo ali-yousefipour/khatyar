@@ -1,0 +1,86 @@
+[
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 217,
+    "identifier": "lineModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 989,
+    "identifier": "lineModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4116,
+    "identifier": "addModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 553,
+    "identifier": "popupStyle",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 685,
+    "identifier": "modalSearch",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1801,
+    "identifier": "lineModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1802,
+    "identifier": "commitmentsModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8291,
+    "identifier": "requestModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8292,
+    "identifier": "addModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8297,
+    "identifier": "conversionModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8298,
+    "identifier": "gpsDeficitModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8299,
+    "identifier": "shiftDeficitModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9483,
+    "identifier": "attendanceModal",
+    "confidence": "name_candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12581,
+    "identifier": "passwordDialog",
+    "confidence": "name_candidate"
+  }
+]

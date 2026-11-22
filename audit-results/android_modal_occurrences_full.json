@@ -1,0 +1,3796 @@
+[
+  {
+    "area": "android",
+    "path": "mobile/src/AppLock.js",
+    "line": 53,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/BatteryOptimization.js",
+    "line": 24,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/CovertSelfie.js",
+    "line": 89,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 134,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 138,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 154,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 164,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 166,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 197,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 202,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/DrawerMenuScreen.js",
+    "line": 249,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 23,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 24,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 25,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 26,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 27,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 28,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 29,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "line": 17,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "line": 18,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "line": 27,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PresenceCheckWizard.js",
+    "line": 149,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/TheftAlarmOverlay.js",
+    "line": 46,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/TheftAlarmOverlay.js",
+    "line": 50,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/TheftAlarmOverlay.js",
+    "line": 58,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/TheftAlarmOverlay.js",
+    "line": 82,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/AppAlertHost.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/AppAlertHost.js",
+    "line": 36,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/ImageViewer.js",
+    "line": 24,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/JDatePicker.js",
+    "line": 87,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 9,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/LineLocationCapture.js",
+    "line": 15,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/ModalKeyboardView.js",
+    "line": 8,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/ReportPersonPickerModal.js",
+    "line": 12,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/ReportTextModal.js",
+    "line": 11,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/TimePicker.js",
+    "line": 96,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/VehicleIdentityFields.js",
+    "line": 45,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/components/VehicleIdentityFields.js",
+    "line": 68,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/radio/RadioContext.js",
+    "line": 230,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/radio/RadioContext.js",
+    "line": 230,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/radio/RadioContext.js",
+    "line": 230,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/radio/RadioContext.js",
+    "line": 232,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AboutAppScreen.js",
+    "line": 9,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AboutAppScreen.js",
+    "line": 10,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 36,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 38,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 39,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 119,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 124,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 131,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 133,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 155,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 285,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 287,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 292,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 335,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 336,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 432,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 441,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 443,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AccountScreens.js",
+    "line": 445,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSetupScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSetupScreen.js",
+    "line": 12,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/AppLockSetupScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 78,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 79,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 80,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 81,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 87,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/BotMessageScreen.js",
+    "line": 89,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 246,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 255,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 343,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 618,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 625,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 665,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 686,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 737,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 898,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 903,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 944,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1000,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1037,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1056,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1066,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1067,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1076,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1078,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1090,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CheckInScreen.js",
+    "line": 1197,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ChecklistScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ChecklistScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ChecklistScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ChecklistScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ChecklistScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 85,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 107,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 117,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 143,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 146,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 188,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyPayrollHistory.js",
+    "line": 221,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsDriverGateScreen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsDriverGateScreen.js",
+    "line": 39,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 121,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 144,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 170,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 171,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 176,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 194,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 199,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 209,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 217,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 219,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 222,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 224,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 225,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 234,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 235,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 245,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 248,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 248,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 250,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 270,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 278,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 280,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 286,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 287,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CompanyRequestsScreen.js",
+    "line": 290,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 19,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 19,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 21,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 35,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 36,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 37,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 39,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 70,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 70,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 73,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 73,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ComplaintsScreen.js",
+    "line": 73,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CrashReportsScreen.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CrashReportsScreen.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CrashReportsScreen.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CrashReportsScreen.js",
+    "line": 32,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 48,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 52,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 53,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 58,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 59,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 68,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 72,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 166,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CulturalScreen.js",
+    "line": 183,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 77,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 243,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 248,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 254,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 275,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/CustomFieldsScreen.js",
+    "line": 277,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 215,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 333,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 423,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 423,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 487,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DashboardScreen.js",
+    "line": 487,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 55,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 55,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 63,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 70,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 76,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DebtScreen.js",
+    "line": 128,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 69,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 76,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 101,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 110,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 111,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 116,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 123,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 124,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 130,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 138,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 183,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 184,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 185,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 208,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/DriverScreen.js",
+    "line": 219,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ExpiryNotificationSettingsScreen.js",
+    "line": 66,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ExpiryNotificationSettingsScreen.js",
+    "line": 68,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FieldAlertSettingsScreen.js",
+    "line": 46,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FieldAlertSettingsScreen.js",
+    "line": 47,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 48,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 51,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 75,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 76,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 79,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 83,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 97,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 105,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/FormsScreen.js",
+    "line": 107,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/HelpScreen.js",
+    "line": 197,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/HelpScreen.js",
+    "line": 236,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 130,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 154,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 167,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 184,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 196,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 198,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 373,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 377,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 379,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 380,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 383,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 385,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 388,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 389,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 390,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 394,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 415,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 421,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 424,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 434,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 435,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 482,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InboxScreen.js",
+    "line": 487,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 80,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 81,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 84,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 85,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 89,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 94,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 101,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 105,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 110,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 163,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 232,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 239,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/InventoryScreen.js",
+    "line": 246,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 27,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 52,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 52,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 56,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 57,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 57,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LineVisitProgramScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ListScreens.js",
+    "line": 408,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 66,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 68,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 71,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 77,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 95,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 100,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 107,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 111,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 120,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 124,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 126,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 131,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 135,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/LoginScreen.js",
+    "line": 137,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/MapSettingsScreen.js",
+    "line": 61,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/MapSettingsScreen.js",
+    "line": 61,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/MapSettingsScreen.js",
+    "line": 74,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/MapSettingsScreen.js",
+    "line": 76,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 12,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 12,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/NoticeScreen.js",
+    "line": 42,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 140,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 146,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 151,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 152,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 154,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 155,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 157,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 158,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 159,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 168,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 171,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 191,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 200,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 205,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 231,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OfficialPresenceScreen.js",
+    "line": 277,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 59,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 66,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 71,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 75,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 76,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/OutageScreen.js",
+    "line": 115,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 22,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 23,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 25,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 33,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 34,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 35,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 36,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 59,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleAssetScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleChecklistScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleChecklistScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleChecklistScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleChecklistScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PersonnelVehicleChecklistScreen.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PresentListScreen.js",
+    "line": 53,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/PresentListScreen.js",
+    "line": 68,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RadioScreen.js",
+    "line": 278,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RadioScreen.js",
+    "line": 300,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 52,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 207,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 210,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 217,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 218,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 291,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 292,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 353,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 468,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 486,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 597,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 601,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 602,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 607,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 610,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportListsScreens.js",
+    "line": 681,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 163,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 177,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 228,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 238,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 239,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 245,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 246,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 247,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 248,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 267,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/ReportsScreen.js",
+    "line": 272,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 71,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 73,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 208,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 329,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 339,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestScreens.js",
+    "line": 343,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 273,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 278,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 279,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 280,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 281,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 282,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 283,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 284,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 285,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 306,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 312,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 317,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 385,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 405,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 418,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 488,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/RequestsScreen.js",
+    "line": 496,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 35,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 47,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 63,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 81,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 98,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 104,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 113,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 128,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 129,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 130,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 135,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 135,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 136,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 136,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 136,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 138,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 138,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 139,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 141,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 141,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 160,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 160,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 186,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 188,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 188,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 188,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 188,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 188,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 271,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 282,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SchoolServiceScreen.js",
+    "line": 284,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SearchScreen.js",
+    "line": 54,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SearchScreen.js",
+    "line": 58,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SearchScreen.js",
+    "line": 78,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SearchScreen.js",
+    "line": 83,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SendQueueScreen.js",
+    "line": 48,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SendQueueScreen.js",
+    "line": 51,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SettingsScreen.js",
+    "line": 38,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SettingsScreen.js",
+    "line": 40,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SettingsScreen.js",
+    "line": 63,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 79,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 95,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 99,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 102,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 103,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 105,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 108,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 118,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SmsScreen.js",
+    "line": 125,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 8,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 10,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 10,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 10,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 10,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 11,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 13,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 14,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 15,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 17,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 17,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 28,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 29,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureScreenV2.js",
+    "line": 30,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 45,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 54,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 55,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 70,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 72,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 80,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 84,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 100,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 105,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 126,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 127,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV4Screen.js",
+    "line": 215,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 16,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 18,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 22,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 22,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 23,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 27,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 28,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 28,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/StationCaptureV5Screen.js",
+    "line": 40,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SubscriptionScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/SubscriptionScreen.js",
+    "line": 75,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 38,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 43,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 49,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 57,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 67,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 68,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 75,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 79,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 84,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/TempDriversScreen.js",
+    "line": 88,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 19,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 20,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 21,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 28,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 29,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/UpdateScreen.js",
+    "line": 31,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 60,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 64,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 65,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 70,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 71,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 73,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 83,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 87,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 181,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/screens/WelfareScreen.js",
+    "line": 198,
+    "pattern": "<Modal",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/updater.js",
+    "line": 40,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/updater.js",
+    "line": 44,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/updater.js",
+    "line": 52,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/updater.js",
+    "line": 55,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/updater.js",
+    "line": 58,
+    "pattern": "Alert.alert(",
+    "confidence": "occurrence"
+  }
+]

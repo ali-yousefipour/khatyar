@@ -1,0 +1,9 @@
+{
+  "selected_files": 690,
+  "classification": "section-based candidate; files considered code by extension",
+  "cloc_binary_found": true,
+  "source_heuristic_sloc": 102093,
+  "source_physical_loc": 113544,
+  "cloc_exit_code": 0,
+  "cloc_error": "Extra data: line 75 column 1 (char 1304)"
+}

@@ -156,8 +156,8 @@
     "path": ".github/workflows/isolated-static-audit.yml",
     "section": "other",
     "ext": ".yml",
-    "loc": 30,
-    "sloc_approx": 30,
+    "loc": 36,
+    "sloc_approx": 36,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -693,6 +693,15 @@
     "comment_lines_approx": 0
   },
   {
+    "path": "audit-results/backend_static_route_registrations.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 4286,
+    "sloc_approx": 4286,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit-results/duplicates.json",
     "section": "other",
     "ext": ".json",
@@ -705,8 +714,8 @@
     "path": "audit-results/files.json",
     "section": "other",
     "ext": ".json",
-    "loc": 13367,
-    "sloc_approx": 13367,
+    "loc": 13394,
+    "sloc_approx": 13394,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -783,11 +792,29 @@
     "comment_lines_approx": 0
   },
   {
+    "path": "audit/independent_loc.py",
+    "section": "other",
+    "ext": ".py",
+    "loc": 20,
+    "sloc_approx": 20,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit/khatyar_inventory.py",
     "section": "other",
     "ext": ".py",
     "loc": 51,
     "sloc_approx": 51,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit/ui_catalog.py",
+    "section": "other",
+    "ext": ".py",
+    "loc": 27,
+    "sloc_approx": 27,
     "blank": 0,
     "comment_lines_approx": 0
   },

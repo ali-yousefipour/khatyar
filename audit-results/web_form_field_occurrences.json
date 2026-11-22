@@ -1,0 +1,7597 @@
+[
+  {
+    "path": "php/app/app-parity.js",
+    "line": 13,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/app-parity.js",
+    "line": 16,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app-parity.js",
+    "line": 16,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app-parity.js",
+    "line": 16,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 292,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 297,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 298,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 309,
+    "tag": "<form"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 310,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 310,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 310,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 327,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 351,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 359,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 362,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 367,
+    "tag": "<form"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 369,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 369,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 369,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 399,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 406,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 407,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 416,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 417,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 420,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 421,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 432,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 433,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 434,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 453,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 492,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 493,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 501,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 502,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 511,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 512,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 513,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 514,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 515,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 516,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 518,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 669,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/app.html",
+    "line": 669,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 16,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 17,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 19,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 22,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 22,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 24,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 24,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 24,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 26,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 27,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 28,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 29,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/android-web-parity.js",
+    "line": 30,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/attendance-report-final-fix.js",
+    "line": 20,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/attendance-report-final-fix.js",
+    "line": 20,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/attendance-report-render-fix.js",
+    "line": 21,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/attendance-report-render-fix.js",
+    "line": 29,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/attendance-report-render-fix.js",
+    "line": 29,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/attendance-report-render-fix.js",
+    "line": 30,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/attendance-report-render-fix.js",
+    "line": 30,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/company-request-driver-notify.js",
+    "line": 9,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/company-request-driver-notify.js",
+    "line": 9,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 134,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 134,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 141,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 154,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 154,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 154,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 203,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 203,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 203,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 203,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 219,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 222,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 222,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 222,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 222,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 222,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 227,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 227,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/complaints-panel.js",
+    "line": 237,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/persian-date-picker-safe.js",
+    "line": 52,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/persian-date-picker-safe.js",
+    "line": 52,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/persian-date-picker.js",
+    "line": 242,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/persian-date-picker.js",
+    "line": 242,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-checklist-enhancement.js",
+    "line": 15,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-checklist-enhancement.js",
+    "line": 15,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 11,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 12,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 12,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 14,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 14,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 15,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 21,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 21,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 21,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 21,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 21,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/personnel-vehicle-web.js",
+    "line": 32,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/presence-immediate-admin.js",
+    "line": 14,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/presence-immediate-admin.js",
+    "line": 14,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/presence-immediate-admin.js",
+    "line": 14,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/presence-immediate-admin.js",
+    "line": 25,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 31,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 32,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 33,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 34,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 35,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 185,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 186,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 202,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 203,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 255,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 256,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 366,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 383,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 387,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 387,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 387,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 412,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 436,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 438,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 449,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 450,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 451,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 453,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 454,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 455,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 459,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 459,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 459,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 459,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 483,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 483,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 483,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 483,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 483,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 484,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 527,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 528,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 529,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 530,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 531,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 532,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 533,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 578,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/station-app-item-settings.js",
+    "line": 13,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/station-sign-admin.js",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/station-sign-admin.js",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 24,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 27,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 28,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 29,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 30,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 31,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 32,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 34,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 36,
+    "tag": "<form"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 45,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/web-features-core.js",
+    "line": 45,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/web-features-device.js",
+    "line": 9,
+    "tag": "<form"
+  },
+  {
+    "path": "php/app/assets/web-features-device.js",
+    "line": 9,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 96,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 97,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 99,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 101,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 106,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 106,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 116,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 117,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 118,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 119,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 120,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 121,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 122,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 123,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 124,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 125,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 126,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 127,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 128,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 212,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 212,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/assets/work-contracts-admin.js",
+    "line": 240,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/company_requests_admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/company_requests_admin.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/company_requests_admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 95,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<form"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/landing.html",
+    "line": 98,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/line-location-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/line-location-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/line-location-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/line-location.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/line-location.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/messenger_center.html",
+    "line": 2,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/messenger_center.html",
+    "line": 2,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/messenger_center.html",
+    "line": 2,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/messenger_center.html",
+    "line": 3,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/messenger_center.html",
+    "line": 3,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/app/radio-admin.html",
+    "line": 1,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.js",
+    "line": 2,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.js",
+    "line": 2,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/radio-admin.js",
+    "line": 2,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/salary_slips_admin.html",
+    "line": 3,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/salary_slips_admin.html",
+    "line": 4,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/salary_slips_admin.html",
+    "line": 4,
+    "tag": "<select"
+  },
+  {
+    "path": "php/app/salary_slips_admin.html",
+    "line": 4,
+    "tag": "<input"
+  },
+  {
+    "path": "php/app/salary_slips_admin.html",
+    "line": 4,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 235,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 237,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 240,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 250,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 251,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 252,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 253,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 255,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 271,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 287,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 313,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 340,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 344,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 357,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 359,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 360,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 409,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 410,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 411,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 412,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 428,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 430,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 460,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 484,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 529,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 530,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 562,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 567,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 568,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 569,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 612,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 613,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 239,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 292,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 385,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 386,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 499,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 525,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 530,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 534,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 581,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 585,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 902,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 922,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 944,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 947,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1004,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1005,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1006,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1007,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1025,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1026,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1027,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1028,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1029,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1030,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1032,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1033,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1034,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1037,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1039,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1048,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1049,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1051,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1052,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1053,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1054,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1055,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1056,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1057,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1058,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1059,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1061,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1075,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1076,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1077,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1078,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1079,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1080,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1081,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1083,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1084,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1096,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1104,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1120,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1144,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1168,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1171,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1234,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1235,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1236,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1237,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1238,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1255,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1270,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1271,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1272,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1273,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1293,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1337,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1340,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1343,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1344,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1406,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1411,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1416,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1418,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1442,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1445,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1446,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1447,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1453,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1456,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1458,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1557,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1575,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1576,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1577,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1595,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1603,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1608,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1614,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1617,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1625,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1716,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1717,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1735,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1736,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1737,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1755,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1763,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1768,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1774,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1777,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1785,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1910,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1913,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1955,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1963,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1994,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1995,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1996,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1998,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2000,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2001,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2013,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2014,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2015,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2029,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2047,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2051,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2071,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2072,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2184,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2202,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2206,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2226,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2228,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2287,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2306,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2329,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2331,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2343,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2350,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2352,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2354,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2367,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2376,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2381,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2389,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2393,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2394,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2397,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2402,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2413,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2420,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2422,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2423,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2430,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2435,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2439,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2443,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2461,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2475,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2477,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2480,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2482,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2487,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2490,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2491,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2507,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2509,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2513,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2527,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2535,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2538,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2544,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2554,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2557,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2560,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2571,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2592,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2595,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2597,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2602,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2627,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2629,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2631,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2633,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2637,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2648,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2651,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2677,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2678,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2704,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2709,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2730,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2791,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2829,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2833,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2874,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2879,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2880,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2881,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2882,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2883,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2919,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2922,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2945,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2946,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2947,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2950,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2977,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2978,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2979,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3023,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3024,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3042,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3044,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3045,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3048,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3070,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3071,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3090,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3091,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3094,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3098,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3113,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3125,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3126,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3127,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3131,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3137,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3154,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3156,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3161,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3167,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3183,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3184,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3186,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3187,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3190,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3216,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3244,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3245,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3246,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3254,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3256,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3271,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3276,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3280,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3281,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3283,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3308,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3316,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3317,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3322,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3323,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3324,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3325,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3344,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3350,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3402,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3403,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3428,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3474,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3476,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3484,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3492,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3494,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3572,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3589,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3591,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3594,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3610,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3611,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3675,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3712,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3724,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3725,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3780,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3783,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3785,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3786,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3787,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3788,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3791,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3792,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3837,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3895,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3899,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3911,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3912,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3940,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3944,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3946,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3947,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3951,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3953,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3954,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4032,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4063,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4067,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4097,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4136,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4220,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4222,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4237,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4239,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4256,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4279,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4341,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4342,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4371,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4372,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4374,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4375,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4377,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4487,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4488,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4489,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4529,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4531,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4533,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4535,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4577,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4580,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4619,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4622,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4624,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4627,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4628,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4680,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4685,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4688,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4736,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4737,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4800,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4803,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4808,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4815,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4822,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4846,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4851,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4856,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4867,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4986,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5001,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5002,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5003,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5011,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5091,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5092,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5096,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5101,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5103,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5105,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5114,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5115,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5135,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5191,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5192,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5286,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5329,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5331,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5337,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5379,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5382,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5385,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5416,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5417,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5493,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5495,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5505,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5506,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 607,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 607,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 613,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 674,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 768,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 843,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 983,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1091,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1118,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1123,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1127,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1174,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1178,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1507,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1531,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1553,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1767,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1768,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1777,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1777,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1777,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1777,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1777,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1783,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1783,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1784,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1784,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1784,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1784,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1883,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1884,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1885,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1886,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1887,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1934,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1939,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1944,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1945,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1946,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1947,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1948,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1950,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1951,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1952,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1955,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1957,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1960,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1963,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1968,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1971,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1973,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1974,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1975,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1976,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1977,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1978,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1979,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1980,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1981,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1983,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1996,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2020,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2021,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2022,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2023,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2025,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2026,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2027,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2029,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2030,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2063,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2076,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2077,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2181,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2196,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2197,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2210,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2211,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2212,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2218,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2226,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2228,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2229,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2233,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2234,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2235,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2236,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2243,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2243,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2348,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2349,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2350,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2388,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2391,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2509,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2510,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2512,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2513,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2514,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2516,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2537,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2542,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2553,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2554,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2555,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2556,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2576,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2626,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2626,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2635,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2638,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2641,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2642,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2710,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2715,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2720,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2722,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2750,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2753,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2754,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2755,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2758,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2761,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2763,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2767,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2770,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2772,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2778,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2783,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2883,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2884,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2902,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2903,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2904,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2922,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2930,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2935,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2941,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2944,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2952,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3043,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3044,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3062,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3063,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3064,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3082,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3090,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3095,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3101,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3104,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3112,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3250,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3253,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3254,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3320,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3321,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3324,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3326,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3345,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3364,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3554,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3573,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3575,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3603,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3604,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3704,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3707,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3756,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3809,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3810,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3818,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3824,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3897,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3899,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3927,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3936,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4003,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4046,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4050,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4113,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4114,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4115,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4117,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4122,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4128,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4130,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4134,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4138,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4151,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4152,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4164,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4165,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4166,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4219,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4224,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4228,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4229,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4231,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4240,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4241,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4252,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4261,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4265,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4266,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4289,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4308,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4315,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4317,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4336,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4337,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4449,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4467,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4471,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4491,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4493,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4552,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4571,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4611,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4632,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4633,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4634,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4635,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4636,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4637,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4639,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4644,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4644,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4650,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4651,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4652,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4653,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4654,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4654,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4662,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4663,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4664,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4665,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4665,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4673,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4673,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4674,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4675,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4676,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4676,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4676,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4678,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4678,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4679,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4679,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4679,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4701,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4702,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4703,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5200,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5204,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5207,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5224,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5240,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5252,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5253,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5254,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5255,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5259,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5262,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5269,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5271,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5274,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5285,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5294,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5295,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5299,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5300,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5301,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5326,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5328,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5331,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5333,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5344,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5354,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5362,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5370,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5371,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5372,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5383,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5389,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5411,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5420,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5425,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5432,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5435,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5436,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5441,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5445,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5446,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5449,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5454,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5465,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5470,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5471,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5483,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5485,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5486,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5493,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5498,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5502,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5506,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5514,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5516,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5525,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5534,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5548,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5550,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5553,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5555,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5560,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5563,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5565,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5566,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5582,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5584,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5588,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5602,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5620,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5625,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5638,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5640,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5641,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5644,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5655,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5675,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5676,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5679,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5681,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5686,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5713,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5715,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5717,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5719,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5723,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5739,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5743,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5781,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5782,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5783,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5811,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5816,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5837,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5905,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5959,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5963,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6019,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6024,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6025,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6026,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6027,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6028,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6029,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6065,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6068,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6266,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6267,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6268,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6269,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6311,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6312,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6313,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6316,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6349,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6350,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6351,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6415,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6416,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6434,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6436,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6437,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6440,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6462,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6463,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6482,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6483,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6486,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6490,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6522,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6523,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6523,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6534,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6548,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6550,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6555,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6561,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6604,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6605,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6607,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6608,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6611,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6729,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6831,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6859,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6860,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6861,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6869,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6870,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6871,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6886,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6897,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6902,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6903,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6907,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6913,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6915,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6945,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6953,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6954,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6959,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6960,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6961,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6962,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6983,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6993,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7055,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7056,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7099,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7147,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7151,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7160,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7168,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7170,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7248,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7265,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7267,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7270,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7276,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7277,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7278,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7280,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7293,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7294,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7358,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7395,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7407,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7408,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7439,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7555,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7556,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7557,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7557,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7558,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7558,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7559,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7559,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7560,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7560,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7560,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7561,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7562,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7562,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7562,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7563,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7563,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7565,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7565,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7565,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7591,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7612,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7628,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7628,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7628,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7668,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7671,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7673,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7674,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7675,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7676,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7679,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7680,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7747,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7779,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7807,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7811,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7882,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7883,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7908,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7916,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7923,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8034,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8183,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8215,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8219,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8251,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8549,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8724,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8725,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8725,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8726,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8794,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8800,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8800,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8801,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8895,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8911,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 8915,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9014,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9015,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9049,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9049,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9051,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9052,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9053,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9055,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9218,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9219,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9226,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9232,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9248,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9269,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9301,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9302,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9447,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9449,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9450,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9451,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9457,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9461,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9461,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9461,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9473,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9616,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9618,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9619,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9620,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9674,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9681,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9703,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9704,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9706,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9707,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9709,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9865,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9870,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9870,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9871,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9871,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9874,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9875,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9876,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9877,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9943,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9944,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9945,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9949,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9956,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9958,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9991,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9993,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9995,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9997,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10041,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10044,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10084,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10087,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10089,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10092,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10093,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10155,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10159,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10167,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10224,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10229,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10232,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10280,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10281,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10344,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10347,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10352,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10359,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10366,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10390,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10395,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10400,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10411,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10551,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10557,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10558,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10569,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10668,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10670,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10690,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10713,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10714,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10715,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10723,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10803,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10804,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10808,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10813,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10815,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10817,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10826,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10827,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10847,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10911,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10912,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11007,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11050,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11052,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11058,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11100,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11103,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11106,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11138,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11139,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11184,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11185,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11280,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11282,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11284,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11290,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11291,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11296,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11346,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11346,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11346,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11346,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11355,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11383,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11392,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11393,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11395,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11398,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11432,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11445,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11445,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11511,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11512,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11513,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11514,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11520,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11523,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11524,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11525,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11526,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11527,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11527,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11528,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11529,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11530,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11531,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11532,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11533,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11534,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11535,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11545,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11564,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11602,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11609,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11632,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11632,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11681,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11681,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11682,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11683,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11689,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11754,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11755,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11874,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11889,
+    "tag": "<textarea"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11908,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11908,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11909,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11911,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11918,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11921,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11921,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11921,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11921,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11921,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11937,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12084,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12085,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12231,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12235,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12253,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12263,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12275,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12278,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12283,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12284,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12285,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12297,
+    "tag": "<select"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12459,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12464,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12472,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12473,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12498,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12499,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12500,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12501,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12502,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12526,
+    "tag": "<form"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12527,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12528,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12529,
+    "tag": "<input"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12662,
+    "tag": "<input"
+  }
+]

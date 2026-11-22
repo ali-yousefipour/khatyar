@@ -1,0 +1,36 @@
+[
+  {
+    "area": "android",
+    "path": "mobile/src/FirstSetupScreen.js",
+    "steps": [
+      "camera",
+      "submitting"
+    ],
+    "minimum_steps": 2,
+    "confidence": "candidate"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "steps": [
+      "camera",
+      "submitting"
+    ],
+    "minimum_steps": 2,
+    "confidence": "candidate"
+  },
+  {
+    "area": "android",
+    "path": "mobile/src/PresenceCheckWizard.js",
+    "steps": [
+      "done",
+      "expired",
+      "intro",
+      "selfie",
+      "submitting",
+      "vehicles"
+    ],
+    "minimum_steps": 6,
+    "confidence": "candidate"
+  }
+]

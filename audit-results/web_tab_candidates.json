@@ -1,0 +1,428 @@
+[
+  {
+    "path": "php/app/app.html",
+    "line": 366,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/dashboard-no-charts.js",
+    "line": 13,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/dashboard-no-charts.js",
+    "line": 17,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 484,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/school-service-admin.js",
+    "line": 484,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/assets/station-map-report-admin.js",
+    "line": 6,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/report-history-pdf.js",
+    "line": 8,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/web-android-parity-v2.js",
+    "line": 13,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/web-android-parity-v32.js",
+    "line": 13,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/app/web-android-parity-v33.js",
+    "line": 14,
+    "identifier": "data-tab=",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/backend_panel.jsx",
+    "line": 542,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 300,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 614,
+    "identifier": "viewTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1320,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1493,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 1654,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2322,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 2854,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3505,
+    "identifier": "reqTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3506,
+    "identifier": "modeTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 3734,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4639,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 4879,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5030,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/legacy_panel_sources/web_panel.jsx",
+    "line": 5344,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 681,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 759,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 887,
+    "identifier": "activeTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 924,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 924,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1212,
+    "identifier": "viewTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1526,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1799,
+    "identifier": "usersTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1801,
+    "identifier": "editTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1928,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 1929,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2603,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2608,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2820,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 2981,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3263,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3508,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 3945,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4174,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4211,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 4587,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5315,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5316,
+    "identifier": "visitedTabs",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 5999,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 6295,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7181,
+    "identifier": "reqTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7182,
+    "identifier": "modeTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 7498,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9316,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9317,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9317,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9484,
+    "identifier": "reportTab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9615,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 9937,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10183,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10425,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 10742,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11065,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11358,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11359,
+    "identifier": "role=\"tab\"",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11466,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 11621,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12055,
+    "identifier": "tab",
+    "confidence": "candidate"
+  },
+  {
+    "path": "php/tools/panel_source.jsx",
+    "line": 12131,
+    "identifier": "invoiceTab",
+    "confidence": "candidate"
+  }
+]

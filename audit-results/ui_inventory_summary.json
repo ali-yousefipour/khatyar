@@ -1,0 +1,9 @@
+{
+  "source_files_scanned": 266,
+  "android_modal_component_instances": 542,
+  "web_named_modal_candidates": 14,
+  "web_tab_state_or_dom_candidates": 71,
+  "web_form_input_occurrences": 1519,
+  "android_wizard_candidates_with_multiple_named_steps": 3,
+  "limitations": "heuristic patterns; not unique runtime UI; duplicates, nested JSX and dynamic permission states unresolved"
+}
