@@ -1,5 +1,5 @@
 import AccountFormHeader from '../components/AccountFormHeader';
-import { FieldInput } from './CustomFieldsScreen';
+import { FieldInput, formatProfileFieldValue } from './CustomFieldsScreen';
 import {profileFieldState,profileSchemaCustomFields,profileCanEdit} from '../userProfileRules';
 import { normalizeIranianDigits, validateNationalId, validateUserInput } from '../identityBankingValidation';
 import React, { useState, useEffect, useRef } from 'react';
@@ -372,7 +372,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
               <Text style={s.label}>{field.label}{state.required&&editable?' *':''}{!editable?' (فقط نمایش)':''}</Text>
               {editable?<FieldInput field={field} value={extraValues[field.id]??''}
                 onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}/>:
-                <Text style={[s.input,s.ro]}>{String(extraValues[field.id]??'—').replace(/\\|/g,'، ')}</Text>}
+                <Text style={[s.input,s.ro]}>{formatProfileFieldValue(field,extraValues[field.id])}</Text>}
             </View>;
           })}
         </View>)}
