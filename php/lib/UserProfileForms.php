@@ -13,8 +13,10 @@ final class UserProfileForms {
     return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
   }
   public static function available(): bool {
-    $row=Db::one("SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='user_form_definitions'");
-    return (int)($row['n']??0)===1;
+    $tables=['user_form_definitions','user_form_versions','user_form_audit_logs'];
+    $marks=implode(',',array_fill(0,count($tables),'?'));
+    $row=Db::one("SELECT COUNT(DISTINCT table_name) AS n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ($marks)",$tables);
+    return (int)($row['n']??0)===count($tables);
   }
   public static function initialSchema(): array {
     $system=[
@@ -66,6 +68,13 @@ final class UserProfileForms {
         if(!is_array($list)||!array_is_list($list)||count($list)>500)throw new InvalidArgumentException('فهرست مجوزهای فرم نامعتبر است');
         foreach($list as $id)if(!is_int($id)||$id<1)throw new InvalidArgumentException('شناسه نقش یا کاربر در مجوز نامعتبر است');
       }
+      $systemTypes=['first_name'=>'text','last_name'=>'text','email'=>'email','mobile'=>'mobile',
+        'address'=>'textarea','national_code'=>'national_id','marital_status'=>'select',
+        'children_count'=>'number','birth_date'=>'date','personnel_code'=>'text',
+        'employment_start_date'=>'date','employment_end_date'=>'date','zone_id'=>'number',
+        'role_id'=>'number','rank_stars'=>'number'];
+      if($binding==='system' && ($field['type']??null)!==($systemTypes[$key]??null))
+        throw new InvalidArgumentException('نوع فیلد سیستمی محافظت‌شده است');
       if($binding==='system' && (!in_array($key,self::SYSTEM_FIELDS,true)||isset($field['custom_field_id'])))
         throw new InvalidArgumentException('اتصال به فیلد سیستمی غیرمجاز است');
       if($binding==='custom'){
