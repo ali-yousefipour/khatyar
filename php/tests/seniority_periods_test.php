@@ -17,12 +17,12 @@ class FakeConnection {
 }
 class Db {
   static $people=[1=>['base_days'=>100,'adjustment_days'=>0,'base_through_jdate'=>'1405-06-31','revision'=>1]];
-  static $months=[],$forecasts=[],$history=[],$runs=[],$lock=false,$conn,$lastId=0,$failAudit=false;
+  static $months=[],$forecasts=[],$history=[],$runs=[],$lock=[],$conn,$lastId=0,$failAudit=false;
   static function pdo(){return self::$conn;}
   static function one($q,$v=[]) {
     if(strpos($q,'SELECT DATABASE()')===0)return ['db_name'=>'test'];
-    if(strpos($q,'SELECT GET_LOCK(')===0){if(self::$lock)return ['acquired'=>0];self::$lock=true;return ['acquired'=>1];}
-    if(strpos($q,'SELECT RELEASE_LOCK(')===0){self::$lock=false;return ['released'=>1];}
+    if(strpos($q,'SELECT GET_LOCK(')===0){if(isset(self::$lock['*'])||isset(self::$lock[$v[0]]))return ['acquired'=>0];self::$lock[$v[0]]=true;return ['acquired'=>1];}
+    if(strpos($q,'SELECT RELEASE_LOCK(')===0){unset(self::$lock[$v[0]]);return ['released'=>1];}
     if(strpos($q,'SELECT LAST_INSERT_ID()')===0)return ['id'=>self::$lastId];
     if(strpos($q,'SELECT id,is_active FROM users')===0)return ['id'=>$v[0],'is_active'=>1];
     if(strpos($q,'SELECT * FROM personnel_seniority')===0)return self::$people[$v[0]]??null;
@@ -81,12 +81,12 @@ eq('future never adds final credit',60,array_sum(array_column(Db::$months,'credi
 eq('forecast stored separately',31,Db::$forecasts['1:1406:1']['credited_days']);
 $e=SeniorityPeriods::run('1406-01',[1],10);
 eq('forecast repeat skipped',1,$e['skipped']);
-Db::$lock=true;
-reject('concurrent period locked',409,fn()=>SeniorityPeriods::run('1405-09',[1],11));Db::$lock=false;
+Db::$lock=['*'=>true];
+reject('concurrent period locked',409,fn()=>SeniorityPeriods::run('1405-09',[1],11));Db::$lock=[];
 Db::$failAudit=true;
 $f=SeniorityPeriods::run('1405-09',[1],10);
 eq('database failure recorded',1,$f['failed']);
 eq('failed credit rolled back',false,isset(Db::$months['1:1405:9']));
-eq('lock released on failure',false,Db::$lock);
+eq('lock released on failure',[],Db::$lock);
 eq('existing records preserved after failure',60,array_sum(array_column(Db::$months,'credited_days')));
 echo "PASS seniority period backfill, forecast separation, concurrency, idempotency and rollback\n";
