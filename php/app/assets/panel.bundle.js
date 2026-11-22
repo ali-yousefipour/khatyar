@@ -2734,6 +2734,11 @@ function PersonnelSeniority() {
     const [filters, setFilters] = useState({ q: '', role: '', zone: '', active: '1', initialized: '' });
     const [editing, setEditing] = useState(null), [days, setDays] = useState(''), [reason, setReason] = useState(''), [baseline, setBaseline] = useState('1405-06-31');
     const [busy, setBusy] = useState(false), [progress, setProgress] = useState(''), [results, setResults] = useState(null), [history, setHistory] = useState(null);
+    const [selectedPeriod, setSelectedPeriod] = useState('');
+    const [periodStatus, setPeriodStatus] = useState(null);
+    const [periodHistory, setPeriodHistory] = useState(null);
+    const [periodConfirm, setPeriodConfirm] = useState(false);
+    const [periodResult, setPeriodResult] = useState(null);
     const mutation = useRef(false), generation = useRef(0);
     const load = async () => {
         const current = ++generation.current;
@@ -2743,8 +2748,10 @@ function PersonnelSeniority() {
             const next = await GET('/admin/seniority');
             if (!Array.isArray(next === null || next === void 0 ? void 0 : next.rows))
                 throw new Error('فهرست سنوات معتبر نیست.');
-            if (generation.current === current)
+            if (generation.current === current) {
                 setData(next);
+                setSelectedPeriod(previous => previous || next.period);
+            }
         }
         catch (failure) {
             if (generation.current === current)
@@ -2758,6 +2765,23 @@ function PersonnelSeniority() {
     useEffect(() => { load(); return () => { generation.current++; }; }, []);
     const rows = useMemo(() => seniorityFilter((data === null || data === void 0 ? void 0 : data.rows) || [], filters), [data, filters]);
     const pager = usePager(rows, 25);
+    useEffect(() => {
+        if (!selectedPeriod)
+            return;
+        let live = true;
+        setPeriodStatus(null);
+        GET('/admin/seniority/period-status?period=' + encodeURIComponent(selectedPeriod))
+            .then(value => { if (live)
+            setPeriodStatus(value); })
+            .catch(failure => { if (live)
+            setError(failure.message || 'وضعیت دوره دریافت نشد.'); });
+        return () => { live = false; };
+    }, [selectedPeriod, data]);
+    const currentYear = Number(((data === null || data === void 0 ? void 0 : data.period) || '1405-01').slice(0, 4));
+    const years = Array.from({ length: 9 }, (_, i) => currentYear - 4 + i);
+    const monthNames = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+    const chosenType = selectedPeriod > ((data === null || data === void 0 ? void 0 : data.period) || '') ? 'پیش‌بینی' : 'قطعی';
+    const chosenState = (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.status) === 'calculated' ? 'محاسبه‌شده' : (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.status) === 'forecast' ? 'پیش‌بینی‌شده' : (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.status) === 'partial' ? 'محاسبه ناقص' : (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.status) === 'failed' ? 'ناموفق' : (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.status) === 'running' ? 'در حال پردازش' : 'محاسبه‌نشده';
     const roles = Array.from(new Map(((data === null || data === void 0 ? void 0 : data.rows) || []).filter(row => row.role_id).map(row => [String(row.role_id), row.role_title])).entries());
     const zones = Array.from(new Map(((data === null || data === void 0 ? void 0 : data.rows) || []).filter(row => row.zone_id).map(row => [String(row.zone_id), row.zone_name])).entries());
     const totals = rows.reduce((sum, row) => ({ days: sum.days + (Number(row.seniority_days) || 0), initialized: sum.initialized + (row.initialized ? 1 : 0) }), { days: 0, initialized: 0 });
@@ -2784,24 +2808,43 @@ function PersonnelSeniority() {
         }
     };
     const recalculate = async () => {
-        if (mutation.current || !data)
+        if (mutation.current || !data || !selectedPeriod || !periodStatus)
             return;
         const targets = rows.filter(row => row.initialized && Number(row.is_active) === 1);
         if (!targets.length)
-            return alert('در فهرست فعلی نیروی فعالِ دارای سنوات مبنا وجود ندارد.');
-        if (!confirm('سنوات ' + fa(targets.length) + ' نفر از نیروهای فعالِ نمایش‌داده‌شده تا پایان ' + faPlain(data.period) + ' محاسبه شود؟ سهم قبلی همین ماه جایگزین می‌شود، نه اینکه دوباره جمع شود.'))
+            return alert('نیروی فعال دارای مبنا در فهرست انتخابی وجود ندارد.');
+        setPeriodConfirm(true);
+    };
+    const performPeriodRun = async () => {
+        if (mutation.current || !selectedPeriod)
             return;
+        const targets = rows.filter(row => row.initialized && Number(row.is_active) === 1);
+        setPeriodConfirm(false);
         mutation.current = true;
         setBusy(true);
-        setResults(null);
+        setProgress('در حال محاسبه در سرور؛ تعداد تکمیل‌شده پس از دریافت پاسخ مشخص می‌شود.');
+        setPeriodResult(null);
         try {
-            setResults(await seniorityBatchUpdate(targets, data.period, (id, period) => SEND('POST', '/admin/seniority/' + id + '/recalculate', { period }), (done, total) => setProgress('بررسی ' + fa(done) + ' از ' + fa(total))));
+            const result = await SEND('POST', '/admin/seniority/period-run', { period: selectedPeriod, user_ids: targets.map(row => row.id) });
+            setPeriodResult(result);
             await load();
+        }
+        catch (failure) {
+            setError(failure.message || 'به‌روزرسانی سنوات ناموفق بود.');
         }
         finally {
             setProgress('');
             mutation.current = false;
             setBusy(false);
+        }
+    };
+    const loadPeriodHistory = async () => {
+        try {
+            const result = await GET('/admin/seniority/period-history?limit=100');
+            setPeriodHistory(result.rows || []);
+        }
+        catch (failure) {
+            alert(failure.message || 'تاریخچه به‌روزرسانی دریافت نشد.');
         }
     };
     const showHistory = async (row) => {
@@ -2845,7 +2888,37 @@ function PersonnelSeniority() {
                 React.createElement("button", { className: "btn g", disabled: loading || busy, onClick: load }, "\u0628\u0627\u0632\u062E\u0648\u0627\u0646\u06CC"),
                 React.createElement("button", { className: "btn g", disabled: !rows.length || busy, onClick: exportReport }, "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
                 React.createElement("button", { className: "btn g", disabled: !rows.length || busy, onClick: printReport }, "\u0686\u0627\u067E \u06AF\u0632\u0627\u0631\u0634"),
-                React.createElement("button", { className: "btn p", disabled: !data || busy || loading, onClick: recalculate }, busy && progress ? progress : 'به‌روزرسانی تا انتهای ماه'))),
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: loadPeriodHistory }, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0633\u0646\u0648\u0627\u062A"),
+                React.createElement("button", { className: "btn p", disabled: !data || busy || loading || !periodStatus, onClick: recalculate }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0633\u0646\u0648\u0627\u062A \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"))),
+        React.createElement("div", { className: "row", style: { gap: 12, flexWrap: 'wrap', alignItems: 'end', margin: '14px 0' } },
+            React.createElement("label", { className: "label" },
+                "\u0633\u0627\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u0633\u0646\u0648\u0627\u062A",
+                React.createElement("select", { className: "input", value: selectedPeriod.slice(0, 4), onChange: event => setSelectedPeriod(event.target.value + '-' + (selectedPeriod.slice(5) || '01')) }, years.map(year => React.createElement("option", { key: year, value: year }, fa(year))))),
+            React.createElement("label", { className: "label" },
+                "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0627\u0647 \u0645\u062D\u0627\u0633\u0628\u0647 \u0633\u0646\u0648\u0627\u062A",
+                React.createElement("select", { className: "input", value: selectedPeriod.slice(5), onChange: event => setSelectedPeriod(selectedPeriod.slice(0, 4) + '-' + event.target.value) }, monthNames.map((name, index) => React.createElement("option", { key: name, value: String(index + 1).padStart(2, '0') }, name)))),
+            React.createElement("div", { role: "status", style: { lineHeight: 2 } },
+                "\u0646\u0648\u0639: ",
+                React.createElement("b", null, chosenType),
+                " \u00B7 \u0648\u0636\u0639\u06CC\u062A: ",
+                React.createElement("b", null, periodStatus ? chosenState : 'در حال دریافت…'),
+                React.createElement("div", null,
+                    "\u067E\u0627\u06CC\u0627\u0646 \u062F\u0648\u0631\u0647: ",
+                    faPlain(selectedPeriod),
+                    " / ",
+                    fa(Number(selectedPeriod.slice(5)) <= 6 ? 31 : Number(selectedPeriod.slice(5)) <= 11 ? 30 : 'پایان اسفند')))),
+        busy && progress && React.createElement("div", { role: "status", "aria-live": "polite", style: { padding: 12, border: '1px solid var(--line)', borderRadius: 12 } }, progress),
+        periodResult && React.createElement("div", { role: "status", style: { padding: 12, lineHeight: 2 } },
+            "\u0646\u062A\u06CC\u062C\u0647 \u0639\u0645\u0644\u06CC\u0627\u062A ",
+            faPlain(periodResult.period),
+            ": ",
+            fa(periodResult.processed),
+            " \u067E\u0631\u062F\u0627\u0632\u0634\u060C ",
+            fa(periodResult.skipped),
+            " \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631\u060C ",
+            fa(periodResult.failed),
+            " \u062E\u0637\u0627 \u00B7 ",
+            periodResult.type === 'forecast' ? 'پیش‌بینی' : 'قطعی'),
         React.createElement("div", { role: "note", style: { background: '#edf8f4', border: '1px solid var(--line)', borderRadius: 14, padding: 14, lineHeight: 2, margin: '16px 0' } },
             "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC: ",
             React.createElement("b", null, faPlain((data === null || data === void 0 ? void 0 : data.period) || '—')),
@@ -2932,6 +3005,43 @@ function PersonnelSeniority() {
                 result.name,
                 ": ",
                 result.error))),
+        periodConfirm && React.createElement(Modal, { title: "\u062A\u0623\u06CC\u06CC\u062F \u0645\u062D\u0627\u0633\u0628\u0647 \u0633\u0646\u0648\u0627\u062A", onClose: () => setPeriodConfirm(false) },
+            React.createElement("div", { style: { lineHeight: 2 } },
+                React.createElement("p", null,
+                    "\u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC: ",
+                    React.createElement("b", null, faPlain(selectedPeriod)),
+                    " \u00B7 \u0646\u0648\u0639 \u0645\u062D\u0627\u0633\u0628\u0647: ",
+                    React.createElement("b", null, chosenType)),
+                React.createElement("p", null,
+                    "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0648\u0627\u062C\u062F \u0634\u0631\u0627\u06CC\u0637 \u062F\u0631 \u0641\u0647\u0631\u0633\u062A: ",
+                    React.createElement("b", null,
+                        fa(rows.filter(row => row.initialized && Number(row.is_active) === 1).length),
+                        " \u0646\u0641\u0631")),
+                React.createElement("p", null, "\u0631\u06A9\u0648\u0631\u062F\u0647\u0627\u06CC \u0642\u0637\u0639\u06CC \u0645\u0648\u062C\u0648\u062F \u0647\u0631 \u0634\u062E\u0635 \u0648 \u062F\u0648\u0631\u0647 \u062F\u0648\u0628\u0627\u0631\u0647 \u062B\u0628\u062A \u06CC\u0627 \u0628\u0627\u0632\u0646\u0648\u06CC\u0633\u06CC \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC\u200C\u0647\u0627 \u0646\u06CC\u0632 \u0648\u0627\u0631\u062F \u0633\u0646\u0648\u0627\u062A \u0642\u0637\u0639\u06CC \u0646\u062E\u0648\u0627\u0647\u0646\u062F \u0634\u062F."),
+                (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.final_count) > 0 && React.createElement("p", { style: { color: 'var(--danger)' } },
+                    "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 ",
+                    fa(periodStatus.final_count),
+                    " \u0631\u06A9\u0648\u0631\u062F \u0642\u0637\u0639\u06CC \u0645\u0648\u062C\u0648\u062F \u0627\u0633\u062A \u0648 \u067E\u0631\u062F\u0627\u0632\u0634 \u0645\u062C\u062F\u062F \u0622\u0646\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+                React.createElement("div", { className: "row", style: { gap: 8 } },
+                    React.createElement("button", { className: "btn p", onClick: performPeriodRun }, "\u062A\u0623\u06CC\u06CC\u062F \u0648 \u0627\u062C\u0631\u0627"),
+                    React.createElement("button", { className: "btn g", onClick: () => setPeriodConfirm(false) }, "\u0627\u0646\u0635\u0631\u0627\u0641")))),
+        periodHistory && React.createElement(Modal, { title: "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0633\u0646\u0648\u0627\u062A", onClose: () => setPeriodHistory(null) },
+            React.createElement("div", { style: { maxHeight: '65vh', overflow: 'auto' } },
+                React.createElement("table", { className: "tbl" },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null, ['ماه', 'نوع', 'تاریخ اجرا', 'اجراکننده', 'پردازش‌شده', 'بدون تغییر', 'خطا', 'وضعیت'].map(title => React.createElement("th", { key: title }, title)))),
+                    React.createElement("tbody", null,
+                        periodHistory.map(run => React.createElement("tr", { key: run.id },
+                            React.createElement("td", null, faPlain(run.period)),
+                            React.createElement("td", null, run.run_type === 'forecast' ? 'پیش‌بینی' : 'قطعی'),
+                            React.createElement("td", null, run.started_at),
+                            React.createElement("td", null, run.actor_name || '—'),
+                            React.createElement("td", null, fa(run.processed_count)),
+                            React.createElement("td", null, fa(run.skipped_count)),
+                            React.createElement("td", null, fa(run.failed_count)),
+                            React.createElement("td", null, run.status))),
+                        !periodHistory.length && React.createElement("tr", null,
+                            React.createElement("td", { colSpan: 8 }, "\u0647\u0646\u0648\u0632 \u0639\u0645\u0644\u06CC\u0627\u062A\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")))))),
         editing && React.createElement(Modal, { title: 'سنوات ' + editing.first_name + ' ' + editing.last_name, onClose: () => !busy && setEditing(null) },
             React.createElement("form", { onSubmit: event => { event.preventDefault(); save(); } },
                 React.createElement("label", { className: "label", style: { display: 'block', marginTop: 14 } },
