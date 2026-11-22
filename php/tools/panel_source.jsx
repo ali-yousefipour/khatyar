@@ -1804,6 +1804,17 @@ function Users(){
   const [usersLoading,setUsersLoading]=useState(false); const [usersError,setUsersError]=useState("");
   const [savingUser,setSavingUser]=useState(false); const [exportingUsers,setExportingUsers]=useState(false);
   const customSaveRef=useRef(null);
+  const editBaselineRef=useRef(null);
+  const [customDirty,setCustomDirty]=useState(false);
+  const [saveMessage,setSaveMessage]=useState("");
+  const editableUserKeys=['first_name','last_name','email','role_id','zone_id','is_active','allow_android','allow_web','security_exempt','phone','national_code','marital_status','address','children_count','presence_required','seniority_start','can_send_sms','can_be_substitute','can_welfare','can_cultural','can_manage_temp_drivers','personnel_code','birth_date','rank_stars','employment_start_date','employment_end_date'];
+  const draftSignature=user=>JSON.stringify(editableUserKeys.map(key=>user?.[key]??null));
+  const editDirty=!!edit&&(draftSignature(edit)!==draftSignature(editBaselineRef.current)||!!pw||customDirty);
+  const closeUserEditor=()=>{
+    if(savingUser)return;
+    if(editDirty&&!confirm('تغییرات ذخیره‌نشده وجود دارد. از ویرایش کاربر خارج شوید؟'))return;
+    editBaselineRef.current=null;setCustomDirty(false);setSaveMessage("");setEdit(null);setPw("");
+  };
   const [identityAudit,setIdentityAudit]=useState(null),[identityAuditQ,setIdentityAuditQ]=useState(""),[identityAuditBusy,setIdentityAuditBusy]=useState(false);
   const requestSeq=useRef(0);
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>(x[k]===""||x[k]==null)&&delete x[k]);return x;};
@@ -1898,7 +1909,7 @@ function Users(){
       <td><div className="users-device-tags">{u.android_bound&&<span title="دستگاه اندروید متصل">📱 اندروید</span>}{u.web_bound&&<span title="مرورگر وب متصل">🖥 وب</span>}{!u.android_bound&&!u.web_bound&&<span className="users-device-empty">—</span>}</div></td>
       <td><span className={"badge "+(u.is_active?"b-ok":"b-no")}>{u.is_active?"فعال":"غیرفعال"}</span></td>
       <td><div className="row users-row-actions" style={{gap:6,flexWrap:"wrap"}}>
-        <button className="btn g" onClick={()=>{setEditTab("profile");setEdit({...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""});setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
+        <button className="btn g" onClick={()=>{setEditTab("profile");const newDraft={...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""};editBaselineRef.current=newDraft;setCustomDirty(false);setSaveMessage("");setEdit(newDraft);setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
         <button className="btn g users-danger-action" onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
     {!users.length&&!usersLoading&&!usersError&&<div className="users-empty-state" role="status"><strong>کاربری با این فیلترها پیدا نشد</strong><span>عبارت جست‌وجو یا وضعیت و سمت انتخابی را تغییر دهید و دوباره فیلتر کنید.</span><button className="btn g" onClick={()=>{const cleared={q:"",role_id:"",zone_id:"",active:""};setF(cleared);reload(cleared);}}>پاک‌کردن فیلترها</button></div>}
@@ -1924,7 +1935,7 @@ function Users(){
       </div>:<p className="muted" style={{textAlign:"center",padding:12}}>برای این نیرو تعهدی ثبت نشده است.</p>}
       <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
     </Modal>}
-    {edit&&<Modal title="ویرایش کاربر" className="users-edit-dialog" style={{width:"min(1100px,calc(100vw - 24px))"}} onClose={()=>{setEdit(null);setPw("");}}>
+    {edit&&<Modal title="ویرایش کاربر" className="users-edit-dialog" style={{width:"min(1100px,calc(100vw - 24px))"}} onClose={closeUserEditor}>
       <div className="users-edit-summary">
         {edit.photo?<img src={edit.photo} alt="تصویر پرسنلی" className="users-edit-avatar"/>:<span className="users-edit-avatar users-edit-avatar-fallback">{(edit.first_name||"؟")[0]}</span>}
         <div className="users-edit-summary-name">
@@ -2027,8 +2038,8 @@ function Users(){
       </>}
       </div>
       <div className="users-edit-footer">
-        <span className="muted" role="status">{savingUser?"در حال ذخیره اطلاعات کاربر…":"تغییرات اصلی و تکمیلی با هم ذخیره می‌شوند."}</span>
-        <button className="btn g" type="button" disabled={savingUser} onClick={()=>{setEdit(null);setPw("");}}>انصراف</button>
+        <span className="muted" role="status">{savingUser?"در حال ذخیره اطلاعات کاربر…":editDirty?"تغییرات ذخیره‌نشده وجود دارد.":saveMessage||"اطلاعات اصلی و تکمیلی به‌صورت یکپارچه ذخیره می‌شوند."}</span>
+        <button className="btn g" type="button" disabled={savingUser} onClick={closeUserEditor}>انصراف</button>
         <button className="btn p" type="button" disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره و بستن"}</button>
       </div></Modal>}
     {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
