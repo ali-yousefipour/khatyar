@@ -286,8 +286,22 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
         if(String(val??'')!==String(originalExtraValues[field.id]??''))changed[key]=val??'';
       }
       if(Object.keys(changed).length){
-        await request('/me/complete-profile',{method:'PUT',queueIfOffline:false,
-          body:{form_version:Number(formInfo?.version)||0,values:changed}});
+        if(formInfo?.schema){
+          await request('/me/complete-profile',{method:'PUT',queueIfOffline:false,
+            body:{form_version:Number(formInfo.version)||0,values:changed}});
+        }else{
+          // Backward compatibility for installations that predate the form API.
+          // Never split a write when the unified endpoint is available.
+          const systemBody={},customBody={};
+          for(const [key,value] of Object.entries(changed)){
+            if(key.startsWith('cf_'))customBody[key.slice(3)]=value;
+            else systemBody[key]=value;
+          }
+          if(Object.keys(systemBody).length)
+            await request('/me/profile',{method:'PUT',queueIfOffline:false,body:systemBody});
+          if(Object.keys(customBody).length)
+            await request('/my/custom-fields',{method:'POST',queueIfOffline:false,body:{values:customBody}});
+        }
       }
       // The signature is a separate media attribute and remains on its existing protected route.
       if(p.signature_data!==originalProfile?.signature_data){
