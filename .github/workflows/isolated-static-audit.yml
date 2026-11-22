@@ -1,0 +1,27 @@
+name: Isolated Khatyar Static Audit
+on:
+  push:
+    branches:
+      - audit/khatyar-static-inventory-20261123
+    paths:
+      - audit/khatyar_inventory.py
+      - .github/workflows/isolated-static-audit.yml
+permissions:
+  contents: write
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Run read-only static inventory
+        run: python3 audit/khatyar_inventory.py
+      - name: Commit machine-readable results to isolated branch
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add audit-results/
+          git commit -m "docs(audit): static inventory snapshots [skip ci]" || exit 0
+          git push origin HEAD:audit/khatyar-static-inventory-20261123
