@@ -20,6 +20,11 @@ final class UserFullReport {
       'birth_date'=>'تاریخ تولد','marital_status'=>'وضعیت تأهل',
       'children_count'=>'تعداد فرزند','address'=>'نشانی','seniority_start'=>'شروع سنوات',
       'is_active'=>'وضعیت فعالیت','can_send_sms'=>'مجوز پیامک',
+      'allow_android'=>'مجوز ورود اندروید','allow_web'=>'مجوز ورود وب',
+      'presence_required'=>'الزام صحت‌سنجی حضور','security_exempt'=>'معافیت امنیتی',
+      'can_be_substitute'=>'اجازه جانشینی','can_welfare'=>'مجوز رفاهیات',
+      'can_cultural'=>'مجوز فعالیت فرهنگی','can_manage_temp_drivers'=>'مدیریت رانندگان موقت',
+      'commitments_count'=>'تعداد تعهدات انضباطی',
       'device_model'=>'مدل گوشی','android_version'=>'نسخه اندروید','app_version'=>'نسخه برنامه',
       'father_name'=>'نام پدر','gender'=>'جنسیت','identity_number'=>'شماره شناسنامه',
       'birth_place'=>'محل تولد','issue_place'=>'محل صدور شناسنامه',
@@ -31,6 +36,11 @@ final class UserFullReport {
   private static function schema(): array {
     $base=[];
     foreach(self::base() as $key=>$label) {
+      if($key==='commitments_count') {
+        if(self::hasTable('user_commitments'))
+          $base[]=['key'=>$key,'label'=>$label,'group'=>'اطلاعات اداری'];
+        continue;
+      }
       if($key==='personnel_photo'||$key==='personnel_signature') {
         $source=$key==='personnel_photo'?'photo_path':'signature_data';
         if(self::hasColumn('users',$source))
@@ -161,6 +171,7 @@ final class UserFullReport {
     $select=['u.id','r.title AS role_title'];
     foreach($userKeys as $key) {
       if(in_array($key,['id','role_title','personnel_code','personnel_photo','personnel_signature'],true))continue;
+      if($key==='commitments_count'){$select[]='(SELECT COUNT(*) FROM user_commitments uc WHERE uc.user_id=u.id) AS commitments_count';continue;}
       $select[]='u.`'.$key.'`';
     }
     if(self::hasColumn('users','personnel_code'))$select[]='u.personnel_code';
@@ -232,7 +243,9 @@ final class UserFullReport {
         }
         return $value;
       }
-      if(in_array($key,['is_active','can_send_sms'],true))return !empty($u[$key])?'بله':'خیر';
+      if(in_array($key,['is_active','can_send_sms','allow_android','allow_web',
+        'presence_required','security_exempt','can_be_substitute','can_welfare',
+        'can_cultural','can_manage_temp_drivers'],true))return !empty($u[$key])?'بله':'خیر';
       return $u[$key]??'';
     };
     $levels=$body['sorts']??[['key'=>$sort,'direction'=>$dir]];
