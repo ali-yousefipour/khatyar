@@ -42,6 +42,13 @@ $dateResult=UserProfileFormValues::plan($dateSchema,['birth_date'=>'۱۴۰۵/۰�
 t('Persian Jalali date is normalized',$dateResult['system']['birth_date']==='1405-07-30');
 invalid('Jalali month 13 rejected',fn()=>UserProfileFormValues::plan($dateSchema,['birth_date'=>'1405/13/01'],[],true));
 invalid('Jalali month seven day 31 rejected',fn()=>UserProfileFormValues::plan($dateSchema,['birth_date'=>'1405/07/31'],[],true));
+$permissionSchema=['sections'=>[['key'=>'personal','fields'=>[
+ ['key'=>'cf_41','type'=>'text','binding'=>'custom','custom_field_id'=>41,'required'=>true,'edit_roles'=>[5]],
+ ['key'=>'cf_42','type'=>'text','binding'=>'custom','custom_field_id'=>42]
+]]]];
+$ignored=UserProfileFormValues::plan($permissionSchema,['cf_42'=>'ok'],[],true,['id'=>10,'role_id'=>9]);
+t('role-restricted required field does not block unrelated authorized edits',($ignored['custom'][42]??null)==='ok');
+invalid('role-authorized user must complete role-restricted required field',fn()=>UserProfileFormValues::plan($permissionSchema,['cf_42'=>'ok'],[],true,['id'=>10,'role_id'=>5]));
 $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
