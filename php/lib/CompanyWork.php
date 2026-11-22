@@ -363,6 +363,24 @@ class CompanyWork {
     }
     throw new RuntimeException('Entry-owned attendance report helper is not deployed');
   }
+  /** Reuse the immutable daily snapshot for every employee in one generation. */
+  static function finalizedAttendanceForUser(array $daily,int $uid,string $from,string $to): array {
+    $report=$daily[$uid]??null;
+    $missing=!is_array($report);
+    if($missing)$report=['user'=>['id'=>$uid,'name'=>'','pcode'=>''],'shift'=>null,'days'=>[]];
+    $days=[];
+    foreach($report['days']??[] as $day){
+      $date=ShiftCalc::normJdate($day['jdate']??$day['date']??'');
+      if($date && $date>=str_replace('/','-',$from) && $date<=str_replace('/','-',$to))$days[$date]=$day;
+    }
+    ksort($days);
+    $report['from']=str_replace('/','-',$from);
+    $report['to']=str_replace('/','-',$to);
+    $report['days']=array_values($days);
+    $report['contains_finalized_month']=true;
+    if($missing)$report['missing_frozen_person']=true;
+    return $report;
+  }
   static function collect($source,$accountField){
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
@@ -428,11 +446,22 @@ class CompanyWork {
     $rotation=array_column($rotationReport['rows'],null,'user_id');
     // The rotation report can succeed while its next, independent attendance
     // helper fails to load. Never label that as a shift rotation failure.
-    $collectStage='attendance_helper';
-    if(!function_exists('attendance_report_owned_by_entry_date')){
-      require_once self::attendanceHelperFile();
+    // Frozen reports must not be decoded and queried once per user. The old
+    // path did a full snapshot SELECT + json_decode for every employee, causing
+    // quadratic work and web-server timeouts on large completed months.
+    $frozenDaily=null;
+    if($rotationReport['source']==='finalized'){
+      $collectStage='frozen_month_batch';
+      $frozen=_final_work_month($year,$month);
+      if(!$frozen)throw new RuntimeException('Finalized source has no immutable month snapshot');
+      $frozenDaily=_work_snapshot_decode($frozen['daily_json']);
+    }else{
+      $collectStage='attendance_helper';
+      if(!function_exists('attendance_report_owned_by_entry_date')){
+        require_once self::attendanceHelperFile();
+      }
+      if(!function_exists('attendance_report_owned_by_entry_date'))throw new RuntimeException('Entry-owned attendance report helper is unavailable');
     }
-    if(!function_exists('attendance_report_owned_by_entry_date'))throw new RuntimeException('Entry-owned attendance report helper is unavailable');
     $collectStage='rotation_inactive_batch';
     // The general live report covers only currently active staff. Inactive staff
     // in the approved organization source still need their historical punches.
@@ -484,7 +513,7 @@ class CompanyWork {
       if(!$rot||!empty($rot['missing_source']))$r['errors'][]='منبع محاسبهٔ چرخش شیفت موجود نیست';
       foreach(['morning','afternoon','night'] as $k)$r[$k]=$rot[$k]??null;
       $collectStage='attendance_daily';
-      $report=attendance_report_owned_by_entry_date($uid,$from,$to);
+      $report=$frozenDaily!==null?self::finalizedAttendanceForUser($frozenDaily,(int)$uid,$from,$to):attendance_report_owned_by_entry_date($uid,$from,$to);
       if($approvedOffice){$r['organization_basis']=['batch_id'=>$officeBasis['id'],'source'=>'organization_approved_schedule','office_schedule_minutes'=>$approvedOffice['office_schedule_minutes']];$r['recorded_absence_days']=self::metrics($u,$report,[],$year,$month,$today)['absence_days'];$paid=self::officePaymentReport($report,$approvedOffice);$report=$paid['report'];$r['covered_absence_days']=$paid['covered_absence_days'];}
       if(!isset($report['days'])||count($report['days'])!==IranCalendar::monthLength($year,$month))$r['errors'][]='جزئیات کامل روزهای ماه در گزارش تردد موجود نیست';
       $collectStage='approved_leaves';
@@ -510,7 +539,7 @@ class CompanyWork {
         'staff_lookup'=>'دریافت اطلاعات پرسنل','identity_matching'=>'تطبیق اطلاعات پرسنل',
         'account_field'=>'انتخاب فیلد شماره حساب','account_values'=>'دریافت شماره حساب‌ها',
         'seniority'=>'محاسبه سنوات','rotation'=>'محاسبه چرخش شیفت',
-        'rotation_result'=>'بررسی نتیجه چرخش شیفت','attendance_helper'=>'بارگذاری ماژول گزارش تردد',
+        'rotation_result'=>'بررسی نتیجه چرخش شیفت','frozen_month_batch'=>'خواندن یکباره آرشیو نهایی ماه','attendance_helper'=>'بارگذاری ماژول گزارش تردد',
         'rotation_inactive_batch'=>'تکمیل چرخش شیفت کارکنان غیرفعال',
         'approved_organization_basis'=>'تطبیق کارکرد سازمان','personnel_metrics'=>'محاسبات پرسنلی',
         'attendance_daily'=>'دریافت کارکرد روزانه','approved_leaves'=>'دریافت مرخصی‌ها',
