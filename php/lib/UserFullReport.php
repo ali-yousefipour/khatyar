@@ -121,21 +121,35 @@ final class UserFullReport {
       if(!is_string($key)||!isset($lookup[$key])) Http::error('ستون نامعتبر است',422);
       if(!in_array($key,$columns,true))$columns[]=$key;
     }
-    if(!$columns||count($columns)>150)Http::error('حداقل یک ستون معتبر انتخاب کنید',422);
+    if(!$columns||count($columns)>500)Http::error('تعداد ستون‌های انتخابی نامعتبر است',422);
     $sort=(string)($body['sort']??'id');
     if(!isset($lookup[$sort]))Http::error('فیلد مرتب‌سازی نامعتبر است',422);
     $dir=(string)($body['direction']??'asc');
     if(!in_array($dir,['asc','desc'],true))Http::error('جهت مرتب‌سازی نامعتبر است',422);
-    $userKeys=array_filter(array_unique(array_merge($columns,[$sort])),static fn($k)=>strpos($k,'custom:')!==0);
+    $requestedLevels=is_array($body['sorts']??null)?$body['sorts']:[];
+    $extraSortKeys=[];foreach($requestedLevels as $level)if(is_array($level)&&is_string($level['key']??null)&&isset($lookup[$level['key']]))$extraSortKeys[]=$level['key'];
+    $userKeys=array_filter(array_unique(array_merge($columns,[$sort],$extraSortKeys)),static fn($k)=>strpos($k,'custom:')!==0);
     $select=['u.id','r.title AS role_title'];
     foreach($userKeys as $key) {
       if(in_array($key,['id','role_title','personnel_code'],true))continue;
       $select[]='u.`'.$key.'`';
     }
     if(self::hasColumn('users','personnel_code'))$select[]='u.personnel_code';
-    $users=Db::all("SELECT ".implode(',',$select)." FROM users u LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.id");
+    // Filters are server-validated and parameterized; never interpolate request values.
+    $conditions=[];$params=[];
+    $active=(string)($body['active']??'all');
+    if(!in_array($active,['all','1','0'],true))Http::error('فیلتر وضعیت نامعتبر است',422);
+    if($active!=='all'){$conditions[]='u.is_active=?';$params[]=(int)$active;}
+    foreach(['role_id','zone_id'] as $filter){
+      $value=$body[$filter]??null;
+      if($value===null||$value==='')continue;
+      if(!ctype_digit((string)$value)||(int)$value<1)Http::error('فیلتر سازمانی نامعتبر است',422);
+      $conditions[]='u.`'.$filter.'`=?';$params[]=(int)$value;
+    }
+    $where=$conditions?' WHERE '.implode(' AND ',$conditions):'';
+    $users=Db::all("SELECT ".implode(',',$select)." FROM users u LEFT JOIN roles r ON r.id=u.role_id".$where." ORDER BY u.id",$params);
     $customIds=[];
-    foreach(array_merge($columns,[$sort]) as $key) if(strpos($key,'custom:')===0)$customIds[]=(int)substr($key,7);
+    foreach(array_merge($columns,[$sort],$extraSortKeys) as $key) if(strpos($key,'custom:')===0)$customIds[]=(int)substr($key,7);
     // Personnel number may be stored as a custom field in older deployments.
     $personnelIds=[];
     if(self::hasTable('custom_fields')) {
@@ -153,7 +167,7 @@ final class UserFullReport {
     }
     // Report document existence, never private storage names, file bytes or raw URLs.
     $attachmentIds=[];
-    foreach(array_merge($columns,[$sort]) as $key)
+    foreach(array_merge($columns,[$sort],$extraSortKeys) as $key)
       if(($lookup[$key]['type']??'')==='attachment'&&str_starts_with($key,'custom:'))
         $attachmentIds[]=(int)substr($key,7);
     $attachmentIds=array_values(array_unique($attachmentIds));
@@ -183,13 +197,25 @@ final class UserFullReport {
       if(in_array($key,['is_active','can_send_sms'],true))return !empty($u[$key])?'بله':'خیر';
       return $u[$key]??'';
     };
+    $levels=$body['sorts']??[['key'=>$sort,'direction'=>$dir]];
+    if(!is_array($levels)||!array_is_list($levels)||!count($levels)||count($levels)>3)
+      Http::error('مرتب‌سازی چندسطحی نامعتبر است',422);
+    foreach($levels as $level){
+      if(!is_array($level)||!isset($lookup[$level['key']??''])||
+        !in_array($level['direction']??'',['asc','desc'],true))
+        Http::error('سطح مرتب‌سازی نامعتبر است',422);
+    }
     $collator=class_exists('Collator')?new Collator('fa_IR'):null;
-    usort($users,static function($a,$b)use($sort,$dir,$getter,$collator) {
-      $av=(string)$getter($a,$sort);$bv=(string)$getter($b,$sort);
-      if(is_numeric($av)&&is_numeric($bv))$cmp=(float)$av<=>(float)$bv;
-      else $cmp=$collator?$collator->compare($av,$bv):strnatcasecmp($av,$bv);
-      if(!$cmp)$cmp=(int)$a['id']<=>(int)$b['id'];
-      return $dir==='desc'?-$cmp:$cmp;
+    usort($users,static function($a,$b)use($levels,$getter,$collator) {
+      foreach($levels as $level){
+        $key=$level['key'];$direction=$level['direction'];
+        $av=(string)$getter($a,$key);$bv=(string)$getter($b,$key);
+        $cmp=is_numeric($av)&&is_numeric($bv)
+          ? (float)$av<=>(float)$bv
+          : ($collator?$collator->compare($av,$bv):strnatcasecmp($av,$bv));
+        if($cmp!==0)return $direction==='desc'?-$cmp:$cmp;
+      }
+      return (int)$a['id']<=>(int)$b['id'];
     });
     // The preview reuses exactly the same resolved columns, filters, values and sort order.
     if(!empty($body['preview'])) {
