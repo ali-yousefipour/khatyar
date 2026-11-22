@@ -70,7 +70,15 @@ _company_work_route('POST','/import',function($p,$b,$u){
 });
 _company_work_route('GET','/sources/{id}',function($p,$b,$u){$s=CompanyWork::source($p['id']);return ['id'=>(int)$s['id'],'year'=>(int)$s['jy'],'month'=>(int)$s['jm'],'rows'=>CompanyWork::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),CompanyWork::users())];});
 _company_work_route('GET','/sources/{id}/download',function($p,$b,$u){$s=CompanyWork::source($p['id']);CompanyWork::download($s,$s['file_name']);});
-_company_work_route('POST','/sources/{id}/generate',function($p,$b,$u){return CompanyWork::generate(CompanyWork::source($p['id']),(int)($b['account_field_id']??0),(int)$u['id']);});
+_company_work_route('POST','/sources/{id}/generate',function($p,$b,$u){
+  // Reuse the established monthly-report progress channel; its token is scoped
+  // to the authenticated user and stored outside the public web root.
+  _work_progress_start($u,'company');
+  _work_progress_tick(3,'بررسی فایل تأییدشده سازمان');
+  $result=CompanyWork::generate(CompanyWork::source($p['id']),(int)($b['account_field_id']??0),(int)$u['id']);
+  _work_progress_tick(100,!empty($result['generated'])?'فایل شرکت ساخته و در آرشیو ثبت شد':'پردازش پایان یافت؛ مغایرت‌های پرسنلی نیازمند بررسی است');
+  return $result;
+});
 _company_work_route('GET','/files/{id}',function($p,$b,$u){$f=CompanyWork::activeArchive('files',$p['id']);return ['id'=>(int)$p['id'],'snapshot'=>json_decode($f['snapshot_json'],true,512,JSON_THROW_ON_ERROR)];});
 _company_work_route('GET','/files/{id}/download',function($p,$b,$u){$f=CompanyWork::activeArchive('files',$p['id']);CompanyWork::download($f,'کارکرد-شرکت-'.$f['jy'].'-'.$f['jm'].'.xlsx');});
 
