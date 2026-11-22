@@ -42,7 +42,7 @@ export function profileRuleMatches(rule,values){
     }
     case 'date_between':case 'date_outside':{
       const v=jalali(actual),a=jalali(wanted?.[0]),b=jalali(wanted?.[1]);
-      if(!v||!a||!b)return false;
+      if(!v||!a||!b||a>b)return false;
       const inside=v>=a&&v<=b;
       return rule.op==='date_between'?inside:!inside;
     }
