@@ -1824,7 +1824,7 @@ function Users(){
   const rt=id=>roles.find(r=>r.id===id)?.title||""; const zn=id=>zones.find(z=>z.id===id)?.name||"—";
   const defaultStars=(role)=>{ const r=String(role||""); if(r.includes("سربازرس"))return 4; if(r.includes("بازرس"))return 2; if(r.includes("ناظر خط")||r.includes("اپراتور"))return 1; return 0; };
   const starsForUser=(u)=>{ const n=(u.rank_stars!==null&&u.rank_stars!==undefined&&u.rank_stars!=="")?Math.max(0,Math.min(5,+u.rank_stars||0)):defaultStars(u.role_title||rt(u.role_id)); return n?"★".repeat(n):"—"; };
-  const save=async u=>{if(savingUser)return;
+  const save=async (u,closeAfter=true)=>{if(savingUser)return;
     if(String(u.national_code||"").trim()){
       const nationalCheck=offlineNationalIdWeb(u.national_code);
       if(!nationalCheck.valid){alert(nationalCheck.message);return;}
@@ -1838,7 +1838,17 @@ function Users(){
       setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:persisted.employment_start_date||'',employment_end_date:persisted.employment_end_date||''}:current);
       return;
     }
-    if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); await reload(); }catch(error){alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}finally{setSavingUser(false);} };
+    if(pw){await db.resetPassword(u.id,pw);}
+    if(customSaveRef.current)await customSaveRef.current('committed');
+    editBaselineRef.current={...u};
+    setCustomDirty(false);
+    setSaveMessage("اطلاعات کاربر با موفقیت ذخیره شد.");
+    setPw("");
+    if(closeAfter){editBaselineRef.current=null;setEdit(null);}
+    else setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,...u}:current);
+    await reload();
+  }catch(error){setSaveMessage("");alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}
+  finally{setSavingUser(false);} };
   const add=async u=>{ const r=await db.createUser(u); setAdding(false); reload(); if(r&&r.sms_sent) alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
   const auditAllUsers=async()=>{
     if(identityAuditBusy)return;
@@ -2040,6 +2050,7 @@ function Users(){
       <div className="users-edit-footer">
         <span className="muted" role="status">{savingUser?"در حال ذخیره اطلاعات کاربر…":editDirty?"تغییرات ذخیره‌نشده وجود دارد.":saveMessage||"اطلاعات اصلی و تکمیلی به‌صورت یکپارچه ذخیره می‌شوند."}</span>
         <button className="btn g" type="button" disabled={savingUser} onClick={closeUserEditor}>انصراف</button>
+        <button className="btn g" type="button" disabled={savingUser||!editDirty} onClick={()=>save(edit,false)}>ذخیره تغییرات</button>
         <button className="btn p" type="button" disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره و بستن"}</button>
       </div></Modal>}
     {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
