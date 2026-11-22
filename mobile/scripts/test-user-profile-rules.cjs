@@ -23,6 +23,8 @@ assert(matches({field:'tags',op:'not_in',value:['الف']},{tags:['ب','ج']}),'
 assert(matches({field:'tags',op:'in',value:['ج']},{tags:'الف|ج'}),'stored pipe multi-select matches IN');
 assert(!matches({field:'tags',op:'not_in',value:['ج']},{tags:'الف|ج'}),'stored pipe multi-select blocks NOT IN overlap');
 assert(matches({field:'tags',op:'not_in',value:['د']},{tags:'الف|ج'}),'stored pipe multi-select permits disjoint NOT IN');
+assert(!matches({field:'tags',op:'eq',value:'الف,ب'},{tags:['الف','ب']}),'array equality never coerces to string');
+assert(matches({field:'tags',op:'neq',value:'الف'},{tags:['الف','ب']}),'array inequality remains deterministic');
 assert(state({required:true,rules:[{action:'hide',when:{field:'gender',op:'eq',value:'زن'}}]},values).required===false);
 assert(state({rules:[{action:'require',when:{field:'children_count',op:'gt',value:0}}]},values).required===true);
 const fields=custom({sections:[{fields:[{binding:'system',key:'first_name'},{binding:'custom',key:'cf_7',custom_field_id:7}]}]});
