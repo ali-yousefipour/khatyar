@@ -22,4 +22,10 @@ invalid('invalid national ID blocked',fn()=>UserProfileFormValues::plan($schema,
 t('hidden existing values preserved',UserProfileFormValues::plan($schema,[],array_replace($stored,['gender'=>'مرد']))['custom']===[]);
 $schema['sections'][0]['fields'][3]['rules'][]=['action'=>'hide','when'=>['field'=>'gender','op'=>'eq','value'=>'مرد']];
 invalid('hidden field updates blocked',fn()=>UserProfileFormValues::plan($schema,['spouse_name'=>'test'],array_replace($stored,['gender'=>'مرد'])));
+$roleSchema=$schema;
+$roleSchema['sections'][0]['fields'][3]['edit_roles']=[5];
+invalid('role permission denies unauthorized editor',fn()=>UserProfileFormValues::plan($roleSchema,['spouse_name'=>'یک'], $stored,true,['id'=>7,'role_id'=>9]));
+t('role grant allows permitted editor',isset(UserProfileFormValues::plan($roleSchema,['spouse_name'=>'مجاز'],$stored,true,['id'=>7,'role_id'=>5])['custom'][2]));
+$roleSchema['sections'][0]['fields'][3]['deny_users']=[7];
+invalid('user-specific deny overrides role grant',fn()=>UserProfileFormValues::plan($roleSchema,['spouse_name'=>'رد'],$stored,true,['id'=>7,'role_id'=>5]));
 echo "User profile value tests passed\n";
