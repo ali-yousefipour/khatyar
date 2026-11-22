@@ -3173,6 +3173,7 @@ function Users() {
     const [usersError, setUsersError] = useState("");
     const [savingUser, setSavingUser] = useState(false);
     const [exportingUsers, setExportingUsers] = useState(false);
+    const [identityAudit, setIdentityAudit] = useState(null), [identityAuditQ, setIdentityAuditQ] = useState(""), [identityAuditBusy, setIdentityAuditBusy] = useState(false);
     const requestSeq = useRef(0);
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => (x[k] === "" || x[k] == null) && delete x[k]); return x; };
     const reload = async (filters = f) => { const request = ++requestSeq.current; setUsersLoading(true); setUsersError(""); try {
@@ -3241,6 +3242,53 @@ function Users() {
     };
     const add = async (u) => { const r = await db.createUser(u); setAdding(false); reload(); if (r && r.sms_sent)
         alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
+    const auditAllUsers = async () => {
+        if (identityAuditBusy)
+            return;
+        setIdentityAuditBusy(true);
+        setIdentityAuditQ("");
+        let offset = 0, steps = 0, total = 0, issues = [], counts = {};
+        setIdentityAudit({ issues: [], counts: {}, total: 0, scanned: 0, done: false });
+        try {
+            for (;;) {
+                const page = await GET('/admin/company-work/identity-audit?offset=' + offset + '&limit=150');
+                const scanned = Number(page.scanned) || 0;
+                total = Number(page.total) || 0;
+                issues = issues.concat(Array.isArray(page.issues) ? page.issues : []);
+                for (const [key, value] of Object.entries(page.counts || {}))
+                    counts[key] = (counts[key] || 0) + Number(value || 0);
+                offset += scanned;
+                setIdentityAudit({ issues, counts, total, scanned: offset, done: !!page.done });
+                if (page.done || page.next_offset === null)
+                    break;
+                if (scanned === 0 || ++steps > 10000)
+                    throw Error('ادامه ممیزی امکان‌پذیر نیست؛ عملیات متوقف شد.');
+                offset = Number(page.next_offset);
+            }
+        }
+        catch (error) {
+            alert('ممیزی اطلاعات کاربران ناموفق بود: ' + (error.message || error));
+        }
+        finally {
+            setIdentityAuditBusy(false);
+        }
+    };
+    const exportIdentityAudit = async () => {
+        try {
+            const response = await fetch(API_BASE + '/admin/company-work/identity-audit/export', { headers: tok() });
+            if (!response.ok)
+                throw Error('دسترسی به گزارش ممیزی امکان‌پذیر نیست');
+            const blob = await response.blob(), url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ممیزی-اطلاعات-هویتی-بانکی.xlsx';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+        catch (e) {
+            alert(e.message || 'دانلود گزارش ناموفق بود');
+        }
+    };
     const revoke = async (id, type) => { if (confirm("شناسهٔ دستگاه (" + (type === 'android' ? 'اندروید' : 'وب') + ") حذف شود؟")) {
         await db.revokeDevice(id, type);
         reload();
@@ -3293,7 +3341,8 @@ function Users() {
                     }
                     finally {
                         setExportingUsers(false);
-                    } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"))),
+                    } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"),
+                React.createElement("button", { className: "btn g", disabled: identityAuditBusy, onClick: auditAllUsers }, identityAuditBusy ? "در حال ممیزی…" : "بررسی صحت اطلاعات هویتی و بانکی کاربران"))),
         React.createElement("div", { className: "users-overview", "aria-label": "\u062E\u0644\u0627\u0635\u0647 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC" },
             React.createElement("div", { className: "users-overview-card" },
                 React.createElement("span", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062F\u0631 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC"),
@@ -3555,6 +3604,39 @@ function Users() {
                 React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'android') }, "\u062D\u0630\u0641 \u062F\u0633\u062A\u06AF\u0627\u0647 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F"),
                 React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'web') }, "\u062D\u0630\u0641 \u0646\u0634\u0633\u062A \u0648\u0628")),
             React.createElement("button", { className: "btn p", style: { marginTop: 14 }, disabled: savingUser, onClick: () => save(edit) }, savingUser ? "در حال ذخیره…" : "ذخیره تغییرات")),
+        identityAudit && React.createElement(Modal, { title: "\u0645\u0645\u06CC\u0632\u06CC \u0633\u0627\u062E\u062A\u0627\u0631\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0641\u0639\u0627\u0644 \u0648 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644", onClose: () => setIdentityAudit(null), style: { width: "min(96vw,1100px)" } },
+            React.createElement("p", { role: "status" },
+                "\u067E\u06CC\u0634\u0631\u0641\u062A: ",
+                fa(identityAudit.scanned),
+                " \u0627\u0632 ",
+                fa(identityAudit.total),
+                " \u06A9\u0627\u0631\u0628\u0631 ",
+                identityAudit.done ? "— تکمیل شد" : "— در حال بررسی"),
+            React.createElement("progress", { style: { width: "100%" }, max: Math.max(identityAudit.total, 1), value: identityAudit.scanned, "aria-label": "\u0645\u06CC\u0632\u0627\u0646 \u0648\u0627\u0642\u0639\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A \u0645\u0645\u06CC\u0632\u06CC" }),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBlock: 12 } }, Object.entries(identityAudit.counts || {}).filter(([key]) => key !== "valid").map(([key, value]) => React.createElement("span", { className: "badge", key: key },
+                ({ invalid_national: "کد ملی نامعتبر", missing_national: "کد ملی ناموجود", duplicate_national: "کد ملی تکراری", invalid_iban: "شبای نامعتبر", bank_mismatch: "مغایرت بانک", unverified_account: "حساب استعلام‌نشده", missing_banking: "اطلاعات بانکی ناموجود" })[key] || key,
+                ": ",
+                fa(value)))),
+            React.createElement("label", null,
+                "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627",
+                React.createElement("input", { className: "input", type: "search", value: identityAuditQ, onChange: e => setIdentityAuditQ(e.target.value) })),
+            React.createElement("div", { style: { overflowX: "auto", maxHeight: "50vh" } },
+                React.createElement("table", { style: { minWidth: 650 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0646\u0627\u0645"),
+                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                            React.createElement("th", null, "\u0645\u063A\u0627\u06CC\u0631\u062A"))),
+                    React.createElement("tbody", null, identityAudit.issues.filter(r => [r.name, r.personnel_code, ...(r.errors || [])].join(" ").includes(identityAuditQ)).map(r => React.createElement("tr", { key: r.user_id },
+                        React.createElement("td", null, r.name),
+                        React.createElement("td", null, faPlain(r.personnel_code || "—")),
+                        React.createElement("td", null, r.is_active ? "فعال" : "غیرفعال"),
+                        React.createElement("td", null, (r.errors || []).join("؛ "))))))),
+            React.createElement("p", { className: "muted" }, "\u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646\u061B \u0633\u0627\u062E\u062A\u0627\u0631 \u0634\u0645\u0627\u0631\u0647\u200C\u0647\u0627 \u0628\u0631\u0631\u0633\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0645\u0627\u0644\u06A9\u06CC\u062A \u062D\u0633\u0627\u0628 \u062A\u0623\u06CC\u06CC\u062F \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                React.createElement("button", { className: "btn", disabled: identityAuditBusy, onClick: exportIdentityAudit }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627"),
+                React.createElement("button", { className: "btn", onClick: () => setIdentityAudit(null) }, "\u0628\u0633\u062A\u0646"))),
         adding && React.createElement(AddUser, { roles: roles, zones: zones, onClose: () => setAdding(false), onSave: add }),
         lineModal && React.createElement(LineAssign, { user: lineModal, onClose: () => setLineModal(null) })));
 }
