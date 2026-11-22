@@ -38,6 +38,8 @@
     if (!url || !url.pathname.startsWith('/api/')) return null;
     if (liveMapVisible()) return null;
     const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    // Polling for a dedicated percentage dialog must not create a second blocking loader.
+    if (url.pathname === '/api/admin/shift-report/progress') return null;
     if (excluded.test(url.pathname) || liveMapPolling.test(url.pathname)) return null;
     const report = reports.test(url.pathname) || fileExtensions.test(url.pathname);
     if (method !== 'GET' && !(method === 'POST' && report)) return null;
