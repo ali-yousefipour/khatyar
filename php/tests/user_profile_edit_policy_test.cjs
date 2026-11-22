@@ -39,4 +39,10 @@ for(const kind of ['time','mobile','phone','email','national_id','iban','account
 }
 assert.match(custom,/field\.ftype === 'time'/,'Android renders time inputs');
 assert.match(custom,/field\.ftype === 'address'/,'Android renders multiline address inputs');
+assert.match(panel,/const defaultRepeater=/,'web form designer supplies child-group template');
+assert.match(panel,/const syncRepeater=async/,'web form designer synchronizes child columns');
+assert.match(custom,/field\.ftype === 'repeater'/,'Android renders repeatable rows');
+assert.match(custom,/JSON\.stringify\(next\)/,'Android serializes repeatable updates');
+assert.match(custom,/export function formatProfileFieldValue/,'Android presents readable child records');
+assert.match(account,/formatProfileFieldValue\(field,extraValues\[field\.id\]\)/,'main profile shows readable child records');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
