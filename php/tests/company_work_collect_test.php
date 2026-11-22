@@ -24,6 +24,28 @@ function _db_table_exists_safe($table){return Db::$officeBatch!==null;}
 require_once __DIR__.'/../lib/CompanyWork.php';
 class IsolatedCollectedCompanyWork extends CompanyWork {static $dir;static function directory(){return self::$dir;}}
 function yes($label,$value){if(!$value)throw new RuntimeException('FAIL '.$label);echo "PASS $label\n";}
+// Reproduce the production FTP layout: protected /lib is a sibling of /khat-yar.ir,
+// not the repository's /app directory. This was a 503 after successful rotation.
+$helperRoot=sys_get_temp_dir().'/company-helper-layout-'.bin2hex(random_bytes(5));
+$hostHelper=$helperRoot.'/khat-yar.ir/api/admin-attendance-report-owned.php';
+$repoHelper=$helperRoot.'/app/api/admin-attendance-report-owned.php';
+mkdir(dirname($hostHelper),0700,true);
+mkdir(dirname($repoHelper),0700,true);
+try {
+  file_put_contents($hostHelper,'<?php // production stub');
+  file_put_contents($repoHelper,'<?php // repository stub');
+  yes('production helper path resolves beside protected lib',CompanyWork::attendanceHelperFile($helperRoot)===$hostHelper);
+  unlink($hostHelper);
+  yes('repository helper path remains supported',CompanyWork::attendanceHelperFile($helperRoot)===$repoHelper);
+  unlink($repoHelper);
+  try {CompanyWork::attendanceHelperFile($helperRoot);throw new LogicException('expected missing attendance helper');}
+  catch(RuntimeException $e){yes('missing helper fails explicitly',str_contains($e->getMessage(),'not deployed'));}
+}finally{
+  @unlink($hostHelper);@unlink($repoHelper);
+  @rmdir(dirname($hostHelper));@rmdir(dirname(dirname($hostHelper)));
+  @rmdir(dirname($repoHelper));@rmdir(dirname(dirname($repoHelper)));
+  @rmdir($helperRoot);
+}
 // Infrastructure failures must identify the exact computation stage without
 // exposing SQL details or being misreported as a corrupted organization file.
 $GLOBALS['simulate_rotation_outage']=true;
