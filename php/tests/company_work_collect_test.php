@@ -65,6 +65,13 @@ Db::$users=[['id'=>1,'first_name'=>'کاربر','last_name'=>'نمونه','perso
 Db::$requests=[['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/15','to_jdate'=>'1405/07/17'],['type'=>'annual','unit'=>'hourly','the_date'=>'1405/07/18','from_time'=>'08:00','to_time'=>'15:33'],['type'=>'sick','unit'=>'daily','from_jdate'=>'1405/07/22','to_jdate'=>'1405/07/24']];
 $row=['source_row'=>4,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','role'=>'سمت اعلامی سازمان','friday_hours'=>7.5,'holiday_hours'=>2,'overtime_hours'=>12.75];
 $source=['id'=>8,'jy'=>1405,'jm'=>7,'rows_json'=>CompanyWork::json([$row])];
+$attendanceBefore=count($GLOBALS['attendance_calls']??[]);
+$fastPreview=CompanyWork::previewDiscrepancies($source,5);
+yes('lightweight company preflight returns personnel and missing-attendance discrepancies',
+  !empty($fastPreview['preview_only'])&&$fastPreview['requires_confirmation']===true
+  &&count($fastPreview['rows'])===1&&count($fastPreview['discrepancies']['no_attendance_in_file'])===1);
+yes('lightweight preflight avoids expensive per-person monthly attendance',
+  count($GLOBALS['attendance_calls']??[])===$attendanceBefore);
 $out=CompanyWork::collect($source,5);$r=$out['rows'][0];
 yes('combined company inputs are complete',!$out['has_errors']);
 yes('organization role and approved hours remain authoritative',$r['role']==='سمت اعلامی سازمان'&&$r['overtime_hours']===12.75);
