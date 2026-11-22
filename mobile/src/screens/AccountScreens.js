@@ -227,7 +227,11 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
         const configured=profileSchemaCustomFields(form?.schema);
         const byId=new Map(raw.map(x=>[Number(x.id),x]));
         const ordered=configured.filter(x=>byId.has(Number(x.custom_field_id)))
-          .map(x=>({...byId.get(Number(x.custom_field_id)),profile_definition:x}));
+          .map(x=>({...byId.get(Number(x.custom_field_id)),
+          label:x.label||byId.get(Number(x.custom_field_id)).label,
+          ftype:x.type||byId.get(Number(x.custom_field_id)).ftype,
+          options:Array.isArray(x.options)?x.options.join('|'):byId.get(Number(x.custom_field_id)).options,
+          profile_definition:x}));
         const remaining=raw.filter(x=>!configured.some(y=>Number(y.custom_field_id)===Number(x.id)));
         setExtraFields([...ordered,...remaining]);
         const values={};raw.forEach(x=>{if(x.value!=null)values[x.id]=x.value;});
