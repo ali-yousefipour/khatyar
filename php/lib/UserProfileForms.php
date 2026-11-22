@@ -60,6 +60,12 @@ final class UserProfileForms {
     $keys=[];$customIds=[];
     foreach($schema['sections'] as $section)foreach($section['fields'] as $field){
       $key=$field['key'];$binding=$field['binding']??null;
+      foreach(['edit_roles','edit_users','deny_roles','deny_users'] as $permission){
+        if(!array_key_exists($permission,$field))continue;
+        $list=$field[$permission];
+        if(!is_array($list)||!array_is_list($list)||count($list)>500)throw new InvalidArgumentException('فهرست مجوزهای فرم نامعتبر است');
+        foreach($list as $id)if(!is_int($id)||$id<1)throw new InvalidArgumentException('شناسه نقش یا کاربر در مجوز نامعتبر است');
+      }
       if($binding==='system' && (!in_array($key,self::SYSTEM_FIELDS,true)||isset($field['custom_field_id'])))
         throw new InvalidArgumentException('اتصال به فیلد سیستمی غیرمجاز است');
       if($binding==='custom'){
