@@ -437,7 +437,8 @@ class CompanyWork {
         self::fail('پوشه آرشیو خصوصی فایل شرکت قابل نوشتن نیست. کد پیگیری: '.$reference,503);
       $stage='xlsx';
       self::write($snapshot,$target);
-      if(!is_file($target)||filesize($target)<100||!chmod($target,0600))
+      @chmod($target,0600);
+      if(!is_file($target)||filesize($target)<100)
         self::fail('ساخت یا ذخیره فایل اکسل کامل نشد. کد پیگیری: '.$reference,503);
       $hash=hash_file('sha256',$target);
       if(!is_string($hash)||strlen($hash)!==64)
