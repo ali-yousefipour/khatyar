@@ -12836,6 +12836,19 @@ function _identity_save_national_code($raw,$excludeUserId=0){
 }
 route('PUT', '/api/me/profile', function($p,$b,$u){
   if (_req_setting('allow_android_profile_edit',true) !== true) Http::error('ویرایش اطلاعات پرسنلی در اپ توسط مدیر غیرفعال شده است',403);
+  $published=UserProfileForms::published();
+  if($published['version']>0){
+    $oldValues=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
+    foreach(Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[(int)$u['id']]) as $row)
+      $oldValues['cf_'.(int)$row['field_id']]=$row['value'];
+    $subset=[];
+    foreach(['email','mobile','address','national_code','marital_status','children_count','birth_date'] as $key)
+      if(array_key_exists($key,$b))$subset[$key]=$b[$key];
+    if($subset){
+      try{UserProfileFormValues::plan($published['schema'],$subset,$oldValues,true);}
+      catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+    }
+  }
   if (isset($b['email']) && $b['email']!=='' && !filter_var($b['email'], FILTER_VALIDATE_EMAIL)) Http::error('ایمیل نامعتبر است', 400);
   if(array_key_exists('national_code',$b))
     $b['national_code']=_identity_save_national_code($b['national_code'],(int)$u['id']);
