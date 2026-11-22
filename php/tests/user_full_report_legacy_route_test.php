@@ -11,7 +11,7 @@ $end=strpos($routes,"\nroute(", $start+1);
 if($end===false||$end-$start>900)
   throw new RuntimeException('Legacy report still contains independent export logic');
 $handler=substr($routes,$start,$end-$start);
-if(!str_contains($handler,'UserFullReport::run([],true)'))
+if(!str_contains($handler,'UserFullReport::run([],true,'))
   throw new RuntimeException('Legacy report bypasses published report visibility');
 if(!str_contains($report,'orderedByProfile(')||!str_contains($report,'report_visible'))
   throw new RuntimeException('Published report visibility is no longer enforced');
