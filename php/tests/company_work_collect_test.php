@@ -12,6 +12,9 @@ class Db {
   static function one($sql,$params=[]){if(str_contains($sql,'company_work_reconciliation_state'))return self::$officeBatch;if(str_contains($sql,'custom_fields'))return self::$field?['id'=>5,'label'=>'شماره حساب']:null;throw new RuntimeException('Unexpected query');}
   static function insert($sql,$params=[]){if(self::$fail)throw new RuntimeException('synthetic archive failure');self::$inserted[]=[$sql,$params];return 9;}
 }
+function _work_progress_tick($percent,$stage,$done=null,$total=null){
+  $GLOBALS['company_progress_events'][]=['percent'=>$percent,'stage'=>$stage,'done'=>$done,'total'=>$total];
+}
 class Seniority {static $value=730;static function listRows(){return ['rows'=>[['id'=>1,'seniority_days'=>self::$value]]];}}
 function _shift_rotation_report($y,$m){$GLOBALS['rotation_period']=[$y,$m];if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');if(!empty($GLOBALS['simulate_invalid_rotation']))return ['source'=>'live','rows'=>null];if(!empty($GLOBALS['simulate_finalized_rotation']))return ['source'=>'finalized','rows'=>[['user_id'=>1,'morning'=>10.5,'afternoon'=>9.5,'night'=>2,'missing_source'=>false]]];return ['source'=>'live','rows'=>[]];}
 function _final_work_month($year,$month){$GLOBALS['frozen_reads']=($GLOBALS['frozen_reads']??0)+1;return $GLOBALS['frozen_record']??null;}
@@ -74,6 +77,13 @@ yes('invalid Shahr IBAN rejected',CompanyWork::bankAccountCheck('IR0006100000000
 yes('an IBAN from another bank cannot be accepted as Shahr',CompanyWork::bankAccountCheck('IR820540102680020817909002')['valid']===false);
 yes('rotation uses the selected organization source period',$GLOBALS['rotation_period']===[1405,7]&&$out['year']===1405&&$out['month']===7);
 yes('canonical attendance called with exact Jalali period',$GLOBALS['attendance_calls'][0]===[1,'1405/07/01','1405/07/30']);
+$progress=$GLOBALS['company_progress_events']??[];
+yes('company collects meaningful server progress stages',
+  count($progress)>=6
+  && count(array_filter($progress,fn($p)=>str_contains($p['stage'],'چرخش شیفت')))>0
+  && count(array_filter($progress,fn($p)=>str_contains($p['stage'],'مرخصی')))>0
+  && count(array_filter($progress,fn($p)=>($p['total']??0)===1&&($p['done']??0)===1))>0);
+
 // A finalized month must be decoded once for the whole company archive, not
 // reloaded with a full SELECT and JSON decode for each employee.
 $frozenDays=[];
@@ -113,7 +123,13 @@ yes('notes exclude employment boundaries from an unrelated month',
 
 $root=sys_get_temp_dir().'/company-collect-'.bin2hex(random_bytes(6));mkdir($root,0700);IsolatedCollectedCompanyWork::$dir=$root;
 try{
+  $GLOBALS['company_progress_events']=[];
   $generated=IsolatedCollectedCompanyWork::generate($source,5,1);yes('successful generation persists file and snapshot',$generated['generated']&&$generated['id']===9&&count(glob($root.'/*.xlsx'))===1);
+  $steps=$GLOBALS['company_progress_events'];
+  yes('company XLSX and archive stages are confirmed by backend',
+    count(array_filter($steps,fn($p)=>str_contains($p['stage'],'فایل اکسل')))>0
+    && count(array_filter($steps,fn($p)=>str_contains($p['stage'],'آرشیو شرکت')))>0
+    && max(array_column($steps,'percent'))===98);
   $saved=Db::$inserted[0][1];$snapshot=json_decode($saved[5],true);yes('archive snapshot stores exact values and account source',$snapshot['rows'][0]['account']==='0000123456'&&$snapshot['account_field']['id']===5);
   $file=glob($root.'/*.xlsx')[0];
   $z=new ZipArchive();if($z->open($file)!==true)throw new RuntimeException('output XLSX unreadable');
