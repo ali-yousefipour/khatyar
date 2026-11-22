@@ -191,8 +191,32 @@ final class UserFullReport {
       if(!$cmp)$cmp=(int)$a['id']<=>(int)$b['id'];
       return $dir==='desc'?-$cmp:$cmp;
     });
+    // The preview reuses exactly the same resolved columns, filters, values and sort order.
+    if(!empty($body['preview'])) {
+      $sample=[];
+      foreach(array_slice($users,0,5) as $record) {
+        $row=[];
+        foreach($columns as $key) {
+          $value=(string)$getter($record,$key);
+          if(($lookup[$key]['type']??'')==='repeater')
+            $value=self::formatRepeatRows($value,(array)($lookup[$key]['columns']??[]));
+          $row[]=$value;
+        }
+        $sample[]=$row;
+      }
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode(['count'=>count($users),'columns'=>array_map(static fn($key)=>$lookup[$key]['label'],$columns),'sample'=>$sample],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+      exit;
+    }
     require_once dirname(__DIR__).'/lib/XlsxWriter.php';
     $writer=new XlsxWriter(array_map(static fn($key)=>$lookup[$key]['label'],$columns));
+    $writer->setProfessionalStyle();
+    $writer->setFontName('Vazirmatn');
+    foreach($columns as $index=>$key) {
+      $writer->setColWidth($index, in_array($key,['address','email'],true)?32:20);
+      // Keep every value as text: dates, IDs and account references must preserve leading zeros.
+      $writer->setTextCol($index);
+    }
     foreach($users as $u) {
       $row=[];foreach($columns as $key){
         $value=(string)$getter($u,$key);
