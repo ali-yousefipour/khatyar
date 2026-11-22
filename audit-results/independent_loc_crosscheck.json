@@ -5,5 +5,85 @@
   "source_heuristic_sloc": 102093,
   "source_physical_loc": 113544,
   "cloc_exit_code": 0,
-  "cloc_error": "Extra data: line 75 column 1 (char 1304)"
+  "cloc_output_suffix": "\n\nOne or more files took longer to process than expected.\nTry rerunning without timeout guards by adding  --timeout 0\nto your command line arguments.  See the documentation on\nthe --timeout switch for",
+  "cloc_totals": {
+    "blank": 5211,
+    "comment": 14918,
+    "code": 91858,
+    "nFiles": 676
+  },
+  "cloc_by_language": {
+    "JavaScript": {
+      "nFiles": 395,
+      "blank": 1739,
+      "comment": 2047,
+      "code": 33414
+    },
+    "PHP": {
+      "nFiles": 148,
+      "blank": 1105,
+      "comment": 2325,
+      "code": 31769
+    },
+    "JSX": {
+      "nFiles": 3,
+      "blank": 571,
+      "comment": 8390,
+      "code": 9956
+    },
+    "SQL": {
+      "nFiles": 56,
+      "blank": 1300,
+      "comment": 1820,
+      "code": 8941
+    },
+    "CSS": {
+      "nFiles": 16,
+      "blank": 60,
+      "comment": 68,
+      "code": 2376
+    },
+    "Java": {
+      "nFiles": 18,
+      "blank": 206,
+      "comment": 56,
+      "code": 2295
+    },
+    "PowerShell": {
+      "nFiles": 10,
+      "blank": 120,
+      "comment": 75,
+      "code": 1397
+    },
+    "HTML": {
+      "nFiles": 21,
+      "blank": 62,
+      "comment": 1,
+      "code": 1315
+    },
+    "Python": {
+      "nFiles": 4,
+      "blank": 32,
+      "comment": 120,
+      "code": 239
+    },
+    "Kotlin": {
+      "nFiles": 1,
+      "blank": 11,
+      "comment": 6,
+      "code": 85
+    },
+    "Bourne Shell": {
+      "nFiles": 3,
+      "blank": 4,
+      "comment": 7,
+      "code": 69
+    },
+    "TypeScript": {
+      "nFiles": 1,
+      "blank": 1,
+      "comment": 3,
+      "code": 2
+    }
+  }
 }

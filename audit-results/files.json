@@ -666,6 +666,24 @@
     "comment_lines_approx": 2
   },
   {
+    "path": "audit-results/android_modal_occurrences_full.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 3796,
+    "sloc_approx": 3796,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/android_multi_step_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 36,
+    "sloc_approx": 36,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit-results/android_navigation_verified.json",
     "section": "other",
     "ext": ".json",
@@ -714,8 +732,26 @@
     "path": "audit-results/files.json",
     "section": "other",
     "ext": ".json",
-    "loc": 13394,
-    "sloc_approx": 13394,
+    "loc": 13421,
+    "sloc_approx": 13421,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/independent_loc_crosscheck.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 9,
+    "sloc_approx": 9,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/independent_loc_file_list.txt",
+    "section": "other",
+    "ext": ".txt",
+    "loc": 690,
+    "sloc_approx": 690,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -765,6 +801,42 @@
     "comment_lines_approx": 0
   },
   {
+    "path": "audit-results/ui_inventory_summary.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 9,
+    "sloc_approx": 9,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/web_form_field_occurrences.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 7597,
+    "sloc_approx": 7597,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/web_modal_named_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 86,
+    "sloc_approx": 86,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/web_tab_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 428,
+    "sloc_approx": 428,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit-results/web_ui_proxies.json",
     "section": "other",
     "ext": ".json",
@@ -795,8 +867,8 @@
     "path": "audit/independent_loc.py",
     "section": "other",
     "ext": ".py",
-    "loc": 20,
-    "sloc_approx": 20,
+    "loc": 21,
+    "sloc_approx": 21,
     "blank": 0,
     "comment_lines_approx": 0
   },
