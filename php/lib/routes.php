@@ -1696,31 +1696,59 @@ route('POST', '/api/admin/users/{id}/custom-values', function($p,$b,$u){
 
 function _save_custom_values($uid, $values, $onlyEditable){
   if (!is_array($values)) return;
-  $fields = Db::all("SELECT * FROM custom_fields WHERE is_active=1");
-  $byId = []; foreach ($fields as $f) $byId[$f['id']] = $f;
-  foreach ($values as $fid=>$val) {
-    $fid = (int)$fid;
-    if (!isset($byId[$fid])) continue;
-    if ($onlyEditable && empty($byId[$fid]['user_editable'])) continue;
-    if (is_array($val)) $val = implode('|', $val);
-    require_once __DIR__.'/IdentityBankingValidation.php';
-    $key=mb_strtolower((string)($byId[$fid]['fkey']??'').' '.(string)($byId[$fid]['label']??''));
-    if(trim((string)$val)!==''){
-      if(preg_match('/شبا|\\biban\\b|\\bsheba\\b|\\bshaba\\b/iu',$key)){
-        $expected=preg_match('/بانک\\s*شهر|shahr/i',$key)?'061':null;
-        $check=IdentityBankingValidation::iban($val,$expected,true);
-        if(!$check['valid'] && $check['status']!=='offline_unverifiable')
-          Http::error($check['errors'][0]??'شماره شبا نامعتبر است',422);
-        $val=$check['normalized']??$val;
-      }elseif(preg_match('/شماره\\s*حساب|bank[_ -]?account|account[_ -]?number/i',$key)){
-        $check=IdentityBankingValidation::account($val);
-        if(!$check['valid'])Http::error($check['errors'][0],422);
-        // Do not guess a bank-specific conversion or strip account-leading zeros.
-      }
-    }
-    Db::run("INSERT INTO custom_field_values(user_id,field_id,value) VALUES(?,?,?)
-             ON DUPLICATE KEY UPDATE value=VALUES(value)", [$uid,$fid,$val]);
+  $fields=Db::all("SELECT * FROM custom_fields WHERE is_active=1");
+  $byId=[];foreach($fields as $f)$byId[(int)$f['id']]=$f;
+  $incoming=[];
+  foreach($values as $fid=>$val){
+    $fid=(int)$fid;
+    if(!isset($byId[$fid]) || ($onlyEditable && empty($byId[$fid]['user_editable'])))continue;
+    if(is_array($val))$val=implode('|',$val);
+    if(!is_scalar($val) && $val!==null)Http::error('مقدار فیلد تکمیلی نامعتبر است',422);
+    $incoming[$fid]=(string)($val??'');
   }
+  if(!$incoming)return;
+  require_once __DIR__.'/IdentityBankingValidation.php';
+  $isIban=static fn($label)=>(bool)preg_match('/شبا|\biban\b|\bsheba\b|\bshaba\b/iu',$label);
+  $isAccount=static fn($label)=>(bool)preg_match('/شماره\s*حساب|bank[_ -]?account|account[_ -]?number/iu',$label);
+  $isBank=static fn($label)=>(bool)preg_match('/^بانک$|نام\s*بانک|\bbank[_ -]?name\b/iu',trim($label));
+  $effective=[];
+  foreach(Db::all("SELECT field_id,value FROM custom_field_values WHERE user_id=?",[$uid]) as $row)
+    $effective[(int)$row['field_id']]=(string)($row['value']??'');
+  foreach($incoming as $fid=>$val)$effective[$fid]=$val;
+  $bankCodes=[];$changedBank=false;
+  foreach($byId as $fid=>$field){
+    $label=mb_strtolower(trim((string)($field['fkey']??'').' '.(string)($field['label']??'')));
+    if(!$isBank($label))continue;
+    if(array_key_exists($fid,$incoming))$changedBank=true;
+    $code=IdentityBankingValidation::bankCodeFromName($effective[$fid]??'');
+    if($code!==null)$bankCodes[$code]=true;
+  }
+  // A single, explicitly recognized bank may be compared to the account IBAN.
+  // Ambiguous bank fields are not guessed to be related accounts.
+  $expected=count($bankCodes)===1?array_key_first($bankCodes):null;
+  $checked=[];
+  foreach($byId as $fid=>$field){
+    $label=mb_strtolower((string)($field['fkey']??'').' '.(string)($field['label']??''));
+    $isNew=array_key_exists($fid,$incoming);
+    if(!$isNew && !$changedBank)continue;
+    $value=$effective[$fid]??'';
+    if(trim($value)==='')continue;
+    if($isIban($label)){
+      $fieldBank=preg_match('/بانک\s*شهر|shahr/i',$label)?'061':null;
+      $check=IdentityBankingValidation::iban($value,$fieldBank??$expected,true);
+      if(!$check['valid'] && $check['status']!=='offline_unverifiable')
+        Http::error($check['errors'][0]??'شماره شبا نامعتبر است',422);
+      if($isNew)$incoming[$fid]=$check['normalized']??$value;
+    }elseif($isNew && $isAccount($label)){
+      $check=IdentityBankingValidation::account($value);
+      if(!$check['valid'])Http::error($check['errors'][0]??'شماره حساب نامعتبر است',422);
+      // Do not infer an account-to-IBAN conversion or strip leading zeros.
+    }
+  }
+  // No DB write occurs until every submitted banking value is validated.
+  foreach($incoming as $fid=>$val)
+    Db::run("INSERT INTO custom_field_values(user_id,field_id,value) VALUES(?,?,?)
+             ON DUPLICATE KEY UPDATE value=VALUES(value)",[$uid,$fid,$val]);
 }
 
 route('GET', '/api/my/custom-fields', function($p,$b,$u){
