@@ -1,5 +1,5 @@
 import AccountFormHeader from '../components/AccountFormHeader';
-import { FieldInput, formatProfileFieldValue } from './CustomFieldsScreen';
+import { FieldInput,PrivateProfileAttachment,formatProfileFieldValue } from './CustomFieldsScreen';
 import {profileFieldState,profileSchemaCustomFields,profileCanEdit} from '../userProfileRules';
 import { normalizeIranianDigits, validateNationalId, validateUserInput } from '../identityBankingValidation';
 import React, { useState, useEffect, useRef } from 'react';
@@ -215,6 +215,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   const [originalProfile,setOriginalProfile] = useState(null);
   const [extraFields,setExtraFields] = useState([]);
   const [extraValues,setExtraValues] = useState({});
+  const [attachmentPresence,setAttachmentPresence] = useState({});
   const [originalExtraValues,setOriginalExtraValues] = useState({});
   const [formInfo,setFormInfo] = useState(null);
   const [extraError,setExtraError] = useState('');
@@ -254,7 +255,8 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   if (!p) return <View style={s.center}><Text style={s.muted}>در حال بارگذاری…</Text></View>;
   const set = (k, v) => { if(p.profile_edit_allowed===false)return; setP({ ...p, [k]: v }); };
   const profileReadOnly=p.profile_edit_allowed===false||formInfo?.profile_edit_allowed===false;
-  const valuesForRules={...p,...Object.fromEntries(Object.entries(extraValues).map(([id,value])=>['cf_'+id,value]))};
+  const valuesForRules={...p,...Object.fromEntries(Object.entries(extraValues).map(([id,value])=>['cf_'+id,value])),
+    ...Object.fromEntries(Object.entries(attachmentPresence).map(([id,exists])=>['cf_'+id,exists?'1':null]))};
   const systemDefinitions=(formInfo?.schema?.sections||[]).flatMap(section=>section.fields||[]);
   const systemFieldState=key=>{
     const definition=systemDefinitions.find(f=>f.key===key&&f.binding==='system');
@@ -371,7 +373,11 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
             return <View key={field.id} style={{marginTop:12}}>
               <Text style={s.label}>{field.label}{state.required&&editable?' *':''}{!editable?' (فقط نمایش)':''}</Text>
               {editable?<FieldInput field={field} value={extraValues[field.id]??''}
-                onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}/>:
+                onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}
+                onAttachmentStatus={(id,exists)=>setAttachmentPresence(prev=>({...prev,[id]:exists}))}/>:
+                ['image','file'].includes(field.ftype)?
+                <PrivateProfileAttachment field={field} readOnly
+                  onStatus={(id,exists)=>setAttachmentPresence(prev=>({...prev,[id]:exists}))}/>:
                 <Text style={[s.input,s.ro]}>{formatProfileFieldValue(field,extraValues[field.id])}</Text>}
             </View>;
           })}
