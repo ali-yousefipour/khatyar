@@ -884,7 +884,7 @@ jobs:
             esac
             remote_path="$(mktemp)"
             trap 'rm -f "${remote_path}"' EXIT
-            curl --fail --silent --show-error --location --max-time 45 --retry 3 --retry-delay 2 \
+            curl --fail --silent --show-error --location --max-time 45 --retry 5 --retry-delay 3 --retry-all-errors --retry-max-time 180 \
               -H 'Cache-Control: no-cache, no-store' -A 'Khatyar-Deploy-Verify/3.0' \
               "${url}" > "${remote_path}"
             test -s "${remote_path}" || { echo "ERROR: empty response from ${url}" >&2; exit 1; }
@@ -912,7 +912,7 @@ jobs:
           # Verify public subroutes are resolved by the router, not 404s or the admin shell.
           for route in /features /about /faq /contact; do
             public_file="$(mktemp)"
-            curl --fail --silent --show-error --location --max-time 30 \
+            curl --fail --silent --show-error --location --max-time 30 --retry 5 --retry-delay 3 --retry-all-errors --retry-max-time 150 \
               -H 'Cache-Control: no-cache, no-store' "${base}${route}?deploy_verify=${GITHUB_SHA}" > "${public_file}"
             grep -q 'data-page="' "${public_file}" || { echo "ERROR: ${route} is not the public site" >&2; exit 1; }
             rm -f "${public_file}"
