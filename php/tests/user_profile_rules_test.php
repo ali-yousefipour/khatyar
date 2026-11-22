@@ -36,6 +36,8 @@ checkRule('multi-select NOT IN permits non-overlapping choices',UserProfileRules
 checkRule('stored pipe multi-select membership matches',UserProfileRules::matches(['field'=>'tags','op'=>'in','value'=>['ج']],['tags'=>'الف|ج']));
 checkRule('stored pipe multi-select non-membership rejects overlapping selections',!UserProfileRules::matches(['field'=>'tags','op'=>'not_in','value'=>['ج']],['tags'=>'الف|ج']));
 checkRule('stored pipe multi-select non-membership accepts disjoint selections',UserProfileRules::matches(['field'=>'tags','op'=>'not_in','value'=>['د']],['tags'=>'الف|ج']));
+checkRule('array equality never coerces to string',!UserProfileRules::matches(['field'=>'tags','op'=>'eq','value'=>'الف,ب'],['tags'=>['الف','ب']]));
+checkRule('array inequality remains deterministic',UserProfileRules::matches(['field'=>'tags','op'=>'neq','value'=>'الف'],['tags'=>['الف','ب']]));
 $ambiguous=$schema;
 $ambiguous['sections'][0]['fields'][3]['rules'][0]['when']=['all'=>[['field'=>'gender','op'=>'eq','value'=>'زن']],'any'=>[['field'=>'gender','op'=>'eq','value'=>'مرد']]];
 rejectsRule('ambiguous AND and OR group rejected',$ambiguous);
