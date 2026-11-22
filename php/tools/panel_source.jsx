@@ -8477,7 +8477,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     else{setPreview(null);setFile(null);if(fileInput.current)fileInput.current.value="";setDetail({rows:data.rows,title:data.duplicate?"این فایل قبلاً در آرشیو ثبت شده است":"فایل سازمان در آرشیو ثبت شد"});await load();}
   });
   const showSource=id=>action("دریافت جزئیات…",async()=>{const data=await request("/sources/"+id);if(life.current.alive){setDetail({...data,title:"کارکرد تأییدشدهٔ سازمان"});setQuery("");}});
-  const showFile=id=>action("دریافت جزئیات…",async()=>{const data=await request("/files/"+id);if(life.current.alive){setDetail({...data.snapshot,title:"نسخهٔ ثبت‌شدهٔ فایل شرکت"});setQuery("");}});
+  const showFile=id=>action("دریافت جزئیات…",async()=>{const data=await request("/files/"+id);if(life.current.alive){setDetail({...data.snapshot,fileId:Number(data.id)||Number(id),title:"نسخهٔ ثبت‌شدهٔ فایل شرکت"});setQuery("");}});
   const generate=id=>action("محاسبه و ساخت فایل شرکت…",async()=>{
     const overlay=typeof window!=="undefined"?window.KhatyarLongOperation:null;
     const progressId=(()=>{try{
@@ -8514,9 +8514,17 @@ function CompanyWorkReport({year,month,onPeriodChange}){
         {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_field_id:Number(account)})});
       if(!life.current.alive)return;
       overlay?.update(handle,{percent:100,stage:data.generated?"فایل شرکت با موفقیت در آرشیو ثبت شد":"محاسبه پایان یافت؛ مغایرت‌ها را بررسی کنید"});
-      setDetail({...data.snapshot,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید"});
+      const fileId=data.generated?Number(data.id):0;
+      setDetail({...data.snapshot,fileId:fileId>0?fileId:null,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید"});
       setQuery("");
       await load();
+      if(data.generated){
+        if(!fileId||fileId<1)setError("فایل محاسبه شده اما شناسه آرشیو آن دریافت نشد؛ آرشیو را بررسی کنید.");
+        else{
+          try{await downloadFile("files",fileId);}
+          catch(e){if(life.current.alive&&e.name!=="AbortError")setError("فایل شرکت در آرشیو ذخیره شد اما دانلود خودکار انجام نشد: "+e.message+" — از دکمه دانلود فایل شرکت استفاده کنید.");}
+        }
+      }
     }finally{
       tracking.active=false;
       clearInterval(tracking.timer);
@@ -8524,12 +8532,27 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       if(handle!=null)overlay?.end(handle);
     }
   });
-  const download=(kind,id)=>action("دریافت فایل…",async()=>{
+  const downloadFile=async(kind,id)=>{
+    if(!["sources","files"].includes(kind)||!Number.isSafeInteger(Number(id))||Number(id)<1)throw Error("شناسه فایل آرشیوی معتبر نیست.");
     const controller=new AbortController();life.current.controller=controller;
     const res=await fetch(API_BASE+"/admin/company-work/"+kind+"/"+id+"/download",{headers:tok(),signal:controller.signal});
-    if(!res.ok){let data={};try{data=await res.json();}catch{}throw Error(data.error||data.message||"دانلود فایل ناموفق بود");}
-    const blob=await res.blob();if(!life.current.alive)return;const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(kind==="sources"?"کارکرد-سازمان-":"کارکرد-شرکت-")+year+"-"+month+".xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
-  });
+    if(!res.ok){let data={};try{data=await res.json();}catch{}throw Error(data.error||data.message||"دریافت فایل از آرشیو ناموفق بود");}
+    const mime=String(res.headers?.get?.("content-type")||"").toLowerCase();
+    if(mime.includes("text/html")||mime.includes("application/json"))throw Error("سرور به‌جای فایل اکسل، پاسخ غیرمعتبر برگرداند.");
+    const blob=await res.blob();
+    if(typeof blob.size==="number"&&blob.size<100)throw Error("فایل اکسل دریافتی خالی یا ناقص است.");
+    if(!life.current.alive)return;
+    const url=URL.createObjectURL(blob);
+    try{
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=(kind==="sources"?"کارکرد-سازمان-":"کارکرد-شرکت-")+year+"-"+month+(kind==="files"?"-نسخه-"+id:"")+".xlsx";
+      if(document.body?.appendChild)document.body.appendChild(a);
+      a.click();
+      a.remove?.();
+    }finally{setTimeout(()=>URL.revokeObjectURL(url),10000);}
+  };
+  const download=(kind,id)=>action("دریافت فایل…",()=>downloadFile(kind,id));
   const changeArchive=(kind,id,restore=false)=>{
     if(!restore&&!window.confirm("این مورد از آرشیو فعال حذف شود؟ امکان بازیابی از بخش حذف‌شده‌ها وجود دارد. فایل‌های وابسته حفظ می‌شوند."))return;
     return action(restore?"بازیابی…":"حذف از آرشیو…",async()=>{
@@ -8586,7 +8609,10 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       <button type="button" className="btn" onClick={()=>setBankAudit(null)}>بستن</button>
     </Modal>}
     {detail&&<Modal title={detail.title} onClose={()=>setDetail(null)} style={{width:"min(96vw,1500px)"}}>
-      <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
+      <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        {detail.fileId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>download("files",detail.fileId)}>دانلود فایل شرکت (XLSX)</button>}
+        <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
+      </div>
       {detail.rows?.some(r=>r.organization_basis)&&<p className="muted">روزهای اداری مصوب سازمان در غیبت قابل پرداخت و چرخش شیفت این فایل لحاظ شده‌اند؛ مبنای اولیه در سابقهٔ نسخه حفظ است.</p>}{detail.account_field&&<p className="muted">منبع حساب: {detail.account_field.label} | روز مرخصی: ۴۵۳ دقیقه | {detail.partial?"ماه جاری؛ داده‌ها تا روز تولید":"ماه پایان‌یافته"} | منبع تردد: {detail.attendance_source==="finalized"?"نسخهٔ نهایی‌شده":"تردد ثبت‌شده"}</p>}
       {detail.discrepancies&&Object.entries(detail.discrepancies).map(([key,items])=>items?.length?<details key={key} style={{marginBlock:8}}><summary style={{cursor:"pointer",fontWeight:600}}>{({inactive_in_file:"کاربران غیرفعال در فایل سازمان",unmatched_in_file:"فاقد تطبیق با سامانه",worked_not_in_file:"دارای تردد اما خارج از فایل سازمان",no_attendance_in_file:"بدون تردد در ماه انتخابی"})[key]||key} — {fa(items.length)} مورد</summary><div style={{maxHeight:240,overflowY:"auto"}}>{items.map((person,i)=><p key={person.user_id||i}>{faPlain(person.name||"—")} | {faPlain(person.personnel_code||"—")} {person.reason?"— "+person.reason:""}</p>)}</div></details>:null)}
       <label>جست‌وجوی نام، شماره پرسنلی، سمت یا مغایرت<input className="input" value={query} onChange={e=>setQuery(e.target.value)}/></label><p>{fa(visible.length)} از {fa(detail.rows.length)} نیرو | مغایرت: {fa(detail.rows.filter(r=>r.errors?.length).length)}</p>
