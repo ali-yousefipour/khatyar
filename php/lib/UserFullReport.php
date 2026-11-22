@@ -38,6 +38,7 @@ final class UserFullReport {
       $records=Db::all("SELECT id,label,ftype,options FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id");
       foreach($records as $f) {
         $col=['key'=>'custom:'.(int)$f['id'],'label'=>(string)$f['label'],'group'=>'فیلدهای سفارشی'];
+        if(in_array(($f['ftype']??''),['image','file'],true))$col['type']='attachment';
         if(($f['ftype']??'')==='repeater'){
           $config=json_decode((string)($f['options']??''),true);
           $col['type']='repeater';
@@ -72,6 +73,7 @@ final class UserFullReport {
         $row=$lookup[$key];
         $row['label']=(string)($field['label']??$row['label']);
         $row['group']=(string)($section['title']??$row['group']);
+        if(in_array(($field['type']??''),['image','file'],true))$row['type']='attachment';
         if(($field['type']??'')==='repeater'){
           $row['type']='repeater';
           $row['columns']=$field['columns']??($row['columns']??[]);
@@ -147,6 +149,25 @@ final class UserFullReport {
         $q=implode(',',array_fill(0,count($chunk),'?'));
         foreach(Db::all("SELECT user_id,field_id,value FROM custom_field_values WHERE field_id IN ($q)",$chunk) as $r)
           $values[(int)$r['user_id']][(int)$r['field_id']]=$r['value'];
+      }
+    }
+    // Report document existence, never private storage names, file bytes or raw URLs.
+    $attachmentIds=[];
+    foreach(array_merge($columns,[$sort]) as $key)
+      if(($lookup[$key]['type']??'')==='attachment'&&str_starts_with($key,'custom:'))
+        $attachmentIds[]=(int)substr($key,7);
+    $attachmentIds=array_values(array_unique($attachmentIds));
+    if($attachmentIds){
+      // Ignore legacy custom_field_values for document fields even if they
+      // contain old paths. Only the private attachment registry is authoritative.
+      foreach($values as &$userFields)foreach($attachmentIds as $fid)unset($userFields[$fid]);
+      unset($userFields);
+      if($users&&self::hasTable('user_profile_attachments')){
+        foreach(array_chunk($attachmentIds,100) as $chunk){
+          $marks=implode(',',array_fill(0,count($chunk),'?'));
+          foreach(Db::all("SELECT user_id,field_id FROM user_profile_attachments WHERE field_id IN ($marks)",$chunk) as $attached)
+            $values[(int)$attached['user_id']][(int)$attached['field_id']]='ثبت شده';
+        }
       }
     }
     $getter=static function(array $u,string $key)use(&$values,$personnelIds) {
