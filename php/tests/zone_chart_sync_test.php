@@ -18,7 +18,7 @@ class Db {
  public static function run($sql,$args=[]){
   if(str_starts_with($sql,'CREATE TABLE IF NOT EXISTS zone_leadership'))return;
   if(str_starts_with($sql,'DELETE FROM user_managers')){self::$links[(int)$args[0]]=[];return;}
-  if(str_starts_with($sql,'INSERT INTO user_managers')){
+  if(str_starts_with($sql,'INSERT INTO user_managers')||str_starts_with($sql,'INSERT IGNORE INTO user_managers')){
    if(self::$failWrite)throw new RuntimeException('Simulated SQL failure');
    self::$links[(int)$args[0]][]=(int)$args[1];return;
   }
