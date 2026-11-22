@@ -436,6 +436,7 @@ class CompanyWork {
       $data=$xp->query('//s:sheetData')->item(0);$pattern=$xp->query('//s:row[@r="4"]')->item(0)->cloneNode(true);$footer=$xp->query('//s:row[@r="111"]')->item(0)->cloneNode(true);
       foreach(iterator_to_array($xp->query('s:row',$data)) as $row)if((int)$row->getAttribute('r')>=4)$data->removeChild($row);
       $styles=self::xml($zip->getFromName('xl/styles.xml'));$sx=self::xpath($styles);$xfs=$sx->query('//s:cellXfs')->item(0);$decimalStyles=[];
+      $noteStyles=[];
       $sums=array_fill_keys(range('H','S'),0);$n=3;
       foreach($snapshot['rows'] as $r){
         $n++;$row=$pattern->cloneNode(true);$row->setAttribute('r',(string)$n);$data->appendChild($row);
@@ -447,6 +448,24 @@ class CompanyWork {
           'S'=>$r['seniority_days']/365,'T'=>(float)$r['morning'],'U'=>(float)$r['afternoon'],'V'=>(float)$r['night'],'W'=>(string)($r['notes']??''),'X'=>(float)$r['seniority_days']];
         foreach($values as $col=>$value){
           $cell=self::setCell($doc,$row,$col,$n,$value,$col==='L'?"H$n-J$n-K$n":($col==='S'?"X$n/365":null));
+          if($col==='W' && $value!==''){
+            // Long Persian notes must remain readable in the generated file.
+            $original=(int)$cell->getAttribute('s');
+            if(!isset($noteStyles[$original])){
+              $xf=$sx->query('s:xf',$xfs)->item($original)->cloneNode(true);
+              $alignment=null;
+              foreach($xf->childNodes as $part)if($part instanceof DOMElement && $part->localName==='alignment'){$alignment=$part;break;}
+              if(!$alignment){$alignment=$styles->createElementNS($styles->documentElement->namespaceURI,'alignment');$xf->appendChild($alignment);}
+              $alignment->setAttribute('wrapText','1');
+              $alignment->setAttribute('vertical','center');
+              $xf->setAttribute('applyAlignment','1');
+              $noteStyles[$original]=$sx->query('s:xf',$xfs)->length;
+              $xfs->appendChild($xf);
+            }
+            $cell->setAttribute('s',(string)$noteStyles[$original]);
+            $row->setAttribute('ht',(string)min(120,max(30,(int)ceil(mb_strlen((string)$value)/45)*18)));
+            $row->setAttribute('customHeight','1');
+          }
           if(in_array($col,['I','K','L','O','P','Q','R','S','T','U','V'],true)){
             $original=(int)$cell->getAttribute('s');if(!isset($decimalStyles[$original])){$xf=$sx->query('s:xf',$xfs)->item($original)->cloneNode(true);$xf->setAttribute('numFmtId','4');$xf->setAttribute('applyNumberFormat','1');$decimalStyles[$original]=$sx->query('s:xf',$xfs)->length;$xfs->appendChild($xf);}$cell->setAttribute('s',(string)$decimalStyles[$original]);
           }
