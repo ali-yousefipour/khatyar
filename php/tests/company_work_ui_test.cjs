@@ -17,7 +17,7 @@ const c=vm.createContext({React:{createElement:(type,props,...children)=>({type,
   useEffect:(cb,deps)=>{const i=index++;if(!effects[i])pending.push(()=>{effects[i]={cleanup:cb()};});},
   window:{confirm:()=>confirmDelete},faDate:v=>{dateCalls.push(v);return 'شمسی:'+v;},AbortController,FormData,API_BASE:'/api',tok:()=>({Authorization:'Bearer test'}),J_MONTHS:Array.from({length:12},(_,i)=>String(i+1)),faPlain:String,fa:v=>Number(v).toLocaleString('en-US'),
   fetch:async(url,options)=>{calls.push({url,options});return response(url,options);},
-  URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:u=>downloads.push(['revoke',u])},setTimeout:cb=>cb(),
+  URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:u=>downloads.push(['revoke',u])},setTimeout:cb=>cb(),setInterval:()=>1,clearInterval:()=>{},
   document:{createElement:()=>({click(){downloads.push(['download',this.download]);}})}
 });vm.runInContext(code,c);
 function render(){index=0;const tree=c.CompanyWorkReport(props);const queue=pending;pending=[];queue.forEach(cb=>cb());return tree;}
