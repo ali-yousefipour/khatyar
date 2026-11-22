@@ -17,6 +17,9 @@ assert(!matches({field:'employment_start_date',op:'date_between',value:['1405/01
 assert(!matches({field:'employment_start_date',op:'date_between',value:['1405/01/01','1405/12/30']},{employment_start_date:'1405/07/31'}),'invalid days are rejected');
 assert(!matches({field:'employment_start_date',op:'date_outside',value:['1405/12/30','1405/01/01']},values),'reversed range never matches');
 assert(matches({field:'employment_start_date',op:'date_between',value:['۱۴۰۵/۰۱/۰۱','۱۴۰۵/۱۲/۳۰']},values),'Persian digit Jalali range supported');
+assert(matches({field:'tags',op:'in',value:['الف','ج']},{tags:['ب','ج']}),'multi-select membership matches any choice');
+assert(!matches({field:'tags',op:'not_in',value:['الف','ج']},{tags:['ب','ج']}),'multi-select negative membership rejects overlap');
+assert(matches({field:'tags',op:'not_in',value:['الف']},{tags:['ب','ج']}),'multi-select negative membership accepts non-overlap');
 assert(state({required:true,rules:[{action:'hide',when:{field:'gender',op:'eq',value:'زن'}}]},values).required===false);
 assert(state({rules:[{action:'require',when:{field:'children_count',op:'gt',value:0}}]},values).required===true);
 const fields=custom({sections:[{fields:[{binding:'system',key:'first_name'},{binding:'custom',key:'cf_7',custom_field_id:7}]}]});
