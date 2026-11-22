@@ -189,7 +189,7 @@ async function testMultipartQueueDuplicateSafety() {
   assert.match(api, /if\(receivedHttpResponse\)throw firstError/);
   assert.match(api,/await Promise\.allSettled\(\[\.\.\.pendingCacheWrites\]\)/,'session cleanup must drain outstanding private cache writes');
   assert.match(api,/pendingCacheWrites\.add\(write\)/,'private cache writes must be tracked until completed');
-  assert.match(api,/queueIfOffline\&\&!responseReceived\&\&\(path===\x27\/my\/checkin\x27\|\|path===\x27\/my\/checkout\x27\)/,'ambiguous writes may be queued only for server-deduplicated attendance');
+  assert.match(api,/queueIfOffline\&\&\(path===\x27\/my\/checkin\x27\|\|path===\x27\/my\/checkout\x27\)\&\&\(!responseReceived\|\|responseStatus===408\|\|responseStatus===429/,'only idempotent attendance may queue after transport or transient HTTP failures');
   assert.match(radio,/takingRef\.current\|\|recordingRef\.current\|\|uploadingRef\.current/,'PTT acquisition must lock channel controls');
   assert.match(radio,/talkGenerationRef\.current===activeTalkGeneration/,'old radio timers cannot stop newer recordings');
   assert.match(radio,/finally\{if\(uri\)await FileSystem\.deleteAsync\(uri/,'failed radio uploads must delete transient audio');
