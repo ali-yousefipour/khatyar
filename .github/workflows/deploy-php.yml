@@ -653,6 +653,7 @@ jobs:
           <?php
           declare(strict_types=1);
           header('Content-Type: application/json; charset=utf-8');
+          $stage = 'authorization';
           try {
               $received = (string)($_POST['token'] ?? '');
               $expected = getenv('KHATYAR_SCHEMA_TOKEN') ?: '';
@@ -662,12 +663,14 @@ jobs:
                   http_response_code(403);
                   exit(json_encode(['ok'=>false, 'error'=>'forbidden']));
               }
+              $stage = 'database_connection';
               $config = require dirname(__DIR__, 2) . '/config.php';
               $pdo = new PDO(
                   "mysql:host={$config['db_host']};dbname={$config['db_name']};charset=utf8mb4",
                   $config['db_user'], $config['db_pass'],
                   [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]
               );
+              $stage = 'work_report_template_schema';
               // Additive, idempotent work template schema; no attendance or user data is modified.
               require_once dirname(__DIR__,2).'/lib/WorkReportTemplateRepository.php';
               (new WorkReportTemplateRepository($pdo))->ensureSchema();
@@ -676,6 +679,7 @@ jobs:
               $templateRepo=new WorkReportTemplateRepository($pdo);
               $templateRepo->ensureOrganizationTemplate();
               $templateRepo->all();
+              $stage = 'discipline_cache_schema';
               // The cache is provisioned and verified before the dashboard is used.
               $cacheMigration=dirname(__DIR__,2).'/migrations/2026_11_19_dashboard_discipline_cache.sql';
               if(!is_file($cacheMigration))throw new RuntimeException('Discipline cache migration missing');
@@ -685,6 +689,7 @@ jobs:
               $pdo->query("SELECT scope_key,slot,from_g,to_g,payload,generated_at,started_at,job_json FROM dashboard_discipline_cache LIMIT 0");
               $pdo->query("SELECT u.id,u.presence_required,r.level FROM users u JOIN roles r ON r.id=u.role_id LIMIT 0");
               if(!is_file(dirname(__DIR__,2).'/lib/DashboardDiscipline.php')||!is_file(dirname(__DIR__).'/api/admin-attendance-report-owned.php'))throw new RuntimeException('Discipline PHP dependencies missing');
+              $stage = 'discipline_cache_smoke';
               // Exercise the production cache reader directly, inside the existing
               // authenticated one-use installer. Do not return user data or start a refresh.
               $libRoot=dirname(__DIR__,2).'/lib';
@@ -701,6 +706,7 @@ jobs:
               if(!is_array($cacheResponse['corrections']??null)||!is_array($cacheResponse['irregular']??null)||!array_key_exists('has_cache',$cacheResponse)||!array_key_exists('next_refresh_at',$cacheResponse))throw new RuntimeException('Discipline cache response invalid');
               dashboard_discipline_load_report();
 
+              $stage = 'school_complaint_schema';
               // Apply school complaint schema only during deployment.
               $migration = dirname(__DIR__, 2) . '/migrations/2026_11_18_school_complaints.sql';
               if (!is_file($migration)) throw new RuntimeException('School complaint migration missing');
@@ -719,6 +725,7 @@ jobs:
               }
               $schemaCount = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('school_complaints','school_complaint_settings','school_complaint_events')")->fetchColumn();
               if ((int)$schemaCount !== 3) throw new RuntimeException('School complaint schema verification failed');
+              $stage = 'school_complaint_accounts';
               // Independent complaint operator schema; no users or organizational data modified.
               $scAccountsPath=dirname(__DIR__,2).'/migrations/2026_11_21_school_complaint_accounts.sql';
               if(!is_file($scAccountsPath))throw new RuntimeException('School operator accounts migration missing');
@@ -728,6 +735,7 @@ jobs:
               $mobileColumn=$pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='school_complaint_accounts' AND column_name='mobile'")->fetchColumn();
               if((int)$mobileColumn===0)$pdo->exec("ALTER TABLE school_complaint_accounts ADD COLUMN mobile VARCHAR(20) NOT NULL DEFAULT '' AFTER display_name");
               $pdo->query("SELECT id,username,display_name,mobile,password_hash,can_receive,can_report,is_active,token_version,failed_attempts,locked_until FROM school_complaint_accounts LIMIT 0");
+              $stage = 'school_complaint_outbox';
               // Complaint delivery outbox must exist before notification toggles are used.
               $scNotificationsMigration=dirname(__DIR__,2).'/migrations/20261121_school_complaint_notification_outbox.sql';
               if(!is_file($scNotificationsMigration))throw new RuntimeException('Complaint notification migration missing');
@@ -735,6 +743,7 @@ jobs:
               if($scNotificationsSql===false)throw new RuntimeException('Complaint notification migration unreadable');
               $pdo->exec($scNotificationsSql);
               $pdo->query("SELECT event_id,complaint_id,audience,channel,status FROM school_complaint_notification_outbox LIMIT 0");
+              $stage = 'attendance_receipts';
               // Durable attendance idempotency: apply on the guarded deployment
               // installer only, never during check-in/check-out API requests.
               $attendanceMigration=dirname(__DIR__,2).'/migrations/20261121_attendance_action_receipts.sql';
@@ -745,6 +754,7 @@ jobs:
               $pdo->query("SELECT user_id,action_name,client_uuid,attendance_id,response_json,created_at FROM attendance_action_receipts LIMIT 0");
 
               if(!is_file(dirname(__DIR__,2).'/lib/school_complaint_accounts.php'))throw new RuntimeException('Scoped operator authorization module missing');
+              $stage = 'employment_columns';
               foreach (['employment_start_date','employment_end_date'] as $column) {
                   $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name=?");
                   $check->execute([$column]);
@@ -754,6 +764,7 @@ jobs:
               }
               $check = $pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
               if ((int)$check->fetchColumn() !== 2) throw new RuntimeException('Schema columns not present after migration');
+              $stage = 'attendance_schema';
               // All attendance tables and columns are migrated here, outside the
               // morning rush. Never issue CREATE/ALTER in normal API requests.
               $pdo->exec("CREATE TABLE IF NOT EXISTS shift_handovers (
@@ -839,8 +850,9 @@ jobs:
               echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true, 'school_complaints_schema'=>true,'discipline_cache_schema'=>true,'discipline_cache_reader'=>true,'work_report_template_schema'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
-              error_log('Employment schema deployment: '.$error->getMessage());
-              echo json_encode(['ok'=>false, 'error'=>'schema migration failed']);
+              error_log('Employment schema deployment ['.$stage.']: '.$error->getMessage());
+              @unlink(__FILE__);
+              echo json_encode(['ok'=>false, 'error'=>'schema migration failed', 'stage'=>$stage]);
           }
           PHP
           sed -i "s/__SCHEMA_TOKEN__/${token}/g" "/tmp/${installer}"
@@ -855,10 +867,30 @@ jobs:
             put /tmp/${installer} -o /khat-yar.ir/assets/${installer};
             bye
           "
-          response="$(curl --fail --silent --show-error --max-time 45 --retry 2 \
-            -X POST --data-urlencode "token=${token}" \
+          response="$(curl --silent --show-error --max-time 45 --retry 2 \
+            -w '\n%{http_code}' -X POST --data-urlencode "token=${token}" \
             "https://khat-yar.ir/assets/${installer}")"
+          http_status="${response##* -q '"employment_columns":2'
+          echo "${response}" | grep -q '"school_complaints_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_reader":true'
+          echo "${response}" | grep -q '"work_report_template_schema":true'
+          echo "Employment, school complaints and work report template schema verified on production database."
+
+\n'}"
+          response="${response% -q '"employment_columns":2'
+          echo "${response}" | grep -q '"school_complaints_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_schema":true'
+          echo "${response}" | grep -q '"discipline_cache_reader":true'
+          echo "${response}" | grep -q '"work_report_template_schema":true'
+          echo "Employment, school complaints and work report template schema verified on production database."
+
+\n'*}"
           echo "${response}"
+          if [ "${http_status}" != "200" ]; then
+            echo "ERROR: production schema migration returned HTTP ${http_status}" >&2
+            exit 1
+          fi
           echo "${response}" | grep -q '"employment_columns":2'
           echo "${response}" | grep -q '"school_complaints_schema":true'
           echo "${response}" | grep -q '"discipline_cache_schema":true'
