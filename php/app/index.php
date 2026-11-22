@@ -193,6 +193,22 @@ route('POST', '/api/admin/users/full-report-export', static function($params,$bo
   require_once dirname(__DIR__).'/lib/UserFullReport.php';
   UserFullReport::run(is_array($body)?$body:[]);
 }, false, 3);
+// Named export presets: list, save, and delete enforce ownership and shared-editor authorization.
+route('GET', '/api/admin/users/full-report-presets', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/UserFullReportPresets.php';
+  return ['presets'=>UserFullReportPresets::listFor((int)$user['id'])];
+}, false, 3);
+route('POST', '/api/admin/users/full-report-presets', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/UserFullReportPresets.php';
+  try{return UserFullReportPresets::save((int)$user['id'],!empty($user['is_admin']),(array)$body);}
+  catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+  catch(DomainException $e){Http::error($e->getMessage(),403);}
+}, false, 3);
+route('DELETE', '/api/admin/users/full-report-presets/{id}', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/UserFullReportPresets.php';
+  try{return UserFullReportPresets::remove((int)$user['id'],!empty($user['is_admin']),(int)$params['id']);}
+  catch(DomainException $e){Http::error($e->getMessage(),403);}
+}, false, 3);
 // Regional chart uses live user roles and nearest eligible zone leadership.
 // Explicit refresh does not alter manual graph links or operational approvals.
 route('POST', '/api/admin/zones/{id}/sync-chart', static function($params,$body,$user) {
