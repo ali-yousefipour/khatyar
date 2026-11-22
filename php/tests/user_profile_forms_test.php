@@ -7,7 +7,8 @@ final class Db {
       'options'=>'{"min_rows":0,"max_rows":12,"columns":[{"key":"child_name","label":"نام فرزند","type":"text","required":true},{"key":"child_birth","label":"تاریخ تولد","type":"date"}]}',
       'required'=>0,'user_editable'=>1]
   ];
-  static function all($sql,$p=[]){if(str_contains($sql,'SELECT id FROM custom_fields'))return array_map(static fn($f)=>['id'=>$f['id']],self::$fields);
+  static function all($sql,$p=[]){if(str_contains($sql,'SELECT id,ftype FROM custom_fields'))return array_map(static fn($f)=>['id'=>$f['id'],'ftype'=>$f['ftype']],self::$fields);
+    if(str_contains($sql,'SELECT id FROM custom_fields'))return array_map(static fn($f)=>['id'=>$f['id']],self::$fields);
     if(str_contains($sql,'custom_fields'))return self::$fields;throw new RuntimeException('Unexpected DB all');}
   static function one($sql,$p=[]){if(str_contains($sql,'information_schema.tables'))return ['n'=>0];throw new RuntimeException('Unexpected DB one');}
 }
@@ -27,6 +28,9 @@ testProfileForm('repeatable child groups inherit typed columns without exposing 
 $changed=$schema;$changed['sections'][3]['fields'][0]['binding']='system';
 try{UserProfileForms::validate($changed);throw new RuntimeException('FAIL arbitrary system binding');}
 catch(InvalidArgumentException $e){testProfileForm('unknown system binding rejected',true);}
+$typeMismatch=$schema;$typeMismatch['sections'][3]['fields'][0]['type']='file';
+try{UserProfileForms::validate($typeMismatch);throw new RuntimeException('FAIL custom type drift');}
+catch(InvalidArgumentException $e){testProfileForm('custom field type drift rejected before publish',true);}
 $changed=$schema;$changed['sections'][3]['fields'][0]['custom_field_id']=999;
 try{UserProfileForms::validate($changed);throw new RuntimeException('FAIL arbitrary custom binding');}
 catch(InvalidArgumentException $e){testProfileForm('mismatched custom field binding rejected',true);}
