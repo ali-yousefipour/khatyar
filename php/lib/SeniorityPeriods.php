@@ -6,7 +6,7 @@
 require_once __DIR__.'/Seniority.php';
 final class SeniorityPeriods {
   static function period($value) {
-    $value = str_replace('/', '-', trim((string)$value));
+    $value = str_replace('/', '-', strtr(trim((string)$value), '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789'));
     if (!preg_match('/^(1[34-6][0-9]{2})-(0[1-9]|1[0-2])$/D', $value, $m)) Http::error('ماه و سال شمسی معتبر نیست.',422);
     $y=(int)$m[1]; $month=(int)$m[2];
     if ($y<1300 || $y>1600) Http::error('سال انتخاب‌شده خارج از محدوده مجاز است.',422);
