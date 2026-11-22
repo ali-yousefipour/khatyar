@@ -17,4 +17,12 @@ assert.match(source,/JSON\.stringify\(payload\(\)\)/);
 assert.match(source,/sorts:\[/);
 assert.match(source,/role_id:/);
 assert.match(source,/zone_id:/);
+assert.match(source,/groupChecks=new Map/);
+assert.match(source,/انتخاب گروه/);
+assert.match(source,/حذف گروه/);
+assert.match(source,/canonicalOrder/);
+assert.match(source,/employment_start_from/);
+assert.match(source,/employment_end_to/);
+assert.match(source,/ستون‌های انتخاب‌نشده/);
+
 console.log('PASS configurable users report UI contract');
