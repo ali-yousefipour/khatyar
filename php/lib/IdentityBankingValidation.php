@@ -45,6 +45,51 @@ final class IdentityBankingValidation {
       return self::result('account',false,'invalid',['شماره حساب شامل نویسه غیرمجاز است.']);
     return self::result('account',true,'offline_unverifiable',[],['تبدیل و تطبیق شماره حساب داخلی با شبا بدون الگوریتم رسمی بانک قابل تأیید نیست.'],['normalized'=>preg_replace('/[ .-]/','',$s)]);
   }
+  /** Read-only batch audit, including custom bank fields; never returns full identifiers. */
+  public static function auditBatch(array $users,array $fields,array $values,array $allUsers): array {
+    $fieldKinds=[];
+    foreach($fields as $f){
+      $label=mb_strtolower((string)($f['fkey']??'').' '.(string)($f['label']??''));
+      if(preg_match('/شبا|\biban\b|\bsheba\b|\bshaba\b/iu',$label))$fieldKinds[(int)$f['id']]='iban';
+      elseif(preg_match('/شماره\s*حساب|account[_ -]?number|bank[_ -]?account/i',$label))$fieldKinds[(int)$f['id']]='account';
+      elseif(preg_match('/^بانک$|نام\s*بانک|bank[_ -]?name/i',trim($label)))$fieldKinds[(int)$f['id']]='bank';
+    }
+    $byUser=[];foreach($values as $v)if(isset($fieldKinds[(int)$v['field_id']]))
+      $byUser[(int)$v['user_id']][$fieldKinds[(int)$v['field_id']]]=(string)($v['value']??'');
+    $duplicates=self::duplicateNationalIds($allUsers);
+    $counts=['valid'=>0,'invalid_national'=>0,'missing_national'=>0,'duplicate_national'=>0,
+      'invalid_iban'=>0,'bank_mismatch'=>0,'unverified_account'=>0,'missing_banking'=>0];
+    $issues=[];
+    foreach($users as $person){
+      $id=(int)$person['id'];$national=self::nationalId($person['national_code']??'');
+      $problem=[];
+      if($national['status']==='missing_information'){$counts['missing_national']++;$problem[]='کد ملی ثبت نشده است';}
+      elseif(!$national['valid']){$counts['invalid_national']++;$problem=array_merge($problem,$national['errors']);}
+      else $counts['valid']++;
+      if(isset($duplicates[$id])){$counts['duplicate_national']++;$problem[]=$duplicates[$id];}
+      $bank=$byUser[$id]??[];
+      $bankText=trim((string)($bank['bank']??''));
+      $expect=str_contains($bankText,'شهر')?'061':null;
+      if(array_key_exists('iban',$bank)&&trim($bank['iban'])!==''){
+        $iban=self::iban($bank['iban'],$expect,true);
+        if(!$iban['valid']){
+          if($iban['status']==='mismatch')$counts['bank_mismatch']++;
+          else $counts['invalid_iban']++;
+          $problem=array_merge($problem,$iban['errors']);
+        }
+      }
+      if(array_key_exists('account',$bank)){
+        $account=self::account($bank['account']);
+        if($account['status']==='missing_information'){$counts['missing_banking']++;$problem[]='شماره حساب ثبت نشده است';}
+        elseif(!$account['valid'])$problem=array_merge($problem,$account['errors']);
+        else {$counts['unverified_account']++;$problem[]='صحت شماره حساب داخلی به‌صورت آفلاین قابل تأیید نیست';}
+      }
+      if($problem)$issues[]=['user_id'=>$id,'name'=>trim(($person['first_name']??'').' '.($person['last_name']??'')),
+        'personnel_code'=>(string)($person['personnel_code']??''),
+        'is_active'=>(int)($person['is_active']??0),'errors'=>array_values(array_unique($problem))];
+    }
+    return ['counts'=>$counts,'issues'=>$issues];
+  }
   /** Masked duplicate review is the caller's responsibility; include inactive users. */
   public static function duplicateNationalIds(array $users): array {
     $index=[];$result=[];
