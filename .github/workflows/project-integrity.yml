@@ -48,6 +48,8 @@ jobs:
           php php/tests/user_profile_forms_test.php
           php php/tests/user_profile_form_values_test.php
           php php/tests/user_profile_full_report_test.php
+          php -l php/lib/UserProfileAttachments.php
+          php php/tests/user_profile_attachments_test.php
           node php/tests/user_profile_deployment_test.cjs
           node mobile/scripts/test-user-profile-rules.cjs
           php -l php/lib/CompanyWork.php
