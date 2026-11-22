@@ -7380,62 +7380,12 @@ route('POST', '/api/my/device-info', function($p,$b,$u){
   return ['ok'=>true];
 }, false);
 
-// خروجی کامل اطلاعات کاربران (شامل فیلدهای سفارشی و اطلاعات دستگاه)
+// Legacy Excel URL is retained for compatibility but must honor the same
+// published report visibility policy as the configurable export. This prevents
+// bypassing a field disabled from reports through an older direct endpoint.
 route('GET', '/api/admin/users/export', function($p,$b,$u){
-  $users = Db::all("SELECT u.id,u.username,u.first_name,u.last_name,r.title role_title,u.phone,u.email,u.national_code,u.personnel_code,
-      u.birth_date,u.marital_status,u.children_count,u.address,u.seniority_start,u.is_active,u.can_send_sms,u.device_model,u.android_version,u.app_version,
-      u.signature_data,CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN NULL ELSE u.photo END AS photo_b64,u.photo_path
-    FROM users u LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.id");
-  $fields = Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id");
-  $allVals = Db::all("SELECT user_id,field_id,value FROM custom_field_values");
-  $valMap=[]; foreach($allVals as $v){ $valMap[$v['user_id']][$v['field_id']]=$v['value']; }
-  // تعداد تعهدات انضباطی هر کاربر
-  $commitMap = [];
-  try {
-    Db::run("CREATE TABLE IF NOT EXISTS user_commitments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, title VARCHAR(255) NOT NULL, description TEXT NULL, commit_jdate VARCHAR(10) NOT NULL, attachment_name VARCHAR(255) NULL, attachment_path VARCHAR(400) NULL, attachment_data LONGTEXT NULL, created_by INT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_uc_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    foreach (Db::all("SELECT user_id, COUNT(*) c FROM user_commitments GROUP BY user_id") as $cm) $commitMap[$cm['user_id']] = (int)$cm['c'];
-  } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-
-  $head=['ردیف','عکس پرسنلی','نام','نام خانوادگی','کد پرسنلی','کد ملی','تاریخ تولد','وضعیت تأهل','تعداد فرزند',
-    'موبایل','ایمیل','آدرس','سمت','شروع سنوات','وضعیت حساب','اجازهٔ پیامک','مدل گوشی','نسخهٔ اندروید','نسخهٔ برنامه',
-    'تعداد تعهدات انضباطی','شناسه کاربر','نام کاربری','امضا'];
-  $photoColIdx = 1; $sigColIdx = array_search('امضا', $head, true);
-  foreach($fields as $f) $head[]=$f['label'];
-
-  $xw = new XlsxWriter($head);
-  $xw->setProfessionalStyle();
-  $xw->setTextCol(4); // کد پرسنلی باید با صفرهای ابتدایی و تمام رقم‌ها حفظ شود
-  foreach ([0=>7,1=>15,2=>16,3=>18,4=>14,5=>15,6=>14,7=>13,8=>10,9=>16,10=>28,11=>34,12=>20,13=>14,
-            14=>12,15=>13,16=>20,17=>15,18=>15,19=>17,20=>10,21=>20] as $colIdx=>$width) $xw->setColWidth($colIdx, $width);
-  $xw->setColWidth($photoColIdx, 15);
-  $xw->setColWidth($sigColIdx, 16);
-
-  foreach($users as $userIndex=>$usr){
-    $row=[$userIndex+1,'',$usr['first_name'],$usr['last_name'],$usr['personnel_code'],$usr['national_code'],$usr['birth_date'],
-      $usr['marital_status'],$usr['children_count'],$usr['phone'],$usr['email'],$usr['address'],$usr['role_title'],$usr['seniority_start'],
-      $usr['is_active']?'فعال':'غیرفعال',$usr['can_send_sms']?'بله':'خیر',$usr['device_model'],$usr['android_version'],$usr['app_version'],
-      $commitMap[$usr['id']] ?? 0,$usr['id'],$usr['username'],'', // عکس و امضا به‌صورت تصویر جاسازی می‌شوند
-    ];
-    foreach($fields as $f){ $row[]= $valMap[$usr['id']][$f['id']] ?? ''; }
-    $rIdx = $xw->addRow($row);
-
-    // عکس پرسنلی: از فایل فیزیکی (photo_path) یا از ستون قدیمی base64
-    $photoBytes = null;
-    if (!empty($usr['photo_path'])) {
-      $full = Media::fullPath($usr['photo_path']);
-      if ($full && is_file($full)) $photoBytes = @file_get_contents($full);
-    } elseif (!empty($usr['photo_b64']) && strpos($usr['photo_b64'], 'base64,') !== false) {
-      $photoBytes = base64_decode(substr($usr['photo_b64'], strpos($usr['photo_b64'], 'base64,') + 7), true) ?: null;
-    }
-    if ($photoBytes) $xw->setImage($rIdx, $photoColIdx, $photoBytes, 90);
-
-    // امضا: در ستون signature_data به‌صورت data URI ذخیره شده است
-    if (!empty($usr['signature_data']) && strpos($usr['signature_data'], 'base64,') !== false) {
-      $sigBytes = base64_decode(substr($usr['signature_data'], strpos($usr['signature_data'], 'base64,') + 7), true) ?: null;
-      if ($sigBytes) $xw->setImage($rIdx, $sigColIdx, $sigBytes, 110);
-    }
-  }
-  $xw->output('اطلاعات_کامل_کاربران.xlsx', 'کاربران');
+  require_once __DIR__.'/UserFullReport.php';
+  UserFullReport::run([],true);
 }, false, ADMIN);
 
 route('GET', '/api/auth/me', function($p,$b,$u){
