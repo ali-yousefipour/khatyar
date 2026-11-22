@@ -39,7 +39,7 @@ export function formatProfileFieldValue(field,value){
   return String(value??'').replace(/\|/g,'، ')||'—';
 }
 
-function PrivateProfileAttachment({field}){
+function PrivateProfileAttachment({field,onStatus,readOnly=false}){
   const [status,setStatus]=useState(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -50,7 +50,7 @@ function PrivateProfileAttachment({field}){
   useEffect(()=>{
     let active=true;
     if(!Number.isSafeInteger(fieldId)||fieldId<1)return;
-    request(path+'/status',{noStore:true}).then(result=>{if(active)setStatus(result);})
+    request(path+'/status',{noStore:true}).then(result=>{if(active){setStatus(result);onStatus?.(field.id,!!result?.exists);}})
       .catch(e=>{if(active)setError(e.message||'دریافت وضعیت مدرک ناموفق بود');});
     return()=>{active=false;};
   },[fieldId]);
@@ -72,6 +72,7 @@ function PrivateProfileAttachment({field}){
         asset.mimeType||'application/octet-stream',{queueIfOffline:false,timeoutMs:60000});
       if(!response?.ok||response?.queued)throw new Error('ثبت قطعی مدرک توسط سرور تأیید نشد');
       setStatus({exists:true,name:response.name||asset.name||'فایل خصوصی'});
+      onStatus?.(field.id,true);
       await reload().catch(e=>setError(e.message||'وضعیت مدرک به‌روز نشد؛ ثبت فایل موفق بود'));
       Alert.alert('ثبت شد','مدرک در فضای خصوصی سامانه ذخیره شد.');
     }catch(e){setError(e.message||'بارگذاری مدرک انجام نشد');}
@@ -81,14 +82,14 @@ function PrivateProfileAttachment({field}){
     <Text style={s.muted}>{status?.exists?'مدرک ثبت‌شده: '+(status.name||'فایل خصوصی'):'مدرکی برای این فیلد ثبت نشده است.'}</Text>
     <Text style={s.muted}>فقط PDF، JPEG، PNG و WebP؛ حداکثر ۸ مگابایت. بارگذاری آنلاین و امن است.</Text>
     {error?<Text accessibilityRole="alert" style={s.errorText}>{error}</Text>:null}
-    <TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy,busy}}
+    {!readOnly&&<TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy,busy}}
       disabled={busy} style={[s.btn,busy&&{opacity:.6}]} onPress={select}>
       <Text style={s.btnTxt}>{busy?'در حال بارگذاری…':status?.exists?'تعویض مدرک':'انتخاب و بارگذاری مدرک'}</Text>
-    </TouchableOpacity>
+    </TouchableOpacity>}
   </View>;
 }
 
-export function FieldInput({ field, value, onChange, onBlur }) {
+export function FieldInput({ field, value, onChange, onBlur, onAttachmentStatus }) {
   const opts = (field.options || '').split('|').filter(Boolean);
   if (field.ftype === 'repeater') {
     let settings={};
@@ -133,7 +134,7 @@ export function FieldInput({ field, value, onChange, onBlur }) {
     return <TextInput style={s.input} keyboardType="email-address" autoCapitalize="none" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} />;
   if (field.ftype === 'calculated') return <Text style={s.roVal}>{String(value??'—')}</Text>;
   if (['heading','description','divider'].includes(field.ftype))return <Text style={s.sectionT}>{field.description||field.label||''}</Text>;
-  if (['image','file'].includes(field.ftype))return <PrivateProfileAttachment field={field} />;
+  if (['image','file'].includes(field.ftype))return <PrivateProfileAttachment field={field} onStatus={onAttachmentStatus} />;
   if (field.ftype === 'date')
     return <JDateInput value={value} onChange={onChange} />;
   if (field.ftype === 'checkbox' || field.ftype === 'boolean')
@@ -195,6 +196,7 @@ export default function CustomFieldsScreen({ navigation }) {
   const [fields, setFields] = useState(null);
   const [vals, setVals] = useState({});
   const [originalVals, setOriginalVals] = useState({});
+  const [attachmentPresence,setAttachmentPresence] = useState({});
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [touched,setTouched] = useState({});
@@ -206,7 +208,7 @@ export default function CustomFieldsScreen({ navigation }) {
   const [editingAllowed,setEditingAllowed] = useState(true);
 
   const load = async () => {
-    setLoading(true);
+    setLoading(true);setAttachmentPresence({});
     try {
       const [fs,profileResponse,formResponse] = await Promise.all([
         request('/my/custom-fields', { noStore: true }),
@@ -239,7 +241,8 @@ export default function CustomFieldsScreen({ navigation }) {
 
   const save = async () => {
     if(!editingAllowed){Alert.alert('فقط مشاهده','مدیر سامانه امکان ویرایش اطلاعات تکمیلی را غیرفعال کرده است.');return;}
-    const merged={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))};
+    const merged={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v])),
+      ...Object.fromEntries(Object.entries(attachmentPresence).map(([id,present])=>['cf_'+id,present?'1':null]))};
     const missing = (fields || []).filter((f) => {const st=profileFieldState(f.profile_definition||f,merged);return !['file','image'].includes(f.ftype)&&st.visible&&st.enabled&&st.required&&f.user_editable&&!st.readonly&&
       profileCanEdit(f.profile_definition||f,profile)&&!String(vals[f.id]??'').trim();});
     if (missing.length) { Alert.alert('تکمیل الزامی', `این موارد الزامی‌اند: ${missing.map((m) => m.label).join('، ')}`); return; }
@@ -279,7 +282,8 @@ export default function CustomFieldsScreen({ navigation }) {
   if (fields === null) return <View style={s.center}><Text style={s.errorText}>{loadError || 'اطلاعات تکمیلی در دسترس نیست.'}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>;
   if (!fields.length) return <View style={s.center}><Text style={s.muted}>{loadError || 'فیلدی برای تکمیل تعریف نشده است.'}</Text>{!!loadError && <TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity>}</View>;
 
-  const values={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))};
+  const values={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v])),
+    ...Object.fromEntries(Object.entries(attachmentPresence).map(([id,present])=>['cf_'+id,present?'1':null]))};
   const visible=fields.filter(f=>profileFieldState(f.profile_definition||f,values).visible);
   const editable = visible.filter((f) => editingAllowed && f.user_editable && profileCanEdit(f.profile_definition||f,profile) && profileFieldState(f.profile_definition||f,values).enabled && !profileFieldState(f.profile_definition||f,values).readonly);
   const readonly = visible.filter((f) => !editingAllowed || !f.user_editable || !profileCanEdit(f.profile_definition||f,profile) || !profileFieldState(f.profile_definition||f,values).enabled || profileFieldState(f.profile_definition||f,values).readonly);
