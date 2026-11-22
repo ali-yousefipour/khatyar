@@ -9301,8 +9301,9 @@ function PayrollEditor({userId,userName}){
 }
 
 function UserCustomValues({userId}){
-  const [open,setOpen]=useState(false); const [fields,setFields]=useState(null); const [vals,setVals]=useState({});
+  const [open,setOpen]=useState(true); const [fields,setFields]=useState(null); const [vals,setVals]=useState({});
   const load=()=>{ setOpen(true); db.userCustomValues(userId).then(fs=>{ setFields(fs); const m={}; fs.forEach(f=>{ m[f.id]= f.ftype==="multiselect" ? (f.value?f.value.split("|"):[]) : (f.value||""); }); setVals(m); }).catch(()=>setFields([])); };
+  useEffect(()=>{load();},[userId]);
   const save=async()=>{ try{ await db.saveUserCustomValues(userId,vals); alert("اطلاعات ذخیره شد."); }catch(e){alert(e.message||"خطا");} };
   if(!userId) return null;
   const setV=(id,v)=>setVals(s=>({...s,[id]:v}));
