@@ -31,7 +31,9 @@ const element=tag=>{
  Object.defineProperty(obj,'id',{get(){return this._id;},set(v){this._id=v;nodes.set(v,this);}});
  return obj;
 };
+let mapMounted=false;
 const doc={
+ querySelector(selector){return selector==='.live-map-tabs'&&mapMounted?{}:null;},
  head:{appendChild(){}},body:{appendChild(el){el.isConnected=true;}},
  createElement:element,addEventListener(){},
  getElementById(id){return nodes.get(id)||null;},visibilityState:'visible'
@@ -89,6 +91,18 @@ assert.equal(api.classify('/api/admin/users',{method:'DELETE'}),null);
  resolveFetch({ok:true,status:204,body:null});
  await d;
  assert.equal(overlay().hidden,true,'no-body responses clear without a watchdog');
+ // Requests and explicit progress must stay invisible on live map even if
+ // they target a generally slow admin endpoint (initial view and 15s polling).
+ mapMounted=true;
+ assert.equal(api.classify('/api/admin/users'),null);
+ assert.equal(api.classify('/api/admin/stats'),null);
+ const quiet=win.fetch('/api/admin/stats');
+ assert.equal(overlay().hidden,true,'background fetch on map never blocks the view');
+ resolveFetch({ok:true,status:204,body:null});await quiet;
+ const mapExplicit=api.begin('در حال دریافت اطلاعات',{delay:0,percent:50});
+ assert.equal(overlay().hidden,true,'explicit loaders also hidden on live map');
+ api.end(mapExplicit);
+ mapMounted=false;
  const id=api.begin('گزارش ماهانه',{delay:0,percent:47});
  assert.equal(overlay().hidden,false,'explicit work begins on click');
  assert.equal(overlay().querySelector('progress').value,47);
