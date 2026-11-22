@@ -1,8 +1,29 @@
 <?php
 // Run: php php/tests/zone_chart_sync_test.php
 class Http {public static function error($message,$code){throw new RuntimeException($message,$code);}}
+class FakeConnection {
+ private $snapshot=null;
+ public function beginTransaction(){$this->snapshot=[Db::$links,Db::$primary];}
+ public function inTransaction(){return $this->snapshot!==null;}
+ public function commit(){$this->snapshot=null;}
+ public function rollBack(){[Db::$links,Db::$primary]=$this->snapshot;$this->snapshot=null;}
+}
 class Db {
- public static function run($sql,$args=[]){return null;}
+ public static $links=[];
+ public static $primary=[];
+ public static $failWrite=false;
+ public static $connection;
+ public static function pdo(){return self::$connection??=new FakeConnection();}
+ public static function run($sql,$args=[]){
+  if(str_starts_with($sql,'CREATE TABLE IF NOT EXISTS zone_leadership'))return;
+  if(str_starts_with($sql,'DELETE FROM user_managers')){self::$links[(int)$args[0]]=[];return;}
+  if(str_starts_with($sql,'INSERT INTO user_managers')){
+   if(self::$failWrite)throw new RuntimeException('Simulated SQL failure');
+   self::$links[(int)$args[0]][]=(int)$args[1];return;
+  }
+  if(str_starts_with($sql,'UPDATE users SET manager_id=')){self::$primary[(int)$args[1]]=$args[0];return;}
+  throw new LogicException('Unexpected update '.$sql);
+ }
  public static function all($sql,$args=[]){
   if(str_contains($sql,'FROM zones'))return [
    ['id'=>1,'name'=>'منطقه مادر','parent_id'=>null],
@@ -33,4 +54,18 @@ if(parentsOf($result['edges'],11)!==[10]||parentsOf($result['edges'],12)!==[10])
 if(parentsOf($result['edges'],15)!==[])throw new RuntimeException('Unrelated region leaked');
 if(ZoneChartSync::snapshot(2)['staff_count']!==4)throw new RuntimeException('Subregion scope invalid');
 try{ZoneChartSync::snapshot(999);throw new RuntimeException('Missing zone accepted');}catch(RuntimeException $e){if($e->getCode()!==404)throw $e;}
+// Persist the exact graph consumed by the saved chart, not only the regional preview.
+Db::$links=[15=>[99],13=>[99]];Db::$primary=[15=>99,13=>99];
+$saved=ZoneChartSync::synchronize(1);
+if(($saved['persisted']??false)!==true||$saved['saved_relations']<4)throw new RuntimeException('Sync did not save');
+sort(Db::$links[13]);sort(Db::$links[14]);
+if(Db::$links[13]!==[11,12]||Db::$links[14]!==[11,12])throw new RuntimeException('Multi-inspector links not persisted');
+if(Db::$links[11]!==[10]||Db::$links[12]!==[10])throw new RuntimeException('Senior links not persisted');
+if(Db::$primary[13]!==11||Db::$links[15]!==[99]||Db::$primary[15]!==99)throw new RuntimeException('Primary manager or unrelated zone changed');
+$before=[Db::$links,Db::$primary];
+Db::$failWrite=true;
+try{ZoneChartSync::synchronize(1);throw new RuntimeException('Write error ignored');}
+catch(RuntimeException $e){if($e->getMessage()!=='Simulated SQL failure')throw $e;}
+Db::$failWrite=false;
+if([Db::$links,Db::$primary]!==$before||Db::pdo()->inTransaction())throw new RuntimeException('Transactional rollback failed');
 echo "PASS region chart synchronization: two inspectors, parent senior, descendant scope, isolation, missing zone\n";
