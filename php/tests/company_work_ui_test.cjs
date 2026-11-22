@@ -41,6 +41,33 @@ const settle=()=>new Promise(r=>setImmediate(r));
   response=async()=>ok(archive);wait.resolve(ok({generated:false,snapshot:{rows:[row],has_errors:true,account_field:{label:'شماره حساب'}}}));await generating;tree=render();assert(nodes(tree,n=>n.type==='Modal'&&n.props.title==='مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید').length===1);
   response=async()=>({ok:false,text:async()=>JSON.stringify({error:'دسترسی مجاز نیست'})});await button(tree,'جزئیات و تطبیق').props.onClick();tree=render();assert(text(tree).includes('دسترسی مجاز نیست'));
   response=async()=>({ok:true,blob:async()=>({})});await button(tree,'دانلود فایل سازمان').props.onClick();assert(downloads.some(x=>x[0]==='download'&&x[1].endsWith('.xlsx')));assert(downloads.some(x=>x[0]==='revoke'));
+  // A newly generated company archive must download immediately and keep a
+  // second, explicit download action in its details dialog.
+  const downloadBefore=downloads.filter(x=>x[0]==='download').length;
+  response=async(url,options)=>{
+    if(url.includes('/sources/1/generate'))return ok({generated:true,id:41,snapshot:{rows:[row],has_errors:false,account_field:{label:'شماره حساب'}}});
+    if(url.includes('/files/41/download'))return {ok:true,headers:{get:()=> 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},blob:async()=>({size:512})};
+    return ok(archive);
+  };
+  await button(tree,'ساخت و آرشیو فایل شرکت').props.onClick();
+  tree=render();
+  assert(downloads.filter(x=>x[0]==='download').length>downloadBefore,'successful generation immediately downloads archived XLSX');
+  assert(downloads.some(x=>x[0]==='download'&&x[1].includes('نسخه-41.xlsx')),'generated download has archive revision in filename');
+  assert(button(tree,'دانلود فایل شرکت (XLSX)'),'generated detail modal offers explicit download');
+  const again=downloads.filter(x=>x[0]==='download').length;
+  await button(tree,'دانلود فایل شرکت (XLSX)').props.onClick();
+  assert(downloads.filter(x=>x[0]==='download').length===again+1,'generated detail button re-downloads the archived version');
+  // Previously archived reports use their own id and require no regeneration.
+  response=async(url)=>{
+    if(url.endsWith('/files/2'))return ok({id:2,snapshot:{rows:[row],has_errors:false,account_field:{label:'شماره حساب'}}});
+    if(url.includes('/files/2/download'))return {ok:true,headers:{get:()=> 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},blob:async()=>({size:1024})};
+    return ok(archive);
+  };
+  await button(tree,'جزئیات نسخه').props.onClick();tree=render();
+  assert(button(tree,'دانلود فایل شرکت (XLSX)'),'old archive details expose a download button');
+  await button(tree,'دانلود فایل شرکت (XLSX)').props.onClick();
+  assert(calls.some(x=>x.url.includes('/files/2/download')),'old archive downloads from its original immutable id');
+  response=async()=>ok(archive);tree=render();
   const late=deferred();response=()=>late.promise;const loading=button(tree,'جزئیات و تطبیق').props.onClick();for(const e of effects)e?.cleanup?.();late.resolve(ok({rows:[{...row,first_name:'stale-response'}]}));await loading;tree=render();assert(!text(tree).includes('stale-response'),'unmounted late response ignored');
   assert(calls.every(x=>x.options.headers.Authorization==='Bearer test'));assert(bundle.includes('reportTab === "company-final"'));assert(bundle.includes('key: periodKey, year: jy, month: jm'),'period changes remount and reset source selection');
   console.log('PASS company UI: real details, search, zero-prefixed identity, explicit account source, duplicate actions, period locking, errors, authenticated downloads, unmount cleanup');
