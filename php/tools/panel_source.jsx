@@ -1925,7 +1925,15 @@ function Users(){
       <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
     </Modal>}
     {edit&&<Modal title="ویرایش کاربر" className="users-edit-dialog" style={{width:"min(1100px,calc(100vw - 24px))"}} onClose={()=>{setEdit(null);setPw("");}}>
-      <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12,position:"sticky",top:0,zIndex:5,background:"var(--surface,#fff)",padding:"8px 4px",borderBottom:"1px solid var(--line)"}}>
+      <div className="users-edit-summary">
+        {edit.photo?<img src={edit.photo} alt="تصویر پرسنلی" className="users-edit-avatar"/>:<span className="users-edit-avatar users-edit-avatar-fallback">{(edit.first_name||"؟")[0]}</span>}
+        <div className="users-edit-summary-name">
+          <strong>{edit.first_name||""} {edit.last_name||""}</strong>
+          <small>{edit.username||"—"} · {edit.personnel_code||"کد پرسنلی ثبت نشده"} · {edit.role_title||rt(edit.role_id)||"سمت ثبت نشده"}</small>
+        </div>
+        <span className={"badge "+(edit.is_active?"b-ok":"b-no")}>{edit.is_active?"حساب فعال":"حساب غیرفعال"}</span>
+      </div>
+      <div className="row users-edit-tablist" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"nowrap",marginBottom:12,padding:"8px 4px",borderBottom:"1px solid var(--line)"}}>
         <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
         <button role="tab" aria-selected={editTab==="identity"} className={"btn "+(editTab==="identity"?"p":"g")} onClick={()=>setEditTab("identity")}>اطلاعات هویتی</button>
         <button role="tab" aria-selected={editTab==="contact"} className={"btn "+(editTab==="contact"?"p":"g")} onClick={()=>setEditTab("contact")}>تماس و نشانی</button>
@@ -1936,14 +1944,11 @@ function Users(){
         <button role="tab" aria-selected={editTab==="custom"} className={"btn "+(editTab==="custom"?"p":"g")} onClick={()=>setEditTab("custom")}>اطلاعات تکمیلی و سفارشی</button>
         <button role="tab" aria-selected={editTab==="access"} className={"btn "+(editTab==="access"?"p":"g")} onClick={()=>setEditTab("access")}>تنظیمات حساب و دسترسی</button>
       </div>
+      <div className="users-edit-body">
       {<div>
 
       <div style={{display:editTab==="profile"?"block":"none"}}>
-        <div className="row" style={{gap:12,alignItems:"center",marginBottom:16}}>
-          {edit.photo?<img src={edit.photo} alt="تصویر پرسنلی" style={{width:66,height:66,borderRadius:14,objectFit:"cover"}}/>:<span className="pf2" style={{width:66,height:66,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
-          <div style={{flex:1}}><strong>{edit.first_name||""} {edit.last_name||""}</strong><div className="muted" style={{fontSize:12}}>{edit.username||"—"} · {edit.personnel_code||"کد پرسنلی ثبت نشده"}</div></div>
-          <label className="btn g" style={{cursor:"pointer"}}>تغییر تصویر<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label>
-        </div>
+        <div className="row" style={{marginBottom:14}}><label className="btn g" style={{cursor:"pointer"}}>تغییر تصویر کاربر<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label></div>
         <div className="row" style={{gap:10,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:180}}><label>نام</label><input className="input" value={edit.first_name||""} onChange={e=>setEdit({...edit,first_name:e.target.value})}/></div>
           <div style={{flex:1,minWidth:180}}><label>نام خانوادگی</label><input className="input" value={edit.last_name||""} onChange={e=>setEdit({...edit,last_name:e.target.value})}/></div>
@@ -2020,7 +2025,12 @@ function Users(){
         <button className="btn g" onClick={()=>revoke(edit.id,'android')}>حذف دستگاه اندروید</button>
         <button className="btn g" onClick={()=>revoke(edit.id,'web')}>حذف نشست وب</button></div>
       </>}
-      <button className="btn p" style={{marginTop:14,position:"sticky",bottom:0,zIndex:4,minHeight:44,boxShadow:"0 -4px 12px #0001"}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
+      </div>
+      <div className="users-edit-footer">
+        <span className="muted" role="status">{savingUser?"در حال ذخیره اطلاعات کاربر…":"تغییرات اصلی و تکمیلی با هم ذخیره می‌شوند."}</span>
+        <button className="btn g" type="button" disabled={savingUser} onClick={()=>{setEdit(null);setPw("");}}>انصراف</button>
+        <button className="btn p" type="button" disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره و بستن"}</button>
+      </div></Modal>}
     {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
       <p role="status">پیشرفت: {fa(identityAudit.scanned)} از {fa(identityAudit.total)} کاربر {identityAudit.done?"— تکمیل شد":"— در حال بررسی"}</p>
       <progress style={{width:"100%"}} max={Math.max(identityAudit.total,1)} value={identityAudit.scanned} aria-label="میزان واقعی پیشرفت ممیزی"/>
