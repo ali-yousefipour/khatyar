@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { request } from '../api';
+import { validateIban,validateAccount,normalizeIranianDigits } from '../identityBankingValidation';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
@@ -18,12 +19,12 @@ function JDateInput({ value, onChange }) {
   );
 }
 
-function FieldInput({ field, value, onChange }) {
+function FieldInput({ field, value, onChange, onBlur }) {
   const opts = (field.options || '').split('|').filter(Boolean);
   if (field.ftype === 'textarea')
     return <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} multiline value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
   if (field.ftype === 'number')
-    return <TextInput style={s.input} keyboardType="numeric" value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
+    return <TextInput style={s.input} keyboardType="numeric" value={value || ''} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
   if (field.ftype === 'date')
     return <JDateInput value={value} onChange={onChange} />;
   if (field.ftype === 'checkbox')
@@ -64,14 +65,29 @@ function FieldInput({ field, value, onChange }) {
       </View>
     );
   }
-  return <TextInput style={s.input} value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
+  return <TextInput style={s.input} value={value || ''} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
 }
 
+function bankingFieldKind(field){
+  const name=String(field.fkey||'')+' '+String(field.label||'');
+  if(/شبا|\\biban\\b|\\bsheba\\b|\\bshaba\\b/i.test(name))return 'iban';
+  if(/شماره\\s*حساب|account[_ -]?number|bank[_ -]?account/i.test(name))return 'account';
+  return null;
+}
+function bankValidation(field,value,allFields,vals){
+  const kind=bankingFieldKind(field);
+  if(!kind||!String(value??'').trim())return null;
+  if(kind==='account')return validateAccount(value);
+  const bankField=allFields.find(f=>/نام\\s*بانک|bank[_ -]?name|^بانک$/.test(String(f.fkey||'')+' '+String(f.label||'')));
+  const selected=String(vals[bankField?.id]||'');
+  return validateIban(value,{expectedBank:selected.includes('شهر')?'061':null,allowWithoutPrefix:true});
+}
 export default function CustomFieldsScreen({ navigation }) {
   const [fields, setFields] = useState(null);
   const [vals, setVals] = useState({});
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [touched,setTouched] = useState({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +109,15 @@ export default function CustomFieldsScreen({ navigation }) {
   const save = async () => {
     const missing = (fields || []).filter((f) => f.required && f.user_editable && !String(vals[f.id] || '').trim());
     if (missing.length) { Alert.alert('تکمیل الزامی', `این موارد الزامی‌اند: ${missing.map((m) => m.label).join('، ')}`); return; }
+    for(const field of fields||[]){
+      if(!field.user_editable)continue;
+      const check=bankValidation(field,vals[field.id],fields,vals);
+      if(check&&!check.valid){
+        setTouched(current=>({...current,[field.id]:true}));
+        Alert.alert('اطلاعات بانکی نامعتبر',check.errors[0]||'مغایرت اطلاعات بانکی');
+        return;
+      }
+    }
     setBusy(true);
     try {
       const payload = {};
@@ -140,7 +165,8 @@ export default function CustomFieldsScreen({ navigation }) {
       {editable.map((f) => (
         <View key={f.id} style={s.fieldWrap}>
           <Text style={s.label}>{f.label}{f.required ? ' *' : ''}</Text>
-          <FieldInput field={f} value={vals[f.id]} onChange={(v) => setVals({ ...vals, [f.id]: v })} />
+          <FieldInput field={f} value={vals[f.id]} onChange={(v) => {setTouched(current=>({...current,[f.id]:false}));setVals({ ...vals, [f.id]: bankingFieldKind(f)?normalizeIranianDigits(v):v });}} onBlur={()=>setTouched(current=>({...current,[f.id]:true}))} />
+          {!!touched[f.id] && !!bankValidation(f,vals[f.id],fields,vals) && <Text accessibilityRole="text" style={{fontFamily:FONT.regular,color:bankValidation(f,vals[f.id],fields,vals).valid?C.muted:'#b91c1c',fontSize:12,lineHeight:21,textAlign:'right',marginTop:5}}>{bankValidation(f,vals[f.id],fields,vals).valid?'✓ '+(bankingFieldKind(f)==='iban'?'ساختار شبا معتبر است؛ مالکیت حساب تأیید نشده است.':'شماره حساب به استعلام بانکی نیاز دارد.'):bankValidation(f,vals[f.id],fields,vals).errors[0]}</Text>}
         </View>
       ))}
 
