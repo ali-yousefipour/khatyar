@@ -45,4 +45,8 @@ assert.match(custom,/field\.ftype === 'repeater'/,'Android renders repeatable ro
 assert.match(custom,/JSON\.stringify\(next\)/,'Android serializes repeatable updates');
 assert.match(custom,/export function formatProfileFieldValue/,'Android presents readable child records');
 assert.match(account,/formatProfileFieldValue\(field,extraValues\[field\.id\]\)/,'main profile shows readable child records');
+assert.match(routes,/UserProfileFormValues::normalizeField\(\$field,\$val\)/,'admin writes validate repeatable JSON server-side');
+assert.match(panel,/function CustomFieldInput/,'web admin uses shared custom-field renderer');
+assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable child rows');
+assert.match(panel,/const \[originalVals,setOriginalVals\]/,'admin saves only changed custom values');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
