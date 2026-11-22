@@ -5,19 +5,19 @@
   "source_heuristic_sloc": 102093,
   "source_physical_loc": 113544,
   "cloc_exit_code": 0,
-  "cloc_output_suffix": "\n\nOne or more files took longer to process than expected.\nTry rerunning without timeout guards by adding  --timeout 0\nto your command line arguments.  See the documentation on\nthe --timeout switch for",
+  "cloc_output_suffix": "\n",
   "cloc_totals": {
     "blank": 5211,
-    "comment": 14918,
-    "code": 91858,
+    "comment": 10133,
+    "code": 96643,
     "nFiles": 676
   },
   "cloc_by_language": {
     "JavaScript": {
       "nFiles": 395,
       "blank": 1739,
-      "comment": 2047,
-      "code": 33414
+      "comment": 1427,
+      "code": 34034
     },
     "PHP": {
       "nFiles": 148,
@@ -28,8 +28,8 @@
     "JSX": {
       "nFiles": 3,
       "blank": 571,
-      "comment": 8390,
-      "code": 9956
+      "comment": 4225,
+      "code": 14121
     },
     "SQL": {
       "nFiles": 56,

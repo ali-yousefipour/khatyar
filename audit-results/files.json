@@ -732,8 +732,8 @@
     "path": "audit-results/files.json",
     "section": "other",
     "ext": ".json",
-    "loc": 13421,
-    "sloc_approx": 13421,
+    "loc": 13493,
+    "sloc_approx": 13493,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -741,8 +741,8 @@
     "path": "audit-results/independent_loc_crosscheck.json",
     "section": "other",
     "ext": ".json",
-    "loc": 9,
-    "sloc_approx": 9,
+    "loc": 89,
+    "sloc_approx": 89,
     "blank": 0,
     "comment_lines_approx": 0
   },
