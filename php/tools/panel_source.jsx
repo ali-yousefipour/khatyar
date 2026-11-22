@@ -4983,28 +4983,58 @@ function UserProfileFormDesigner(){
     const field=d.sections.flatMap(s=>s.fields).find(x=>x.key===selected);
     const rule=field.rules[index];fn(rule);
   });
-  const match=(condition,values)=>{
-    if(condition?.all)return condition.all.every(c=>match(c,values));
-    if(condition?.any)return condition.any.some(c=>match(c,values));
-    const v=values[condition?.field],x=condition?.value;
-    if(condition?.op==="empty")return v==null||v==="";
-    if(condition?.op==="not_empty")return v!=null&&v!=="";
-    if(condition?.op==="eq")return String(v??"")===String(x??"");
-    if(condition?.op==="neq")return String(v??"")!==String(x??"");
-    if(condition?.op==="gt")return Number(v)>Number(x);
-    if(condition?.op==="gte")return Number(v)>=Number(x);
-    if(condition?.op==="lt")return Number(v)<Number(x);
-    if(condition?.op==="lte")return Number(v)<=Number(x);
-    if(condition?.op==="in")return Array.isArray(x)&&x.map(String).includes(String(v));
-    if(condition?.op==="not_in")return Array.isArray(x)&&!x.map(String).includes(String(v));
-    if(condition?.op==="true")return v===true||v===1||v==="1";
-    if(condition?.op==="false")return v===false||v===0||v==="0"||v==null;
-    if(condition?.op==="contains")return String(v??"").includes(String(x??""));
-    if(condition?.op==="not_contains")return !String(v??"").includes(String(x??""));
-    if(condition?.op==="date_between")return Array.isArray(x)&&v>=x[0]&&v<=x[1];
-    if(condition?.op==="date_outside")return Array.isArray(x)&&(v<x[0]||v>x[1]);
-    return false;
+  const previewDigits=value=>String(value??"").replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+    .replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c)));
+  const previewNumber=value=>{
+    const raw=previewDigits(value).trim();
+    return /^-?\d+(?:\.\d+)?$/.test(raw)?Number(raw):null;
   };
+  const previewDate=value=>{
+    const raw=previewDigits(value).replace(/\//g,"-");
+    const m=/^(1[34]\d{2})-(\d{2})-(\d{2})$/.exec(raw);
+    if(!m)return null;
+    const month=Number(m[2]),day=Number(m[3]);
+    return month>=1&&month<=12&&day>=1&&day<=(month<=6?31:30)?raw:null;
+  };
+  const match=(condition,values)=>{
+    if(condition?.all)return condition.all.length>0&&condition.all.every(c=>match(c,values));
+    if(condition?.any)return condition.any.length>0&&condition.any.some(c=>match(c,values));
+    const v=values[condition?.field],x=condition?.value;
+    const empty=v==null||v===""||(Array.isArray(v)&&v.length===0);
+    switch(condition?.op){
+      case "empty":return empty;
+      case "not_empty":return !empty;
+      case "eq":return !empty&&String(v)===String(x);
+      case "neq":return empty||String(v)!==String(x);
+      case "gt":case "gte":case "lt":case "lte":{
+        const a=previewNumber(v),b=previewNumber(x);
+        if(a===null||b===null)return false;
+        return condition.op==="gt"?a>b:condition.op==="gte"?a>=b:condition.op==="lt"?a<b:a<=b;
+      }
+      case "in":case "not_in":{
+        if(!Array.isArray(x))return false;
+        const options=x.map(String),selected=Array.isArray(v)?v.map(String):empty?[]:[String(v)];
+        const yes=selected.some(value=>options.includes(value));
+        return condition.op==="in"?yes:!yes;
+      }
+      case "contains":return Array.isArray(v)?v.includes(x):String(v??"").includes(String(x??""));
+      case "not_contains":return Array.isArray(v)?!v.includes(x):!String(v??"").includes(String(x??""));
+      case "true":return v===true||v===1||v==="1";
+      case "false":return v===false||v===0||v==="0"||empty;
+      case "date_between":case "date_outside":{
+        const a=previewDate(v),lo=previewDate(x?.[0]),hi=previewDate(x?.[1]);
+        if(!a||!lo||!hi||lo>hi)return false;
+        const yes=a>=lo&&a<=hi;
+        return condition.op==="date_between"?yes:!yes;
+      }
+      default:return false;
+    }
+  };
+  const referencedRuleFields=condition=>condition?.all||condition?.any
+    ? (condition.all||condition.any).flatMap(referencedRuleFields)
+    : condition?.field?[condition.field]:[];
+  const previewConditionKeys=new Set(fields.flatMap(f=>(f.rules||[]).flatMap(rule=>referencedRuleFields(rule.when))));
+  const previewControls=fields.filter(f=>previewConditionKeys.has(f.key));
   const stateOf=(field)=>{
     const state={visible:field.visible!==false,required:!!field.required,readonly:!!field.readonly,enabled:field.enabled!==false};
     for(const rule of field.rules||[]){
@@ -5068,7 +5098,20 @@ function UserProfileFormDesigner(){
     {!model?<p className="muted">در حال دریافت فرم…</p>:preview?
       <div style={{display:"grid",gap:12}}>
         <div className="row" style={{flexWrap:"wrap",gap:8}}>
-          {fields.filter(f=>["gender","marital_status","children_count"].includes(f.key)).map(f=><label key={f.key}>{f.label}<input className="input" value={previewValues[f.key]??""} onChange={e=>setPreviewValues(v=>({...v,[f.key]:e.target.value}))}/></label>)}
+          {previewControls.map(f=><label key={f.key} style={{minWidth:160}}>{f.label}
+            {["select","radio"].includes(f.type)&&Array.isArray(f.options)&&f.options.length?
+              <select className="input" value={previewValues[f.key]??""} onChange={e=>setPreviewValues(v=>({...v,[f.key]:e.target.value}))}>
+                <option value="">انتخاب کنید</option>{f.options.map(o=><option key={o} value={o}>{o}</option>)}
+              </select>:
+              ["boolean","checkbox"].includes(f.type)?
+              <select className="input" value={previewValues[f.key]??""} onChange={e=>setPreviewValues(v=>({...v,[f.key]:e.target.value}))}>
+                <option value="">نامشخص</option><option value="1">بله</option><option value="0">خیر</option>
+              </select>:
+              <input className="input" dir={["date","number"].includes(f.type)?"ltr":"rtl"}
+                placeholder={f.type==="date"?"۱۴۰۵/۰۸/۰۱":"مقدار آزمایشی"}
+                value={previewValues[f.key]??""} onChange={e=>setPreviewValues(v=>({...v,[f.key]:e.target.value}))}/>}
+          </label>)}
+          {!previewControls.length&&<span className="muted">قانون شرطی برای آزمایش تعریف نشده است.</span>}
         </div>
         {model.sections.map(section=><section key={section.key} className="card-p"><h4>{section.title}</h4>
           {section.fields.filter(f=>stateOf(f).visible).map(f=><div key={f.key} style={{padding:6,marginBlock:4}}>{f.label}{stateOf(f).required?" *":""} {stateOf(f).readonly?"🔒":""}</div>)}
@@ -5111,6 +5154,15 @@ function UserProfileFormDesigner(){
               <label>متن راهنما<input className="input" value={current.description||""} onChange={e=>editField("description",e.target.value)}/></label>
               <label>Placeholder<input className="input" value={current.placeholder||""} onChange={e=>editField("placeholder",e.target.value)}/></label>
               <label>نوع فیلد<input className="input" readOnly value={current.type||""}/></label>
+              {["text","textarea","number","phone","mobile","email","account","iban","card"].includes(current.type)&&
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
+                  {["text","textarea"].includes(current.type)?[["min_length","حداقل طول"],["max_length","حداکثر طول"]].map(([key,label])=>
+                    <label key={key}>{label}<input className="input" type="number" min="0" value={current[key]??""}
+                      onChange={e=>editField(key,e.target.value===""?null:Number(e.target.value))}/></label>):
+                    current.type==="number"?[["min","حداقل مقدار"],["max","حداکثر مقدار"]].map(([key,label])=>
+                    <label key={key}>{label}<input className="input" type="number" value={current[key]??""}
+                      onChange={e=>editField(key,e.target.value===""?null:Number(e.target.value))}/></label>):null}
+                </div>}
               <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>
               <div style={{display:"grid",gap:4,marginTop:8}}>
                 {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:["visible","enabled","android_visible","web_visible","report_visible"].includes(k)} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
