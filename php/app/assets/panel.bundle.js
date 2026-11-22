@@ -2760,6 +2760,7 @@ function PersonnelSeniority() {
     const [periodHistoryType, setPeriodHistoryType] = useState('');
     const [periodConfirm, setPeriodConfirm] = useState(false);
     const [periodResult, setPeriodResult] = useState(null);
+    const [batchProgress, setBatchProgress] = useState(null);
     const mutation = useRef(false), generation = useRef(0);
     const load = async () => {
         const current = ++generation.current;
@@ -2842,18 +2843,38 @@ function PersonnelSeniority() {
         if (mutation.current || !selectedPeriod)
             return;
         const targets = rows.filter(row => row.initialized && Number(row.is_active) === 1);
+        const total = targets.length, chunkSize = 8;
         setPeriodConfirm(false);
         mutation.current = true;
         setBusy(true);
-        setProgress('در حال محاسبه در سرور؛ تعداد تکمیل‌شده پس از دریافت پاسخ مشخص می‌شود.');
         setPeriodResult(null);
+        setProgress('آماده‌سازی پردازش ' + fa(total) + ' پرونده…');
+        setBatchProgress({ completed: 0, total, percent: 0 });
+        let completed = 0, processed = 0, skipped = 0, failed = 0;
+        const allErrors = [], runIds = [];
         try {
-            const result = await SEND('POST', '/admin/seniority/period-run', { period: selectedPeriod, user_ids: targets.map(row => row.id) });
-            setPeriodResult(result);
+            // Each confirmed server response accounts for exactly one finished batch.
+            // A network failure never advances the displayed percentage.
+            for (let offset = 0; offset < total; offset += chunkSize) {
+                const chunk = targets.slice(offset, offset + chunkSize);
+                const result = await SEND('POST', '/admin/seniority/period-run', { period: selectedPeriod, user_ids: chunk.map(row => row.id) });
+                processed += Number(result.processed || 0);
+                skipped += Number(result.skipped || 0);
+                failed += Number(result.failed || 0);
+                if (result.run_id)
+                    runIds.push(result.run_id);
+                if (Array.isArray(result.errors))
+                    allErrors.push(...result.errors);
+                completed += chunk.length;
+                const percent = Math.floor(completed * 100 / total);
+                setBatchProgress({ completed, total, percent });
+                setProgress('بررسی ' + fa(completed) + ' از ' + fa(total) + ' نفر · ' + fa(percent) + '٪');
+            }
+            setPeriodResult({ period: selectedPeriod, type: chosenType === 'پیش‌بینی' ? 'forecast' : 'final', processed, skipped, failed, errors: allErrors, run_ids: runIds });
             await load();
         }
         catch (failure) {
-            setError(failure.message || 'به‌روزرسانی سنوات ناموفق بود.');
+            setError('عملیات پس از پردازش ' + fa(completed) + ' پرونده متوقف شد: ' + (failure.message || 'خطای ارتباط با سرور') + '؛ رکوردهای قطعی ثبت‌شده حفظ شده‌اند. برای ادامه پس از بررسی وضعیت، دوباره اجرا کنید.');
         }
         finally {
             setProgress('');
@@ -2931,7 +2952,10 @@ function PersonnelSeniority() {
                     faPlain(selectedPeriod),
                     " / ",
                     fa(Number(selectedPeriod.slice(5)) <= 6 ? 31 : Number(selectedPeriod.slice(5)) <= 11 ? 30 : 'پایان اسفند')))),
-        busy && progress && React.createElement("div", { role: "status", "aria-live": "polite", style: { padding: 12, border: '1px solid var(--line)', borderRadius: 12 } }, progress),
+        busy && progress && React.createElement("div", { role: "status", "aria-live": "polite", style: { padding: 12, border: '1px solid var(--line)', borderRadius: 12 } },
+            progress,
+            batchProgress && React.createElement("div", { style: { height: 9, background: 'var(--line)', borderRadius: 8, overflow: 'hidden', marginTop: 8 } },
+                React.createElement("div", { style: { height: '100%', background: 'var(--brand)', width: batchProgress.percent + '%', transition: 'width .2s' } }))),
         (periodStatus === null || periodStatus === void 0 ? void 0 : periodStatus.final_count) > 0 && React.createElement("div", { role: "note", style: { margin: '10px 0', lineHeight: 2 } },
             "\u0628\u0631\u0627\u06CC \u062F\u0648\u0631\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC ",
             fa(periodStatus.final_count),
