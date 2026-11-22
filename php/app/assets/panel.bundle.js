@@ -9040,7 +9040,7 @@ function UserProfileFormDesigner() {
                                 "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
                                 React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
                             React.createElement("div", { style: { display: "grid", gap: 4, marginTop: 8 } }, [["required", "اجباری"], ["readonly", "فقط خواندنی"], ["visible", "نمایش در فرم"], ["enabled", "فعال"], ["android_visible", "نمایش در اندروید"], ["web_visible", "نمایش در وب"], ["report_visible", "نمایش در گزارش کامل کاربران"], ["searchable", "قابل جست‌وجو"], ["filterable", "قابل فیلتر"]].map(([k, label]) => React.createElement("label", { key: k, className: "row", style: { gap: 8 } },
-                                React.createElement("input", { type: "checkbox", checked: current[k] !== undefined ? !!current[k] : k === "visible" || k === "enabled", onChange: e => editField(k, e.target.checked) }),
+                                React.createElement("input", { type: "checkbox", checked: current[k] !== undefined ? !!current[k] : ["visible", "enabled", "android_visible", "web_visible", "report_visible"].includes(k), onChange: e => editField(k, e.target.checked) }),
                                 label))),
                             React.createElement("label", null,
                                 "\u0633\u0637\u062D \u062D\u0633\u0627\u0633\u06CC\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A",
