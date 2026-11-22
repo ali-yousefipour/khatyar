@@ -27,4 +27,10 @@ assert.match(account,/profileReadOnly/,'Android renders view-only profile');
 assert.match(account,/editable=\{systemCanEdit\('/,'Android disables conditional and readonly inputs');
 assert.match(account,/!profileReadOnly&&<TouchableOpacity[^\n]+onPress=\{save\}/,'Android hides save');
 assert.match(custom,/editable = visible\.filter/,'custom fields only allow visible and permitted fields');
+assert.match(custom,/request\('\/me\/complete-profile'/,'custom fields use versioned unified profile writes');
+assert.match(custom,/form_version:formVersion/,'custom fields bind writes to published version');
+assert.match(custom,/String\(vals\[f\.id\]\?\?''\)!==String\(originalVals\[f\.id\]\?\?''\)/,'unchanged values are never blindly resubmitted');
+assert.match(account,/profile_definition:\{readonly:true/,'unbound legacy fields cannot bypass published schema');
+assert.match(custom,/profile_definition:\{readonly:true/,'custom field editor keeps unbound records read-only');
+
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
