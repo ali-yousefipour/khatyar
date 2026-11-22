@@ -6,9 +6,9 @@ const file=path.join(__dirname,'../src/identityBankingValidation.js');
 const source=fs.readFileSync(file,'utf8')
   .replace(/export const /g,'const ')
   .replace(/export function /g,'function ')
-  + '\nthis.api={normalizeIranianDigits,validateNationalId,validateIban,validateAccount};';
+  + '\nthis.api={normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput};';
 const context={};vm.runInNewContext(source,context,{filename:file,timeout:1500});
-const {normalizeIranianDigits,validateNationalId,validateIban,validateAccount}=context.api;
+const {normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput}=context.api;
 function check(condition,message){if(!condition)throw new Error('FAIL '+message);console.log('PASS '+message);}
 check(normalizeIranianDigits('۰١۲')==='012','normalize Persian and Arabic digits');
 check(validateNationalId('۰۰۱۲۳۴۵۶۷۹').valid,'valid Persian national ID');
@@ -26,4 +26,8 @@ check(!validateIban('IR000610000000000000000000').valid,'bad IBAN checksum');
 check(!validateIban('IR83061').valid,'short IBAN');
 check(validateAccount('۰۰۰۰-۱۲۳۴').status==='offline_unverifiable','internal account never verified');
 check(!validateAccount('123A4').valid,'invalid account characters');
+check(!validateUserInput({national_code:'۰۰۱۲۳۴۵۶۷۹'},{knownUsers:[{id:1,national_code:'0012345679',is_active:0}],editingId:2}).valid,'inactive national duplicate blocks local form');
+check(validateUserInput({national_code:'0012345679'},{knownUsers:[{id:1,national_code:'0012345679'}],editingId:1}).valid,'self edit ignores duplicate');
+check(!validateUserInput({iban:'IR830610000000000000000000',bank_code:'054'}).valid,'bank-IBAN mismatch blocks local form');
+check(validateUserInput({account:'۰۰۰۰-۱۲۳۴'}).status==='offline_unverifiable','internal account remains unverified');
 console.log('Mobile offline validations passed');
