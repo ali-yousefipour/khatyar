@@ -3143,6 +3143,20 @@ function PersonnelSeniority() {
                     " \u00B7 ",
                     event.created_at))) : React.createElement("p", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
 }
+function offlineNationalIdWeb(raw) {
+    const value = String(raw !== null && raw !== void 0 ? raw : "").trim().replace(/[۰-۹٠-٩]/g, d => String(d.charCodeAt(0) > 1700 ? d.charCodeAt(0) - 1776 : d.charCodeAt(0) - 1632));
+    if (!value)
+        return { valid: false, empty: true, message: "کد ملی وارد نشده است." };
+    if (!/^[0-9]{10}$/.test(value))
+        return { valid: false, message: "کد ملی باید ۱۰ رقم باشد." };
+    if (/^(\\d)\\1{9}$/.test(value))
+        return { valid: false, message: "کد ملی واردشده از نظر رقم کنترل معتبر نیست." };
+    let sum = 0;
+    for (let i = 0; i < 9; i++)
+        sum += Number(value[i]) * (10 - i);
+    const mod = sum % 11, check = mod < 2 ? mod : 11 - mod;
+    return check === Number(value[9]) ? { valid: true, value, message: "ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است." } : { valid: false, message: "کد ملی واردشده از نظر رقم کنترل معتبر نیست." };
+}
 function Users() {
     var _a, _b;
     const [usersTab, setUsersTab] = useState("users");
@@ -3188,6 +3202,14 @@ function Users() {
     const save = async (u) => {
         if (savingUser)
             return;
+        if (String(u.national_code || "").trim()) {
+            const nationalCheck = offlineNationalIdWeb(u.national_code);
+            if (!nationalCheck.valid) {
+                alert(nationalCheck.message);
+                return;
+            }
+            u = { ...u, national_code: nationalCheck.value };
+        }
         if (u.employment_start_date && u.employment_end_date && String(u.employment_end_date).replaceAll('/', '-') < String(u.employment_start_date).replaceAll('/', '-')) {
             alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');
             return;
@@ -3442,7 +3464,8 @@ function Users() {
                     React.createElement("input", { className: "input", dir: "ltr", value: edit.phone || "", onChange: e => setEdit({ ...edit, phone: e.target.value }) })),
                 React.createElement("div", { style: { flex: 1, minWidth: 140 } },
                     React.createElement("label", null, "\u06A9\u062F \u0645\u0644\u06CC"),
-                    React.createElement("input", { className: "input", dir: "ltr", maxLength: "10", value: edit.national_code || "", onChange: e => setEdit({ ...edit, national_code: e.target.value }) })),
+                    React.createElement("input", { className: "input", dir: "ltr", maxLength: "32", value: edit.national_code || "", onChange: e => setEdit({ ...edit, national_code: e.target.value }) }),
+                    edit.national_code && React.createElement("small", { role: "status", style: { color: offlineNationalIdWeb(edit.national_code).valid ? "var(--ok,#087f5b)" : "var(--danger,#bd2929)" } }, offlineNationalIdWeb(edit.national_code).message)),
                 React.createElement("div", { style: { flex: 1, minWidth: 140 } },
                     React.createElement("label", null, "\u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC"),
                     React.createElement("input", { className: "input", dir: "ltr", value: edit.personnel_code || "", onChange: e => setEdit({ ...edit, personnel_code: e.target.value }) }))),
@@ -3537,6 +3560,26 @@ function Users() {
 }
 function AddUser({ roles, zones, onClose, onSave }) {
     const [f, setF] = useState(() => { var _a; return ({ first_name: "", last_name: "", username: "", email: "", role_id: ((_a = roles[0]) === null || _a === void 0 ? void 0 : _a.id) || 9, zone_id: null, password: crypto.randomUUID().replace(/-/g, "").slice(0, 16), allow_android: 1, allow_web: 1, birth_date: "", birth_iso: "" }); });
+    const [saving, setSaving] = useState(false);
+    const submit = async () => {
+        const national = offlineNationalIdWeb(f.username);
+        if (!national.valid) {
+            alert(national.message);
+            return;
+        }
+        if (saving)
+            return;
+        setSaving(true);
+        try {
+            await onSave({ ...f, username: national.value, national_code: national.value });
+        }
+        catch (error) {
+            alert(error.message || "ثبت کاربر انجام نشد.");
+        }
+        finally {
+            setSaving(false);
+        }
+    };
     return (React.createElement(Modal, { title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u06A9\u0627\u0631\u0628\u0631 \u062C\u062F\u06CC\u062F", onClose: onClose },
         React.createElement("div", { className: "row" },
             React.createElement("div", null,
@@ -3546,7 +3589,8 @@ function AddUser({ roles, zones, onClose, onSave }) {
                 React.createElement("label", null, "\u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
                 React.createElement("input", { className: "input", onChange: e => setF({ ...f, last_name: e.target.value }) }))),
         React.createElement("label", null, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC (\u06A9\u062F \u0645\u0644\u06CC)"),
-        React.createElement("input", { className: "input", dir: "ltr", onChange: e => setF({ ...f, username: e.target.value }) }),
+        React.createElement("input", { className: "input", dir: "ltr", maxLength: "32", value: f.username, onChange: e => setF({ ...f, username: e.target.value }) }),
+        f.username && React.createElement("small", { role: "status", style: { color: offlineNationalIdWeb(f.username).valid ? "var(--ok,#087f5b)" : "var(--danger,#bd2929)" } }, offlineNationalIdWeb(f.username).message),
         React.createElement("label", null, "\u0627\u06CC\u0645\u06CC\u0644 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
         React.createElement("input", { className: "input", dir: "ltr", onChange: e => setF({ ...f, email: e.target.value }) }),
         React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
@@ -3575,7 +3619,7 @@ function AddUser({ roles, zones, onClose, onSave }) {
             React.createElement("label", { className: "row", style: { gap: 6 } },
                 React.createElement("input", { type: "checkbox", checked: f.allow_web, onChange: e => setF({ ...f, allow_web: e.target.checked ? 1 : 0 }) }),
                 "\u0648\u0628")),
-        React.createElement("button", { className: "btn p", style: { marginTop: 12 }, onClick: () => onSave(f) }, "\u0633\u0627\u062E\u062A \u06A9\u0627\u0631\u0628\u0631")));
+        React.createElement("button", { className: "btn p", style: { marginTop: 12 }, disabled: saving, onClick: submit }, saving ? "در حال ثبت…" : "ساخت کاربر")));
 }
 function LineAssign({ user, onClose }) {
     const [lines, setLines] = useState([]);
