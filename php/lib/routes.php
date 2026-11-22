@@ -1792,7 +1792,14 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
 }, false);
 
 // ==================== فرم‌ساز نسخه‌دار اطلاعات جامع پرسنلی ====================
-require_once __DIR__.'/UserProfileForms.php';
+// Keep the optional personnel-form subsystem isolated from login, auth and
+// session refresh. Missing files or a partial deploy must never fatal the
+// unrelated API bootstrap. Only profile endpoints load these modules.
+$profileFormsRequestPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
+if (preg_match('~^/api/(?:my/(?:custom-fields|user-profile-form|complete-profile)|me/profile|admin/user-profile-form(?:/.*)?)$~', $profileFormsRequestPath)) {
+  require_once __DIR__.'/UserProfileForms.php';
+  // UserProfileFormValues is loaded only for personnel profile API requests above.
+}
 // No destructive migration occurs during these reads. Legacy fields remain active
 // until the additive user_profile_forms migration is explicitly installed.
 route('GET', '/api/my/user-profile-form', function($p,$b,$u){
