@@ -1798,7 +1798,7 @@ function offlineNationalIdWeb(raw){
 function Users(){
   const [usersTab,setUsersTab]=useState("users");
   const [users,setUsers]=useState([]); const [roles,setRoles]=useState([]); const [zones,setZones]=useState([]);
-  const [edit,setEdit]=useState(null); const [lineModal,setLineModal]=useState(null); const [adding,setAdding]=useState(false);
+  const [edit,setEdit]=useState(null); const [editTab,setEditTab]=useState("profile"); const [lineModal,setLineModal]=useState(null); const [adding,setAdding]=useState(false);
   const [commitmentsModal,setCommitmentsModal]=useState(null);
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
   const [usersLoading,setUsersLoading]=useState(false); const [usersError,setUsersError]=useState("");
@@ -1897,7 +1897,7 @@ function Users(){
       <td><div className="users-device-tags">{u.android_bound&&<span title="دستگاه اندروید متصل">📱 اندروید</span>}{u.web_bound&&<span title="مرورگر وب متصل">🖥 وب</span>}{!u.android_bound&&!u.web_bound&&<span className="users-device-empty">—</span>}</div></td>
       <td><span className={"badge "+(u.is_active?"b-ok":"b-no")}>{u.is_active?"فعال":"غیرفعال"}</span></td>
       <td><div className="row users-row-actions" style={{gap:6,flexWrap:"wrap"}}>
-        <button className="btn g" onClick={()=>{setEdit({...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""});setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
+        <button className="btn g" onClick={()=>{setEditTab("profile");setEdit({...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""});setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
         <button className="btn g users-danger-action" onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
     {!users.length&&!usersLoading&&!usersError&&<div className="users-empty-state" role="status"><strong>کاربری با این فیلترها پیدا نشد</strong><span>عبارت جست‌وجو یا وضعیت و سمت انتخابی را تغییر دهید و دوباره فیلتر کنید.</span><button className="btn g" onClick={()=>{const cleared={q:"",role_id:"",zone_id:"",active:""};setF(cleared);reload(cleared);}}>پاک‌کردن فیلترها</button></div>}
@@ -1924,6 +1924,11 @@ function Users(){
       <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
     </Modal>}
     {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
+      <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+        <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
+        <button role="tab" aria-selected={editTab==="access"} className={"btn "+(editTab==="access"?"p":"g")} onClick={()=>setEditTab("access")}>تنظیمات حساب و دسترسی</button>
+      </div>
+      {editTab==="profile"&&<>
       <div className="row" style={{gap:10,alignItems:"center"}}>
         {edit.photo?<img src={edit.photo} style={{width:60,height:60,borderRadius:12,objectFit:"cover"}}/>:<span className="pf2" style={{width:60,height:60,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
         <label className="btn g" style={{cursor:"pointer"}}>تغییر عکس<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label></div>
@@ -1961,6 +1966,8 @@ function Users(){
       <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
       <UserCustomValues userId={edit.id}/>
       <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
+      </>}
+      {editTab==="access"&&<>
       <label>تغییر رمز عبور (خالی = بدون تغییر)</label><input className="input" type="password" autoComplete="new-password" value={pw} placeholder="رمز جدید" onChange={e=>setPw(e.target.value)}/>
       <div className="row" style={{gap:16,marginTop:12,flexWrap:"wrap"}}>
         <label className="row" style={{gap:6}}><input type="checkbox" checked={edit.is_active} onChange={e=>setEdit({...edit,is_active:e.target.checked})}/>فعال</label>
@@ -1978,6 +1985,7 @@ function Users(){
       <div className="row" style={{gap:8,marginTop:12}}>
         <button className="btn g" onClick={()=>revoke(edit.id,'android')}>حذف دستگاه اندروید</button>
         <button className="btn g" onClick={()=>revoke(edit.id,'web')}>حذف نشست وب</button></div>
+      </>}
       <button className="btn p" style={{marginTop:14}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
     {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
       <p role="status">پیشرفت: {fa(identityAudit.scanned)} از {fa(identityAudit.total)} کاربر {identityAudit.done?"— تکمیل شد":"— در حال بررسی"}</p>
