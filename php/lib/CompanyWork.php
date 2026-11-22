@@ -571,7 +571,7 @@ class CompanyWork {
       if(!$rot||!empty($rot['missing_source']))$r['errors'][]='منبع محاسبهٔ چرخش شیفت موجود نیست';
       foreach(['morning','afternoon','night'] as $k)$r[$k]=$rot[$k]??null;
       $collectStage='attendance_daily';
-      $report=$frozenDaily!==null?self::finalizedAttendanceForUser($frozenDaily,(int)$uid,$from,$to):attendance_report_owned_by_entry_date($uid,$from,$to);
+      // Payroll metrics use the canonical attendance/leave facts, not device-off telemetry.\n      // Skip costly per-session GPS/internet evidence lookups for company XLSX.\n      $report=$frozenDaily!==null?self::finalizedAttendanceForUser($frozenDaily,(int)$uid,$from,$to):attendance_report_owned_by_entry_date($uid,$from,$to,false,false);
       if($approvedOffice){$r['organization_basis']=['batch_id'=>$officeBasis['id'],'source'=>'organization_approved_schedule','office_schedule_minutes'=>$approvedOffice['office_schedule_minutes']];$r['recorded_absence_days']=self::metrics($u,$report,[],$year,$month,$today)['absence_days'];$paid=self::officePaymentReport($report,$approvedOffice);$report=$paid['report'];$r['covered_absence_days']=$paid['covered_absence_days'];}
       if(!isset($report['days'])||count($report['days'])!==IranCalendar::monthLength($year,$month))$r['errors'][]='جزئیات کامل روزهای ماه در گزارش تردد موجود نیست';
       $collectStage='approved_leaves';
