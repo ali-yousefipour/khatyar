@@ -205,11 +205,18 @@ final class UserFullReport {
     }
     $customIds=array_values(array_unique(array_merge($customIds,$personnelIds)));
     $values=[];
-    if($users&&$customIds&&self::hasTable('custom_field_values')) {
-      foreach(array_chunk($customIds,100) as $chunk) {
-        $q=implode(',',array_fill(0,count($chunk),'?'));
-        foreach(Db::all("SELECT user_id,field_id,value FROM custom_field_values WHERE field_id IN ($q)",$chunk) as $r)
-          $values[(int)$r['user_id']][(int)$r['field_id']]=$r['value'];
+    $userIds=array_map(static fn($row)=>(int)$row['id'],$users);
+    if($userIds&&$customIds&&self::hasTable('custom_field_values')) {
+      // Read only selected users. Filtering by zone/role must not load unrelated
+      // users' personal data, and report memory should scale with the result set.
+      foreach(array_chunk($userIds,250) as $ids){
+        $userMarks=implode(',',array_fill(0,count($ids),'?'));
+        foreach(array_chunk($customIds,80) as $fieldIds){
+          $fieldMarks=implode(',',array_fill(0,count($fieldIds),'?'));
+          $sql="SELECT user_id,field_id,value FROM custom_field_values WHERE user_id IN ($userMarks) AND field_id IN ($fieldMarks)";
+          foreach(Db::all($sql,array_merge($ids,$fieldIds)) as $r)
+            $values[(int)$r['user_id']][(int)$r['field_id']]=$r['value'];
+        }
       }
     }
     // Report document existence, never private storage names, file bytes or raw URLs.
@@ -223,11 +230,15 @@ final class UserFullReport {
       // contain old paths. Only the private attachment registry is authoritative.
       foreach($values as &$userFields)foreach($attachmentIds as $fid)unset($userFields[$fid]);
       unset($userFields);
-      if($users&&self::hasTable('user_profile_attachments')){
-        foreach(array_chunk($attachmentIds,100) as $chunk){
-          $marks=implode(',',array_fill(0,count($chunk),'?'));
-          foreach(Db::all("SELECT user_id,field_id FROM user_profile_attachments WHERE field_id IN ($marks)",$chunk) as $attached)
-            $values[(int)$attached['user_id']][(int)$attached['field_id']]='ثبت شده';
+      if($userIds&&self::hasTable('user_profile_attachments')){
+        foreach(array_chunk($userIds,250) as $ids){
+          $userMarks=implode(',',array_fill(0,count($ids),'?'));
+          foreach(array_chunk($attachmentIds,80) as $fieldIds){
+            $fieldMarks=implode(',',array_fill(0,count($fieldIds),'?'));
+            $sql="SELECT user_id,field_id FROM user_profile_attachments WHERE user_id IN ($userMarks) AND field_id IN ($fieldMarks)";
+            foreach(Db::all($sql,array_merge($ids,$fieldIds)) as $attached)
+              $values[(int)$attached['user_id']][(int)$attached['field_id']]='ثبت شده';
+          }
         }
       }
     }
