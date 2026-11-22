@@ -41,6 +41,10 @@ el('option',{value:'asc',text:'صعودی (الف تا ی / کم به زیاد)'
 el('option',{value:'desc',text:'نزولی (ی تا الف / زیاد به کم)'},dir);
 const status=el('p',{role:'status','aria-live':'polite'},box);
 const foot=el('div',{class:'kh-ur-actions'},box);
+const preview=el('button',{type:'button',text:'پیش‌نمایش داده‌ها'},foot);
+const savePreset=el('button',{type:'button',text:'ذخیره تنظیمات این مرورگر'},foot);
+const reset=el('button',{type:'button',text:'بازنشانی'},foot);
+const previewArea=el('div',{'aria-live':'polite'},box);
 const save=el('button',{type:'button',class:'kh-ur-primary',text:'دریافت فایل اکسل'},foot);
 const close=el('button',{type:'button',text:'انصراف'},foot);
 const dismiss=()=>{cover.remove();busy=false;};
@@ -56,25 +60,52 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
  const columns=Array.isArray(data.columns)?data.columns:[];
  if(!columns.length)throw Error('فیلدی برای گزارش دریافت نشد');
  const checks=[];
- let group='';
+ const storageKey='khatyar.users.full-report.selection.v2';
+ let stored=null;
+ try{stored=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(_){}
+ const savedOrder=Array.isArray(stored?.columns)?stored.columns:[];
+ columns.sort((a,b)=>{const ai=savedOrder.indexOf(a.key),bi=savedOrder.indexOf(b.key);return (ai<0?9999:ai)-(bi<0?9999:bi);});
  columns.forEach((column,i)=>{
-   if(group!==column.group){group=column.group;const heading=el('strong',{text:group},fields);heading.style.gridColumn='1/-1';}
    const label=el('label',{},fields);
-   const check=el('input',{type:'checkbox',value:column.key},label);check.checked=true;
-   el('span',{text:column.label},label);
+   const check=el('input',{type:'checkbox',value:column.key},label);
+   check.checked=!stored||!Array.isArray(stored.columns)||stored.columns.includes(column.key);
+   el('span',{text:column.label+' · '+(column.group||'سایر')},label);
    checks.push(check);check.addEventListener('change',update);
+   const move=(step)=>{const from=checks.indexOf(check),to=from+step;if(to<0||to>=checks.length)return;const other=checks[to];checks[from]=other;checks[to]=check;
+     if(step<0)fields.insertBefore(label,other.parentElement);
+     else fields.insertBefore(other.parentElement,label);
+     updateCount();};
+   const up=el('button',{type:'button',text:'↑','aria-label':'انتقال ستون به بالا'},label);
+   const down=el('button',{type:'button',text:'↓','aria-label':'انتقال ستون به پایین'},label);
+   up.onclick=e=>{e.preventDefault();e.stopPropagation();move(-1);};
+   down.onclick=e=>{e.preventDefault();e.stopPropagation();move(1);};
    el('option',{value:column.key,text:column.label},sort);
  });
- sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;
+ sort.value=(stored&&columns.some(c=>c.key===stored.sort))?stored.sort:(columns.some(c=>c.key==='id')?'id':columns[0].key);
+ dir.value=stored?.direction==='desc'?'desc':'asc';
  const updateCount=()=>{const n=checks.filter(c=>c.checked).length;count.textContent=n.toLocaleString('fa-IR')+' ستون انتخاب شده';save.disabled=n===0;};
  function update(){updateCount();}
  all.onclick=()=>{checks.forEach(c=>c.checked=true);updateCount();};
  none.onclick=()=>{checks.forEach(c=>c.checked=false);updateCount();};
  search.oninput=()=>{const q=search.value.trim().toLocaleLowerCase('fa');checks.forEach(c=>{c.parentElement.hidden=!c.parentElement.textContent.toLocaleLowerCase('fa').includes(q);});};
  updateCount();status.textContent='';
+ const payload=()=>({columns:checks.filter(c=>c.checked).map(c=>c.value),sort:sort.value,direction:dir.value});
+ savePreset.onclick=()=>{localStorage.setItem(storageKey,JSON.stringify(payload()));status.textContent='تنظیمات ستون‌ها در این مرورگر ذخیره شد.';};
+ reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
+ preview.onclick=async()=>{try{
+   preview.disabled=true;previewArea.replaceChildren();status.textContent='در حال آماده‌سازی پیش‌نمایش…';
+   const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload(),preview:true})});
+   const data=await res.json();const heading=el('p',{text:(Number(data.count)||0).toLocaleString('fa-IR')+' کاربر، '+(data.columns||[]).length.toLocaleString('fa-IR')+' ستون'},previewArea);
+   heading.style.fontWeight='700';
+   const wrap=el('div',{},previewArea);wrap.style.cssText='overflow:auto;max-height:280px';
+   const table=el('table',{},wrap);table.style.cssText='border-collapse:collapse;min-width:100%';
+   const head=el('tr',{},el('thead',{},table));(data.columns||[]).forEach(v=>{const th=el('th',{text:v},head);th.style.cssText='padding:8px;border:1px solid #ddd;white-space:nowrap';});
+   const tbody=el('tbody',{},table);(data.sample||[]).forEach(record=>{const tr=el('tr',{},tbody);record.forEach(v=>{const td=el('td',{text:String(v??'')},tr);td.style.cssText='padding:7px;border:1px solid #ddd;white-space:pre-wrap';});});
+   status.textContent='پیش‌نمایش از همان منبع داده خروجی تهیه شد.';
+ }catch(err){status.textContent=err.message;}finally{preview.disabled=false;}};
  save.onclick=async()=>{try{
    save.disabled=true;close.disabled=true;status.textContent='در حال ساخت فایل اکسل…';
-   const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({columns:checks.filter(c=>c.checked).map(c=>c.value),sort:sort.value,direction:dir.value})});
+   const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
    const blob=await res.blob();const href=URL.createObjectURL(blob);
    const a=document.createElement('a');a.href=href;a.download='گزارش_کامل_کاربران.xlsx';document.body.appendChild(a);a.click();a.remove();
    setTimeout(()=>URL.revokeObjectURL(href),10000);originalDismiss();lastFocus?.focus();
