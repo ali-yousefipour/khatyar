@@ -334,6 +334,43 @@ foreach ($routes as &$employmentRoute) {
         $values[]=(int)$params['id'];
       }
     }
+    // Unified admin edit: core user fields, employment dates, and custom
+    // values must be one transaction. Legacy PUT requests remain unchanged.
+    if($routeMethod==='PUT' && isset($params['id']) && is_array($body)
+       && array_key_exists('custom_values',$body)){
+      $custom=$body['custom_values'];
+      if(!is_array($custom)||count($custom)>400)Http::error('فیلدهای سفارشی نامعتبر هستند',422);
+      foreach(array_keys($custom) as $key)
+        if(!ctype_digit((string)$key)||(int)$key<1)Http::error('شناسه فیلد سفارشی نامعتبر است',422);
+      $targetId=(int)$params['id'];
+      if($targetId<1||!Db::one('SELECT id FROM users WHERE id=?',[$targetId]))
+        Http::error('کاربر انتخابی یافت نشد',404);
+      // The older update handler can create compatibility columns via ALTER.
+      // DDL implicitly commits in MySQL, so reject incomplete migrations
+      // before opening a transaction instead of risking a partial write.
+      $required=['security_exempt'];
+      foreach(['can_be_substitute','can_welfare','can_cultural','can_manage_temp_drivers',
+                 'personnel_code','birth_date','rank_stars'] as $key)
+        if(array_key_exists($key,$body))$required[]=$key;
+      $marks=implode(',',array_fill(0,count($required),'?'));
+      $existingCols=Db::all("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ($marks)",$required);
+      if(count($existingCols)!==count($required))
+        Http::error('ساختار اطلاعات کاربران نیازمند اجرای مهاجرت پایگاه داده است',503);
+      $pdo=Db::pdo();
+      if($pdo->inTransaction())Http::error('عملیات ذخیره هم‌زمان مجاز نیست',409);
+      $pdo->beginTransaction();
+      try{
+        $result=$originalHandler($params,$body,$user);
+        _save_custom_values($targetId,$custom,false);
+        if(!empty($updates))Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
+        $pdo->commit();
+        return $result;
+      }catch(Throwable $error){
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('Unified admin user save rolled back: '.get_class($error));
+        Http::error('ذخیره کامل اطلاعات کاربر انجام نشد؛ تغییرات بازگردانده شدند',503);
+      }
+    }
     $result = $originalHandler($params,$body,$user);
     if (!empty($updates)) Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
     if ($routeMethod === 'GET' && is_array($result)) {
