@@ -7286,10 +7286,28 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
 function CustomFieldsManager() {
     const [fields, setFields] = useState(null);
     const [form, setForm] = useState(null); // فرم افزودن/ویرایش
-    const TYPES = [["text", "متن کوتاه"], ["textarea", "متن بلند"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["time", "ساعت"], ["mobile", "شماره همراه"], ["phone", "تلفن ثابت"], ["email", "ایمیل"], ["national_id", "کد ملی"], ["iban", "شماره شبا"], ["account", "شماره حساب"], ["card", "شماره کارت"], ["address", "نشانی"], ["checkbox", "بله/خیر"], ["boolean", "گزینه بولی"], ["select", "فهرست انتخابی"], ["radio", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"]];
+    const TYPES = [["text", "متن کوتاه"], ["textarea", "متن بلند"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["time", "ساعت"], ["mobile", "شماره همراه"], ["phone", "تلفن ثابت"], ["email", "ایمیل"], ["national_id", "کد ملی"], ["iban", "شماره شبا"], ["account", "شماره حساب"], ["card", "شماره کارت"], ["address", "نشانی"], ["checkbox", "بله/خیر"], ["boolean", "گزینه بولی"], ["select", "فهرست انتخابی"], ["radio", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"], ["repeater", "گروه تکرارشونده (فرزندان)"]];
     const load = () => db.customFields().then(setFields).catch(() => setFields([]));
     useEffect(() => { load(); }, []);
     const blank = { label: "", ftype: "text", options: "", required: 0, user_editable: 1, sort_order: 0 };
+    const defaultRepeater = () => ({ min_rows: 0, max_rows: 12, columns: [
+            { key: "child_name", label: "نام فرزند", type: "text", required: true },
+            { key: "child_national_id", label: "کد ملی فرزند", type: "national_id" },
+            { key: "child_birth_date", label: "تاریخ تولد فرزند", type: "date" }
+        ] });
+    const parseRepeater = raw => { try {
+        const parsed = JSON.parse(raw || "{}");
+        return Array.isArray(parsed.columns) ? parsed : defaultRepeater();
+    }
+    catch (_) {
+        return defaultRepeater();
+    } };
+    const repeaterConfig = (form === null || form === void 0 ? void 0 : form.ftype) === "repeater" ? parseRepeater(form.options) : null;
+    const updateRepeater = change => setForm(prev => {
+        const config = parseRepeater(prev.options);
+        change(config);
+        return { ...prev, options: JSON.stringify(config) };
+    });
     const save = async () => {
         if (!form.label.trim()) {
             alert("عنوان فیلد را وارد کنید");
@@ -7338,13 +7356,43 @@ function CustomFieldsManager() {
                     React.createElement("input", { className: "input", value: form.label, onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "\u0645\u062B\u0644\u0627\u064B \u0634\u0645\u0627\u0631\u0647 \u0634\u0628\u0627" })),
                 React.createElement("div", { style: { minWidth: 150 } },
                     React.createElement("label", { className: "label" }, "\u0646\u0648\u0639"),
-                    React.createElement("select", { className: "input", value: form.ftype, onChange: e => setForm({ ...form, ftype: e.target.value }) }, TYPES.map(([k, l]) => React.createElement("option", { key: k, value: k }, l)))),
+                    React.createElement("select", { className: "input", value: form.ftype, onChange: e => setForm({ ...form, ftype: e.target.value, options: e.target.value === "repeater" ? JSON.stringify(defaultRepeater()) : form.options }) }, TYPES.map(([k, l]) => React.createElement("option", { key: k, value: k }, l)))),
                 React.createElement("div", { style: { width: 90 } },
                     React.createElement("label", { className: "label" }, "\u062A\u0631\u062A\u06CC\u0628"),
                     React.createElement("input", { className: "input", type: "number", value: form.sort_order, onChange: e => setForm({ ...form, sort_order: e.target.value }) }))),
             needOptions && React.createElement("div", { style: { marginTop: 8 } },
                 React.createElement("label", { className: "label" }, "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627 (\u0628\u0627 | \u062C\u062F\u0627 \u06A9\u0646\u06CC\u062F)"),
                 React.createElement("input", { className: "input", value: form.options || "", onChange: e => setForm({ ...form, options: e.target.value }), placeholder: "\u0645\u062B\u0644\u0627\u064B S|M|L|XL" })),
+            repeaterConfig && React.createElement("div", { className: "card-p", style: { marginTop: 12, padding: 14 } },
+                React.createElement("h4", null, "\u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u06AF\u0631\u0648\u0647 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647"),
+                React.createElement("p", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u0641\u0631\u0632\u0646\u062F \u06CC\u06A9 \u0631\u062F\u06CC\u0641 \u0645\u0633\u062A\u0642\u0644 \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F. \u06A9\u0644\u06CC\u062F \u0633\u062A\u0648\u0646 \u062B\u0627\u0628\u062A \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0639\u0646\u0648\u0627\u0646 \u0648 \u062A\u0639\u062F\u0627\u062F \u0633\u062A\u0648\u0646\u200C\u0647\u0627 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0642\u0628\u0644\u06CC \u0631\u0627 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F."),
+                React.createElement("label", null,
+                    "\u062D\u062F\u0627\u06A9\u062B\u0631 \u062A\u0639\u062F\u0627\u062F \u0631\u062F\u06CC\u0641",
+                    React.createElement("input", { className: "input", type: "number", min: "1", max: "20", value: repeaterConfig.max_rows || 12, onChange: e => updateRepeater(config => config.max_rows = Math.max(1, Math.min(20, Number(e.target.value) || 1))) })),
+                repeaterConfig.columns.map((column, index) => React.createElement("div", { key: column.key, style: { border: "1px solid var(--line)", padding: 10, borderRadius: 10, marginTop: 8 } },
+                    React.createElement("p", { className: "muted" },
+                        "\u06A9\u0644\u06CC\u062F \u062B\u0627\u0628\u062A: ",
+                        React.createElement("code", null, column.key)),
+                    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+                        React.createElement("label", null,
+                            "\u0639\u0646\u0648\u0627\u0646 \u0633\u062A\u0648\u0646",
+                            React.createElement("input", { className: "input", value: column.label, onChange: e => updateRepeater(config => config.columns[index].label = e.target.value) })),
+                        React.createElement("label", null,
+                            "\u0646\u0648\u0639",
+                            React.createElement("select", { className: "input", value: column.type, onChange: e => updateRepeater(config => { config.columns[index].type = e.target.value; }) }, [["text", "متن"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["mobile", "موبایل"], ["national_id", "کد ملی"], ["boolean", "بله/خیر"], ["select", "انتخابی"]].map(([value, label]) => React.createElement("option", { key: value, value: value }, label)))),
+                        React.createElement("label", { className: "row", style: { gap: 5 } },
+                            React.createElement("input", { type: "checkbox", checked: !!column.required, onChange: e => updateRepeater(config => config.columns[index].required = e.target.checked) }),
+                            "\u0627\u062C\u0628\u0627\u0631\u06CC")),
+                    column.type === "select" && React.createElement("label", null,
+                        "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627 \u0628\u0627 | \u062C\u062F\u0627 \u0634\u0648\u0646\u062F",
+                        React.createElement("input", { className: "input", value: (column.options || []).join("|"), onChange: e => updateRepeater(config => config.columns[index].options = e.target.value.split("|").map(v => v.trim()).filter(Boolean)) })),
+                    React.createElement("button", { type: "button", className: "btn g", disabled: repeaterConfig.columns.length < 2, onClick: () => updateRepeater(config => config.columns.splice(index, 1)) }, "\u062D\u0630\u0641 \u0633\u062A\u0648\u0646"))),
+                React.createElement("button", { type: "button", className: "btn g", style: { marginTop: 10 }, disabled: repeaterConfig.columns.length >= 8, onClick: () => updateRepeater(config => {
+                        let n = 1;
+                        while (config.columns.some(c => c.key === "column_" + n))
+                            n++;
+                        config.columns.push({ key: "column_" + n, label: "ستون جدید", type: "text" });
+                    }) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0633\u062A\u0648\u0646")),
             React.createElement("div", { className: "row", style: { gap: 14, marginTop: 10, flexWrap: "wrap" } },
                 React.createElement("label", { className: "row", style: { gap: 6 } },
                     React.createElement("input", { type: "checkbox", checked: !!form.required, onChange: e => setForm({ ...form, required: e.target.checked ? 1 : 0 }) }),
@@ -8795,9 +8843,18 @@ function UserProfileFormDesigner() {
         }
         modify(d => {
             const last = d.sections.find(x => x.key === "additional") || d.sections[d.sections.length - 1];
-            last.fields.push({ key, label: f.label, type: f.ftype || "text", binding: "custom",
-                custom_field_id: Number(f.id), options: String(f.options || "").split("|").filter(Boolean),
-                required: !!Number(f.required), readonly: !Number(f.user_editable), rules: [] });
+            const field = { key, label: f.label, type: f.ftype || "text", binding: "custom",
+                custom_field_id: Number(f.id), required: !!Number(f.required), readonly: !Number(f.user_editable), rules: [] };
+            if (field.type === "repeater") {
+                const config = parseRepeater(f.options);
+                field.columns = config.columns;
+                field.min_rows = config.min_rows || 0;
+                field.max_rows = config.max_rows || 12;
+            }
+            else {
+                field.options = String(f.options || "").split("|").filter(Boolean);
+            }
+            last.fields.push(field);
         });
         setChoice("");
         setSelected(key);
@@ -9112,9 +9169,10 @@ function UserProfileFormDesigner() {
                                             label,
                                             React.createElement("input", { className: "input", type: "number", value: (_a = current[key]) !== null && _a !== void 0 ? _a : "", onChange: e => editField(key, e.target.value === "" ? null : Number(e.target.value)) }));
                                     }) : null),
-                            React.createElement("label", null,
-                                "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
-                                React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
+                            current.type === "repeater" ? React.createElement("p", { className: "muted" }, "\u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u062F\u0631 \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644\u00BB \u062A\u0639\u0631\u06CC\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0628\u0631\u0627\u06CC \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A\u060C \u0641\u0631\u0645 \u0631\u0627 \u0645\u062C\u062F\u062F\u0627\u064B \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06A9\u0646\u06CC\u062F.") :
+                                React.createElement("label", null,
+                                    "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
+                                    React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
                             React.createElement("div", { style: { display: "grid", gap: 4, marginTop: 8 } }, [["required", "اجباری"], ["readonly", "فقط خواندنی"], ["visible", "نمایش در فرم"], ["enabled", "فعال"], ["android_visible", "نمایش در اندروید"], ["web_visible", "نمایش در وب"], ["report_visible", "نمایش در گزارش کامل کاربران"], ["searchable", "قابل جست‌وجو"], ["filterable", "قابل فیلتر"]].map(([k, label]) => React.createElement("label", { key: k, className: "row", style: { gap: 8 } },
                                 React.createElement("input", { type: "checkbox", checked: current[k] !== undefined ? !!current[k] : ["visible", "enabled", "android_visible", "web_visible", "report_visible"].includes(k), onChange: e => editField(k, e.target.checked) }),
                                 label))),
