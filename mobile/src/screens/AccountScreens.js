@@ -227,7 +227,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   if (!p) return <View style={s.center}><Text style={s.muted}>در حال بارگذاری…</Text></View>;
   const set = (k, v) => { if(p.profile_edit_allowed===false)return; setP({ ...p, [k]: v }); };
   const profileReadOnly=p.profile_edit_allowed===false;
-  const toggleInspector = (id) => setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+  const toggleInspector = (id) => { if(profileReadOnly)return; setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]); };
   const notFoundMsg = () => Alert.alert('بازرس پیدا نشد', 'اگر بازرس شما در فهرست نیست، لطفاً با بازرس خود تماس بگیرید و با ایشان هماهنگ کنید که ابتدا منطقه و مسئول بالادستی خود را در برنامه انتخاب کند تا نامش به فهرست بازرسین این منطقه اضافه شود. سپس این صفحه را دوباره بررسی کنید.');
   async function save() {
     if(p?.profile_edit_allowed===false){Alert.alert('فقط مشاهده','مدیر سامانه امکان ویرایش اطلاعات پرسنلی را غیرفعال کرده است.');return;}
@@ -260,11 +260,11 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       <Text style={s.label}>نام</Text>
       <TextInput style={[s.input, s.ro]} value={`${p.first_name || ''} ${p.last_name || ''}`} editable={false} />
       <Text style={s.label}>ایمیل</Text>
-      <TextInput style={s.input} value={p.email || ''} onChangeText={(v) => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
+      <TextInput editable={!profileReadOnly} style={s.input} value={p.email || ''} onChangeText={(v) => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
       <Text style={s.label}>موبایل</Text>
-      <TextInput style={s.input} value={p.mobile || ''} onChangeText={(v) => set('mobile', v)} keyboardType="phone-pad" />
+      <TextInput editable={!profileReadOnly} style={s.input} value={p.mobile || ''} onChangeText={(v) => set('mobile', v)} keyboardType="phone-pad" />
       <Text style={s.label}>کد ملی</Text>
-      <TextInput style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
+      <TextInput editable={!profileReadOnly} style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
       {nationalTouched && !!p.national_code && <Text accessibilityRole="alert" style={{color:validateNationalId(p.national_code).valid?CC.muted:'#b91c1c',textAlign:'right',marginTop:4}}>{validateNationalId(p.national_code).valid?'✓ ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است.':validateNationalId(p.national_code).errors[0]}</Text>}
       <Text style={s.label}>تاریخ تولد</Text>
       <TouchableOpacity style={[s.input, s.dateInput]} disabled={profileReadOnly} onPress={() => setBirthPickerOpen(true)}>
@@ -272,13 +272,13 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       </TouchableOpacity>
       <JDatePicker visible={birthPickerOpen} initial={parseJDate(p.birth_date) || null} minYear={1300} maxYear={1410} onClose={() => setBirthPickerOpen(false)} onSelect={(d) => set('birth_date', `${d.jy}-${String(d.jm).padStart(2, '0')}-${String(d.jd).padStart(2, '0')}`)} />
       <Text style={s.label}>آدرس</Text>
-      <TextInput style={[s.input, { height: 70, textAlignVertical: 'top' }]} multiline value={p.address || ''} onChangeText={(v) => set('address', v)} />
+      <TextInput editable={!profileReadOnly} style={[s.input, { height: 70, textAlignVertical: 'top' }]} multiline value={p.address || ''} onChangeText={(v) => set('address', v)} />
       <Text style={s.label}>وضعیت تأهل</Text>
       <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-        {['مجرد', 'متأهل'].map((m) => <TouchableOpacity key={m} style={[s.chip, p.marital_status === m && s.chipOn]} onPress={() => set('marital_status', m)}><Text style={[s.chipTxt, p.marital_status === m && { color: '#fff' }]}>{m}</Text></TouchableOpacity>)}
+        {['مجرد', 'متأهل'].map((m) => <TouchableOpacity key={m} style={[s.chip, p.marital_status === m && s.chipOn]} disabled={profileReadOnly} onPress={() => set('marital_status', m)}><Text style={[s.chipTxt, p.marital_status === m && { color: '#fff' }]}>{m}</Text></TouchableOpacity>)}
       </View>
       <Text style={s.label}>تعداد فرزند</Text>
-      <TextInput style={s.input} value={String(p.children_count || '')} onChangeText={(v) => set('children_count', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+      <TextInput editable={!profileReadOnly} style={s.input} value={String(p.children_count || '')} onChangeText={(v) => set('children_count', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
       <TouchableOpacity style={s.supplementaryBtn} onPress={() => navigation.navigate('CustomFields')}>
         <View style={{ flex: 1 }}><Text style={s.supplementaryTitle}>اطلاعات تکمیلی من</Text><Text style={s.supplementaryHint}>مشاهده و تکمیل اطلاعات سازمانی و اختصاصی</Text></View><Text style={s.supplementaryArrow}>‹</Text>
       </TouchableOpacity>
