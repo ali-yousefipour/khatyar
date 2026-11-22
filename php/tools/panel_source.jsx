@@ -4073,7 +4073,7 @@ function RadioArchiveTab({api,channels,cid,setCid}){
 function CustomFieldsManager(){
   const [fields,setFields]=useState(null);
   const [form,setForm]=useState(null); // فرم افزودن/ویرایش
-  const TYPES=[["text","متن"],["number","عدد"],["date","تاریخ"],["checkbox","بله/خیر"],["select","انتخاب تکی"],["multiselect","انتخاب چندتایی"],["textarea","متن بلند"]];
+  const TYPES=[["text","متن کوتاه"],["textarea","متن بلند"],["number","عدد"],["date","تاریخ شمسی"],["time","ساعت"],["mobile","شماره همراه"],["phone","تلفن ثابت"],["email","ایمیل"],["national_id","کد ملی"],["iban","شماره شبا"],["account","شماره حساب"],["card","شماره کارت"],["address","نشانی"],["checkbox","بله/خیر"],["boolean","گزینه بولی"],["select","فهرست انتخابی"],["radio","انتخاب تکی"],["multiselect","انتخاب چندتایی"]];
   const load=()=>db.customFields().then(setFields).catch(()=>setFields([]));
   useEffect(()=>{load();},[]);
   const blank={label:"",ftype:"text",options:"",required:0,user_editable:1,sort_order:0};
@@ -4092,7 +4092,7 @@ function CustomFieldsManager(){
     catch(e){alert(e.message||"غیرفعال‌سازی فیلد ناموفق بود.");}
   };
   if(fields===null) return <p className="muted">در حال بارگذاری…</p>;
-  const needOptions = form && (form.ftype==="select"||form.ftype==="multiselect");
+  const needOptions = form && ["select","radio","multiselect"].includes(form.ftype);
   return(<div className="admin-workspace-page">
     <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>فیلدهای دلخواه برای اطلاعات پرسنل تعریف کنید (مثل شماره شناسنامه، شبا، سایز لباس، قد، شماره بیمه و ...). فیلدهای «قابل تکمیل توسط کاربر» در اپ به نیرو نمایش داده می‌شوند تا کامل کند.</p>
     {!form && <button className="btn p" onClick={()=>setForm({...blank})}>+ افزودن فیلد جدید</button>}
