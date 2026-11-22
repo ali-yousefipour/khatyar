@@ -47,7 +47,9 @@ final class UserProfileFormValues {
         if(($field['binding']??null)==='system')$result['system'][$key]=$value;
         else $result['custom'][(int)($field['custom_field_id']??0)]=$value;
       }
-      if($selfEdit&&$state['visible']&&$state['enabled']&&$state['required']&&!$state['readonly']){
+      if($selfEdit&&$state['visible']&&$state['enabled']&&$state['required']&&!$state['readonly']
+        &&self::permitted($field,$context)
+        &&(($field['binding']??'')!=='system'||in_array($key,self::SELF_EDIT,true))){
         $value=$effective[$key]??null;
         if($value===null||$value===''||(is_array($value)&&!count($value)))
           self::fail('تکمیل فیلد «'.($field['label']??$key).'» الزامی است');
