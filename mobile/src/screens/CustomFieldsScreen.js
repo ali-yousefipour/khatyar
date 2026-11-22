@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
-import { request } from '../api';
+import { request,uploadFile } from '../api';
+import * as DocumentPicker from 'expo-document-picker';
 import { validateIban,validateAccount,normalizeIranianDigits,bankCodeFromName } from '../identityBankingValidation';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -36,6 +37,52 @@ export function formatProfileFieldValue(field,value){
   }
   if(field?.ftype==='checkbox'||field?.ftype==='boolean')return value==='1'||value===true?'بله':'خیر';
   return String(value??'').replace(/\|/g,'، ')||'—';
+}
+
+function PrivateProfileAttachment({field}){
+  const [status,setStatus]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const fieldId=Number(field.id);
+  const path='/me/profile-attachment/'+fieldId;
+  const reload=async()=>setStatus(await request(path+'/status',{noStore:true}));
+  useEffect(()=>{
+    let active=true;
+    if(!Number.isSafeInteger(fieldId)||fieldId<1)return;
+    request(path+'/status',{noStore:true}).then(result=>{if(active)setStatus(result);})
+      .catch(e=>{if(active)setError(e.message||'دریافت وضعیت مدرک ناموفق بود');});
+    return()=>{active=false;};
+  },[fieldId]);
+  const select=async()=>{
+    if(busy)return;
+    setError('');
+    try{
+      const result=await DocumentPicker.getDocumentAsync({
+        type:field.ftype==='image'?'image/*':['application/pdf','image/jpeg','image/png','image/webp'],
+        copyToCacheDirectory:true,multiple:false
+      });
+      if(result.canceled||!result.assets?.[0])return;
+      const asset=result.assets[0];
+      if(!asset.uri)throw new Error('فایل انتخاب‌شده در دسترس نیست');
+      if(Number(asset.size)>8388608)throw new Error('حجم مدرک باید کمتر از ۸ مگابایت باشد');
+      setBusy(true);
+      const response=await uploadFile(path,{},'file',asset.uri,asset.name||'profile-document',
+        asset.mimeType||'application/octet-stream',{queueIfOffline:false,timeoutMs:60000});
+      if(!response?.ok||response?.queued)throw new Error('ثبت قطعی مدرک توسط سرور تأیید نشد');
+      await reload();
+      Alert.alert('ثبت شد','مدرک در فضای خصوصی سامانه ذخیره شد.');
+    }catch(e){setError(e.message||'بارگذاری مدرک انجام نشد');}
+    finally{setBusy(false);}
+  };
+  return <View style={{gap:8}}>
+    <Text style={s.muted}>{status?.exists?'مدرک ثبت‌شده: '+(status.name||'فایل خصوصی'):'مدرکی برای این فیلد ثبت نشده است.'}</Text>
+    <Text style={s.muted}>فقط PDF، JPEG، PNG و WebP؛ حداکثر ۸ مگابایت. بارگذاری آنلاین و امن است.</Text>
+    {error?<Text accessibilityRole="alert" style={s.errorText}>{error}</Text>:null}
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy,busy}}
+      disabled={busy} style={[s.btn,busy&&{opacity:.6}]} onPress={select}>
+      <Text style={s.btnTxt}>{busy?'در حال بارگذاری…':status?.exists?'تعویض مدرک':'انتخاب و بارگذاری مدرک'}</Text>
+    </TouchableOpacity>
+  </View>;
 }
 
 export function FieldInput({ field, value, onChange, onBlur }) {
@@ -83,7 +130,7 @@ export function FieldInput({ field, value, onChange, onBlur }) {
     return <TextInput style={s.input} keyboardType="email-address" autoCapitalize="none" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} />;
   if (field.ftype === 'calculated') return <Text style={s.roVal}>{String(value??'—')}</Text>;
   if (['heading','description','divider'].includes(field.ftype))return <Text style={s.sectionT}>{field.description||field.label||''}</Text>;
-  if (['image','file'].includes(field.ftype))return <Text style={s.muted}>بارگذاری این نوع مدرک در نسخه فعلی برنامه پشتیبانی نمی‌شود؛ برای ثبت به مدیر سامانه مراجعه کنید.</Text>;
+  if (['image','file'].includes(field.ftype))return <PrivateProfileAttachment field={field} />;
   if (field.ftype === 'date')
     return <JDateInput value={value} onChange={onChange} />;
   if (field.ftype === 'checkbox' || field.ftype === 'boolean')
