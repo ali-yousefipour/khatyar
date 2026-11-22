@@ -766,9 +766,9 @@ jobs:
               if($profileSql===false)throw new RuntimeException('Personnel profile migration unreadable');
               $created=0;
               foreach(explode(';',$profileSql) as $statement){
-                  $statement=preg_replace('/^\\s*--[^\\n]*$/m','',$statement);
-                  if(!preg_match('/\\bCREATE\\s+TABLE\\s+IF\\s+NOT\\s+EXISTS\\b/i',$statement))continue;
-                  if(preg_match('/\\b(?:DROP|TRUNCATE|DELETE|ALTER)\\b/i',$statement))
+                  $statement=preg_replace('/^\s*--[^\n]*$/m','',$statement);
+                  if(!preg_match('/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i',$statement))continue;
+                  if(preg_match('/\b(?:DROP|TRUNCATE|DELETE|ALTER)\b/i',$statement))
                       throw new RuntimeException('Personnel migration contains forbidden mutation');
                   $pdo->exec(trim($statement));
                   $created++;
