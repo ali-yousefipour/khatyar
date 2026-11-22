@@ -382,6 +382,9 @@ class CompanyWork {
     if($missing)$report['missing_frozen_person']=true;
     return $report;
   }
+  static function companyProgress($percent,$stage,$done=null,$total=null){
+    if(function_exists('_work_progress_tick'))_work_progress_tick($percent,$stage,$done,$total);
+  }
   static function collect($source,$accountField){
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
@@ -391,6 +394,7 @@ class CompanyWork {
     try {
     $year=(int)$source['jy'];$month=(int)$source['jm'];$users=self::users();$byId=array_column($users,null,'id');
     $collectStage='identity_matching';
+    self::companyProgress(10,'تطبیق شماره پرسنلی و اطلاعات فایل سازمان');
     $rows=self::matchRows(json_decode($source['rows_json'],true,512,JSON_THROW_ON_ERROR),$users);
     $periodStart=self::date(sprintf('%04d/%02d/01',$year,$month));
     $periodEnd=$periodStart->modify('+'.IranCalendar::monthLength($year,$month).' days');
@@ -431,14 +435,17 @@ class CompanyWork {
         'reason'=>'در این ماه تردد ورودی ثبت نشده است؛ مرخصی، مأموریت و اطلاعات کارکرد تکمیلی باید جداگانه بررسی شوند'];
     }
     $collectStage='account_field';
+    self::companyProgress(20,'دریافت اطلاعات هویتی و حساب بانکی کارکنان');
     $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
     $collectStage='account_values';
     $accounts=array_column(Db::all('SELECT user_id,value FROM custom_field_values WHERE field_id=?',[(int)$accountField]),'value','user_id');
     $collectStage='seniority';
+    self::companyProgress(27,'محاسبه سنوات و اطلاعات استخدامی');
     $seniority=array_column(Seniority::listRows()['rows'],null,'id');
     $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
     if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
     $collectStage='rotation';
+    self::companyProgress(34,'محاسبه چرخش شیفت ماه انتخاب‌شده');
     // Rotate only for the source file's explicitly selected Jalali period.
     $rotationReport=_shift_rotation_report($year,$month);
     $collectStage='rotation_result';
@@ -484,8 +491,13 @@ class CompanyWork {
       }
     }
     $collectStage='approved_organization_basis';
+    self::companyProgress(45,'تطبیق کارکرد با اطلاعات تأییدشده سازمان');
     $officeBasis=self::activeOfficeBasis($year,$month,(int)$source['id']);$hasErrors=false;
+    $personDone=0;$personTotal=count($rows);
     foreach($rows as &$r){
+      ++$personDone;
+      self::companyProgress(48+(int)floor(32*$personDone/max(1,$personTotal)),
+        'محاسبه تردد، مرخصی، استعلاجی و غیبت کارکنان',$personDone,$personTotal);
       if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
       if(!$r['national_code'])$r['errors'][]='کد ملی معتبر در اطلاعات پرسنل موجود نیست';
@@ -528,6 +540,7 @@ class CompanyWork {
       if($r['errors'])$hasErrors=true;
     }unset($r);
     if($discrepancies['worked_not_in_file'])$hasErrors=true;
+    self::companyProgress(82,'اعتبارسنجی نهایی اطلاعات و مغایرت‌های کارکرد',$personTotal,$personTotal);
     return ['discrepancies'=>$discrepancies,'rows'=>$rows,'has_errors'=>$hasErrors,'year'=>$year,'month'=>$month,'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']],'attendance_source'=>$rotationReport['source'],'as_of'=>$today->format('Y-m-d'),'partial'=>self::date($to)>=$today,'leave_minutes_per_day'=>self::DAY_MINUTES];
     }catch(Throwable $e){
       // A stable diagnostic stage is useful on shared hosting where the admin
@@ -697,6 +710,7 @@ class CompanyWork {
     $stage='preflight';$target=null;
     $reference=substr(bin2hex(random_bytes(6)),0,12);
     try{
+      self::companyProgress(5,'بررسی قالب اکسل و تنظیمات ساخت فایل');
       $template=__DIR__.'/company-work-template.xlsx';
       if(!is_readable($template) || filesize($template)<100)
         self::fail('قالب اکسل فایل شرکت روی سرور موجود نیست یا قابل خواندن نیست؛ با پشتیبانی تماس بگیرید. کد پیگیری: '.$reference,503);
@@ -705,20 +719,25 @@ class CompanyWork {
       $stage='collect';
       $snapshot=self::collect($source,$accountField);
       if($snapshot['has_errors'])return ['generated'=>false,'snapshot'=>$snapshot];
+      self::companyProgress(85,'آماده‌سازی آرشیو خصوصی فایل شرکت');
       $stage='archive_directory';
       $key=bin2hex(random_bytes(16));$target=static::path($key);
       if(!is_writable(dirname($target)))
         self::fail('پوشه آرشیو خصوصی فایل شرکت قابل نوشتن نیست. کد پیگیری: '.$reference,503);
       $stage='xlsx';
+      self::companyProgress(88,'تولید فایل اکسل و درج اطلاعات محاسبه‌شده');
       self::write($snapshot,$target);
+      self::companyProgress(92,'تکمیل قالب‌بندی و توضیحات فایل اکسل');
       self::addChildAllowanceComments($target,$snapshot);
       @chmod($target,0600);
       if(!is_file($target)||filesize($target)<100)
         self::fail('ساخت یا ذخیره فایل اکسل کامل نشد. کد پیگیری: '.$reference,503);
+      self::companyProgress(95,'کنترل سلامت و یکپارچگی فایل XLSX');
       $hash=hash_file('sha256',$target);
       if(!is_string($hash)||strlen($hash)!==64)
         self::fail('اعتبارسنجی فایل خروجی ناموفق بود. کد پیگیری: '.$reference,503);
       $stage='database_archive';
+      self::companyProgress(98,'ثبت نسخه نهایی در آرشیو شرکت');
       $id=Db::insert('INSERT INTO company_work_files(source_id,jy,jm,storage_key,sha256,snapshot_json,created_by) VALUES(?,?,?,?,?,?,?)',[(int)$source['id'],(int)$source['jy'],(int)$source['jm'],$key,$hash,self::json($snapshot),$actor]);
       return ['generated'=>true,'id'=>$id,'snapshot'=>$snapshot];
     }catch(Throwable $e){
