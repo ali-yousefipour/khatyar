@@ -8478,7 +8478,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
   });
   const showSource=id=>action("دریافت جزئیات…",async()=>{const data=await request("/sources/"+id);if(life.current.alive){setDetail({...data,title:"کارکرد تأییدشدهٔ سازمان"});setQuery("");}});
   const showFile=id=>action("دریافت جزئیات…",async()=>{const data=await request("/files/"+id);if(life.current.alive){setDetail({...data.snapshot,fileId:Number(data.id)||Number(id),title:"نسخهٔ ثبت‌شدهٔ فایل شرکت"});setQuery("");}});
-  const generate=id=>action("محاسبه و ساخت فایل شرکت…",async()=>{
+  const generate=(id,acknowledge=false)=>action("محاسبه و ساخت فایل شرکت…",async()=>{
     const overlay=typeof window!=="undefined"?window.KhatyarLongOperation:null;
     const progressId=(()=>{try{
       const bytes=new Uint8Array(16);window.crypto.getRandomValues(bytes);
@@ -8511,11 +8511,11 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     else overlay?.update(handle,{stage:"در حال ساخت فایل؛ درصد دقیق در دسترس نیست"});
     try{
       const data=await request("/sources/"+id+"/generate"+(progressId?"?progress_id="+progressId:""),
-        {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_field_id:Number(account)})});
+        {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_field_id:Number(account),acknowledge_discrepancies:acknowledge===true})});
       if(!life.current.alive)return;
       overlay?.update(handle,{percent:100,stage:data.generated?"فایل شرکت با موفقیت در آرشیو ثبت شد":"محاسبه پایان یافت؛ مغایرت‌ها را بررسی کنید"});
       const fileId=data.generated?Number(data.id):0;
-      setDetail({...data.snapshot,fileId:fileId>0?fileId:null,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید"});
+      setDetail({...data.snapshot,fileId:fileId>0?fileId:null,sourceId:data.requires_confirmation?Number(id):null,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌های گزارش شرکت؛ بررسی و تأیید برای ادامه"});
       setQuery("");
       await load();
       if(data.generated){
@@ -8611,8 +8611,11 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     {detail&&<Modal title={detail.title} onClose={()=>setDetail(null)} style={{width:"min(96vw,1500px)"}}>
       <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
         {detail.fileId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>download("files",detail.fileId)}>دانلود فایل شرکت (XLSX)</button>}
+        {detail.sourceId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>{if(window.confirm("مغایرت‌های نمایش‌داده‌شده را تأیید می‌کنید؟ فایل با حفظ تمام ردیف‌ها ساخته می‌شود و شرح مشکلات در یادداشت نام و نام خانوادگی هر فرد درج خواهد شد. اعداد نامشخص خالی باقی می‌مانند.")){generate(detail.sourceId,true);}}}>تأیید مغایرت‌ها و ساخت فایل شرکت</button>}
         <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
       </div>
+      {detail.sourceId>0&&<p className="muted" role="alert">این گزارش دارای مغایرت است. با تأیید شما فایل تولید و آرشیو می‌شود؛ جزئیات خطاهای هر نفر در کامنت سلول نام و نام خانوادگی فایل اکسل درج خواهد شد و مقادیر نامشخص خالی می‌مانند.</p>}
+      {detail.discrepancies_acknowledged&&<p className="muted">این نسخه با تأیید مغایرت‌ها تولید شده است؛ برای جزئیات خطاها کامنت نام و نام خانوادگی را در اکسل باز کنید.</p>}
       {detail.rows?.some(r=>r.organization_basis)&&<p className="muted">روزهای اداری مصوب سازمان در غیبت قابل پرداخت و چرخش شیفت این فایل لحاظ شده‌اند؛ مبنای اولیه در سابقهٔ نسخه حفظ است.</p>}{detail.account_field&&<p className="muted">منبع حساب: {detail.account_field.label} | روز مرخصی: ۴۵۳ دقیقه | {detail.partial?"ماه جاری؛ داده‌ها تا روز تولید":"ماه پایان‌یافته"} | منبع تردد: {detail.attendance_source==="finalized"?"نسخهٔ نهایی‌شده":"تردد ثبت‌شده"}</p>}
       {detail.discrepancies&&Object.entries(detail.discrepancies).map(([key,items])=>items?.length?<details key={key} style={{marginBlock:8}}><summary style={{cursor:"pointer",fontWeight:600}}>{({inactive_in_file:"کاربران غیرفعال در فایل سازمان",unmatched_in_file:"فاقد تطبیق با سامانه",worked_not_in_file:"دارای تردد اما خارج از فایل سازمان",no_attendance_in_file:"بدون تردد در ماه انتخابی"})[key]||key} — {fa(items.length)} مورد</summary><div style={{maxHeight:240,overflowY:"auto"}}>{items.map((person,i)=><p key={person.user_id||i}>{faPlain(person.name||"—")} | {faPlain(person.personnel_code||"—")} {person.reason?"— "+person.reason:""}</p>)}</div></details>:null)}
       <label>جست‌وجوی نام، شماره پرسنلی، سمت یا مغایرت<input className="input" value={query} onChange={e=>setQuery(e.target.value)}/></label><p>{fa(visible.length)} از {fa(detail.rows.length)} نیرو | مغایرت: {fa(detail.rows.filter(r=>r.errors?.length).length)}</p>
