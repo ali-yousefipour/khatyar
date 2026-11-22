@@ -14815,6 +14815,16 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         setDetail({ ...data.snapshot, fileId: Number(data.id) || Number(id), title: "نسخهٔ ثبت‌شدهٔ فایل شرکت" });
         setQuery("");
     } });
+    const previewCompany = id => action("بررسی سریع مغایرت‌های فایل شرکت…", async () => {
+        const data = await request("/sources/" + id + "/preview", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_field_id: Number(account) })
+        });
+        if (!life.current.alive)
+            return;
+        setDetail({ ...data, sourceId: Number(id), title: "پیش‌نمایش مغایرت‌ها و تأیید ساخت فایل شرکت" });
+        setQuery("");
+    });
     const generate = (id, acknowledge = false) => action("محاسبه و ساخت فایل شرکت…", async () => {
         const overlay = typeof window !== "undefined" ? window.KhatyarLongOperation : null;
         const progressId = (() => {
@@ -14867,7 +14877,6 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             const fileId = data.generated ? Number(data.id) : 0;
             setDetail({ ...data.snapshot, fileId: fileId > 0 ? fileId : null, sourceId: data.requires_confirmation ? Number(id) : null, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌های گزارش شرکت؛ بررسی و تأیید برای ادامه" });
             setQuery("");
-            await load();
             if (data.generated) {
                 if (!fileId || fileId < 1)
                     setError("فایل محاسبه شده اما شناسه آرشیو آن دریافت نشد؛ آرشیو را بررسی کنید.");
@@ -14881,6 +14890,9 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                     }
                 }
             }
+            // Refresh the archive only after handling the generated download.
+            // A slow archive listing must never prevent the file download.
+            await load();
         }
         finally {
             tracking.active = false;
@@ -14986,7 +14998,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
                     React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => showSource(s.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062A\u0637\u0628\u06CC\u0642"),
                     React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => download("sources", s.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"),
-                    React.createElement("button", { className: "btn p", disabled: !!busy || !account, onClick: () => generate(s.id) }, "\u0633\u0627\u062E\u062A \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A"),
+                    React.createElement("button", { className: "btn p", disabled: !!busy || !account, onClick: () => previewCompany(s.id) }, "\u0633\u0627\u062E\u062A \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A"),
                     React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive("sources", s.id) }, "\u062D\u0630\u0641 \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646")))))),
         React.createElement("h4", { style: { marginTop: 24 } }, "\u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
         archive && !archive.files.filter(f => !f.deleted_at).length && React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u062E\u0631\u0648\u062C\u06CC \u0634\u0631\u06A9\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
