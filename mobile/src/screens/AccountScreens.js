@@ -211,7 +211,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   const [birthPickerOpen, setBirthPickerOpen] = useState(false);
   const [nationalTouched,setNationalTouched] = useState(false);
   useEffect(() => {
-    request('/me/full-profile').then(setP).catch(() => setP({}));
+    request('/me/full-profile', { noStore: true }).then(setP).catch(() => setP({}));
     request('/me/zone-options').then((z) => {
       setZoneOpts(z);
       if (z.current) { setZoneId(z.current.zone_id || null); setInspectors(z.current.inspector_ids || []); }
