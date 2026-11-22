@@ -70,15 +70,15 @@ function FieldInput({ field, value, onChange, onBlur }) {
 
 function bankingFieldKind(field){
   const name=String(field.fkey||'')+' '+String(field.label||'');
-  if(/شبا|\\biban\\b|\\bsheba\\b|\\bshaba\\b/i.test(name))return 'iban';
-  if(/شماره\\s*حساب|account[_ -]?number|bank[_ -]?account/i.test(name))return 'account';
+  if(/شبا|\biban\b|\bsheba\b|\bshaba\b/i.test(name))return 'iban';
+  if(/شماره\s*حساب|account[_ -]?number|bank[_ -]?account/i.test(name))return 'account';
   return null;
 }
 function bankValidation(field,value,allFields,vals){
   const kind=bankingFieldKind(field);
   if(!kind||!String(value??'').trim())return null;
   if(kind==='account')return validateAccount(value);
-  const bankField=allFields.find(f=>/نام\\s*بانک|bank[_ -]?name|^بانک$/.test(String(f.fkey||'')+' '+String(f.label||'')));
+  const bankField=allFields.find(f=>/نام\s*بانک|bank[_ -]?name|^بانک$/.test(String(f.fkey||'')+' '+String(f.label||'')));
   const selected=String(vals[bankField?.id]||'');
   return validateIban(value,{expectedBank:selected.includes('شهر')?'061':null,allowWithoutPrefix:true});
 }
