@@ -3174,6 +3174,7 @@ function Users() {
     const [usersError, setUsersError] = useState("");
     const [savingUser, setSavingUser] = useState(false);
     const [exportingUsers, setExportingUsers] = useState(false);
+    const customSaveRef = useRef(null);
     const [identityAudit, setIdentityAudit] = useState(null), [identityAuditQ, setIdentityAuditQ] = useState(""), [identityAuditBusy, setIdentityAuditBusy] = useState(false);
     const requestSeq = useRef(0);
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => (x[k] === "" || x[k] == null) && delete x[k]); return x; };
@@ -3226,6 +3227,11 @@ function Users() {
                 alert('تاریخ همکاری در پایگاه داده مطابق مقدار واردشده ذخیره نشده است. اطلاعات واقعی سرور نمایش داده می‌شود.');
                 setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: persisted.employment_start_date || '', employment_end_date: persisted.employment_end_date || '' } : current);
                 return;
+            }
+            if (customSaveRef.current) {
+                const customSaved = await customSaveRef.current();
+                if (customSaved === false)
+                    throw new Error("ذخیره اطلاعات تکمیلی انجام نشد؛ مقادیر اصلاح‌شده در فرم حفظ شدند.");
             }
             if (pw) {
                 await db.resetPassword(u.id, pw);
@@ -3597,7 +3603,7 @@ function Users() {
                 React.createElement("div", { style: { display: editTab === "financial" ? "block" : "none" } },
                     React.createElement(PayrollEditor, { userId: edit.id, userName: `${edit.first_name || ""} ${edit.last_name || ""}`.trim() })),
                 React.createElement("div", { style: { display: editTab === "custom" ? "block" : "none" } },
-                    React.createElement(CustomFieldsFiller, { key: edit.id, userId: edit.id, profile: edit }))),
+                    React.createElement(CustomFieldsFiller, { key: edit.id, userId: edit.id, profile: edit, saveRef: customSaveRef }))),
             editTab === "access" && React.createElement(React.Fragment, null,
                 React.createElement("label", null, "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 (\u062E\u0627\u0644\u06CC = \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631)"),
                 React.createElement("input", { className: "input", type: "password", autoComplete: "new-password", value: pw, placeholder: "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F", onChange: e => setPw(e.target.value) }),
@@ -11628,7 +11634,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
             React.createElement("button", { type: "button", className: "btn p", disabled: busy || !selected, onClick: upload }, busy ? "در حال ارسال مدرک…" : "بارگذاری مدرک خصوصی")),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)", margin: 0 } }, error));
 }
-function CustomFieldsFiller({ userId, profile }) {
+function CustomFieldsFiller({ userId, profile, saveRef = null }) {
     const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
     const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null);
     const [attachmentPresence, setAttachmentPresence] = useState({});
@@ -11684,8 +11690,8 @@ function CustomFieldsFiller({ userId, profile }) {
     }, []);
     const save = async () => {
         var _a;
-        if (busy)
-            return;
+        if (busy || fields === null)
+            return false;
         const changed = {};
         for (const field of visible) {
             const state = fieldState(field);
@@ -11696,21 +11702,25 @@ function CustomFieldsFiller({ userId, profile }) {
                 changed[id] = value !== null && value !== void 0 ? value : "";
         }
         if (!Object.keys(changed).length)
-            return;
+            return true;
         setBusy(true);
         setError("");
         try {
             await db.saveUserCustomValues(userId, changed);
             setOriginalVals({ ...vals });
-            alert("اطلاعات تکمیلی ذخیره شد.");
+            return true;
         }
         catch (e) {
             setError(e.message || "ذخیره اطلاعات تکمیلی ناموفق بود.");
+            return false;
         }
         finally {
             setBusy(false);
         }
     };
+    useEffect(() => { if (saveRef)
+        saveRef.current = save; return () => { if (saveRef && saveRef.current === save)
+        saveRef.current = null; }; }, [saveRef, save]);
     if (!userId)
         return null;
     return React.createElement("div", { style: { marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" } },
