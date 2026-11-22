@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/Payroll.php';
 require_once __DIR__.'/IranCalendar.php';
+require_once __DIR__.'/ShiftCalc.php';
 require_once __DIR__.'/IdentityBankingValidation.php';
 
 /** Organization inputs and generated company reports are immutable, private archives. */
