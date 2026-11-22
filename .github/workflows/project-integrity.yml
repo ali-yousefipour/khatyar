@@ -41,6 +41,7 @@ jobs:
           php -l php/lib/IdentityBankingValidation.php
           php php/tests/identity_banking_validation_test.php
           node mobile/scripts/test-identity-banking-validation.cjs
+          node php/tests/identity_banking_ui_test.cjs
           php -l php/lib/CompanyWork.php
           php -l php/lib/company_work_routes.php
           php php/tests/subscription_invoice_test.php
