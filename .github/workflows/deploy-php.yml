@@ -639,8 +639,8 @@ jobs:
             local_sha="$(sha256sum "${file}" | awk '{print $1}')"
             verify_path="${verify_dir}/${rel}"
             mkdir -p "$(dirname "${verify_path}")"
-            printf 'get "%s" -o "%s"\\n' "${remote}" "${verify_path}" >> "${batch}"
-            printf '%s\\t%s\\t%s\\n' "${rel}" "${local_sha}" "${verify_path}" >> "${manifest}"
+            printf 'get "%s" -o "%s"\n' "${remote}" "${verify_path}" >> "${batch}"
+            printf '%s\t%s\t%s\n' "${rel}" "${local_sha}" "${verify_path}" >> "${manifest}"
           done < <(find deploy-payload -type f -print | sort)
 
           if [ -s "${manifest}" ]; then
@@ -648,7 +648,7 @@ jobs:
             lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "source ${batch}; bye"
           fi
 
-          while IFS=$'\\t' read -r rel local_sha verify_path; do
+          while IFS=$'\t' read -r rel local_sha verify_path; do
             [ -f "${verify_path}" ] || {
               echo "ERROR: FTP verify download missing ${rel}" >&2
               exit 1
