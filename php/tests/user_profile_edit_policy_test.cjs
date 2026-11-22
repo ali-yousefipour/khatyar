@@ -33,4 +33,10 @@ assert.match(custom,/String\(vals\[f\.id\]\?\?''\)!==String\(originalVals\[f\.id
 assert.match(account,/profile_definition:\{readonly:true/,'unbound legacy fields cannot bypass published schema');
 assert.match(custom,/profile_definition:\{readonly:true/,'custom field editor keeps unbound records read-only');
 
+for(const kind of ['time','mobile','phone','email','national_id','iban','account','card','radio','address']){
+  assert.match(panel,new RegExp('\\["'+kind+'","'),'form designer exposes '+kind);
+  assert.match(routes,new RegExp("'"+kind+"'"),'PHP admin endpoints accept '+kind);
+}
+assert.match(custom,/field\.ftype === 'time'/,'Android renders time inputs');
+assert.match(custom,/field\.ftype === 'address'/,'Android renders multiline address inputs');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
