@@ -263,7 +263,10 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   const extraVisible=extraFields.filter(field=>profileFieldState(field.profile_definition||field,valuesForRules).visible);
   const systemCanEdit=key=>!profileReadOnly&&systemFieldState(key).visible&&systemFieldState(key).enabled&&!systemFieldState(key).readonly&&profileCanEdit(systemDefinitions.find(f=>f.key===key&&f.binding==="system"),p);
   const extraEditable=field=>!profileReadOnly&&!!field.user_editable&&
-    profileCanEdit(field.profile_definition||field,p)&&!profileFieldState(field.profile_definition||field,valuesForRules).readonly;
+    profileCanEdit(field.profile_definition||field,p)&&
+    profileFieldState(field.profile_definition||field,valuesForRules).visible&&
+    profileFieldState(field.profile_definition||field,valuesForRules).enabled&&
+    !profileFieldState(field.profile_definition||field,valuesForRules).readonly;
   const toggleInspector = (id) => { if(profileReadOnly)return; setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]); };
   const notFoundMsg = () => Alert.alert('بازرس پیدا نشد', 'اگر بازرس شما در فهرست نیست، لطفاً با بازرس خود تماس بگیرید و با ایشان هماهنگ کنید که ابتدا منطقه و مسئول بالادستی خود را در برنامه انتخاب کند تا نامش به فهرست بازرسین این منطقه اضافه شود. سپس این صفحه را دوباره بررسی کنید.');
   async function save() {
