@@ -35,7 +35,7 @@ final class UserProfileAttachments {
       if(!$size||($size['mime']??'')!==$mime||(int)$size[0]<1||(int)$size[1]<1
         ||(int)$size[0]>6000||(int)$size[1]>6000)self::fail('ابعاد یا ساختار تصویر معتبر نیست');
     }
-    $clean=preg_replace('/[\\x00-\\x1F\\x7F\\/\\\\]+/u','_',trim($filename));
+    $clean=preg_replace('/[\x00-\x1F\x7F\/\\]+/u','_',trim($filename));
     if(!is_string($clean)||$clean==='')$clean='profile-document.'.self::ALLOWED[$mime];
     $clean=mb_substr($clean,0,160);
     return ['mime_type'=>$mime,'extension'=>self::ALLOWED[$mime],
@@ -117,7 +117,7 @@ final class UserProfileAttachments {
       @unlink($destination);
       throw $error;
     }
-    if(is_string($old)&&preg_match('/^[a-f0-9]{32}\\.(?:pdf|jpg|png|webp)$/D',$old))@unlink($dir.'/'.$old);
+    if(is_string($old)&&preg_match('/^[a-f0-9]{32}\.(?:pdf|jpg|png|webp)$/D',$old))@unlink($dir.'/'.$old);
     return ['ok'=>true,'exists'=>true,'name'=>$metadata['original_name'],
       'mime_type'=>$metadata['mime_type'],'bytes'=>$metadata['file_size']];
   }
@@ -134,7 +134,7 @@ final class UserProfileAttachments {
     $row=Db::one('SELECT storage_name,original_name,mime_type,file_size FROM user_profile_attachments WHERE user_id=? AND field_id=?',[$userId,$fieldId]);
     if(!$row)Http::error('مدرکی برای این فیلد ثبت نشده است',404);
     $name=(string)$row['storage_name'];
-    if(!preg_match('/^[a-f0-9]{32}\\.(?:pdf|jpg|png|webp)$/D',$name))throw new RuntimeException('Stored attachment identifier invalid');
+    if(!preg_match('/^[a-f0-9]{32}\.(?:pdf|jpg|png|webp)$/D',$name))throw new RuntimeException('Stored attachment identifier invalid');
     $file=self::directory().'/'.$name;
     if(!is_file($file))throw new RuntimeException('Private attachment not found on disk');
     header('Content-Type: '.$row['mime_type']);
