@@ -3175,6 +3175,23 @@ function Users() {
     const [savingUser, setSavingUser] = useState(false);
     const [exportingUsers, setExportingUsers] = useState(false);
     const customSaveRef = useRef(null);
+    const editBaselineRef = useRef(null);
+    const [customDirty, setCustomDirty] = useState(false);
+    const [saveMessage, setSaveMessage] = useState("");
+    const editableUserKeys = ['first_name', 'last_name', 'email', 'role_id', 'zone_id', 'is_active', 'allow_android', 'allow_web', 'security_exempt', 'phone', 'national_code', 'marital_status', 'address', 'children_count', 'presence_required', 'seniority_start', 'can_send_sms', 'can_be_substitute', 'can_welfare', 'can_cultural', 'can_manage_temp_drivers', 'personnel_code', 'birth_date', 'rank_stars', 'employment_start_date', 'employment_end_date'];
+    const draftSignature = user => JSON.stringify(editableUserKeys.map(key => { var _a; return (_a = user === null || user === void 0 ? void 0 : user[key]) !== null && _a !== void 0 ? _a : null; }));
+    const editDirty = !!edit && (draftSignature(edit) !== draftSignature(editBaselineRef.current) || !!pw || customDirty);
+    const closeUserEditor = () => {
+        if (savingUser)
+            return;
+        if (editDirty && !confirm('تغییرات ذخیره‌نشده وجود دارد. از ویرایش کاربر خارج شوید؟'))
+            return;
+        editBaselineRef.current = null;
+        setCustomDirty(false);
+        setSaveMessage("");
+        setEdit(null);
+        setPw("");
+    };
     const [identityAudit, setIdentityAudit] = useState(null), [identityAuditQ, setIdentityAuditQ] = useState(""), [identityAuditBusy, setIdentityAuditBusy] = useState(false);
     const requestSeq = useRef(0);
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => (x[k] === "" || x[k] == null) && delete x[k]); return x; };
@@ -3444,7 +3461,7 @@ function Users() {
                     React.createElement("span", { className: "badge " + (u.is_active ? "b-ok" : "b-no") }, u.is_active ? "فعال" : "غیرفعال")),
                 React.createElement("td", null,
                     React.createElement("div", { className: "row users-row-actions", style: { gap: 6, flexWrap: "wrap" } },
-                        React.createElement("button", { className: "btn g", onClick: () => { setEditTab("profile"); setEdit({ ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }); setPw(""); GET('/admin/users/' + u.id + '/employment-period').then(period => { setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' } : current); }).catch(error => { alert('دریافت تاریخ همکاری از سرور ناموفق بود: ' + (error.message || error)); }); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                        React.createElement("button", { className: "btn g", onClick: () => { setEditTab("profile"); const newDraft = { ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }; editBaselineRef.current = newDraft; setCustomDirty(false); setSaveMessage(""); setEdit(newDraft); setPw(""); GET('/admin/users/' + u.id + '/employment-period').then(period => { setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' } : current); }).catch(error => { alert('دریافت تاریخ همکاری از سرور ناموفق بود: ' + (error.message || error)); }); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                         React.createElement("button", { className: "btn g", onClick: () => setLineModal(u) }, "\u062E\u0637\u0648\u0637"),
                         React.createElement("button", { className: "btn g users-danger-action", onClick: () => delUser(u) }, "\u062D\u0630\u0641"))))))),
         !users.length && !usersLoading && !usersError && React.createElement("div", { className: "users-empty-state", role: "status" },
@@ -3482,7 +3499,7 @@ function Users() {
                             alert(e.message || "خطا در دریافت پیوست");
                         } } }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u067E\u06CC\u0648\u0633\u062A") : null)))) : React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0646\u06CC\u0631\u0648 \u062A\u0639\u0647\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
             React.createElement("button", { className: "btn g", style: { marginTop: 14, width: "100%" }, onClick: () => setCommitmentsModal(null) }, "\u0628\u0633\u062A\u0646")),
-        edit && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", className: "users-edit-dialog", style: { width: "min(1100px,calc(100vw - 24px))" }, onClose: () => { setEdit(null); setPw(""); } },
+        edit && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", className: "users-edit-dialog", style: { width: "min(1100px,calc(100vw - 24px))" }, onClose: closeUserEditor },
             React.createElement("div", { className: "users-edit-summary" },
                 edit.photo ? React.createElement("img", { src: edit.photo, alt: "\u062A\u0635\u0648\u06CC\u0631 \u067E\u0631\u0633\u0646\u0644\u06CC", className: "users-edit-avatar" }) : React.createElement("span", { className: "users-edit-avatar users-edit-avatar-fallback" }, (edit.first_name || "؟")[0]),
                 React.createElement("div", { className: "users-edit-summary-name" },
@@ -3649,8 +3666,8 @@ function Users() {
                         React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'android') }, "\u062D\u0630\u0641 \u062F\u0633\u062A\u06AF\u0627\u0647 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F"),
                         React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'web') }, "\u062D\u0630\u0641 \u0646\u0634\u0633\u062A \u0648\u0628")))),
             React.createElement("div", { className: "users-edit-footer" },
-                React.createElement("span", { className: "muted", role: "status" }, savingUser ? "در حال ذخیره اطلاعات کاربر…" : "تغییرات اصلی و تکمیلی با هم ذخیره می‌شوند."),
-                React.createElement("button", { className: "btn g", type: "button", disabled: savingUser, onClick: () => { setEdit(null); setPw(""); } }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+                React.createElement("span", { className: "muted", role: "status" }, savingUser ? "در حال ذخیره اطلاعات کاربر…" : editDirty ? "تغییرات ذخیره‌نشده وجود دارد." : saveMessage || "اطلاعات اصلی و تکمیلی به‌صورت یکپارچه ذخیره می‌شوند."),
+                React.createElement("button", { className: "btn g", type: "button", disabled: savingUser, onClick: closeUserEditor }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
                 React.createElement("button", { className: "btn p", type: "button", disabled: savingUser, onClick: () => save(edit) }, savingUser ? "در حال ذخیره…" : "ذخیره و بستن"))),
         identityAudit && React.createElement(Modal, { title: "\u0645\u0645\u06CC\u0632\u06CC \u0633\u0627\u062E\u062A\u0627\u0631\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0641\u0639\u0627\u0644 \u0648 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644", onClose: () => setIdentityAudit(null), style: { width: "min(96vw,1100px)" } },
             React.createElement("p", { role: "status" },
