@@ -19,6 +19,10 @@ assert.match(view,/life\.current\.alive=false/,'unmount cancels active request')
 assert.match(view,/progress\.overlay\?\.end\(progress\.id\)/,'unmount removes overlay');
 assert.match(view,/percent:100,stage:data\.generated/,'100 percent is displayed only on confirmed response');
 assert.match(shared,/url\.pathname === '\/api\/admin\/shift-report\/progress'/,'polling cannot trigger a second global loading overlay');
+assert.match(routes,/acknowledge_discrepancies/,'company route forwards only explicit discrepancy approval');
+assert.match(work,/requires_confirmation/,'server requires explicit approval when discrepancies exist');
+assert.match(work,/discrepancies_acknowledged_by/,'archive records who approved discrepancies');
+assert.match(source,/تأیید مغایرت‌ها و ساخت فایل شرکت/,'client offers an explicit confirm-and-build action');
 assert.match(routes,/_work_progress_start\(\$u,'company'\)/,'company request starts user-scoped progress');
 assert.match(routes,/_work_progress_tick\(100,!empty\(\$result\['generated'\]\)/,'server publishes final stage only after generation completes');
 for(const label of ['تطبیق شماره پرسنلی','اطلاعات هویتی','سنوات','چرخش شیفت','تردد، مرخصی','تولید فایل اکسل','آرشیو شرکت']){
