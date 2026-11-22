@@ -8816,46 +8816,69 @@ function UserProfileFormDesigner() {
         const rule = field.rules[index];
         fn(rule);
     });
+    const previewDigits = value => String(value !== null && value !== void 0 ? value : "").replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+        .replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c)));
+    const previewNumber = value => {
+        const raw = previewDigits(value).trim();
+        return /^-?\d+(?:\.\d+)?$/.test(raw) ? Number(raw) : null;
+    };
+    const previewDate = value => {
+        const raw = previewDigits(value).replace(/\//g, "-");
+        const m = /^(1[34]\d{2})-(\d{2})-(\d{2})$/.exec(raw);
+        if (!m)
+            return null;
+        const month = Number(m[2]), day = Number(m[3]);
+        return month >= 1 && month <= 12 && day >= 1 && day <= (month <= 6 ? 31 : 30) ? raw : null;
+    };
     const match = (condition, values) => {
         if (condition === null || condition === void 0 ? void 0 : condition.all)
-            return condition.all.every(c => match(c, values));
+            return condition.all.length > 0 && condition.all.every(c => match(c, values));
         if (condition === null || condition === void 0 ? void 0 : condition.any)
-            return condition.any.some(c => match(c, values));
+            return condition.any.length > 0 && condition.any.some(c => match(c, values));
         const v = values[condition === null || condition === void 0 ? void 0 : condition.field], x = condition === null || condition === void 0 ? void 0 : condition.value;
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "empty")
-            return v == null || v === "";
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_empty")
-            return v != null && v !== "";
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "eq")
-            return String(v !== null && v !== void 0 ? v : "") === String(x !== null && x !== void 0 ? x : "");
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "neq")
-            return String(v !== null && v !== void 0 ? v : "") !== String(x !== null && x !== void 0 ? x : "");
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "gt")
-            return Number(v) > Number(x);
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "gte")
-            return Number(v) >= Number(x);
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "lt")
-            return Number(v) < Number(x);
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "lte")
-            return Number(v) <= Number(x);
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "in")
-            return Array.isArray(x) && x.map(String).includes(String(v));
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_in")
-            return Array.isArray(x) && !x.map(String).includes(String(v));
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "true")
-            return v === true || v === 1 || v === "1";
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "false")
-            return v === false || v === 0 || v === "0" || v == null;
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "contains")
-            return String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_contains")
-            return !String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "date_between")
-            return Array.isArray(x) && v >= x[0] && v <= x[1];
-        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "date_outside")
-            return Array.isArray(x) && (v < x[0] || v > x[1]);
-        return false;
+        const empty = v == null || v === "" || (Array.isArray(v) && v.length === 0);
+        switch (condition === null || condition === void 0 ? void 0 : condition.op) {
+            case "empty": return empty;
+            case "not_empty": return !empty;
+            case "eq": return !empty && String(v) === String(x);
+            case "neq": return empty || String(v) !== String(x);
+            case "gt":
+            case "gte":
+            case "lt":
+            case "lte": {
+                const a = previewNumber(v), b = previewNumber(x);
+                if (a === null || b === null)
+                    return false;
+                return condition.op === "gt" ? a > b : condition.op === "gte" ? a >= b : condition.op === "lt" ? a < b : a <= b;
+            }
+            case "in":
+            case "not_in": {
+                if (!Array.isArray(x))
+                    return false;
+                const options = x.map(String), selected = Array.isArray(v) ? v.map(String) : empty ? [] : [String(v)];
+                const yes = selected.some(value => options.includes(value));
+                return condition.op === "in" ? yes : !yes;
+            }
+            case "contains": return Array.isArray(v) ? v.includes(x) : String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
+            case "not_contains": return Array.isArray(v) ? !v.includes(x) : !String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
+            case "true": return v === true || v === 1 || v === "1";
+            case "false": return v === false || v === 0 || v === "0" || empty;
+            case "date_between":
+            case "date_outside": {
+                const a = previewDate(v), lo = previewDate(x === null || x === void 0 ? void 0 : x[0]), hi = previewDate(x === null || x === void 0 ? void 0 : x[1]);
+                if (!a || !lo || !hi || lo > hi)
+                    return false;
+                const yes = a >= lo && a <= hi;
+                return condition.op === "date_between" ? yes : !yes;
+            }
+            default: return false;
+        }
     };
+    const referencedRuleFields = condition => (condition === null || condition === void 0 ? void 0 : condition.all) || (condition === null || condition === void 0 ? void 0 : condition.any)
+        ? (condition.all || condition.any).flatMap(referencedRuleFields)
+        : (condition === null || condition === void 0 ? void 0 : condition.field) ? [condition.field] : [];
+    const previewConditionKeys = new Set(fields.flatMap(f => (f.rules || []).flatMap(rule => referencedRuleFields(rule.when))));
+    const previewControls = fields.filter(f => previewConditionKeys.has(f.key));
     const stateOf = (field) => {
         const state = { visible: field.visible !== false, required: !!field.required, readonly: !!field.readonly, enabled: field.enabled !== false };
         for (const rule of field.rules || []) {
@@ -8979,9 +9002,23 @@ function UserProfileFormDesigner() {
                 " \u00B7 \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u067E\u06CC\u0634\u200C\u0646\u0648\u06CC\u0633")))),
         !model ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0631\u0645\u2026") : preview ?
             React.createElement("div", { style: { display: "grid", gap: 12 } },
-                React.createElement("div", { className: "row", style: { flexWrap: "wrap", gap: 8 } }, fields.filter(f => ["gender", "marital_status", "children_count"].includes(f.key)).map(f => { var _a; return React.createElement("label", { key: f.key },
-                    f.label,
-                    React.createElement("input", { className: "input", value: (_a = previewValues[f.key]) !== null && _a !== void 0 ? _a : "", onChange: e => setPreviewValues(v => ({ ...v, [f.key]: e.target.value })) })); })),
+                React.createElement("div", { className: "row", style: { flexWrap: "wrap", gap: 8 } },
+                    previewControls.map(f => {
+                        var _a, _b, _c;
+                        return React.createElement("label", { key: f.key, style: { minWidth: 160 } },
+                            f.label,
+                            ["select", "radio"].includes(f.type) && Array.isArray(f.options) && f.options.length ?
+                                React.createElement("select", { className: "input", value: (_a = previewValues[f.key]) !== null && _a !== void 0 ? _a : "", onChange: e => setPreviewValues(v => ({ ...v, [f.key]: e.target.value })) },
+                                    React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F"),
+                                    f.options.map(o => React.createElement("option", { key: o, value: o }, o))) :
+                                ["boolean", "checkbox"].includes(f.type) ?
+                                    React.createElement("select", { className: "input", value: (_b = previewValues[f.key]) !== null && _b !== void 0 ? _b : "", onChange: e => setPreviewValues(v => ({ ...v, [f.key]: e.target.value })) },
+                                        React.createElement("option", { value: "" }, "\u0646\u0627\u0645\u0634\u062E\u0635"),
+                                        React.createElement("option", { value: "1" }, "\u0628\u0644\u0647"),
+                                        React.createElement("option", { value: "0" }, "\u062E\u06CC\u0631")) :
+                                    React.createElement("input", { className: "input", dir: ["date", "number"].includes(f.type) ? "ltr" : "rtl", placeholder: f.type === "date" ? "۱۴۰۵/۰۸/۰۱" : "مقدار آزمایشی", value: (_c = previewValues[f.key]) !== null && _c !== void 0 ? _c : "", onChange: e => setPreviewValues(v => ({ ...v, [f.key]: e.target.value })) }));
+                    }),
+                    !previewControls.length && React.createElement("span", { className: "muted" }, "\u0642\u0627\u0646\u0648\u0646 \u0634\u0631\u0637\u06CC \u0628\u0631\u0627\u06CC \u0622\u0632\u0645\u0627\u06CC\u0634 \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")),
                 model.sections.map(section => React.createElement("section", { key: section.key, className: "card-p" },
                     React.createElement("h4", null, section.title),
                     section.fields.filter(f => stateOf(f).visible).map(f => React.createElement("div", { key: f.key, style: { padding: 6, marginBlock: 4 } },
@@ -9036,6 +9073,19 @@ function UserProfileFormDesigner() {
                             React.createElement("label", null,
                                 "\u0646\u0648\u0639 \u0641\u06CC\u0644\u062F",
                                 React.createElement("input", { className: "input", readOnly: true, value: current.type || "" })),
+                            ["text", "textarea", "number", "phone", "mobile", "email", "account", "iban", "card"].includes(current.type) &&
+                                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 8 } }, ["text", "textarea"].includes(current.type) ? [["min_length", "حداقل طول"], ["max_length", "حداکثر طول"]].map(([key, label]) => {
+                                    var _a;
+                                    return React.createElement("label", { key: key },
+                                        label,
+                                        React.createElement("input", { className: "input", type: "number", min: "0", value: (_a = current[key]) !== null && _a !== void 0 ? _a : "", onChange: e => editField(key, e.target.value === "" ? null : Number(e.target.value)) }));
+                                }) :
+                                    current.type === "number" ? [["min", "حداقل مقدار"], ["max", "حداکثر مقدار"]].map(([key, label]) => {
+                                        var _a;
+                                        return React.createElement("label", { key: key },
+                                            label,
+                                            React.createElement("input", { className: "input", type: "number", value: (_a = current[key]) !== null && _a !== void 0 ? _a : "", onChange: e => editField(key, e.target.value === "" ? null : Number(e.target.value)) }));
+                                    }) : null),
                             React.createElement("label", null,
                                 "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
                                 React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
