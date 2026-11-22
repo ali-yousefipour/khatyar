@@ -1,5 +1,16 @@
 <?php
+final class Db {
+  public static function one(string $sql,array $params=[]): array {
+    if(str_contains($sql,'information_schema.tables'))return ['n'=>1];
+    throw new RuntimeException('Unexpected DB query: '.$sql);
+  }
+  public static function all(string $sql,array $params=[]): array {
+    if(str_contains($sql,'FROM user_profile_attachments WHERE user_id=?'))return [['field_id'=>7]];
+    throw new RuntimeException('Unexpected DB query: '.$sql);
+  }
+}
 require_once __DIR__.'/../lib/UserProfileAttachments.php';
+require_once __DIR__.'/../lib/UserProfileFormValues.php';
 function checkAttachment(string $label,bool $okay): void {
   if(!$okay)throw new RuntimeException('FAIL '.$label);
   echo "PASS ".$label."\n";
@@ -26,4 +37,15 @@ if(is_string($png)){
   $image=UserProfileAttachments::inspect($png,'profile.png','image');
   checkAttachment('single-pixel PNG accepted only as a private image',$image['mime_type']==='image/png');
 }
+$requiredSchema=['sections'=>[['key'=>'documents','fields'=>[
+  ['key'=>'cf_7','type'=>'image','binding'=>'custom','custom_field_id'=>7,'required'=>true],
+  ['key'=>'cf_8','type'=>'file','binding'=>'custom','custom_field_id'=>8,'required'=>false]
+]]]];
+$hydrated=UserProfileAttachments::effectiveValues(17,$requiredSchema,[]);
+checkAttachment('existing private image counts as populated required field',($hydrated['cf_7']??null)==='1');
+checkAttachment('absent private PDF never masquerades as uploaded',array_key_exists('cf_8',$hydrated)&&$hydrated['cf_8']===null);
+$planned=UserProfileFormValues::plan($requiredSchema,[],$hydrated,true,['id'=>17,'role_id'=>3]);
+checkAttachment('unrelated profile changes are not blocked by uploaded required image',$planned['custom']===[]);
+$missing=$hydrated;$missing['cf_7']=null;
+rejectAttachment('missing required private image rejected',fn()=>UserProfileFormValues::plan($requiredSchema,[],$missing,true,['id'=>17,'role_id'=>3]));
 echo "Private personnel attachment validation passed\n";
