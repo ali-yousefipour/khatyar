@@ -45,6 +45,43 @@ final class IdentityBankingValidation {
       return self::result('account',false,'invalid',['شماره حساب شامل نویسه غیرمجاز است.']);
     return self::result('account',true,'offline_unverifiable',[],['تبدیل و تطبیق شماره حساب داخلی با شبا بدون الگوریتم رسمی بانک قابل تأیید نیست.'],['normalized'=>preg_replace('/[ .-]/','',$s)]);
   }
+  /** Canonical offline policy for new/edited values; no database writes. */
+  public static function validateUserInput(array $input,array $knownUsers=[],?int $editingId=null): array {
+    $checks=[];$errors=[];$warnings=[];
+    if(array_key_exists('national_code',$input)){
+      $checks['national_code']=self::nationalId($input['national_code']);
+      // Empty legacy values can be handled by the caller's explicit required-field policy.
+      if(!$checks['national_code']['valid'] && $checks['national_code']['status']!=='missing_information')
+        $errors=array_merge($errors,$checks['national_code']['errors']);
+      if($checks['national_code']['valid']){
+        $normalized=self::digits($input['national_code']);
+        foreach($knownUsers as $person){
+          if((int)($person['id']??0)===(int)$editingId && $editingId!==null)continue;
+          if(self::digits($person['national_code']??'')===$normalized){
+            $errors[]='این کد ملی قبلاً برای کاربر دیگری ثبت شده است.';
+            break;
+          }
+        }
+      }
+    }
+    $bankCode=$input['bank_code']??null;
+    if($bankCode!==null && !preg_match('/^[0-9]{3}$/D',(string)$bankCode))
+      $errors[]='شناسه بانک انتخاب‌شده نامعتبر است.';
+    if(array_key_exists('iban',$input) && trim((string)$input['iban'])!==''){
+      $checks['iban']=self::iban($input['iban'],is_string($bankCode)&&preg_match('/^[0-9]{3}$/D',$bankCode)?$bankCode:null,true);
+      if(!$checks['iban']['valid'] && $checks['iban']['status']!=='offline_unverifiable')
+        $errors=array_merge($errors,$checks['iban']['errors']);
+      $warnings=array_merge($warnings,$checks['iban']['warnings']);
+    }
+    if(array_key_exists('account',$input) && trim((string)$input['account'])!==''){
+      $checks['account']=self::account($input['account']);
+      if(!$checks['account']['valid'])$errors=array_merge($errors,$checks['account']['errors']);
+      $warnings=array_merge($warnings,$checks['account']['warnings']);
+    }
+    return ['valid'=>!$errors,'status'=>$errors?'invalid':($warnings?'offline_unverifiable':'structurally_valid'),
+      'checks'=>$checks,'errors'=>array_values(array_unique($errors)),'warnings'=>array_values(array_unique($warnings)),
+      'verificationLevel'=>'offline_structural'];
+  }
   /** Read-only batch audit, including custom bank fields; never returns full identifiers. */
   public static function auditBatch(array $users,array $fields,array $values,array $allUsers): array {
     $fieldKinds=[];
