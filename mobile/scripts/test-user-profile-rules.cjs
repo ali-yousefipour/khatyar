@@ -42,6 +42,13 @@ assert.match(screen,/setStatus\(\{exists:true,name:response\.name/,'successful u
 assert.match(screen,/queueIfOffline:false/,'sensitive attachments cannot enter offline queues');
 assert.match(screen,/8388608/,'client rejects oversized documents before upload');
 assert.match(screen,/!\['file','image'\]\.includes\(f\.ftype\)/,'required documents are evaluated by secure server status rather than legacy text values');
+const fullProfile=fs.readFileSync(path.join(__dirname,'../src/screens/AccountScreens.js'),'utf8');
+assert.match(screen,/export function PrivateProfileAttachment/,'private document viewer is shared between Android profiles');
+assert.match(screen,/onStatus\?\.\(field\.id,true\)/,'successful private uploads notify conditional rules');
+assert.match(screen,/attachmentPresence,setAttachmentPresence/,'supplemental fields remember private document presence');
+assert.match(fullProfile,/PrivateProfileAttachment field=\{field\} readOnly/,'full profile displays private documents without exposing file paths');
+assert.match(fullProfile,/onAttachmentStatus=\{\(id,exists\)=>setAttachmentPresence/,'full profile re-evaluates conditions after document upload');
+
 assert.match(screen,/request\(path\+'\/status'/,'private attachment status is authenticated');
 assert.doesNotMatch(screen,/بارگذاری این نوع مدرک در نسخه فعلی برنامه پشتیبانی نمی‌شود/,'obsolete unsupported attachment placeholder removed');
 console.log('PASS mobile personnel forms: AND/OR, gender, family, Jalali, Persian number, readonly and no eval');
