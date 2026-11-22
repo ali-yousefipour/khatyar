@@ -58,6 +58,7 @@ final class UserProfileRules {
   }
   public static function validate(array $schema): void {
     if(!isset($schema['sections'])||!is_array($schema['sections'])||!array_is_list($schema['sections']))self::fail('گروه‌های فرم نامعتبرند');
+    if(count($schema['sections'])>64)self::fail('تعداد گروه‌های فرم بیش از حد مجاز است');
     $fields=[];$deps=[];$sectionKeys=[];
     foreach($schema['sections'] as $section){
       if(!is_array($section)||empty($section['key']))self::fail('گروه فاقد شناسه است');
@@ -69,13 +70,29 @@ final class UserProfileRules {
         if(!is_array($field))self::fail('تعریف فیلد نامعتبر است');
         $key=self::fieldKey($field['key']??null);
         if(isset($fields[$key]))self::fail('شناسه فیلد تکراری است: '.$key);
+        if(count($fields)>=400)self::fail('تعداد فیلدهای فرم بیش از حد مجاز است');
         if(!in_array($field['type']??null,self::FIELD_TYPES,true))self::fail('نوع فیلد پشتیبانی نمی‌شود');
         if(isset($field['binding'])&&!in_array($field['binding'],['system','custom','display'],true))self::fail('نوع ذخیره‌سازی نامعتبر است');
+        if(isset($field['options'])){
+          $choices=$field['options'];
+          if(!is_array($choices)||!array_is_list($choices)||count($choices)>100)
+            self::fail('گزینه‌های فیلد باید فهرست معتبر باشند');
+          $unique=[];
+          foreach($choices as $choice){
+            if(!is_string($choice)||$choice===''||mb_strlen($choice)>200||str_contains($choice,'|')||isset($unique[$choice]))
+              self::fail('گزینه فیلد خالی، تکراری یا نامعتبر است');
+            $unique[$choice]=true;
+          }
+        }
+        if(in_array($field['type'],['select','radio','multiselect'],true)&&empty($field['options']))
+          self::fail('برای این نوع فیلد حداقل یک گزینه معتبر لازم است');
         $fields[$key]=$field;
       }
     }
     foreach($fields as $key=>$field){
       $deps[$key]=[];
+      if(!is_array($field['rules']??[])||count($field['rules']??[])>32)
+        self::fail('تعداد قوانین فیلد بیش از حد مجاز است');
       foreach($field['rules']??[] as $rule){
         if(!is_array($rule)||!in_array($rule['action']??null,self::ACTIONS,true)||!isset($rule['when'])||!is_array($rule['when']))self::fail('قانون فیلد نامعتبر است');
         foreach(self::dependencies($rule['when']) as $dep){
