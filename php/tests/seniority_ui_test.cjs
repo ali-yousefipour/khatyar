@@ -129,6 +129,18 @@ async function main() {
   const exported = vm.runInContext('seniorityExportRows(exportRows,"1405-07")', app.context);
   assert.ok(exported[0]['نام'].startsWith("'="));
   assert.equal(exported[0]['کد ملی'], '0012345678');
+  // Completion percentage comes from acknowledged server batches, not a timer.
+  const manyRows=Array.from({length:9},(_,i)=>({...rows[0],id:i+10,first_name:'نیرو',last_name:String(i),initialized:true,is_active:1}));
+  const batched=harness({rows:manyRows,period:'1405-07',month_days:30});
+  batched.render(); await settle();let batchTree=batched.render();await settle();batchTree=batched.render();
+  button(batchTree,'به‌روزرسانی سنوات تا پایان ماه انتخابی').props.onClick();
+  batchTree=batched.render();
+  await button(batchTree,'تأیید و اجرا').props.onClick();await settle();batchTree=batched.render();
+  const batchCalls=batched.sent.filter(call=>call.endpoint.endsWith('/period-run'));
+  assert.equal(batchCalls.length,2,'Nine users require two confirmed server batches');
+  assert.equal(batchCalls[0].body.user_ids.length,8);
+  assert.equal(batchCalls[1].body.user_ids.length,1);
+  assert.ok(content(batchTree).includes('نتیجه عملیات'),'batch completion is shown');
   const failed = harness({ rows, period: '1405-07' }); failed.failGet(true);
   failed.render(); await settle(); let failedTree = failed.render();
   assert.ok(button(failedTree, 'تلاش مجدد'));
