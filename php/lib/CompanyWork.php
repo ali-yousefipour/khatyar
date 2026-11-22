@@ -84,6 +84,26 @@ class CompanyWork {
       return $rows;
     }finally{$zip->close();}
   }
+  /** Structural validation only; account ownership and activity require a bank inquiry. */
+  static function bankAccountCheck($raw){
+    $value=strtoupper(preg_replace('/[\s\x{200C}\x{00A0}]+/u','',Payroll::normalize((string)$raw)));
+    if(str_starts_with($value,'IR')){
+      if(!preg_match('/^IR[0-9]{24}$/D',$value))
+        return ['valid'=>false,'status'=>'invalid_iban','message'=>'قالب شماره شبا نامعتبر است'];
+      $body=substr($value,4).'1827'.substr($value,2,2);
+      $remainder=0;
+      foreach(str_split($body) as $digit)$remainder=($remainder*10+(int)$digit)%97;
+      if($remainder!==1)return ['valid'=>false,'status'=>'invalid_iban','message'=>'رقم کنترلی شبا نامعتبر است'];
+      if(substr($value,4,3)!=='061')
+        return ['valid'=>false,'status'=>'wrong_bank','message'=>'شماره شبا متعلق به بانک شهر (کد ۰۶۱) نیست'];
+      return ['valid'=>true,'status'=>'shahr_iban_checksum_valid','message'=>'ساختار و رقم کنترلی شبای بانک شهر معتبر است؛ مالکیت و فعال‌بودن حساب استعلام نشده است'];
+    }
+    $digits=preg_replace('/\D/','',$value);
+    $valid=(bool)preg_match('/^[0-9][0-9 .-]{2,38}[0-9]$/D',$value)
+      &&strlen($digits)>=4&&preg_match('/[1-9]/',$digits);
+    return ['valid'=>$valid,'status'=>$valid?'account_unverified':'invalid_account',
+      'message'=>$valid?'شماره حساب از نظر قالب اولیه پذیرفته شد؛ صحت حساب و بانک آن نیازمند استعلام رسمی است':'شماره حساب دارای قالب معتبر نیست'];
+  }
   static function matchRows($rows,$users){
     $codes=[];$names=[];
     foreach($users as $u){$key=Payroll::identity($u['personnel_code']??'');if($key!==null)$codes[$key][]=$u;$name=Payroll::normalize(($u['first_name']??'').' '.($u['last_name']??''));$names[$name][]=$u;}
@@ -412,7 +432,8 @@ class CompanyWork {
       if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
       if(!$r['national_code'])$r['errors'][]='کد ملی معتبر در اطلاعات پرسنل موجود نیست';
-      if(!preg_match('/^\d[0-9 .-]{2,38}\d$/D',$r['account'])||strlen(preg_replace('/\D/','',$r['account']))<4||!preg_match('/[1-9]/',$r['account']))$r['errors'][]='شماره حساب معتبر در فیلد انتخاب‌شده موجود نیست';
+      $r['bank_validation']=self::bankAccountCheck($r['account']);
+      if(!$r['bank_validation']['valid'])$r['errors'][]=$r['bank_validation']['message'];
       $r['seniority_days']=$seniority[$uid]['seniority_days']??null;if($r['seniority_days']===null)$r['errors'][]='مبنای سنوات پرسنل ثبت نشده است';
       $r['married']=Payroll::normalize($u['marital_status']??'');$r['children']=$u['children_count'];
       $r['marital_code']=in_array($r['married'],['متاهل','متأهل'],true)?1:($r['married']==='مجرد'?0:null);
