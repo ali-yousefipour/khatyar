@@ -51,7 +51,12 @@ final class UserProfileFormValues {
         &&self::permitted($field,$context)
         &&(($field['binding']??'')!=='system'||in_array($key,self::SELF_EDIT,true))){
         $value=$effective[$key]??null;
-        if($value===null||$value===''||(is_array($value)&&!count($value)))
+        $empty=$value===null||$value===''||(is_array($value)&&!count($value));
+        if(($field['type']??'')==='repeater'&&!$empty){
+          $records=is_string($value)?json_decode($value,true):$value;
+          $empty=is_array($records)&&array_is_list($records)&&count($records)===0;
+        }
+        if($empty)
           self::fail('تکمیل فیلد «'.($field['label']??$key).'» الزامی است');
       }
     }
@@ -72,6 +77,40 @@ final class UserProfileFormValues {
     $type=$field['type']??'text';
     if(in_array($type,['file','image','calculated','description','divider','heading'],true))
       self::fail('این فیلد با درخواست متنی قابل ثبت نیست؛ مسیر امن اختصاصی لازم است');
+    if($type==='repeater'){
+      if($value===null||$value==='')$value='[]';
+      if(!is_string($value)||strlen($value)>20000)
+        self::fail('حجم اطلاعات تکرارشونده بیش از حد مجاز است');
+      try{$rows=json_decode($value,true,32,JSON_THROW_ON_ERROR);}
+      catch(JsonException $e){self::fail('ساختار اطلاعات تکرارشونده معتبر نیست');}
+      $max=$field['max_rows']??12;
+      $min=max((int)($field['min_rows']??0),!empty($field['required'])?1:0);
+      if(!is_array($rows)||!array_is_list($rows)||count($rows)>$max||count($rows)<$min)
+        self::fail('تعداد ردیف‌های اطلاعات تکرارشونده معتبر نیست');
+      $columns=$field['columns']??[];
+      if(!$columns||count($columns)>8)self::fail('تعریف ستون‌های تکرارشونده معتبر نیست');
+      $lookup=[];
+      foreach($columns as $column)$lookup[$column['key']]=$column;
+      $normalized=[];
+      foreach($rows as $row){
+        if(!is_array($row)||array_is_list($row))self::fail('ردیف تکرارشونده معتبر نیست');
+        foreach($row as $key=>$unused)if(!is_string($key)||!isset($lookup[$key]))
+          self::fail('فیلد ناشناخته در ردیف تکرارشونده');
+        $clean=[];
+        foreach($columns as $column){
+          $key=$column['key'];
+          $entry=$row[$key]??null;
+          if(!is_scalar($entry)&&$entry!==null)self::fail('نوع مقدار ردیف تکرارشونده معتبر نیست');
+          if(!empty($column['required'])&&($entry===null||trim((string)$entry)===''))
+            self::fail('تکمیل «'.$column['label'].'» در تمام ردیف‌ها الزامی است');
+          $clean[$key]=self::validateValue($column,$entry);
+        }
+        $normalized[]=$clean;
+      }
+      $result=json_encode($normalized,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+      if(strlen($result)>20000)self::fail('حجم ردیف‌های تکرارشونده بیش از حد مجاز است');
+      return $result;
+    }
     if($value===null||$value==='')return null;
     // Legacy Android inputs serialize a multi-select as pipe-delimited options.
     // Accept the same format as a JSON list, without relaxing option validation.
