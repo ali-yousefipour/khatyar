@@ -93,12 +93,14 @@ function bankValidation(field,value,allFields,vals){
 export default function CustomFieldsScreen({ navigation }) {
   const [fields, setFields] = useState(null);
   const [vals, setVals] = useState({});
+  const [originalVals, setOriginalVals] = useState({});
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [touched,setTouched] = useState({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [formSchema,setFormSchema] = useState(null);
+  const [formVersion,setFormVersion] = useState(0);
   const [profile,setProfile] = useState({});
   const [editingAllowed,setEditingAllowed] = useState(true);
 
@@ -113,6 +115,7 @@ export default function CustomFieldsScreen({ navigation }) {
       if (!Array.isArray(fs)) throw new Error('پاسخ فیلدهای سفارشی معتبر نیست.');
       setProfile(profileResponse||{});
       setFormSchema(formResponse?.schema||null);
+      setFormVersion(Number(formResponse?.version)||0);
       setEditingAllowed(formResponse?.profile_edit_allowed!==false&&profileResponse?.profile_edit_allowed!==false);
       const configured=profileSchemaCustomFields(formResponse?.schema),byId=new Map(fs.map(f=>[Number(f.id),f]));
       const ordered=configured.filter(f=>byId.has(Number(f.custom_field_id))).map(f=>({...byId.get(Number(f.custom_field_id)),
@@ -125,6 +128,7 @@ export default function CustomFieldsScreen({ navigation }) {
       const m = {};
       fs.forEach((f) => { if (f.value != null) m[f.id] = f.value; });
       setVals(m);
+      setOriginalVals(m);
       setLoadError('');
     } catch (e) { setLoadError(e?.message || 'دریافت اطلاعات تکمیلی ناموفق بود.'); }
     finally { setLoading(false); }
@@ -148,9 +152,20 @@ export default function CustomFieldsScreen({ navigation }) {
     setBusy(true);
     try {
       const payload = {};
-      (fields || []).filter((f) => f.user_editable && profileFieldState(f.profile_definition||f,{...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))}).visible).forEach((f) => { if (vals[f.id] != null) payload[f.id] = vals[f.id]; });
-      const result = await request('/my/custom-fields', { method: 'POST', queueIfOffline: false, body: { values: payload } });
-      if (!result?.ok) throw new Error('سرور ذخیره اطلاعات را تأیید نکرد.');
+      (fields || []).filter((f) => {
+        const state=profileFieldState(f.profile_definition||f,merged);
+        return f.user_editable && state.visible && state.enabled && !state.readonly &&
+          profileCanEdit(f.profile_definition||f,profile) &&
+          String(vals[f.id]??'')!==String(originalVals[f.id]??'');
+      }).forEach((f) => { payload[f.id] = vals[f.id]??''; });
+      if(Object.keys(payload).length){
+        const result=formSchema
+          ? await request('/me/complete-profile',{method:'PUT',queueIfOffline:false,
+              body:{form_version:formVersion,values:Object.fromEntries(Object.entries(payload).map(([id,value])=>['cf_'+id,value]))}})
+          : await request('/my/custom-fields',{method:'POST',queueIfOffline:false,body:{values:payload}});
+        if(!result?.ok)throw new Error('سرور ذخیره اطلاعات را تأیید نکرد.');
+      }
+      setOriginalVals({...vals});
       Alert.alert('ثبت شد', 'اطلاعات شما ذخیره شد.');
       setEditing(false);
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت ناموفق'); }
