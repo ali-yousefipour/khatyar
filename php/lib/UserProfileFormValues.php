@@ -108,8 +108,17 @@ final class UserProfileFormValues {
       if(!preg_match('/^09\\d{9}$/D',$v))self::fail('شماره همراه ایران نامعتبر است');
       return $v;
     }
-    if($type==='date'&&!preg_match('/^1[34]\\d{2}[-\\/]((0[1-9])|(1[012]))[-\\/]((0[1-9])|([12]\\d)|(3[01]))$/D',$value))
-      self::fail('تاریخ شمسی نامعتبر است');
+    if($type==='date'){
+      $date=str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],
+        ['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
+      $date=str_replace('/','-',$date);
+      if(!preg_match('/^(1[34]\\d{2})-(\\d{2})-(\\d{2})$/D',$date,$parts))
+        self::fail('تاریخ شمسی نامعتبر است');
+      $month=(int)$parts[2];$day=(int)$parts[3];
+      if($month<1||$month>12||$day<1||$day>($month<=6?31:30))
+        self::fail('روز یا ماه شمسی معتبر نیست');
+      return $date;
+    }
     if(in_array($type,['select','radio'],true)&&!in_array($value,$field['options']??[],true))
       self::fail('گزینه انتخابی معتبر نیست');
     if($type==='national_id'){
