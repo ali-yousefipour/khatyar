@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'..');
+const source=fs.readFileSync(path.join(root,'tools/panel_source.jsx'),'utf8');
+const routes=fs.readFileSync(path.join(root,'lib/company_work_routes.php'),'utf8');
+const work=fs.readFileSync(path.join(root,'lib/CompanyWork.php'),'utf8');
+const shared=fs.readFileSync(path.join(root,'app/assets/panel-long-operation-progress.js'),'utf8');
+const view=source.slice(source.indexOf('function CompanyWorkReport('),source.indexOf('function ShiftReport('));
+assert.ok(view.startsWith('function CompanyWorkReport('),'company view exists');
+assert.match(view,/KhatyarLongOperation/,'company generation uses shared professional overlay');
+assert.match(view,/getRandomValues/,'per-request progress token is unpredictable');
+assert.match(view,/\/admin\/shift-report\/progress\?progress_id=/,'progress is polled from secured endpoint');
+assert.match(view,/\/generate"\+\(progressId\?/,'generation carries same progress token');
+assert.match(view,/setInterval\(poll,1500\)/,'polls only while generating');
+assert.match(view,/clearInterval\(tracking\.timer\)/,'poll timer is cleaned up');
+assert.match(view,/life\.current\.alive=false/,'unmount cancels active request');
+assert.match(view,/progress\.overlay\?\.end\(progress\.id\)/,'unmount removes overlay');
+assert.match(view,/percent:100,stage:data\.generated/,'100 percent is displayed only on confirmed response');
+assert.match(shared,/url\.pathname === '\/api\/admin\/shift-report\/progress'/,'polling cannot trigger a second global loading overlay');
+assert.match(routes,/_work_progress_start\(\$u,'company'\)/,'company request starts user-scoped progress');
+assert.match(routes,/_work_progress_tick\(100,!empty\(\$result\['generated'\]\)/,'server publishes final stage only after generation completes');
+for(const label of ['تطبیق شماره پرسنلی','اطلاعات هویتی','سنوات','چرخش شیفت','تردد، مرخصی','تولید فایل اکسل','آرشیو شرکت']){
+  assert.ok(work.includes(label),'server stage exists: '+label);
+}
+assert.match(work,/\$personDone\s*,\s*\$personTotal/,'employee progress uses actual processed and total counts');
+console.log('PASS company XLSX generation: real server stages, user-scoped polling, overlay lifecycle and no invented percentages');
