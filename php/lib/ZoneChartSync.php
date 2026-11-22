@@ -1,8 +1,9 @@
 <?php
 /**
- * Read-only chart synchronization for one region. The regional chart is a
+ * Chart synchronization for one region. The regional chart is a
  * projection of live role/zone/leadership data, not a second roster table.
- * Never overwrite manually edited chart links or operational approval roles.
+ * Synchronization replaces saved manager edges only for people in the selected scope.
+ * Operational approval policies and leadership assignments remain untouched.
  */
 class ZoneChartSync {
   /**
@@ -40,7 +41,7 @@ class ZoneChartSync {
         Db::run('UPDATE users SET manager_id=? WHERE id=?',[($parents[0]??null),$uid]);
       }
       $pdo->commit();
-    }catch(\\Throwable $failure){
+    }catch(Throwable $failure){
       if($pdo->inTransaction())$pdo->rollBack();
       throw $failure;
     }
