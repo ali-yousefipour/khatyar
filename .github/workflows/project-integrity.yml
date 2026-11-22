@@ -43,6 +43,7 @@ jobs:
           php php/tests/identity_bank_save_contract_test.php
           node mobile/scripts/test-identity-banking-validation.cjs
           node php/tests/identity_banking_ui_test.cjs
+          node php/tests/user_profile_edit_policy_test.cjs
           php -l php/lib/CompanyWork.php
           php -l php/lib/company_work_routes.php
           php php/tests/subscription_invoice_test.php
