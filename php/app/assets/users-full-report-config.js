@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const API='/api/admin/users/';
-const label=/^(?:⤓\s*)?(?:خروجی|گزارش) کامل کاربران$/;
+const label=/^(?:⤓\s*)?(?:خروجی|گزارش) کامل کاربران(?:\s*\((?:Excel|اکسل)\))?$/iu;
 let busy=false;
 const css=document.createElement('style');
 css.textContent=`
