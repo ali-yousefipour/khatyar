@@ -22,7 +22,12 @@ css.textContent=`
 .kh-ur-primary{background:#087f5b;color:#fff;border-color:#087f5b!important}
 .kh-ur-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:12px 0}
 .kh-ur-controls label{display:grid;gap:5px}
-@media(max-width:500px){.kh-ur-fields{grid-template-columns:1fr;max-height:38dvh}}
+@media(max-width:600px){
+ #kh-user-report-modal{padding:0}
+ .kh-ur-panel{width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:16px}
+ .kh-ur-fields{grid-template-columns:1fr;max-height:38dvh}
+ .kh-ur-group{width:100%}
+}
 `;
 document.head.appendChild(css);
 function token(){const t=localStorage.getItem('token');if(!t)throw Error('نشست معتبر نیست؛ دوباره وارد شوید.');return t;}
@@ -91,13 +96,21 @@ const reset=el('button',{type:'button',text:'بازنشانی'},foot);
 const previewArea=el('div',{'aria-live':'polite'},box);
 const save=el('button',{type:'button',class:'kh-ur-primary',text:'دریافت فایل اکسل'},foot);
 const close=el('button',{type:'button',text:'انصراف'},foot);
-const dismiss=()=>{cover.remove();busy=false;};
+const lastFocus=document.activeElement;
+const dismiss=()=>{cover.remove();busy=false;if(lastFocus?.isConnected)lastFocus.focus();};
 close.onclick=dismiss;
 cover.addEventListener('click',e=>{if(e.target===cover)dismiss();});
-const escape=e=>{if(e.key==='Escape'){e.preventDefault();dismiss();lastFocus?.focus();}};cover.addEventListener('keydown',escape);
-let lastFocus=document.activeElement;
+cover.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){e.preventDefault();dismiss();return;}
+ if(e.key!=='Tab')return;
+ const items=[...box.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),[href],[tabindex]:not([tabindex="-1"])')]
+   .filter(node=>node.getClientRects().length);
+ if(!items.length){e.preventDefault();box.focus();return;}
+ const first=items[0],last=items[items.length-1];
+ if(e.shiftKey&&(document.activeElement===first||document.activeElement===box)){e.preventDefault();last.focus();}
+ else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
 const originalDismiss=dismiss;
-close.addEventListener('click',()=>lastFocus?.focus());
 save.disabled=true;
 status.textContent='در حال دریافت فهرست فیلدها…';
 request(API+'full-report-options').then(r=>r.json()).then(data=>{
