@@ -4091,12 +4091,16 @@ function _shift_rotation_rows(array $people,array $punches,$start,$end){
 }
 function _shift_rotation_report($year,$month){
   if($year<1300||$year>1500||$month<1||$month>12)Http::error('ماه و سال شمسی نامعتبر است',422);
+  $rotationStage='period_dates';
+  try {
   require_once __DIR__.'/IranCalendar.php';
   [$gy,$gm,$gd]=IranCalendar::toGregorian($year,$month,1);
   $start=new DateTimeImmutable(sprintf('%04d-%02d-%02d 00:00:00',$gy,$gm,$gd),new DateTimeZone('Asia/Tehran'));
   $end=$start->modify('+'.IranCalendar::monthLength($year,$month).' days');
+  $rotationStage='finalization_lookup';
   $final=_final_work_month($year,$month);$people=[];$punches=[];
   if($final){
+    $rotationStage='frozen_month_decode';
     $daily=_work_snapshot_decode($final['daily_json']);
     $monthly=_work_snapshot_decode($final['monthly_json']);$metadata=[];
     foreach($monthly as $person){
@@ -4120,16 +4124,24 @@ function _shift_rotation_report($year,$month){
       $people[]=$person;
     }
   }else{
+    $rotationStage='active_personnel';
     $people=array_values(_work_month_people());
+    $rotationStage='attendance_punches';
     $punches=Db::all("SELECT a.id attendance_id,a.user_id,a.check_in,a.check_out
       FROM staff_attendance a JOIN users u ON u.id=a.user_id
       WHERE u.is_active=1 AND a.check_in>=? AND a.check_in<? ORDER BY a.check_in,a.id",[$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
   }
+  $rotationStage='rotation_classification';
   $rows=_shift_rotation_rows($people,$punches,$start,$end);
   $totals=array_fill_keys(['morning','afternoon','night','matched_days','outside_days','open_sessions'],0);
   $missing=0;$missingIdentity=0;
   foreach($rows as $row){foreach($totals as $key=>$unused)$totals[$key]+=$row[$key]??0;if($row['missing_source'])$missing++;if($row['national_code']==='')$missingIdentity++;}
   return ['year'=>$year,'month'=>$month,'source'=>$final?'finalized':'live','rows'=>$rows,'totals'=>$totals,'missing_source_count'=>$missing,'missing_identity_count'=>$missingIdentity];
+  } catch (Throwable $error) {
+    error_log(sprintf('shift_rotation_failure stage=%s period=%04d/%02d exception=%s detail=%s',
+      $rotationStage,$year,$month,get_class($error),str_replace(["\\r","\\n"],' ',substr($error->getMessage(),0,300))));
+    throw $error;
+  }
 }
 function _shift_rotation_xlsx(array $report){
   $xw=new XlsxWriter(['ردیف','نام و نام خانوادگی','کد ملی','شماره پرسنلی','صبح','عصر','شب','جمع روز طبقه‌بندی‌شده','روز دارای ورود خارج از بازه','ورود بدون خروج معتبر']);
