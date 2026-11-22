@@ -1669,6 +1669,7 @@ function PersonnelSeniority(){
   const [periodHistoryType,setPeriodHistoryType]=useState('');
   const [periodConfirm,setPeriodConfirm]=useState(false);
   const [periodResult,setPeriodResult]=useState(null);
+  const [batchProgress,setBatchProgress]=useState(null);
   const mutation=useRef(false),generation=useRef(0);
   const load=async()=>{
     const current=++generation.current;setLoading(true);setError('');
@@ -1716,13 +1717,33 @@ function PersonnelSeniority(){
   const performPeriodRun=async()=>{
     if(mutation.current||!selectedPeriod)return;
     const targets=rows.filter(row=>row.initialized&&Number(row.is_active)===1);
-    setPeriodConfirm(false);mutation.current=true;setBusy(true);setProgress('در حال محاسبه در سرور؛ تعداد تکمیل‌شده پس از دریافت پاسخ مشخص می‌شود.');setPeriodResult(null);
+    const total=targets.length, chunkSize=8;
+    setPeriodConfirm(false);mutation.current=true;setBusy(true);setPeriodResult(null);
+    setProgress('آماده‌سازی پردازش '+fa(total)+' پرونده…');
+    setBatchProgress({completed:0,total,percent:0});
+    let completed=0,processed=0,skipped=0,failed=0;
+    const allErrors=[],runIds=[];
     try {
-      const result=await SEND('POST','/admin/seniority/period-run',{period:selectedPeriod,user_ids:targets.map(row=>row.id)});
-      setPeriodResult(result);
+      // Each confirmed server response accounts for exactly one finished batch.
+      // A network failure never advances the displayed percentage.
+      for(let offset=0;offset<total;offset+=chunkSize){
+        const chunk=targets.slice(offset,offset+chunkSize);
+        const result=await SEND('POST','/admin/seniority/period-run',{period:selectedPeriod,user_ids:chunk.map(row=>row.id)});
+        processed+=Number(result.processed||0);
+        skipped+=Number(result.skipped||0);
+        failed+=Number(result.failed||0);
+        if(result.run_id)runIds.push(result.run_id);
+        if(Array.isArray(result.errors))allErrors.push(...result.errors);
+        completed+=chunk.length;
+        const percent=Math.floor(completed*100/total);
+        setBatchProgress({completed,total,percent});
+        setProgress('بررسی '+fa(completed)+' از '+fa(total)+' نفر · '+fa(percent)+'٪');
+      }
+      setPeriodResult({period:selectedPeriod,type:chosenType==='پیش‌بینی'?'forecast':'final',processed,skipped,failed,errors:allErrors,run_ids:runIds});
       await load();
-    } catch(failure){setError(failure.message||'به‌روزرسانی سنوات ناموفق بود.');}
-    finally {setProgress('');mutation.current=false;setBusy(false);}
+    } catch(failure){
+      setError('عملیات پس از پردازش '+fa(completed)+' پرونده متوقف شد: '+(failure.message||'خطای ارتباط با سرور')+'؛ رکوردهای قطعی ثبت‌شده حفظ شده‌اند. برای ادامه پس از بررسی وضعیت، دوباره اجرا کنید.');
+    } finally {setProgress('');mutation.current=false;setBusy(false);}
   };
   const loadPeriodHistory=async()=>{
     try {const result=await GET('/admin/seniority/period-history?limit=100');setPeriodHistory(result.rows||[]);}
@@ -1747,7 +1768,7 @@ function PersonnelSeniority(){
       <label className="label">انتخاب ماه محاسبه سنوات<select className="input" value={selectedPeriod.slice(5)} onChange={event=>setSelectedPeriod(selectedPeriod.slice(0,4)+'-'+event.target.value)}>{monthNames.map((name,index)=><option key={name} value={String(index+1).padStart(2,'0')}>{name}</option>)}</select></label>
       <div role="status" style={{lineHeight:2}}>نوع: <b>{chosenType}</b> · وضعیت: <b>{periodStatus?chosenState:'در حال دریافت…'}</b><div>پایان دوره: {faPlain(selectedPeriod)} / {fa(Number(selectedPeriod.slice(5))<=6?31:Number(selectedPeriod.slice(5))<=11?30:'پایان اسفند')}</div></div>
     </div>
-    {busy&&progress&&<div role="status" aria-live="polite" style={{padding:12,border:'1px solid var(--line)',borderRadius:12}}>{progress}</div>}
+    {busy&&progress&&<div role="status" aria-live="polite" style={{padding:12,border:'1px solid var(--line)',borderRadius:12}}>{progress}{batchProgress&&<div style={{height:9,background:'var(--line)',borderRadius:8,overflow:'hidden',marginTop:8}}><div style={{height:'100%',background:'var(--brand)',width:batchProgress.percent+'%',transition:'width .2s'}}/></div>}</div>}
     {periodStatus?.final_count>0&&<div role="note" style={{margin:'10px 0',lineHeight:2}}>برای دوره انتخابی {fa(periodStatus.final_count)} پرونده قطعی ثبت شده است. پردازش دوباره این پرونده‌ها مسدود است و فقط پرونده‌های فاقد محاسبه بررسی می‌شوند.{periodStatus.latest_run&&<div>آخرین اجرا: {periodStatus.latest_run.actor_name||'مدیر سامانه'} · {periodStatus.latest_run.started_at} · پردازش {fa(periodStatus.latest_run.processed_count)} نفر</div>}</div>}
     {periodResult&&periodResult.processed===0&&periodResult.skipped>0&&<div role="alert" style={{padding:12,border:'1px solid var(--line)',borderRadius:10}}>سنوات مربوط به ماه انتخاب‌شده قبلاً به‌روزرسانی شده است. برای جلوگیری از ثبت محاسبات تکراری، اجرای مجدد برای پرونده‌های محاسبه‌شده امکان‌پذیر نیست.</div>}
     {periodResult&&<div role="status" style={{padding:12,lineHeight:2}}>نتیجه عملیات {faPlain(periodResult.period)}: {fa(periodResult.processed)} پردازش، {fa(periodResult.skipped)} بدون تغییر، {fa(periodResult.failed)} خطا · {periodResult.type==='forecast'?'پیش‌بینی':'قطعی'}</div>}
