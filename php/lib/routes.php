@@ -12868,7 +12868,7 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
   return ['ok'=>true];
 });
 route('GET', '/api/me/full-profile', function($p,$b,$u){
-  $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,zone_id,
+  $r = Db::one("SELECT id,role_id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,zone_id,
      photo_path, photo
      FROM users WHERE id=?", [$u['id']]);
   if(!$r)return [];
