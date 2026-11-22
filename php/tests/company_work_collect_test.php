@@ -43,7 +43,7 @@ try{
   $file=glob($root.'/*.xlsx')[0];$hash=hash_file('sha256',$file);Db::$account='123456789';yes('later database edits cannot alter archived file',hash_file('sha256',$file)===$hash);
   Seniority::$value=null;$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('missing seniority blocks export instead of zero',$blocked['generated']===false&&count(glob($root.'/*.xlsx'))===1&&str_contains(implode(' ',$blocked['snapshot']['rows'][0]['errors']),'سنوات'));
   Seniority::$value=730;Db::$users[0]['last_name']='ناسازگار';$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('generation rechecks current personnel identity',$blocked['generated']===false&&count(Db::$inserted)===1);
-  Db::$users[0]['last_name']='نمونه';Db::$fail=true;try{IsolatedCollectedCompanyWork::generate($source,5,1);throw new RuntimeException('expected failure');}catch(RuntimeException $e){yes('failed generation insert removes newly written file',$e->getMessage()==='synthetic archive failure'&&count(glob($root.'/*.xlsx'))===1);}
+  Db::$users[0]['last_name']='نمونه';Db::$fail=true;try{IsolatedCollectedCompanyWork::generate($source,5,1);throw new RuntimeException('expected failure');}catch(PayrollError $e){yes('failed archive insert returns trackable retryable error and removes orphan file',$e->getCode()===503&&str_contains($e->getMessage(),'ثبت آرشیو')&&str_contains($e->getMessage(),'کد پیگیری')&&count(glob($root.'/*.xlsx'))===1);}
   Db::$field=false;try{CompanyWork::collect($source,99);throw new RuntimeException('expected invalid account field');}catch(PayrollError $e){yes('unknown account field rejected',$e->getCode()===422);}
 }finally{foreach(glob($root.'/*') as $file)unlink($file);rmdir($root);}
 echo "Company work collection and generation tests passed\n";
