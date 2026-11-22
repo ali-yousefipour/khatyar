@@ -7286,7 +7286,7 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
 function CustomFieldsManager() {
     const [fields, setFields] = useState(null);
     const [form, setForm] = useState(null); // فرم افزودن/ویرایش
-    const TYPES = [["text", "متن کوتاه"], ["textarea", "متن بلند"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["time", "ساعت"], ["mobile", "شماره همراه"], ["phone", "تلفن ثابت"], ["email", "ایمیل"], ["national_id", "کد ملی"], ["iban", "شماره شبا"], ["account", "شماره حساب"], ["card", "شماره کارت"], ["address", "نشانی"], ["checkbox", "بله/خیر"], ["boolean", "گزینه بولی"], ["select", "فهرست انتخابی"], ["radio", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"], ["repeater", "گروه تکرارشونده (فرزندان)"]];
+    const TYPES = [["text", "متن کوتاه"], ["textarea", "متن بلند"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["time", "ساعت"], ["mobile", "شماره همراه"], ["phone", "تلفن ثابت"], ["email", "ایمیل"], ["national_id", "کد ملی"], ["iban", "شماره شبا"], ["account", "شماره حساب"], ["card", "شماره کارت"], ["address", "نشانی"], ["checkbox", "بله/خیر"], ["boolean", "گزینه بولی"], ["select", "فهرست انتخابی"], ["radio", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"], ["repeater", "گروه تکرارشونده (فرزندان)"], ["image", "تصویر خصوصی پرسنلی"], ["file", "فایل خصوصی پرسنلی"]];
     const load = () => db.customFields().then(setFields).catch(() => setFields([]));
     useEffect(() => { load(); }, []);
     const blank = { label: "", ftype: "text", options: "", required: 0, user_editable: 1, sort_order: 0 };
