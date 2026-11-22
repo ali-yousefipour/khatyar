@@ -3565,7 +3565,7 @@ function Users() {
                     " \u00B7 \u0646\u0633\u062E\u0647\u0654 \u0628\u0631\u0646\u0627\u0645\u0647: ",
                     edit.app_version || "—"),
                 React.createElement(PayrollEditor, { userId: edit.id, userName: `${edit.first_name || ""} ${edit.last_name || ""}`.trim() }),
-                React.createElement(UserCustomValues, { userId: edit.id }),
+                React.createElement(CustomFieldsFiller, { userId: edit.id }),
                 React.createElement("label", null, "\u0622\u062F\u0631\u0633 \u0645\u062D\u0644 \u0633\u06A9\u0648\u0646\u062A"),
                 React.createElement("textarea", { className: "input", rows: "2", value: edit.address || "", onChange: e => setEdit({ ...edit, address: e.target.value }) })),
             editTab === "access" && React.createElement(React.Fragment, null,
