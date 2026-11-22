@@ -222,7 +222,10 @@ async function requestImpl(path,{method='GET',body,auth=true,retry=true,noStore=
     // No HTTP response does not imply the server did not commit the write.
     // Only attendance endpoints are safe to replay: the backend persists a
     // user-scoped receipt keyed by client_uuid for check-in and check-out.
-    if(queueable&&queueIfOffline&&!responseReceived&&(path==='/my/checkin'||path==='/my/checkout')){
+    // Attendance writes have server-side client_uuid receipts. Preserve ambiguous 408/429/5xx outcomes
+    // in the durable queue with the SAME uuid, including when the server replied with an error.
+    // Do not queue validation (4xx) or authorization (401/403) failures.
+    if(queueable&&queueIfOffline&&(path==='/my/checkin'||path==='/my/checkout')&&(!responseReceived||responseStatus===408||responseStatus===429||responseStatus>=500&&responseStatus<=599)){
       try{return await queueWrite(path,sendBody,upper)}catch(_){}
     }if(upper==='GET'&&!noStore&&readEpoch===userCacheEpoch&&(!isAttendanceRead(path)||readAttendanceEpoch===attendanceMutationEpoch.current)){try{const c=await AsyncStorage.getItem(cacheKey);if(readEpoch!==userCacheEpoch||isAttendanceRead(path)&&readAttendanceEpoch!==attendanceMutationEpoch.current)throw new Error('stale auth session cache');if(c){const j=JSON.parse(c);if(j&&Number.isFinite(Number(j.t))&&Date.now()-Number(j.t)<=CACHE_MAX_AGE_MS&&Date.now()>=Number(j.t))return j.data;}}catch(_){} }throw e}}
 // Avoid sending duplicate concurrent presence GETs from dashboard, check-in
