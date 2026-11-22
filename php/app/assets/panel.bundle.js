@@ -8687,13 +8687,15 @@ function UserProfileFormDesigner() {
     const [selected, setSelected] = useState(null), [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false);
     const [message, setMessage] = useState(""), [error, setError] = useState(""), [migration, setMigration] = useState(false);
     const [choices, setChoices] = useState([]), [choice, setChoice] = useState(""), [preview, setPreview] = useState(false);
+    const [versions, setVersions] = useState([]);
     const [previewValues, setPreviewValues] = useState({ gender: "", marital_status: "", children_count: 0 });
     const [undo, setUndo] = useState([]), [redo, setRedo] = useState([]), dragRef = useRef(null);
     const load = async () => {
         setBusy(true);
         setError("");
         try {
-            const [data, available] = await Promise.all([GET('/admin/user-profile-form'), db.customFields()]);
+            const [data, available, history] = await Promise.all([GET('/admin/user-profile-form'), db.customFields(), GET('/admin/user-profile-form/versions').catch(() => ({ versions: [] }))]);
+            setVersions(history.versions || []);
             setModel(data.schema);
             setRevision(Number(data.revision) || 0);
             setPublished(Number(data.published_version) || 0);
@@ -8905,9 +8907,33 @@ function UserProfileFormDesigner() {
             const r = await SEND('POST', '/admin/user-profile-form/publish', { revision });
             setPublished(r.version);
             setMessage("نسخه " + faPlain(r.version) + " منتشر شد.");
+            const history = await GET("/admin/user-profile-form/versions");
+            setVersions(history.versions || []);
         }
         catch (e) {
             setError(e.message || "انتشار نسخه ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const restore = async (version) => {
+        if (!window.confirm("نسخه " + faPlain(version) + " به‌عنوان پیش‌نویس جدید بازیابی شود؟ نسخه منتشرشده فعلی تغییر نمی‌کند."))
+            return;
+        setBusy(true);
+        setError("");
+        try {
+            const result = await SEND('POST', '/admin/user-profile-form/restore', { version, revision });
+            setModel(result.schema);
+            setRevision(result.revision);
+            setDirty(false);
+            setSelected(null);
+            setUndo([]);
+            setRedo([]);
+            setMessage("نسخه قدیمی در پیش‌نویس بازیابی شد. برای اعمال روی کاربران باید منتشر شود.");
+        }
+        catch (e) {
+            setError(e.message || "بازیابی نسخه ناموفق بود.");
         }
         finally {
             setBusy(false);
@@ -8936,6 +8962,15 @@ function UserProfileFormDesigner() {
                 faPlain(published),
                 " \u00B7 \u0628\u0627\u0632\u0646\u06AF\u0631\u06CC \u067E\u06CC\u0634\u200C\u0646\u0648\u06CC\u0633: ",
                 faPlain(revision))),
+        versions.length > 0 && React.createElement("details", { style: { marginBottom: 14 } },
+            React.createElement("summary", null,
+                "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0646\u0633\u062E\u0647\u200C\u0647\u0627\u06CC \u0645\u0646\u062A\u0634\u0631\u0634\u062F\u0647 (",
+                faPlain(versions.length),
+                ")"),
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 } }, versions.map(item => React.createElement("button", { key: item.version, className: "btn g", disabled: busy, onClick: () => restore(Number(item.version)) },
+                "\u0646\u0633\u062E\u0647 ",
+                faPlain(item.version),
+                " \u00B7 \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u067E\u06CC\u0634\u200C\u0646\u0648\u06CC\u0633")))),
         !model ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0631\u0645\u2026") : preview ?
             React.createElement("div", { style: { display: "grid", gap: 12 } },
                 React.createElement("div", { className: "row", style: { flexWrap: "wrap", gap: 8 } }, fields.filter(f => ["gender", "marital_status", "children_count"].includes(f.key)).map(f => { var _a; return React.createElement("label", { key: f.key },
