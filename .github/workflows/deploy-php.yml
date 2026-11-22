@@ -368,8 +368,9 @@ jobs:
           echo "Uploading changed PHP files and creating missing asset directories:"
           find deploy-payload -type f -print | sort | grep -v '^deploy-payload/lib/routes.php$' || true
 
-          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
-
+          # Install all protected PHP dependencies and the route registry first.
+          # Publishing app/index.php or client assets before this phase creates
+          # a broken mixed-version live API if the upload is interrupted.
           if [ -f deploy-payload/lib/school_complaint_accounts.php ] || [ -f deploy-payload/lib/SchoolComplaintNotifications.php ] || [ -f deploy-payload/lib/LeaveSubstituteCoverage.php ] || [ -f deploy-payload/lib/school_service_sepand.php ] || [ -f deploy-payload/lib/complaints_routes_extra.php ] || [ -f deploy-payload/lib/DashboardDiscipline.php ] || [ -f deploy-payload/lib/RegionalTeam.php ] || [ -f deploy-payload/lib/Db.php ] || [ -f deploy-payload/lib/Jwt.php ] || [ -f deploy-payload/lib/Http.php ] || [ -f deploy-payload/lib/WorkReportDefaultPlacement.php ] || [ -f deploy-payload/lib/WorkReportReadScope.php ] || [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ] || [ -f deploy-payload/lib/GpsWorkIntervals.php ] || [ -f deploy-payload/lib/InternetWorkIntervals.php ] || [ -f deploy-payload/lib/presence_reverse_geocode.php ] || [ -f deploy-payload/lib/subscription_invoice_routes.php ] || [ -f deploy-payload/lib/RadioShiftGate.php ] || [ -f deploy-payload/lib/school_service_routes_extra.php ] || [ -f deploy-payload/lib/DeliveryQueue.php ] || [ -f deploy-payload/lib/Xlsx.php ] || [ -f deploy-payload/lib/XlsxWriter.php ] || [ -f deploy-payload/lib/OrgChart.php ] || [ -f deploy-payload/lib/ZoneChartSync.php ] || [ -f deploy-payload/lib/Push.php ] || [ -f deploy-payload/lib/ZoneWorkflow.php ] || [ -f deploy-payload/lib/SeniorityPeriods.php ] || [ -f deploy-payload/lib/Seniority.php ] || [ -f deploy-payload/lib/Payroll.php ] || [ -f deploy-payload/lib/EmploymentAttendance.php ] || [ -f deploy-payload/lib/CompanyWork.php ] || [ -f deploy-payload/lib/UserProfileRules.php ] || [ -f deploy-payload/lib/UserProfileForms.php ] || [ -f deploy-payload/lib/UserProfileFormValues.php ] || [ -f deploy-payload/lib/IdentityBankingValidation.php ] || [ -f deploy-payload/lib/company_work_routes.php ] || [ -f deploy-payload/lib/company-work-template.xlsx ] || [ -f deploy-payload/lib/organization-template.xlsx ]; then
             ROUTES_TOKEN="$(openssl rand -hex 32)"
             INSTALLER_NAME=".attendance-lib-install-${GITHUB_SHA}.php"
@@ -529,6 +530,12 @@ jobs:
             echo "Staged and installed required PHP module: ${name}"
           done
           fi
+
+          # Only after the protected module installer completed and its SHA-256
+          # checks passed may public PHP entrypoints/assets become visible.
+          # This step is intentionally after the protected stage, not before it.
+          echo "Protected backend modules verified; publishing public files now."
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
       - name: Verify uploaded FTP files
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
