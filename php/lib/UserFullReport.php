@@ -58,7 +58,8 @@ final class UserFullReport {
       return self::orderedByProfile($original,$published['schema']);
     }catch(Throwable $error){
       error_log('User full report dynamic schema unavailable class='.get_class($error));
-      return $original;
+      // Do not fall back to a broader registry if published visibility rules cannot be evaluated.
+      Http::error('تعریف مجاز ستون‌های گزارش در دسترس نیست؛ عملیات متوقف شد',503);
     }
   }
   public static function availableColumns(): array {return self::schema();}
