@@ -13,6 +13,15 @@ const BANKS = Object.freeze({ '061':'بانک شهر', '012':'بانک ملت', 
   '062':'بانک آینده','063':'بانک انصار','064':'بانک گردشگری','065':'بانک حکمت ایرانیان',
   '066':'بانک دی','069':'بانک ایران زمین','070':'بانک رسالت',
   '020':'بانک توسعه صادرات','021':'پست بانک ایران','022':'بانک توسعه تعاون' });
+export function bankCodeFromName(raw) {
+  const input=String(raw??'').trim().replace(/[‌يك]/g,ch=>ch==='ك'?'ک':ch==='ي'?'ی':'').replace(/^بانک\s*/,'').replace(/\s+/g,' ');
+  if (/^[0-9]{3}$/.test(input))return Object.prototype.hasOwnProperty.call(BANKS,input)?input:null;
+  for (const [code,name] of Object.entries(BANKS)){
+    const normalized=name.trim().replace(/[‌يك]/g,ch=>ch==='ك'?'ک':ch==='ي'?'ی':'').replace(/^بانک\s*/,'').replace(/\s+/g,' ');
+    if(input===normalized)return code;
+  }
+  return null;
+}
 const result=(field,valid,status,errors=[],warnings=[],extra={})=>({
   field,valid,status,errors,warnings,verificationLevel:'offline_structural',...extra
 });
