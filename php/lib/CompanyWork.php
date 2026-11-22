@@ -341,6 +341,8 @@ class CompanyWork {
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
     $collectStage='staff_lookup'; $currentUserId=0;
+    // A reference connects the user-visible error to its exact server-side exception.
+    $diagnosticRef=bin2hex(random_bytes(6));
     try {
     $year=(int)$source['jy'];$month=(int)$source['jm'];$users=self::users();$byId=array_column($users,null,'id');
     $collectStage='identity_matching';
@@ -401,8 +403,8 @@ class CompanyWork {
     }catch(Throwable $e){
       // A stable diagnostic stage is useful on shared hosting where the admin
       // cannot see the raw exception. Log no employee names or identity data.
-      error_log(sprintf('company_work_collect stage=%s source=%d period=%d/%d user_id=%d exception=%s message=%s',
-        $collectStage,(int)($source['id']??0),(int)($source['jy']??0),(int)($source['jm']??0),
+      error_log(sprintf('company_work_collect ref=%s stage=%s source=%d period=%d/%d user_id=%d exception=%s message=%s',
+        $diagnosticRef,$collectStage,(int)($source['id']??0),(int)($source['jy']??0),(int)($source['jm']??0),
         $currentUserId,get_class($e),str_replace(["\\r","\\n"],' ',substr($e->getMessage(),0,350))));
       if($e instanceof PayrollError)throw $e;
       $stageNames=[
@@ -413,7 +415,7 @@ class CompanyWork {
         'attendance_daily'=>'دریافت کارکرد روزانه','approved_leaves'=>'دریافت مرخصی‌ها',
         'metrics'=>'محاسبه خلاصه کارکرد'
       ];
-      self::fail('محاسبه کارکرد در بخش «'.($stageNames[$collectStage]??'اطلاعات کارکرد').'» با خطای سرور مواجه شد.',503);
+      self::fail('محاسبه کارکرد در بخش «'.($stageNames[$collectStage]??'اطلاعات کارکرد').'» با خطای سرور مواجه شد. کد پیگیری: '.$diagnosticRef,503);
     }
   }
   static function setCell($doc,$row,$col,$number,$value,$formula=null){
