@@ -144,6 +144,9 @@ final class UserFullReport {
     if($data===''||strlen($data)>5*1024*1024)return null;
     $info=@getimagesizefromstring($data);
     if(!$info||!in_array($info['mime']??'', ['image/jpeg','image/png'],true))return null;
+    // Prevent tiny compressed files from expanding into excessive GD memory.
+    if((int)($info[0]??0)<1||(int)($info[1]??0)<1||
+       (int)$info[0]>2400||(int)$info[1]>2400)return null;
     return $data;
   }
   public static function run(array $body,bool $forceExport=false): void {
