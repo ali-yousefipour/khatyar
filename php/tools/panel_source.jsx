@@ -5100,6 +5100,8 @@ function Settings(){
       <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
         <label className="row" style={{gap:8,marginBottom:6}}><input type="checkbox" checked={!!v.require_complete_profile_login} onChange={e=>set("require_complete_profile_login",e.target.checked)}/><b>جلوگیری از ورود کاربرانی که اطلاعات تکمیلی یا امضای خود را وارد نکرده‌اند</b></label>
         <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>در صورت فعال بودن، هر کاربری (به‌جز مدیران) که یکی از فیلدهای سفارشیِ «الزامی» را تکمیل نکرده باشد یا هنوز امضای خود را داخل برنامه ثبت نکرده باشد، هنگام ورود با پیام خطا مواجه شده و اجازهٔ ورود به نرم‌افزار را نخواهد داشت تا زمانی‌که اطلاعات را تکمیل کند. فیلدهای «الزامی» را از همین بخش (فیلدهای سفارشی پرسنل) مشخص کنید.</p>
+        <label className="row" style={{gap:8,marginBottom:6,marginTop:14}}><input type="checkbox" checked={v.allow_android_profile_edit!==false} onChange={e=>set("allow_android_profile_edit",e.target.checked)}/><b>اجازه ویرایش اطلاعات پرسنلی توسط کاربران در نرم‌افزار اندروید</b></label>
+        <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>در حالت غیرفعال کاربران همچنان اطلاعات خود را مشاهده می‌کنند اما ذخیره در هر دو بخش مشخصات شخصی و فیلدهای تکمیلی از سمت سرور ممنوع می‌شود.</p>
         <button className="btn p" onClick={save}>ذخیره تنظیمات</button>
       </div>
     </div>}
