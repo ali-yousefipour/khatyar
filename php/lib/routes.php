@@ -1767,7 +1767,7 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
   if(!is_array($values))Http::error('ساختار اطلاعات تکمیلی معتبر نیست',422);
   $published=UserProfileForms::published();
   if($published['version']>0){
-    $existing=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
+    $existing=Db::one('SELECT id,role_id,email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
     foreach(Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[(int)$u['id']]) as $row)
       $existing['cf_'.(int)$row['field_id']]=$row['value'];
     $submitted=[];
@@ -1775,7 +1775,7 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
       if(!ctype_digit((string)$key))Http::error('شناسه فیلد سفارشی نامعتبر است',422);
       $submitted['cf_'.(int)$key]=$value;
     }
-    try{$plan=UserProfileFormValues::plan($published['schema'],$submitted,$existing,true);}
+    try{$plan=UserProfileFormValues::plan($published['schema'],$submitted,$existing,true,$existing);}
     catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
     _save_custom_values((int)$u['id'],$plan['custom'],true);
     return ['ok'=>true,'form_version'=>$published['version']];
@@ -1833,12 +1833,12 @@ route('PUT', '/api/me/complete-profile', function($p,$b,$u){
   $form=UserProfileForms::published();
   if((int)($b['form_version']??-1)!==(int)$form['version'])Http::error('نسخه فرم تغییر کرده است؛ اطلاعات را بازخوانی کنید',409);
   $uid=(int)$u['id'];
-  $existing=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[$uid]);
+  $existing=Db::one('SELECT id,role_id,email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[$uid]);
   if(!$existing)Http::error('پرونده کاربر یافت نشد',404);
   $customRows=Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[$uid]);
   $effective=$existing;
   foreach($customRows as $row)$effective['cf_'.(int)$row['field_id']]=$row['value'];
-  try{$plan=UserProfileFormValues::plan($form['schema'],$b['values'],$effective,true);}
+  try{$plan=UserProfileFormValues::plan($form['schema'],$b['values'],$effective,true,$existing);}
   catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
   if($plan['custom']){
     $ids=array_keys($plan['custom']);$marks=implode(',',array_fill(0,count($ids),'?'));
@@ -12847,14 +12847,14 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
   if (_req_setting('allow_android_profile_edit',true) !== true) Http::error('ویرایش اطلاعات پرسنلی در اپ توسط مدیر غیرفعال شده است',403);
   $published=UserProfileForms::published();
   if($published['version']>0){
-    $oldValues=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
+    $oldValues=Db::one('SELECT id,role_id,email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
     foreach(Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[(int)$u['id']]) as $row)
       $oldValues['cf_'.(int)$row['field_id']]=$row['value'];
     $subset=[];
     foreach(['email','mobile','address','national_code','marital_status','children_count','birth_date'] as $key)
       if(array_key_exists($key,$b))$subset[$key]=$b[$key];
     if($subset){
-      try{UserProfileFormValues::plan($published['schema'],$subset,$oldValues,true);}
+      try{UserProfileFormValues::plan($published['schema'],$subset,$oldValues,true,$oldValues);}
       catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
     }
   }
