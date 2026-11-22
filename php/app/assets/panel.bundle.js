@@ -7286,7 +7286,7 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
 function CustomFieldsManager() {
     const [fields, setFields] = useState(null);
     const [form, setForm] = useState(null); // فرم افزودن/ویرایش
-    const TYPES = [["text", "متن"], ["number", "عدد"], ["date", "تاریخ"], ["checkbox", "بله/خیر"], ["select", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"], ["textarea", "متن بلند"]];
+    const TYPES = [["text", "متن کوتاه"], ["textarea", "متن بلند"], ["number", "عدد"], ["date", "تاریخ شمسی"], ["time", "ساعت"], ["mobile", "شماره همراه"], ["phone", "تلفن ثابت"], ["email", "ایمیل"], ["national_id", "کد ملی"], ["iban", "شماره شبا"], ["account", "شماره حساب"], ["card", "شماره کارت"], ["address", "نشانی"], ["checkbox", "بله/خیر"], ["boolean", "گزینه بولی"], ["select", "فهرست انتخابی"], ["radio", "انتخاب تکی"], ["multiselect", "انتخاب چندتایی"]];
     const load = () => db.customFields().then(setFields).catch(() => setFields([]));
     useEffect(() => { load(); }, []);
     const blank = { label: "", ftype: "text", options: "", required: 0, user_editable: 1, sort_order: 0 };
@@ -7327,7 +7327,7 @@ function CustomFieldsManager() {
     };
     if (fields === null)
         return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
-    const needOptions = form && (form.ftype === "select" || form.ftype === "multiselect");
+    const needOptions = form && ["select", "radio", "multiselect"].includes(form.ftype);
     return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u062F\u0644\u062E\u0648\u0627\u0647 \u0628\u0631\u0627\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0631\u0633\u0646\u0644 \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F (\u0645\u062B\u0644 \u0634\u0645\u0627\u0631\u0647 \u0634\u0646\u0627\u0633\u0646\u0627\u0645\u0647\u060C \u0634\u0628\u0627\u060C \u0633\u0627\u06CC\u0632 \u0644\u0628\u0627\u0633\u060C \u0642\u062F\u060C \u0634\u0645\u0627\u0631\u0647 \u0628\u06CC\u0645\u0647 \u0648 ...). \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u00AB\u0642\u0627\u0628\u0644 \u062A\u06A9\u0645\u06CC\u0644 \u062A\u0648\u0633\u0637 \u06A9\u0627\u0631\u0628\u0631\u00BB \u062F\u0631 \u0627\u067E \u0628\u0647 \u0646\u06CC\u0631\u0648 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u062A\u0627 \u06A9\u0627\u0645\u0644 \u06A9\u0646\u062F."),
         !form && React.createElement("button", { className: "btn p", onClick: () => setForm({ ...blank }) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u06CC\u0644\u062F \u062C\u062F\u06CC\u062F"),
