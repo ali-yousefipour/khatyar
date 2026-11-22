@@ -39,6 +39,19 @@ const sortLabel=el('label',{text:'مرتب‌سازی بر اساس'},controls),
 const dirLabel=el('label',{text:'جهت مرتب‌سازی'},controls),dir=el('select',{},dirLabel);
 el('option',{value:'asc',text:'صعودی (الف تا ی / کم به زیاد)'},dir);
 el('option',{value:'desc',text:'نزولی (ی تا الف / زیاد به کم)'},dir);
+const secondLabel=el('label',{text:'مرتب‌سازی دوم (اختیاری)'},controls),second=el('select',{},secondLabel);
+const secondDirLabel=el('label',{text:'جهت دوم'},controls),secondDir=el('select',{},secondDirLabel);
+const thirdLabel=el('label',{text:'مرتب‌سازی سوم (اختیاری)'},controls),third=el('select',{},thirdLabel);
+const thirdDirLabel=el('label',{text:'جهت سوم'},controls),thirdDir=el('select',{},thirdDirLabel);
+for(const s of [second,third])el('option',{value:'',text:'بدون مرتب‌سازی بیشتر'},s);
+for(const s of [secondDir,thirdDir]){el('option',{value:'asc',text:'صعودی'},s);el('option',{value:'desc',text:'نزولی'},s);}
+const filterArea=el('div',{class:'kh-ur-controls'},box);
+const activeLabel=el('label',{text:'وضعیت کاربران'},filterArea),active=el('select',{},activeLabel);
+for(const [value,title] of [['all','همه کاربران'],['1','فقط فعال'],['0','فقط غیرفعال']])el('option',{value,text:title},active);
+const roleLabel=el('label',{text:'سمت سازمانی'},filterArea),role=el('select',{},roleLabel);
+const zoneLabel=el('label',{text:'منطقه'},filterArea),zone=el('select',{},zoneLabel);
+el('option',{value:'',text:'تمام سمت‌ها'},role);
+el('option',{value:'',text:'تمام مناطق'},zone);
 const status=el('p',{role:'status','aria-live':'polite'},box);
 const foot=el('div',{class:'kh-ur-actions'},box);
 const preview=el('button',{type:'button',text:'پیش‌نمایش داده‌ها'},foot);
@@ -79,19 +92,38 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    const down=el('button',{type:'button',text:'↓','aria-label':'انتقال ستون به پایین'},label);
    up.onclick=e=>{e.preventDefault();e.stopPropagation();move(-1);};
    down.onclick=e=>{e.preventDefault();e.stopPropagation();move(1);};
-   el('option',{value:column.key,text:column.label},sort);
+   for(const s of [sort,second,third])el('option',{value:column.key,text:column.label},s);
  });
  sort.value=(stored&&columns.some(c=>c.key===stored.sort))?stored.sort:(columns.some(c=>c.key==='id')?'id':columns[0].key);
  dir.value=stored?.direction==='desc'?'desc':'asc';
+ second.value=stored?.sorts?.[1]?.key||'';third.value=stored?.sorts?.[2]?.key||'';
+ secondDir.value=stored?.sorts?.[1]?.direction==='desc'?'desc':'asc';
+ thirdDir.value=stored?.sorts?.[2]?.direction==='desc'?'desc':'asc';
+ active.value=['1','0'].includes(stored?.active)?stored.active:'all';
+ Promise.all([
+ request('/api/admin/roles').then(r=>r.json()).catch(()=>[]),
+ request('/api/admin/zones').then(r=>r.json()).catch(()=>[])
+ ]).then(([roles,zones])=>{
+   for(const item of (Array.isArray(roles)?roles:roles.items||roles.roles||[]))el('option',{value:item.id,text:item.title||item.name||String(item.id)},role);
+   for(const item of (Array.isArray(zones)?zones:zones.items||zones.zones||[]))el('option',{value:item.id,text:item.name||item.title||String(item.id)},zone);
+   role.value=stored?.role_id||'';zone.value=stored?.zone_id||'';
+ });
  const updateCount=()=>{const n=checks.filter(c=>c.checked).length;count.textContent=n.toLocaleString('fa-IR')+' ستون انتخاب شده';save.disabled=n===0;};
  function update(){updateCount();}
  all.onclick=()=>{checks.forEach(c=>c.checked=true);updateCount();};
  none.onclick=()=>{checks.forEach(c=>c.checked=false);updateCount();};
  search.oninput=()=>{const q=search.value.trim().toLocaleLowerCase('fa');checks.forEach(c=>{c.parentElement.hidden=!c.parentElement.textContent.toLocaleLowerCase('fa').includes(q);});};
  updateCount();status.textContent='';
- const payload=()=>({columns:checks.filter(c=>c.checked).map(c=>c.value),sort:sort.value,direction:dir.value});
+ const payload=()=>({
+   columns:checks.filter(c=>c.checked).map(c=>c.value),
+   sort:sort.value,direction:dir.value,
+   sorts:[{key:sort.value,direction:dir.value},...[
+     {key:second.value,direction:secondDir.value},{key:third.value,direction:thirdDir.value}
+   ].filter(x=>!!x.key)],
+   active:active.value,role_id:role.value||'',zone_id:zone.value||''
+ });
  savePreset.onclick=()=>{localStorage.setItem(storageKey,JSON.stringify(payload()));status.textContent='تنظیمات ستون‌ها در این مرورگر ذخیره شد.';};
- reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
+ reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';second.value='';third.value='';active.value='all';role.value='';zone.value='';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
  preview.onclick=async()=>{try{
    preview.disabled=true;previewArea.replaceChildren();status.textContent='در حال آماده‌سازی پیش‌نمایش…';
    const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload(),preview:true})});
