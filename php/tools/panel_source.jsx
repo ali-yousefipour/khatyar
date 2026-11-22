@@ -4974,6 +4974,23 @@ function UserProfileFormDesigner(){
         required:!!Number(f.required),readonly:!Number(f.user_editable),rules:[]});
     });setChoice("");setSelected(key);
   };
+  const removeCustomFromForm=()=>{
+    if(!current||current.binding!=="custom")return;
+    const dependent=fields.filter(field=>field.key!==current.key&&
+      (field.rules||[]).some(rule=>referencedRuleFields(rule.when).includes(current.key)));
+    if(dependent.length){
+      setError("ابتدا وابستگی شرطی این فیلد را از موارد زیر بردارید: "+dependent.map(f=>f.label||f.key).join("، "));
+      return;
+    }
+    if(!window.confirm("فیلد «"+current.label+"» از چیدمان فرم حذف شود؟ اطلاعات ذخیره‌شده کاربران پاک نمی‌شود."))return;
+    modify(d=>{for(const section of d.sections)section.fields=section.fields.filter(f=>f.key!==current.key);});
+    setSelected(null);
+  };
+  const removeGroup=key=>modify(d=>{
+    const section=d.sections.find(s=>s.key===key);
+    if(!section||section.fields.length)return;
+    d.sections=d.sections.filter(s=>s.key!==key);
+  });
   const addGroup=()=>modify(d=>{
     let id=1;while(d.sections.some(s=>s.key==="group_"+id))id++;
     d.sections.push({key:"group_"+id,title:"گروه جدید",fields:[]});
@@ -5131,6 +5148,7 @@ function UserProfileFormDesigner(){
               <input className="input" aria-label="نام گروه" value={section.title||""} onChange={e=>modify(d=>d.sections[si].title=e.target.value)}/>
               <button className="btn g" onClick={()=>moveGroup(si,-1)} disabled={si===0}>↑</button>
               <button className="btn g" onClick={()=>moveGroup(si,1)} disabled={si===model.sections.length-1}>↓</button>
+              {section.key.startsWith("group_")&&section.fields.length===0&&<button className="btn g" title="حذف گروه خالی" onClick={()=>removeGroup(section.key)}>حذف گروه خالی</button>}
             </div>
             {(section.fields||[]).map((f,fi)=><div key={f.key} draggable
               onDragStart={e=>{e.stopPropagation();dragRef.current={type:"field",section:si,index:fi};}}
@@ -5154,6 +5172,7 @@ function UserProfileFormDesigner(){
           {!current?<p className="muted">یک فیلد را برای ویرایش عنوان، ظاهر و شروط انتخاب کنید.</p>:
             <div className="card-p" style={{padding:14}}>
               <p className="muted">شناسه ثابت: <code>{current.key}</code> · ذخیره‌سازی: {current.binding}</p>
+              {current.binding==="custom"&&<button className="btn g" type="button" onClick={removeCustomFromForm}>حذف فیلد از فرم (بدون حذف اطلاعات)</button>}
               <label>عنوان فارسی<input className="input" value={current.label||""} onChange={e=>editField("label",e.target.value)}/></label>
               <label>متن راهنما<input className="input" value={current.description||""} onChange={e=>editField("description",e.target.value)}/></label>
               <label>Placeholder<input className="input" value={current.placeholder||""} onChange={e=>editField("placeholder",e.target.value)}/></label>
