@@ -1786,6 +1786,15 @@ function PersonnelSeniority(){
   </div>;
 }
 
+function offlineNationalIdWeb(raw){
+  const value=String(raw??"").trim().replace(/[۰-۹٠-٩]/g,d=>String(d.charCodeAt(0)>1700?d.charCodeAt(0)-1776:d.charCodeAt(0)-1632));
+  if(!value)return {valid:false,empty:true,message:"کد ملی وارد نشده است."};
+  if(!/^[0-9]{10}$/.test(value))return {valid:false,message:"کد ملی باید ۱۰ رقم باشد."};
+  if(/^(\\d)\\1{9}$/.test(value))return {valid:false,message:"کد ملی واردشده از نظر رقم کنترل معتبر نیست."};
+  let sum=0;for(let i=0;i<9;i++)sum+=Number(value[i])*(10-i);
+  const mod=sum%11,check=mod<2?mod:11-mod;
+  return check===Number(value[9])?{valid:true,value,message:"ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است."}:{valid:false,message:"کد ملی واردشده از نظر رقم کنترل معتبر نیست."};
+}
 function Users(){
   const [usersTab,setUsersTab]=useState("users");
   const [users,setUsers]=useState([]); const [roles,setRoles]=useState([]); const [zones,setZones]=useState([]);
@@ -1802,7 +1811,12 @@ function Users(){
   const rt=id=>roles.find(r=>r.id===id)?.title||""; const zn=id=>zones.find(z=>z.id===id)?.name||"—";
   const defaultStars=(role)=>{ const r=String(role||""); if(r.includes("سربازرس"))return 4; if(r.includes("بازرس"))return 2; if(r.includes("ناظر خط")||r.includes("اپراتور"))return 1; return 0; };
   const starsForUser=(u)=>{ const n=(u.rank_stars!==null&&u.rank_stars!==undefined&&u.rank_stars!=="")?Math.max(0,Math.min(5,+u.rank_stars||0)):defaultStars(u.role_title||rt(u.role_id)); return n?"★".repeat(n):"—"; };
-  const save=async u=>{if(savingUser)return;if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;}setSavingUser(true);try{await db.updateUser(u.id,{employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
+  const save=async u=>{if(savingUser)return;
+    if(String(u.national_code||"").trim()){
+      const nationalCheck=offlineNationalIdWeb(u.national_code);
+      if(!nationalCheck.valid){alert(nationalCheck.message);return;}
+      u={...u,national_code:nationalCheck.value};
+    }if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;}setSavingUser(true);try{await db.updateUser(u.id,{employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
     // The API must return the committed values, not just acknowledge the PUT.
     const persisted=await GET('/admin/users/'+u.id+'/employment-period');
     const normalizeDate=v=>String(v||'').trim().replaceAll('/','-');
@@ -1897,7 +1911,7 @@ function Users(){
       <label>منطقه</label><select className="input" value={edit.zone_id||""} onChange={e=>setEdit({...edit,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
       <div className="row" style={{marginTop:10,flexWrap:"wrap",gap:10}}>
         <div style={{flex:1,minWidth:140}}><label>تلفن همراه</label><input className="input" dir="ltr" value={edit.phone||""} onChange={e=>setEdit({...edit,phone:e.target.value})}/></div>
-        <div style={{flex:1,minWidth:140}}><label>کد ملی</label><input className="input" dir="ltr" maxLength="10" value={edit.national_code||""} onChange={e=>setEdit({...edit,national_code:e.target.value})}/></div>
+        <div style={{flex:1,minWidth:140}}><label>کد ملی</label><input className="input" dir="ltr" maxLength="32" value={edit.national_code||""} onChange={e=>setEdit({...edit,national_code:e.target.value})}/>{edit.national_code&&<small role="status" style={{color:offlineNationalIdWeb(edit.national_code).valid?"var(--ok,#087f5b)":"var(--danger,#bd2929)"}}>{offlineNationalIdWeb(edit.national_code).message}</small>}</div>
         <div style={{flex:1,minWidth:140}}><label>کد پرسنلی</label><input className="input" dir="ltr" value={edit.personnel_code||""} onChange={e=>setEdit({...edit,personnel_code:e.target.value})}/></div>
       </div>
       <div className="row" style={{marginTop:6,flexWrap:"wrap",gap:10}}>
@@ -1940,10 +1954,20 @@ function Users(){
 
 function AddUser({roles,zones,onClose,onSave}){
   const [f,setF]=useState(()=>({first_name:"",last_name:"",username:"",email:"",role_id:roles[0]?.id||9,zone_id:null,password:crypto.randomUUID().replace(/-/g,"").slice(0,16),allow_android:1,allow_web:1,birth_date:"",birth_iso:""}));
+  const [saving,setSaving]=useState(false);
+  const submit=async()=>{
+    const national=offlineNationalIdWeb(f.username);
+    if(!national.valid){alert(national.message);return;}
+    if(saving)return;
+    setSaving(true);
+    try{await onSave({...f,username:national.value,national_code:national.value});}
+    catch(error){alert(error.message||"ثبت کاربر انجام نشد.");}
+    finally{setSaving(false);}
+  };
   return(<Modal title="افزودن کاربر جدید" onClose={onClose}>
     <div className="row"><div><label>نام</label><input className="input" onChange={e=>setF({...f,first_name:e.target.value})}/></div>
       <div><label>نام خانوادگی</label><input className="input" onChange={e=>setF({...f,last_name:e.target.value})}/></div></div>
-    <label>نام کاربری (کد ملی)</label><input className="input" dir="ltr" onChange={e=>setF({...f,username:e.target.value})}/>
+    <label>نام کاربری (کد ملی)</label><input className="input" dir="ltr" maxLength="32" value={f.username} onChange={e=>setF({...f,username:e.target.value})}/>{f.username&&<small role="status" style={{color:offlineNationalIdWeb(f.username).valid?"var(--ok,#087f5b)":"var(--danger,#bd2929)"}}>{offlineNationalIdWeb(f.username).message}</small>}
     <label>ایمیل (اختیاری)</label><input className="input" dir="ltr" onChange={e=>setF({...f,email:e.target.value})}/>
     <div className="row" style={{gap:10,flexWrap:"wrap"}}><div style={{flex:1,minWidth:170}}><label>تاریخ تولد</label><JDate yearFrom={1320} yearTo={todayJ()[0]} value={f.birth_iso||""} onChange={v=>{ let bd=""; if(v){ const [y,m,d]=v.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); bd=`${jy}-${String(jm).padStart(2,"0")}-${String(jd).padStart(2,"0")}`; } setF({...f,birth_iso:v,birth_date:bd}); }}/>{f.birth_date&&<span className="muted" style={{fontSize:11}}>{String(f.birth_date).replace(/-/g,"/")}</span>}</div></div>
     <label>سمت</label><select className="input" value={f.role_id} onChange={e=>setF({...f,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
@@ -1952,7 +1976,7 @@ function AddUser({roles,zones,onClose,onSave}){
     <div className="row" style={{gap:16,marginTop:10}}>
       <label className="row" style={{gap:6}}><input type="checkbox" checked={f.allow_android} onChange={e=>setF({...f,allow_android:e.target.checked?1:0})}/>اندروید</label>
       <label className="row" style={{gap:6}}><input type="checkbox" checked={f.allow_web} onChange={e=>setF({...f,allow_web:e.target.checked?1:0})}/>وب</label></div>
-    <button className="btn p" style={{marginTop:12}} onClick={()=>onSave(f)}>ساخت کاربر</button></Modal>);
+    <button className="btn p" style={{marginTop:12}} disabled={saving} onClick={submit}>{saving?"در حال ثبت…":"ساخت کاربر"}</button></Modal>);
 }
 
 function LineAssign({user,onClose}){
