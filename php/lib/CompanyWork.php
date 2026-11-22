@@ -387,13 +387,23 @@ class CompanyWork {
     // Historical attendance is checked independently of present-day active status.
     $worked=Db::all('SELECT DISTINCT user_id FROM staff_attendance WHERE check_in>=? AND check_in<?',
       [$periodStart->format('Y-m-d H:i:s'),$periodEnd->format('Y-m-d H:i:s')]);
-    foreach($worked as $entry){
-      $uid=(int)($entry['user_id']??0);
-      if(!$uid||isset($fileIds[$uid]))continue;
+    $workedIds=array_fill_keys(array_map('intval',array_column($worked,'user_id')),true);
+    foreach($workedIds as $uid=>$present){
+      if(isset($fileIds[$uid]))continue;
       $person=$byId[$uid]??null;
       $discrepancies['worked_not_in_file'][]=['user_id'=>$uid,
         'name'=>$person?trim($person['first_name'].' '.$person['last_name']):'کاربر فاقد پرونده',
         'personnel_code'=>$person['personnel_code']??''];
+    }
+    $discrepancies['no_attendance_in_file']=[];
+    foreach($rows as $row){
+      $uid=(int)($row['user_id']??0);
+      if(!$uid||isset($workedIds[$uid]))continue;
+      $discrepancies['no_attendance_in_file'][]=[
+        'source_row'=>$row['source_row']??null,'user_id'=>$uid,
+        'name'=>trim(($row['first_name']??'').' '.($row['last_name']??'')),
+        'personnel_code'=>$row['personnel_code']??'',
+        'reason'=>'در این ماه تردد ورودی ثبت نشده است؛ مرخصی، مأموریت و اطلاعات کارکرد تکمیلی باید جداگانه بررسی شوند'];
     }
     $collectStage='account_field';
     $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
