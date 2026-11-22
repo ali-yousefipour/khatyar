@@ -13,7 +13,7 @@ class Db {
   static function insert($sql,$params=[]){if(self::$fail)throw new RuntimeException('synthetic archive failure');self::$inserted[]=[$sql,$params];return 9;}
 }
 class Seniority {static $value=730;static function listRows(){return ['rows'=>[['id'=>1,'seniority_days'=>self::$value]]];}}
-function _shift_rotation_report($y,$m){if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');return ['source'=>'live','rows'=>[]];}
+function _shift_rotation_report($y,$m){$GLOBALS['rotation_period']=[$y,$m];if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');return ['source'=>'live','rows'=>[]];}
 function _shift_rotation_rows($users,$punches,$start,$end){$GLOBALS['rotation_used']=[$users[0]['id'],$start->format('Y-m-d'),$end->format('Y-m-d')];return [['user_id'=>1,'morning'=>10.5,'afternoon'=>9.5,'night'=>2,'missing_source'=>false]];}
 function attendance_report_owned_by_entry_date($uid,$from,$to){
   $GLOBALS['attendance_calls'][]=[$uid,$from,$to];$days=[];
@@ -39,6 +39,7 @@ yes('combined company inputs are complete',!$out['has_errors']);
 yes('organization role and approved hours remain authoritative',$r['role']==='سمت اعلامی سازمان'&&$r['overtime_hours']===12.75);
 yes('bank account and national identity come from database',$r['account']==='0000123456'&&$r['national_code']==='0012345678');
 yes('seniority days, demographics and rotation joined',$r['seniority_days']===730&&$r['children']===2&&$r['morning']===10.5);
+yes('rotation uses the selected organization source period',$GLOBALS['rotation_period']===[1405,7]&&$out['year']===1405&&$out['month']===7);
 yes('canonical attendance called with exact Jalali period',$GLOBALS['attendance_calls'][0]===[1,'1405/07/01','1405/07/30']);
 yes('inactive personnel use existing rotation classifier',$GLOBALS['rotation_used'][0]===1);
 yes('new hire absences and 453-minute leave combined',$r['days']===16&&$r['absence_days']===1&&$r['leave_days']==4&&$r['night_hours']===2.5);
