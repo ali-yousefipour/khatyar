@@ -4073,10 +4073,22 @@ function RadioArchiveTab({api,channels,cid,setCid}){
 function CustomFieldsManager(){
   const [fields,setFields]=useState(null);
   const [form,setForm]=useState(null); // فرم افزودن/ویرایش
-  const TYPES=[["text","متن کوتاه"],["textarea","متن بلند"],["number","عدد"],["date","تاریخ شمسی"],["time","ساعت"],["mobile","شماره همراه"],["phone","تلفن ثابت"],["email","ایمیل"],["national_id","کد ملی"],["iban","شماره شبا"],["account","شماره حساب"],["card","شماره کارت"],["address","نشانی"],["checkbox","بله/خیر"],["boolean","گزینه بولی"],["select","فهرست انتخابی"],["radio","انتخاب تکی"],["multiselect","انتخاب چندتایی"]];
+  const TYPES=[["text","متن کوتاه"],["textarea","متن بلند"],["number","عدد"],["date","تاریخ شمسی"],["time","ساعت"],["mobile","شماره همراه"],["phone","تلفن ثابت"],["email","ایمیل"],["national_id","کد ملی"],["iban","شماره شبا"],["account","شماره حساب"],["card","شماره کارت"],["address","نشانی"],["checkbox","بله/خیر"],["boolean","گزینه بولی"],["select","فهرست انتخابی"],["radio","انتخاب تکی"],["multiselect","انتخاب چندتایی"],["repeater","گروه تکرارشونده (فرزندان)"]];
   const load=()=>db.customFields().then(setFields).catch(()=>setFields([]));
   useEffect(()=>{load();},[]);
   const blank={label:"",ftype:"text",options:"",required:0,user_editable:1,sort_order:0};
+  const defaultRepeater=()=>({min_rows:0,max_rows:12,columns:[
+    {key:"child_name",label:"نام فرزند",type:"text",required:true},
+    {key:"child_national_id",label:"کد ملی فرزند",type:"national_id"},
+    {key:"child_birth_date",label:"تاریخ تولد فرزند",type:"date"}
+  ]});
+  const parseRepeater=raw=>{try{const parsed=JSON.parse(raw||"{}");return Array.isArray(parsed.columns)?parsed:defaultRepeater();}catch(_){return defaultRepeater();}};
+  const repeaterConfig=form?.ftype==="repeater"?parseRepeater(form.options):null;
+  const updateRepeater=change=>setForm(prev=>{
+    const config=parseRepeater(prev.options);
+    change(config);
+    return {...prev,options:JSON.stringify(config)};
+  });
   const save=async()=>{
     if(!form.label.trim()){alert("عنوان فیلد را وارد کنید");return;}
     try{
@@ -4099,10 +4111,42 @@ function CustomFieldsManager(){
     {form && <div className="card-p" style={{marginTop:10}}>
       <div className="row" style={{gap:8,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:160}}><label className="label">عنوان فیلد</label><input className="input" value={form.label} onChange={e=>setForm({...form,label:e.target.value})} placeholder="مثلاً شماره شبا"/></div>
-        <div style={{minWidth:150}}><label className="label">نوع</label><select className="input" value={form.ftype} onChange={e=>setForm({...form,ftype:e.target.value})}>{TYPES.map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></div>
+        <div style={{minWidth:150}}><label className="label">نوع</label><select className="input" value={form.ftype} onChange={e=>setForm({...form,ftype:e.target.value,options:e.target.value==="repeater"?JSON.stringify(defaultRepeater()):form.options})}>{TYPES.map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></div>
         <div style={{width:90}}><label className="label">ترتیب</label><input className="input" type="number" value={form.sort_order} onChange={e=>setForm({...form,sort_order:e.target.value})}/></div>
       </div>
       {needOptions && <div style={{marginTop:8}}><label className="label">گزینه‌ها (با | جدا کنید)</label><input className="input" value={form.options||""} onChange={e=>setForm({...form,options:e.target.value})} placeholder="مثلاً S|M|L|XL"/></div>}
+      {repeaterConfig&&<div className="card-p" style={{marginTop:12,padding:14}}>
+        <h4>ستون‌های گروه تکرارشونده</h4>
+        <p className="muted">برای هر فرزند یک ردیف مستقل ثبت می‌شود. کلید ستون ثابت است؛ تغییر عنوان و تعداد ستون‌ها اطلاعات قبلی را پاک نمی‌کند.</p>
+        <label>حداکثر تعداد ردیف
+          <input className="input" type="number" min="1" max="20" value={repeaterConfig.max_rows||12}
+            onChange={e=>updateRepeater(config=>config.max_rows=Math.max(1,Math.min(20,Number(e.target.value)||1)))}/>
+        </label>
+        {repeaterConfig.columns.map((column,index)=><div key={column.key} style={{border:"1px solid var(--line)",padding:10,borderRadius:10,marginTop:8}}>
+          <p className="muted">کلید ثابت: <code>{column.key}</code></p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <label>عنوان ستون<input className="input" value={column.label} onChange={e=>updateRepeater(config=>config.columns[index].label=e.target.value)}/></label>
+            <label>نوع
+              <select className="input" value={column.type} onChange={e=>updateRepeater(config=>{config.columns[index].type=e.target.value;})}>
+                {[["text","متن"],["number","عدد"],["date","تاریخ شمسی"],["mobile","موبایل"],["national_id","کد ملی"],["boolean","بله/خیر"],["select","انتخابی"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="row" style={{gap:5}}><input type="checkbox" checked={!!column.required}
+              onChange={e=>updateRepeater(config=>config.columns[index].required=e.target.checked)}/>اجباری</label>
+          </div>
+          {column.type==="select"&&<label>گزینه‌ها با | جدا شوند
+            <input className="input" value={(column.options||[]).join("|")}
+              onChange={e=>updateRepeater(config=>config.columns[index].options=e.target.value.split("|").map(v=>v.trim()).filter(Boolean))}/>
+          </label>}
+          <button type="button" className="btn g" disabled={repeaterConfig.columns.length<2}
+            onClick={()=>updateRepeater(config=>config.columns.splice(index,1))}>حذف ستون</button>
+        </div>)}
+        <button type="button" className="btn g" style={{marginTop:10}} disabled={repeaterConfig.columns.length>=8}
+          onClick={()=>updateRepeater(config=>{
+            let n=1;while(config.columns.some(c=>c.key==="column_"+n))n++;
+            config.columns.push({key:"column_"+n,label:"ستون جدید",type:"text"});
+          })}>+ افزودن ستون</button>
+      </div>}
       <div className="row" style={{gap:14,marginTop:10,flexWrap:"wrap"}}>
         <label className="row" style={{gap:6}}><input type="checkbox" checked={!!form.required} onChange={e=>setForm({...form,required:e.target.checked?1:0})}/>تکمیل الزامی</label>
         <label className="row" style={{gap:6}}><input type="checkbox" checked={!!form.user_editable} onChange={e=>setForm({...form,user_editable:e.target.checked?1:0})}/>قابل تکمیل توسط کاربر در اپ</label>
