@@ -127,13 +127,14 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
  secondDir.value=stored?.sorts?.[1]?.direction==='desc'?'desc':'asc';
  thirdDir.value=stored?.sorts?.[2]?.direction==='desc'?'desc':'asc';
  active.value=['1','0'].includes(stored?.active)?stored.active:'all';
+ let preferredRole=stored?.role_id||'',preferredZone=stored?.zone_id||'';
  Promise.all([
  request('/api/admin/roles').then(r=>r.json()).catch(()=>[]),
  request('/api/admin/zones').then(r=>r.json()).catch(()=>[])
  ]).then(([roles,zones])=>{
    for(const item of (Array.isArray(roles)?roles:roles.items||roles.roles||[]))el('option',{value:item.id,text:item.title||item.name||String(item.id)},role);
    for(const item of (Array.isArray(zones)?zones:zones.items||zones.zones||[]))el('option',{value:item.id,text:item.name||item.title||String(item.id)},zone);
-   role.value=stored?.role_id||'';zone.value=stored?.zone_id||'';
+   role.value=String(preferredRole);zone.value=String(preferredZone);
  });
  const updateCount=()=>{const n=checks.filter(c=>c.checked).length;count.textContent=n.toLocaleString('fa-IR')+' ستون انتخاب شده';save.disabled=n===0;};
  function update(){updateCount();}
@@ -174,7 +175,8 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    secondDir.value=settings.sorts?.[1]?.direction==='desc'?'desc':'asc';
    thirdDir.value=settings.sorts?.[2]?.direction==='desc'?'desc':'asc';
    active.value=['all','1','0'].includes(settings.active)?settings.active:'all';
-   role.value=String(settings.role_id||'');zone.value=String(settings.zone_id||'');
+   preferredRole=settings.role_id||'';preferredZone=settings.zone_id||'';
+   role.value=String(preferredRole);zone.value=String(preferredZone);
    presetName.value=record.name;visibility.value=record.visibility==='shared'?'shared':'private';
    updateCount();
  };
@@ -195,7 +197,7 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    await refreshPresets();presetName.value='';status.textContent='قالب حذف شد.';
  }catch(err){status.textContent=err.message;}};
  refreshPresets().catch(err=>{status.textContent='بارگذاری قالب‌های ذخیره‌شده ممکن نشد: '+err.message;});
- reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';second.value='';third.value='';active.value='all';role.value='';zone.value='';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
+ reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';second.value='';third.value='';active.value='all';role.value='';zone.value='';preferredRole='';preferredZone='';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
  preview.onclick=async()=>{try{
    preview.disabled=true;previewArea.replaceChildren();status.textContent='در حال آماده‌سازی پیش‌نمایش…';
    const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload(),preview:true})});
