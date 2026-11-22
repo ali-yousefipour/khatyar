@@ -183,6 +183,15 @@ if (strpos($path, '/api') !== 0) {
 $routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
+// Regional chart uses live user roles and nearest eligible zone leadership.
+// Explicit refresh does not alter manual graph links or operational approvals.
+route('POST', '/api/admin/zones/{id}/sync-chart', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/ZoneChartSync.php';
+  $raw=(string)($params['id']??'');
+  if(!ctype_digit($raw)||(int)$raw<1)Http::error('شناسه منطقه نامعتبر است',422);
+  return ZoneChartSync::snapshot((int)$raw);
+}, false, 3);
+
 
 /* گزارش تردد canonical: مالکیت punch بر اساس تاریخ ورود؛ قبل از route قدیمی ثبت می‌شود. */
 route('GET', '/api/admin/attendance-report', function($p,$b,$u){
