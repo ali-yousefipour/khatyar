@@ -22,7 +22,7 @@ const sql=fs.readFileSync(path.join(root,'php/migrations/20261122_user_profile_f
 for(const table of ['user_form_definitions','user_form_versions','user_form_audit_logs'])
   assert(sql.includes('CREATE TABLE IF NOT EXISTS '+table),'additive schema '+table);
 assert(!/\b(?:DROP|TRUNCATE|DELETE)\s+(?:TABLE|FROM)\b/i.test(sql),'schema migration does not destroy user data');
-assert(flow.includes("migrations/20261122_user_profile_forms.sql lib/routes.php"),'personnel form schema always staged for deployment');
+assert(flow.includes("migrations/20261122_user_profile_forms.sql migrations/20261123_user_profile_attachments.sql lib/routes.php"),'personnel form and attachment schemas always staged for deployment');
 assert(flow.includes("$stage = 'personnel_form_schema'"),'migration executes through guarded host installer');
 assert(flow.includes("if($created!==3)throw new RuntimeException('Personnel profile migration count invalid')"),'all three form tables must be provisioned');
 assert(flow.includes("if((int)$profileTables!==3)throw new RuntimeException('Personnel profile schema verification failed')"),'host verifies form schema after migration');
