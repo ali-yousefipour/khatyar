@@ -61,6 +61,7 @@ final class UserFullReport {
       return $original;
     }
   }
+  public static function availableColumns(): array {return self::schema();}
   public static function orderedByProfile(array $original,array $form): array {
     $lookup=array_column($original,null,'key');$ordered=[];$excluded=[];
     foreach($form['sections']??[] as $section){
