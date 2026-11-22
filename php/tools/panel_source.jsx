@@ -2098,7 +2098,7 @@ function Zones(){
 
 function OrgChart(){
   const [data,setData]=useState({users:[],edges:[],default_edges:[],zones:[]});
-  const [mode,setMode]=useState("regional"); const [zoneFilter,setZoneFilter]=useState(""); const [error,setError]=useState("");
+  const [mode,setMode]=useState("regional"); const [zoneFilter,setZoneFilter]=useState(()=>{const selected=sessionStorage.getItem("kh-org-chart-focus-zone")||"";sessionStorage.removeItem("kh-org-chart-focus-zone");return selected;}); const [error,setError]=useState("");
   const [expanded,setExpanded]=useState(()=>new Set());
   const [zoom,setZoom]=useState(1); const [pan,setPan]=useState({x:30,y:25});
   const [dragPan,setDragPan]=useState(null); const [dragUser,setDragUser]=useState(null); const [over,setOver]=useState(null);
@@ -2123,7 +2123,20 @@ function OrgChart(){
     return [...new Set(out)];
   })();
   const visible=(()=>{ const out=new Set(roots), q=[...roots]; while(q.length){const id=q.shift(); if(!expanded.has(id))continue; children(id).forEach(c=>{if(!out.has(c)){out.add(c);q.push(c)}})} return out; })();
-  const filtered=query.trim()||zoneFilter!==""?new Set(users.filter(user=>(!query.trim()||((user.first_name||'')+' '+(user.last_name||'')+' '+(user.role_title||'')+' '+(user.zone_name||'')).includes(query.trim()))&&(zoneFilter===""||(zoneFilter==="none"?!user.zone_id:+user.zone_id===+zoneFilter))).map(user=>+user.id)):null;
+  // A zone filter must include all descendants and explicitly assigned zone
+  // inspectors/seniors, even if their home zone is different.
+  const scopedZones=new Set();
+  if(zoneFilter&&zoneFilter!=="none"){
+    scopedZones.add(+zoneFilter);
+    let added=true;
+    while(added){added=false;data.zones.forEach(z=>{if(scopedZones.has(+z.parent_id)&&!scopedZones.has(+z.id)){scopedZones.add(+z.id);added=true;}});}
+  }
+  const scopedLeaders=new Set();
+  if(scopedZones.size)data.zones.forEach(z=>{if(!scopedZones.has(+z.id))return;
+    if(+z.senior_user_id)scopedLeaders.add(+z.senior_user_id);
+    (z.inspector_ids||[]).forEach(id=>scopedLeaders.add(+id));
+  });
+  const filtered=query.trim()||zoneFilter!==""?new Set(users.filter(user=>(!query.trim()||((user.first_name||'')+' '+(user.last_name||'')+' '+(user.role_title||'')+' '+(user.zone_name||'')).includes(query.trim()))&&(zoneFilter===""||(zoneFilter==="none"?!user.zone_id:scopedZones.has(+user.zone_id)||scopedLeaders.has(+user.id)))).map(user=>+user.id)):null;
   if(filtered){ [...filtered].forEach(id=>{ let q=[id],seen=new Set(); while(q.length){let x=q.shift(); parents(x).forEach(p=>{if(!seen.has(p)){seen.add(p);filtered.add(p);q.push(p)}})} }); }
   const shown=filtered?[...filtered].filter(id=>byId[id]):[...visible];
   const shownSet=new Set(shown);
