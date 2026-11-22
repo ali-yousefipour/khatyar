@@ -600,6 +600,24 @@ jobs:
         run: |
           set -euo pipefail
 
+          verify_dir="${RUNNER_TEMP}/ftp-verify"
+          batch="${RUNNER_TEMP}/khatyar-verify.lftp"
+          manifest="${RUNNER_TEMP}/khatyar-verify-manifest.tsv"
+          mkdir -p "${verify_dir}"
+          : > "${manifest}"
+          cat > "${batch}" <<EOF
+          set cmd:fail-exit true
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ftp:passive-mode true
+          set ftp:prefer-epsv false
+          set net:timeout 35
+          set net:max-retries 2
+          set ssl:verify-certificate yes
+          set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem
+          set ssl:check-hostname no
+          EOF
+
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             rel="${file#deploy-payload/}"
@@ -611,44 +629,37 @@ jobs:
               echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi
+            # Use one authenticated FTPS connection and preserve paths.
+            [[ "${rel}" =~ ^[a-zA-Z0-9._/-]+$ ]] || {
+              echo "ERROR: Unsafe FTP verify path ${rel}" >&2
+              exit 1
+            }
             remote="/${rel}"
             if [[ "${rel}" == app/* ]]; then remote="/khat-yar.ir/${rel#app/}"; fi
             local_sha="$(sha256sum "${file}" | awk '{print $1}')"
+            verify_path="${verify_dir}/${rel}"
+            mkdir -p "$(dirname "${verify_path}")"
+            printf 'get "%s" -o "%s"\\n' "${remote}" "${verify_path}" >> "${batch}"
+            printf '%s\\t%s\\t%s\\n' "${rel}" "${local_sha}" "${verify_path}" >> "${manifest}"
+          done < <(find deploy-payload -type f -print | sort)
 
-            remote_basename="$(basename "${rel}")"
-            verify_dir="${RUNNER_TEMP}/ftp-verify"
-            verify_path="${verify_dir}/${remote_basename}"
-            rm -rf "${verify_dir}"
-            mkdir -p "${verify_dir}"
+          if [ -s "${manifest}" ]; then
+            echo "Verifying $(wc -l < "${manifest}") uploaded FTP files in one session"
+            lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "source ${batch}; bye"
+          fi
 
-            lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
-              set ftp:ssl-force true;
-              set ftp:ssl-protect-data true;
-              set ftp:passive-mode true;
-              set ftp:prefer-epsv false;
-              set net:timeout 60;
-              set net:max-retries 3;
-              set ssl:verify-certificate yes;
-              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
-              set ssl:check-hostname no;
-              lcd "${verify_dir}";
-              get "${remote}";
-              bye
-            "
-
-            if [ ! -f "${verify_path}" ]; then
-              echo "ERROR: FTP verify download missing: ${verify_path}" >&2
-              find "${verify_dir}" -maxdepth 1 -type f -print >&2 || true
+          while IFS=$'\\t' read -r rel local_sha verify_path; do
+            [ -f "${verify_path}" ] || {
+              echo "ERROR: FTP verify download missing ${rel}" >&2
               exit 1
-            fi
-
+            }
             remote_sha="$(sha256sum "${verify_path}" | awk '{print $1}')"
             echo "FTP verify ${rel}: local=${local_sha} remote=${remote_sha}"
             [ "${local_sha}" = "${remote_sha}" ] || {
-              echo "ERROR: FTP checksum mismatch for ${rel}" >&2
+              echo "ERROR: FTP checksum mismatch ${rel}" >&2
               exit 1
             }
-          done < <(find deploy-payload -type f -print | sort)
+          done < "${manifest}"
 
       - name: Smoke-test public panel JavaScript after FTP verification
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
