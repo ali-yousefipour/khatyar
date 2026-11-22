@@ -1799,6 +1799,52 @@ route('POST', '/api/admin/user-profile-form/publish', function($p,$b,$u){
   catch(DomainException $e){Http::error($e->getMessage(),409);}
 }, false, ADMIN);
 
+// Atomic user-profile save with published conditional rules and fixed legacy bindings.
+require_once __DIR__.'/UserProfileFormValues.php';
+route('PUT', '/api/me/complete-profile', function($p,$b,$u){
+  if(_req_setting('allow_android_profile_edit',true)!==true)Http::error('ویرایش اطلاعات پرسنلی توسط مدیر غیرفعال شده است',403);
+  if(!is_array($b['values']??null)||count($b['values'])>400)Http::error('ساختار مقادیر فرم نامعتبر است',422);
+  $form=UserProfileForms::published();
+  if((int)($b['form_version']??-1)!==(int)$form['version'])Http::error('نسخه فرم تغییر کرده است؛ اطلاعات را بازخوانی کنید',409);
+  $uid=(int)$u['id'];
+  $existing=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[$uid]);
+  if(!$existing)Http::error('پرونده کاربر یافت نشد',404);
+  $customRows=Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[$uid]);
+  $effective=$existing;
+  foreach($customRows as $row)$effective['cf_'.(int)$row['field_id']]=$row['value'];
+  try{$plan=UserProfileFormValues::plan($form['schema'],$b['values'],$effective,true);}
+  catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+  if($plan['custom']){
+    $ids=array_keys($plan['custom']);$marks=implode(',',array_fill(0,count($ids),'?'));
+    $permitted=Db::all("SELECT id FROM custom_fields WHERE id IN ($marks) AND is_active=1 AND user_editable=1",$ids);
+    $allowed=array_fill_keys(array_map('intval',array_column($permitted,'id')),true);
+    foreach($ids as $id)if(!isset($allowed[$id]))Http::error('ویرایش فیلد مدیریتی مجاز نیست',403);
+  }
+  if(array_key_exists('national_code',$plan['system']))
+    $plan['system']['national_code']=_identity_save_national_code($plan['system']['national_code'],$uid);
+  if($plan['system']&&array_key_exists('email',$plan['system'])&&$plan['system']['email']!==null&&!filter_var($plan['system']['email'],FILTER_VALIDATE_EMAIL))
+    Http::error('ایمیل نامعتبر است',422);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    if($plan['system']){
+      $sets=[];$args=[];
+      foreach($plan['system'] as $key=>$value){$sets[]="`$key`=?";$args[]=$value;}
+      $args[]=$uid;
+      Db::run('UPDATE users SET '.implode(',',$sets).' WHERE id=?',$args);
+    }
+    if($plan['custom'])_save_custom_values($uid,$plan['custom'],true);
+    if(UserProfileForms::available())
+      Db::run('INSERT INTO user_form_audit_logs(form_id,actor_id,action,version,metadata_json) SELECT id,?,?,?,? FROM user_form_definitions WHERE form_key=?',
+        [$uid,'save_values',(int)$form['version'],json_encode(['fields'=>array_keys($b['values'])],JSON_UNESCAPED_UNICODE),'personnel_profile']);
+    $pdo->commit();
+    return ['ok'=>true,'version'=>(int)$form['version'],'saved_fields'=>count($plan['system'])+count($plan['custom'])];
+  }catch(Throwable $e){
+    if($pdo->inTransaction())$pdo->rollBack();
+    error_log('User profile atomic save failed class='.get_class($e));
+    Http::error('ذخیره اطلاعات پرسنلی کامل نشد؛ تغییرات ثبت نشدند',503);
+  }
+}, false);
+
 // ==================== حالت تعمیر (قطع دسترسی همه بجز مدیران) ====================
 function _maintenance_status(){
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'");
