@@ -8360,6 +8360,7 @@ function OrganizationWorkReconciliation({year,month,onPeriodChange}){
 
 function CompanyWorkReport({year,month,onPeriodChange}){
   const [archive,setArchive]=useState(null),[file,setFile]=useState(null),[preview,setPreview]=useState(null),[detail,setDetail]=useState(null),[account,setAccount]=useState(""),[busy,setBusy]=useState(""),[error,setError]=useState(""),[query,setQuery]=useState("");
+  const [bankAudit,setBankAudit]=useState(null),[bankAuditQuery,setBankAuditQuery]=useState("");
   const life=useRef({alive:true,controller:null,locked:false});
   const fileInput=useRef(null);
   useEffect(()=>{life.current.alive=true;load();return()=>{life.current.alive=false;life.current.controller?.abort();};},[]);
@@ -8378,6 +8379,22 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     try{await fn();}catch(e){if(life.current.alive&&e.name!=="AbortError")setError(e.message);}
     finally{life.current.locked=false;if(life.current.alive)setBusy("");}
   };
+  const runBankAudit=()=>action("ممیزی آفلاین اطلاعات کاربران…",async()=>{
+    let offset=0,total=0,issues=[],counts={},steps=0;
+    setBankAudit({open:true,scanned:0,total:0,issues:[],counts:{},done:false});
+    for(;;){
+      const page=await request("/identity-audit?offset="+offset+"&limit=150");
+      const n=Number(page.scanned)||0;
+      total=Number(page.total)||0;
+      issues=issues.concat(Array.isArray(page.issues)?page.issues:[]);
+      for(const [key,value] of Object.entries(page.counts||{}))counts[key]=(counts[key]||0)+Number(value||0);
+      offset+=n;
+      if(life.current.alive)setBankAudit({open:true,scanned:offset,total,issues,counts,done:!!page.done});
+      if(page.done||page.next_offset===null||++steps>10000)break;
+      if(n===0)throw Error("ممیزی کاربران به دلیل نبود پیشرفت متوقف شد.");
+      offset=Number(page.next_offset);
+    }
+  });
   const upload=mode=>action(mode==="preview"?"بررسی فایل…":"ذخیره در آرشیو…",async()=>{
     if(!file)throw Error("فایل XLSX سازمان را انتخاب کنید");
     const body=new FormData();body.append("file",file);body.append("year",year);body.append("month",month);body.append("mode",mode);
@@ -8415,6 +8432,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       <label>سال<select aria-label="سال گزارش شرکت" className="input" value={year} disabled={!!busy} onChange={e=>onPeriodChange(Number(e.target.value),month)}>{Array.from({length:201},(_,i)=>1300+i).map(y=><option key={y} value={y}>{faPlain(y)}</option>)}</select></label>
       <label>ماه<select className="input" value={month} disabled={!!busy} onChange={e=>onPeriodChange(year,Number(e.target.value))}>{J_MONTHS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></label>
       <button className="btn" disabled={!!busy} onClick={()=>action("دریافت آرشیو…",load)}>تازه‌سازی آرشیو</button>
+      <button className="btn" disabled={!!busy} onClick={()=>{setBankAuditQuery("");runBankAudit();}}>بررسی صحت اطلاعات هویتی و بانکی کاربران</button>
     </div>
     {error&&<p role="alert" style={{color:"var(--danger,#bd2929)"}}>{error}</p>}
     {busy&&<p role="status">{busy}</p>}
@@ -8434,9 +8452,27 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     {archive&&!archive.files.filter(f=>!f.deleted_at).length&&<p className="muted">هنوز خروجی شرکتی برای این ماه ساخته نشده است.</p>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>{archive?.files.filter(f=>!f.deleted_at).map(f=><article key={f.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12}}><strong>نسخهٔ {fa(f.id)} — {J_MONTHS[month-1]} {fa(year)}</strong><p className="muted">تولید: {faDate(f.created_at)} | فایل سازمان: {fa(f.source_id)}</p><div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn" disabled={!!busy} onClick={()=>showFile(f.id)}>جزئیات نسخه</button><button className="btn p" disabled={!!busy} onClick={()=>download("files",f.id)}>دانلود XLSX</button><button className="btn" disabled={!!busy} onClick={()=>changeArchive("files",f.id)}>حذف نسخهٔ شرکت</button></div></article>)}</div>
     {archive&&[...archive.sources,...archive.files].some(r=>r.deleted_at)&&<div style={{marginTop:24}}><h4>موارد حذف‌شده (قابل بازیابی)</h4>{[...[...archive.sources].filter(r=>r.deleted_at).map(r=>({...r,kind:"sources"})),...archive.files.filter(r=>r.deleted_at).map(r=>({...r,kind:"files"}))].map(r=><article key={r.kind+r.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12,marginBottom:8}}><strong>{r.kind==="sources"?r.file_name:"نسخهٔ شرکت "+fa(r.id)}</strong><p className="muted">ثبت: {faDate(r.created_at)} | حذف: {faDate(r.deleted_at)}</p><button className="btn" disabled={!!busy} onClick={()=>changeArchive(r.kind,r.id,true)}>بازیابی</button></article>)}</div>}
+    {bankAudit?.open&&<Modal title="ممیزی آفلاین اطلاعات هویتی و بانکی کاربران" onClose={()=>setBankAudit(null)} style={{width:"min(96vw,1200px)"}}>
+      <p role="status">بررسی‌شده: {fa(bankAudit.scanned)} از {fa(bankAudit.total)} کاربر {bankAudit.done?"— پایان ممیزی":"— در حال پردازش"}</p>
+      <progress style={{width:"100%"}} max={Math.max(1,bankAudit.total)} value={bankAudit.scanned} aria-label="پیشرفت واقعی بررسی کاربران"/>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBlock:12}}>
+        {Object.entries({invalid_national:"کد ملی نامعتبر",duplicate_national:"کد ملی تکراری",invalid_iban:"شبای نامعتبر",bank_mismatch:"مغایرت بانک و شبا",unverified_account:"حساب نیازمند استعلام",missing_national:"کد ملی ناموجود",missing_banking:"شماره حساب ناموجود"}).map(([key,label])=><div key={key} style={{padding:10,border:"1px solid var(--border,#ddd)",borderRadius:8}}><strong>{fa(bankAudit.counts?.[key]||0)}</strong> <span>{label}</span></div>)}
+      </div>
+      <label>جستجوی نام، شماره پرسنلی یا علت مغایرت
+        <input className="input" value={bankAuditQuery} onChange={e=>setBankAuditQuery(e.target.value)} placeholder="جستجو در نتیجه ممیزی"/>
+      </label>
+      <div style={{overflowX:"auto",maxHeight:"55vh"}}>
+        <table style={{minWidth:700,fontSize:13}}><thead><tr><th>نام و نام خانوادگی</th><th>شماره پرسنلی</th><th>وضعیت کاربر</th><th>شرح مغایرت</th></tr></thead>
+        <tbody>{bankAudit.issues.filter(r=>normalize([r.name,r.personnel_code,...(r.errors||[])].join(" ")).includes(normalize(bankAuditQuery))).map(r=><tr key={r.user_id}><td>{r.name}</td><td>{faPlain(r.personnel_code||"—")}</td><td>{r.is_active?"فعال":"غیرفعال"}</td><td>{(r.errors||[]).join("؛ ")}</td></tr>)}</tbody>
+        </table>
+      </div>
+      {bankAudit.done&&<p className="muted">این گزارش تنها وضعیت ساختاری اطلاعات را نشان می‌دهد؛ مالکیت و فعال بودن حساب بانکی استعلام نشده است. اطلاعات کاربران به‌صورت خودکار تغییر نکردند.</p>}
+      <button type="button" className="btn" onClick={()=>setBankAudit(null)}>بستن</button>
+    </Modal>}
     {detail&&<Modal title={detail.title} onClose={()=>setDetail(null)} style={{width:"min(96vw,1500px)"}}>
       <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
       {detail.rows?.some(r=>r.organization_basis)&&<p className="muted">روزهای اداری مصوب سازمان در غیبت قابل پرداخت و چرخش شیفت این فایل لحاظ شده‌اند؛ مبنای اولیه در سابقهٔ نسخه حفظ است.</p>}{detail.account_field&&<p className="muted">منبع حساب: {detail.account_field.label} | روز مرخصی: ۴۵۳ دقیقه | {detail.partial?"ماه جاری؛ داده‌ها تا روز تولید":"ماه پایان‌یافته"} | منبع تردد: {detail.attendance_source==="finalized"?"نسخهٔ نهایی‌شده":"تردد ثبت‌شده"}</p>}
+      {detail.discrepancies&&Object.entries(detail.discrepancies).map(([key,items])=>items?.length?<details key={key} style={{marginBlock:8}}><summary style={{cursor:"pointer",fontWeight:600}}>{({inactive_in_file:"کاربران غیرفعال در فایل سازمان",unmatched_in_file:"فاقد تطبیق با سامانه",worked_not_in_file:"دارای تردد اما خارج از فایل سازمان",no_attendance_in_file:"بدون تردد در ماه انتخابی"})[key]||key} — {fa(items.length)} مورد</summary><div style={{maxHeight:240,overflowY:"auto"}}>{items.map((person,i)=><p key={person.user_id||i}>{faPlain(person.name||"—")} | {faPlain(person.personnel_code||"—")} {person.reason?"— "+person.reason:""}</p>)}</div></details>:null)}
       <label>جست‌وجوی نام، شماره پرسنلی، سمت یا مغایرت<input className="input" value={query} onChange={e=>setQuery(e.target.value)}/></label><p>{fa(visible.length)} از {fa(detail.rows.length)} نیرو | مغایرت: {fa(detail.rows.filter(r=>r.errors?.length).length)}</p>
       <div style={{overflowX:"auto",maxHeight:"60vh"}}><table style={{minWidth:detail.account_field?2300:1000,fontSize:12}}><thead><tr><th>ردیف فایل</th>{[...columns,...(detail.account_field?extra:[])].map(([k,label])=><th key={k}>{label}</th>)}<th>نتیجه بررسی</th></tr></thead><tbody>{visible.map(r=><tr key={r.source_row}><td>{fa(r.source_row)}</td>{[...columns,...(detail.account_field?extra:[])].map(([k])=><td key={k}>{display(r[k])}</td>)}<td style={{color:r.errors?.length?"var(--danger,#bd2929)":"var(--ok,#087f5b)"}}>{r.errors?.length?r.errors.join("؛ "):"تطبیق تأیید شد"}{r.suggested_code&&<div>شمارهٔ ثبت‌شده برای این نام: {faPlain(r.suggested_code)} — فایل سازمان باید اصلاح شود.</div>}</td></tr>)}</tbody></table></div>
     </Modal>}
