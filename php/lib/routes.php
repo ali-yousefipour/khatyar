@@ -1791,7 +1791,9 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
       if(!ctype_digit((string)$key))Http::error('شناسه فیلد سفارشی نامعتبر است',422);
       $submitted['cf_'.(int)$key]=$value;
     }
-    try{$plan=UserProfileFormValues::plan($published['schema'],$submitted,$existing,true,$existing);}
+    try{require_once __DIR__.'/UserProfileAttachments.php';
+      $existing=UserProfileAttachments::effectiveValues((int)$u['id'],$published['schema'],$existing);
+      $plan=UserProfileFormValues::plan($published['schema'],$submitted,$existing,true,$existing);}
     catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
     _save_custom_values((int)$u['id'],$plan['custom'],true);
     return ['ok'=>true,'form_version'=>$published['version']];
@@ -1861,7 +1863,9 @@ route('PUT', '/api/me/complete-profile', function($p,$b,$u){
   $customRows=Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[$uid]);
   $effective=$existing;
   foreach($customRows as $row)$effective['cf_'.(int)$row['field_id']]=$row['value'];
-  try{$plan=UserProfileFormValues::plan($form['schema'],$b['values'],$effective,true,$existing);}
+  try{require_once __DIR__.'/UserProfileAttachments.php';
+    $effective=UserProfileAttachments::effectiveValues($uid,$form['schema'],$effective);
+    $plan=UserProfileFormValues::plan($form['schema'],$b['values'],$effective,true,$existing);}
   catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
   if($plan['custom']){
     $ids=array_keys($plan['custom']);$marks=implode(',',array_fill(0,count($ids),'?'));
@@ -12930,7 +12934,9 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
     foreach(['email','mobile','address','national_code','marital_status','children_count','birth_date'] as $key)
       if(array_key_exists($key,$b))$subset[$key]=$b[$key];
     if($subset){
-      try{UserProfileFormValues::plan($published['schema'],$subset,$oldValues,true,$oldValues);}
+      try{require_once __DIR__.'/UserProfileAttachments.php';
+        $oldValues=UserProfileAttachments::effectiveValues((int)$u['id'],$published['schema'],$oldValues);
+        UserProfileFormValues::plan($published['schema'],$subset,$oldValues,true,$oldValues);}
       catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
     }
   }
