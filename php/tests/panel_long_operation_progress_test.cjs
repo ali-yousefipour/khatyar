@@ -54,6 +54,13 @@ for(const url of ['/api/admin/stats','/api/admin/dashboard-discipline?days=30',
 assert.equal(api.classify('/api/admin/attendance-report').delay,0);
 assert.equal(api.classify('/api/admin/shift-report').delay,0);
 assert.equal(api.classify('/api/admin/shift-report/export').delay,0);
+// Rapid location polling must never dim the map with the global modal.
+for (const route of ['/api/admin/live','/api/admin/live-map','/api/admin/live/positions',
+ '/api/admin/map/locations','/api/admin/locations','/api/location','/api/admin/staff-locations']) {
+ assert.equal(api.classify(route),null,'live map must not trigger blocking progress: '+route);
+}
+assert.notEqual(api.classify('/api/admin/live-staff-dashboard'),null,'dashboard metrics retain progress');
+assert.notEqual(api.classify('/api/admin/location-report'),null,'report export retains progress');
 assert.equal(api.classify('/api/health'),null);
 assert.equal(api.classify('https://different.invalid/api/admin/dashboard'),null);
 assert.equal(api.classify('/api/admin/users',{method:'DELETE'}),null);
