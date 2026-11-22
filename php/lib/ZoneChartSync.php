@@ -5,6 +5,53 @@
  * Never overwrite manually edited chart links or operational approval roles.
  */
 class ZoneChartSync {
+  /**
+   * Persist the regional chart into the same two stores read by the saved chart:
+   * users.manager_id (primary) and user_managers (all parents).
+   * The selected zone and its descendants are the only write scope.
+   * A single DB transaction prevents partially synchronized reporting chains.
+   */
+  public static function synchronize(int $zoneId): array {
+    $snapshot=self::snapshot($zoneId);
+    $scopeUsers=array_values(array_unique(array_map('intval',$snapshot['user_ids'])));
+    if(!$scopeUsers) return array_diff_key($snapshot,['user_ids'=>true])+[
+      'updated_users'=>0,'saved_relations'=>0,'changed'=>false,'persisted'=>true
+    ];
+    $relationships=[];
+    foreach($snapshot['edges'] as $edge){
+      $uid=(int)($edge['user_id']??0);$mid=(int)($edge['manager_id']??0);
+      if($uid<1||$mid<1||$uid===$mid)continue;
+      $relationships[$uid][$mid]=$mid;
+    }
+    // Do not erase existing saved reporting lines if the region is not
+    // configured and the calculation returned no usable relationships.
+    if(!$relationships) Http::error('هیچ ارتباط سازمانی معتبری برای این منطقه محاسبه نشد. ابتدا سربازرس و بازرسان مسئول را تعیین کنید.',422);
+    $pdo=Db::pdo();
+    $pdo->beginTransaction();
+    try{
+      $saved=0;
+      foreach($scopeUsers as $uid){
+        $parents=array_values($relationships[$uid]??[]);
+        Db::run('DELETE FROM user_managers WHERE user_id=?',[$uid]);
+        foreach($parents as $mid){
+          Db::run('INSERT INTO user_managers(user_id,manager_id) VALUES(?,?)',[$uid,$mid]);
+          $saved++;
+        }
+        Db::run('UPDATE users SET manager_id=? WHERE id=?',[($parents[0]??null),$uid]);
+      }
+      $pdo->commit();
+    }catch(\\Throwable $failure){
+      if($pdo->inTransaction())$pdo->rollBack();
+      throw $failure;
+    }
+    unset($snapshot['user_ids']);
+    $snapshot['updated_users']=count($scopeUsers);
+    $snapshot['saved_relations']=$saved;
+    $snapshot['changed']=true;
+    $snapshot['persisted']=true;
+    $snapshot['manual_chart_preserved']=false;
+    return $snapshot;
+  }
   public static function snapshot(int $zoneId): array {
     if ($zoneId<=0) Http::error('شناسه منطقه نامعتبر است',422);
     require_once __DIR__.'/OrgChart.php';
@@ -22,7 +69,7 @@ class ZoneChartSync {
     $seen=[];foreach($links as $edge){$key=(int)$edge['user_id'].':'.(int)$edge['manager_id'];$seen[$key]=true;}
     return ['ok'=>true,'zone_id'=>$zoneId,'zone_name'=>$byId[$zoneId]['name'],
       'included_subregions'=>count($scope)-1,'staff_count'=>count($included),
-      'role_counts'=>$roleCounts,'edges'=>$links,'relation_count'=>count($seen),
+      'role_counts'=>$roleCounts,'edges'=>$links,'relation_count'=>count($seen),'user_ids'=>array_keys($included),
       'chart_type'=>'regional','manual_chart_preserved'=>true,
       'refreshed_at'=>gmdate('c')];
   }
