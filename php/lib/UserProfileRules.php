@@ -169,8 +169,8 @@ final class UserProfileRules {
       case 'not_empty':return !$empty;
       case 'true':return $actual===true||$actual===1||$actual==='1';
       case 'false':return $actual===false||$actual===0||$actual==='0'||$empty;
-      case 'eq':return !$empty&&(string)$actual===(string)$desired;
-      case 'neq':return $empty||(string)$actual!==(string)$desired;
+      case 'eq':return !$empty&&is_scalar($actual)&&is_scalar($desired)&&(string)$actual===(string)$desired;
+      case 'neq':return $empty||!is_scalar($actual)||!is_scalar($desired)||(string)$actual!==(string)$desired;
       case 'in':
       case 'not_in':
         $options=array_map('strval',$desired);
