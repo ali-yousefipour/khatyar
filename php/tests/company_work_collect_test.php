@@ -13,7 +13,9 @@ class Db {
   static function insert($sql,$params=[]){if(self::$fail)throw new RuntimeException('synthetic archive failure');self::$inserted[]=[$sql,$params];return 9;}
 }
 class Seniority {static $value=730;static function listRows(){return ['rows'=>[['id'=>1,'seniority_days'=>self::$value]]];}}
-function _shift_rotation_report($y,$m){$GLOBALS['rotation_period']=[$y,$m];if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');if(!empty($GLOBALS['simulate_invalid_rotation']))return ['source'=>'live','rows'=>null];return ['source'=>'live','rows'=>[]];}
+function _shift_rotation_report($y,$m){$GLOBALS['rotation_period']=[$y,$m];if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');if(!empty($GLOBALS['simulate_invalid_rotation']))return ['source'=>'live','rows'=>null];if(!empty($GLOBALS['simulate_finalized_rotation']))return ['source'=>'finalized','rows'=>[['user_id'=>1,'morning'=>10.5,'afternoon'=>9.5,'night'=>2,'missing_source'=>false]]];return ['source'=>'live','rows'=>[]];}
+function _final_work_month($year,$month){$GLOBALS['frozen_reads']=($GLOBALS['frozen_reads']??0)+1;return $GLOBALS['frozen_record']??null;}
+function _work_snapshot_decode($raw){return json_decode((string)$raw,true,512,JSON_THROW_ON_ERROR);}
 function _shift_rotation_rows($users,$punches,$start,$end){$GLOBALS['rotation_used']=[$users[0]['id'],$start->format('Y-m-d'),$end->format('Y-m-d')];return [['user_id'=>1,'morning'=>10.5,'afternoon'=>9.5,'night'=>2,'missing_source'=>false]];}
 function attendance_report_owned_by_entry_date($uid,$from,$to){
   $GLOBALS['attendance_calls'][]=[$uid,$from,$to];$days=[];
@@ -72,6 +74,22 @@ yes('invalid Shahr IBAN rejected',CompanyWork::bankAccountCheck('IR0006100000000
 yes('an IBAN from another bank cannot be accepted as Shahr',CompanyWork::bankAccountCheck('IR820540102680020817909002')['valid']===false);
 yes('rotation uses the selected organization source period',$GLOBALS['rotation_period']===[1405,7]&&$out['year']===1405&&$out['month']===7);
 yes('canonical attendance called with exact Jalali period',$GLOBALS['attendance_calls'][0]===[1,'1405/07/01','1405/07/30']);
+// A finalized month must be decoded once for the whole company archive, not
+// reloaded with a full SELECT and JSON decode for each employee.
+$frozenDays=[];
+for($n=1;$n<=30;$n++)$frozenDays[]=['jdate'=>sprintf('1405-07-%02d',$n),'absent'=>in_array($n,[1,20],true)?1:0,'night'=>$n===20?'02:30':'00:00'];
+$GLOBALS['frozen_record']=['daily_json'=>json_encode([1=>['user'=>['id'=>1],'days'=>$frozenDays]],JSON_UNESCAPED_UNICODE)];
+$GLOBALS['frozen_reads']=0;
+$GLOBALS['simulate_finalized_rotation']=true;
+$liveCallCount=count($GLOBALS['attendance_calls']);
+$frozenOutput=CompanyWork::collect($source,5);
+yes('finalized company report reuses a single frozen month snapshot',!$frozenOutput['has_errors']&&$frozenOutput['attendance_source']==='finalized'&&$GLOBALS['frozen_reads']===1);
+yes('finalized month avoids per-user attendance API queries',count($GLOBALS['attendance_calls'])===$liveCallCount);
+yes('finalized metrics match live month metrics',$frozenOutput['rows'][0]['absence_days']===$r['absence_days']&&$frozenOutput['rows'][0]['night_hours']===$r['night_hours']);
+$missingFrozen=CompanyWork::finalizedAttendanceForUser([],999,'1405/07/01','1405/07/30');
+yes('missing finalized personnel is explicitly marked, never fabricated',!empty($missingFrozen['missing_frozen_person'])&&count($missingFrozen['days'])===0);
+$GLOBALS['simulate_finalized_rotation']=false;
+unset($GLOBALS['frozen_record']);
 yes('inactive personnel use existing rotation classifier',$GLOBALS['rotation_used'][0]===1);
 yes('new hire absences and 453-minute leave combined',$r['days']===16&&$r['absence_days']===1&&$r['leave_days']==4&&$r['night_hours']===2.5);
 yes('selected month sick interval and new hire absence are recorded in notes',
