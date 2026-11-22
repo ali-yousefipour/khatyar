@@ -46,7 +46,7 @@ async function main(){
  }
  state.queue.clear();state.error=new Error('connection reset');state.response=null;
  assert.equal((await req('/my/checkout')).queued,true,'ambiguous checkout transport error is queued');
- state.error=null;state.queue.clear();
+ state.error=null;state.queue.clear();state.response={status:503,body:{error:'server busy'}};
 
  await assert.rejects(req('/my/presence-check',{queueIfOffline:false,forceNetwork:true}),/server busy/);assert.equal(state.queue.size,0,'sync replay never queues itself again');
  state.writeFails=true;await assert.rejects(req(),/ذخیره صف آفلاین ناموفق بود/);state.writeFails=false;assert.equal(state.queue.size,0,'failure to persist must not be acknowledged as queued');
