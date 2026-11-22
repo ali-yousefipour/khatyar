@@ -2107,6 +2107,11 @@ function OrgChart(){
   const lastCanvas=useRef({w:0,h:0});
   const reload=()=>db.orgChart().then(next=>{setError("");setData({users:(next.users||[]).filter(u=>Number(u.is_active)===1),edges:next.edges||[],default_edges:next.default_edges||[],zones:next.zones||[]});}).catch(failure=>setError(failure.message||'بارگذاری چارت انجام نشد.'));
   useEffect(()=>{reload()},[]);
+  useEffect(()=>{
+    const synchronized=e=>{if(e?.detail?.zone_id){setZoneFilter(String(e.detail.zone_id));setMode("regional");setExpanded(new Set());}reload();};
+    window.addEventListener("khatyar:regional-chart-synchronized",synchronized);
+    return()=>window.removeEventListener("khatyar:regional-chart-synchronized",synchronized);
+  },[]);
   const users=data.users, edges=mode==="regional"?data.default_edges:data.edges;
   const byId=Object.fromEntries(users.map(u=>[+u.id,u]));
   const parentMap={},childMap={};
