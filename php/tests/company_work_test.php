@@ -44,5 +44,23 @@ try{
   check('leading zeros preserved as text',$xp->evaluate('string(//s:c[@r="E4"]/s:is/s:t)')==='0012345678');
   check('RTL and frozen headers',$xp->evaluate('string(//s:sheetView/@rightToLeft)')==='1'&&$xp->evaluate('string(//s:pane/@ySplit)')==='3');
   $book=CompanyWork::xml($z->getFromName('xl/workbook.xml'));$bx=CompanyWork::xpath($book);check('print area includes all personnel and seniority',str_contains($bx->evaluate('string(//s:definedName[@name="_xlnm.Print_Area"])'),'$X$124'));$z->close();
+  // A confirmed discrepant report keeps personnel rows, leaves unavailable figures
+  // blank, and annotates both name cells with native Excel comments.
+  $unmatched=['source_row'=>6,'first_name'=>'بدون','last_name'=>'تطبیق','personnel_code'=>'0099',
+    'role'=>'ناظر','errors'=>['شماره پرسنلی یافت نشد یا یکتا نیست'],'validation_warnings'=>[]];
+  $problem=['rows'=>[$r,$unmatched],'year'=>1405,'month'=>7,'has_errors'=>true,
+    'discrepancies'=>['no_attendance_in_file'=>[]]];
+  CompanyWork::write($problem,$tmp);
+  CompanyWork::addChildAllowanceComments($tmp,$problem);
+  $z=new ZipArchive();$z->open($tmp);
+  $doc=CompanyWork::xml($z->getFromName('xl/worksheets/sheet1.xml'));$xp=CompanyWork::xpath($doc);
+  check('discrepant personnel row is preserved',$xp->evaluate('string(//s:c[@r="B5"]/s:is/s:t)')==='بدون');
+  check('unavailable figures remain blank, not fake zeros',$xp->evaluate('string(//s:c[@r="H5"]/s:is/s:t)')===''&&$xp->query('//s:c[@r="L5"]/s:f')->length===0);
+  $notes=CompanyWork::xml($z->getFromName('xl/commentsCompanyWork.xml'));$np=CompanyWork::xpath($notes);
+  check('both name cells contain the personnel issue',$np->query('//s:comment[@ref="B5"]')->length===1&&$np->query('//s:comment[@ref="C5"]')->length===1&&str_contains($np->evaluate('string(//s:comment[@ref="B5"]//s:t)'),'شماره پرسنلی'));
+  check('existing child allowance comments still work',$np->query('//s:comment[@ref="N4"]')->length===1);
+  $vml=$z->getFromName('xl/drawings/companyWorkNotes.vml');
+  check('name comment anchor columns are correct',str_contains($vml,'<x:Column>1</x:Column>')&&str_contains($vml,'<x:Column>2</x:Column>'));
+  $z->close();
   echo "Company work regression tests passed\n";
 }finally{if(is_file($tmp))unlink($tmp);}
