@@ -33,8 +33,13 @@ export function profileRuleMatches(rule,values){
     case 'neq':return isEmpty(actual)||String(actual)!==String(wanted);
     case 'contains':return Array.isArray(actual)?actual.includes(wanted):String(actual??'').includes(String(wanted??''));
     case 'not_contains':return Array.isArray(actual)?!actual.includes(wanted):!String(actual??'').includes(String(wanted??''));
-    case 'in':return Array.isArray(wanted)&&wanted.map(String).includes(String(actual??''));
-    case 'not_in':return Array.isArray(wanted)&&!wanted.map(String).includes(String(actual??''));
+    case 'in':
+    case 'not_in':{
+      if(!Array.isArray(wanted))return false;
+      const options=wanted.map(String),selected=Array.isArray(actual)?actual.map(String):(isEmpty(actual)?[]:[String(actual)]);
+      const found=selected.some(option=>options.includes(option));
+      return rule.op==='in'?found:!found;
+    }
     case 'gt':case 'gte':case 'lt':case 'lte':{
       const a=number(actual),b=number(wanted);
       if(a===null||b===null)return false;
