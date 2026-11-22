@@ -418,13 +418,44 @@ class CompanyWork {
     }finally{$zip->close();}
   }
   static function generate($source,$accountField,$actor){
-    $snapshot=self::collect($source,$accountField);if($snapshot['has_errors'])return ['generated'=>false,'snapshot'=>$snapshot];
-    $key=bin2hex(random_bytes(16));$target=static::path($key);
+    // Keep a stage-specific, non-sensitive diagnostic in PHP logs. Never report
+    // a successful archive when its actual XLSX or database insert has failed.
+    $stage='preflight';$target=null;
+    $reference=substr(bin2hex(random_bytes(6)),0,12);
     try{
-      self::write($snapshot,$target);chmod($target,0600);$hash=hash_file('sha256',$target);
+      $template=__DIR__.'/company-work-template.xlsx';
+      if(!is_readable($template) || filesize($template)<100)
+        self::fail('قالب اکسل فایل شرکت روی سرور موجود نیست یا قابل خواندن نیست؛ با پشتیبانی تماس بگیرید. کد پیگیری: '.$reference,503);
+      if(!class_exists('ZipArchive') || !class_exists('DOMDocument'))
+        self::fail('افزونه‌های موردنیاز ساخت اکسل روی سرور فعال نیستند. کد پیگیری: '.$reference,503);
+      $stage='collect';
+      $snapshot=self::collect($source,$accountField);
+      if($snapshot['has_errors'])return ['generated'=>false,'snapshot'=>$snapshot];
+      $stage='archive_directory';
+      $key=bin2hex(random_bytes(16));$target=static::path($key);
+      if(!is_writable(dirname($target)))
+        self::fail('پوشه آرشیو خصوصی فایل شرکت قابل نوشتن نیست. کد پیگیری: '.$reference,503);
+      $stage='xlsx';
+      self::write($snapshot,$target);
+      if(!is_file($target)||filesize($target)<100||!chmod($target,0600))
+        self::fail('ساخت یا ذخیره فایل اکسل کامل نشد. کد پیگیری: '.$reference,503);
+      $hash=hash_file('sha256',$target);
+      if(!is_string($hash)||strlen($hash)!==64)
+        self::fail('اعتبارسنجی فایل خروجی ناموفق بود. کد پیگیری: '.$reference,503);
+      $stage='database_archive';
       $id=Db::insert('INSERT INTO company_work_files(source_id,jy,jm,storage_key,sha256,snapshot_json,created_by) VALUES(?,?,?,?,?,?,?)',[(int)$source['id'],(int)$source['jy'],(int)$source['jm'],$key,$hash,self::json($snapshot),$actor]);
       return ['generated'=>true,'id'=>$id,'snapshot'=>$snapshot];
-    }catch(Throwable $e){if(is_file($target))unlink($target);throw $e;}
+    }catch(Throwable $e){
+      if($target!==null && is_file($target))@unlink($target);
+      error_log(sprintf('company_work_generate failure ref=%s source=%d period=%d/%d stage=%s exception=%s message=%s',
+        $reference,(int)($source['id']??0),(int)($source['jy']??0),(int)($source['jm']??0),
+        $stage,get_class($e),str_replace(["\\r","\\n"],' ',substr($e->getMessage(),0,350))));
+      if($e instanceof PayrollError)throw $e;
+      self::fail('ساخت و آرشیو فایل شرکت در مرحله «'.[
+        'preflight'=>'آماده‌سازی','collect'=>'محاسبه کارکرد','archive_directory'=>'دسترسی آرشیو',
+        'xlsx'=>'ساخت اکسل','database_archive'=>'ثبت آرشیو'
+      ][$stage].'» با خطای سرور مواجه شد. کد پیگیری: '.$reference,503);
+    }
   }
   static function download($record,$filename){
     $path=self::path($record['storage_key']);if(!is_file($path)||!hash_equals($record['sha256'],hash_file('sha256',$path)))self::fail('فایل آرشیو موجود نیست یا صحت آن تأیید نشد',409);
