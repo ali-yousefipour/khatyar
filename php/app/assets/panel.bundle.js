@@ -11511,7 +11511,7 @@ function adminProfileFieldState(field, values) {
         state.required = false;
     return state;
 }
-function AdminPrivateProfileAttachment({ field, userId, readOnly = false }) {
+function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStatus }) {
     const [status, setStatus] = useState(null), [selected, setSelected] = useState(null);
     const [busy, setBusy] = useState(false), [error, setError] = useState("");
     const path = "/admin/users/" + userId + "/profile-attachment/" + field.id;
@@ -11520,8 +11520,10 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false }) {
         setStatus(null);
         setSelected(null);
         setError("");
-        GET(path + "/status").then(info => { if (active)
-            setStatus(info); })
+        GET(path + "/status").then(info => { if (active) {
+            setStatus(info);
+            onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, !!(info === null || info === void 0 ? void 0 : info.exists));
+        } })
             .catch(e => { if (active)
             setError(e.message || "دریافت وضعیت مدرک ناموفق بود"); });
         return () => { active = false; };
@@ -11544,6 +11546,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false }) {
                 throw new Error((result === null || result === void 0 ? void 0 : result.error) || (result === null || result === void 0 ? void 0 : result.message) || "ثبت مدرک در سرور تأیید نشد");
             const updated = await GET(path + "/status", { ttl: 0 });
             setStatus(updated);
+            onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, !!(updated === null || updated === void 0 ? void 0 : updated.exists));
             setSelected(null);
         }
         catch (e) {
@@ -11588,6 +11591,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false }) {
 function CustomFieldsFiller({ userId, profile }) {
     const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
     const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null);
+    const [attachmentPresence, setAttachmentPresence] = useState({});
     const load = async () => {
         var _a, _b;
         setError("");
@@ -11625,9 +11629,10 @@ function CustomFieldsFiller({ userId, profile }) {
             setError(e.message || "دریافت اطلاعات تکمیلی ناموفق بود.");
         }
     };
-    useEffect(() => { setVals({}); setOriginalVals({}); setSchema(null); if (userId)
+    useEffect(() => { setVals({}); setOriginalVals({}); setSchema(null); setAttachmentPresence({}); if (userId)
         load(); }, [userId]);
-    const values = { ...(profile || {}), ...Object.fromEntries(Object.entries(vals).map(([id, value]) => ["cf_" + id, value])) };
+    const values = { ...(profile || {}), ...Object.fromEntries(Object.entries(vals).map(([id, value]) => ["cf_" + id, value])),
+        ...Object.fromEntries(Object.entries(attachmentPresence).map(([id, exists]) => ["cf_" + id, exists ? "1" : null])) };
     const fieldState = field => adminProfileFieldState(field.profile_definition || field, values);
     const visible = (fields || []).filter(field => fieldState(field).visible);
     const sections = visible.reduce((groups, field) => {
@@ -11683,7 +11688,7 @@ function CustomFieldsFiller({ userId, profile }) {
                                 state.required ? " *" : "",
                                 !state.enabled || state.readonly ? " (فقط نمایش)" : ""),
                             ["image", "file"].includes(field.ftype) ?
-                                React.createElement(AdminPrivateProfileAttachment, { key: userId + "-" + field.id, field: field, userId: userId, readOnly: !state.enabled || state.readonly }) :
+                                React.createElement(AdminPrivateProfileAttachment, { key: userId + "-" + field.id, field: field, userId: userId, readOnly: !state.enabled || state.readonly, onStatus: (id, exists) => setAttachmentPresence(current => ({ ...current, [id]: exists })) }) :
                                 state.enabled && !state.readonly ?
                                     React.createElement(CustomFieldInput, { field: field, value: (_a = vals[field.id]) !== null && _a !== void 0 ? _a : "", onChange: value => setVals(current => ({ ...current, [field.id]: value })) }) :
                                     React.createElement("p", { style: { whiteSpace: "pre-wrap" } }, String((_b = vals[field.id]) !== null && _b !== void 0 ? _b : "—")));
