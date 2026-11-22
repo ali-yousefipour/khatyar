@@ -1676,9 +1676,10 @@ route('PUT', '/api/admin/custom-fields/{id}', function($p,$b,$u){
 }, false, ADMIN);
 
 route('DELETE', '/api/admin/custom-fields/{id}', function($p,$b,$u){
-  Db::run("DELETE FROM custom_field_values WHERE field_id=?", [$p['id']]);
-  Db::run("DELETE FROM custom_fields WHERE id=?", [$p['id']]);
-  return ['ok'=>true];
+  // A removed form field must never erase personnel history or its values.
+  // Retain the stable fkey/id and deactivate its definition instead.
+  Db::run("UPDATE custom_fields SET is_active=0 WHERE id=?", [(int)$p['id']]);
+  return ['ok'=>true,'deactivated'=>true,'values_preserved'=>true];
 }, false, ADMIN);
 
 route('GET', '/api/admin/users/{id}/custom-values', function($p,$b,$u){
