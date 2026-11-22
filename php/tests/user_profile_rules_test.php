@@ -3,8 +3,8 @@ require_once __DIR__.'/../lib/UserProfileRules.php';
 function checkRule($name,$ok){if(!$ok)throw new RuntimeException('FAIL '.$name);echo "PASS $name\n";}
 function rejectsRule($name,$schema){try{UserProfileRules::validate($schema);}catch(InvalidArgumentException $e){checkRule($name,true);return;}throw new RuntimeException('FAIL '.$name);}
 $schema=['sections'=>[['key'=>'personal','fields'=>[
- ['key'=>'gender','type'=>'select','binding'=>'custom'],
- ['key'=>'marital_status','type'=>'select','binding'=>'system'],
+ ['key'=>'gender','type'=>'select','binding'=>'custom','options'=>['female','male']],
+ ['key'=>'marital_status','type'=>'select','binding'=>'system','options'=>['married','single']],
  ['key'=>'children','type'=>'number','binding'=>'system'],
  ['key'=>'spouse','type'=>'text','rules'=>[['action'=>'show','when'=>['all'=>[
   ['field'=>'gender','op'=>'eq','value'=>'female'],
