@@ -13,6 +13,7 @@ for(const name of ['DeliveryQueue.php','Xlsx.php','IdentityBankingValidation.php
 assert(upload.indexOf("'CompanyWork.php' =>")<upload.indexOf("'routes.php' =>"),'install dependencies before routes');
 assert(upload.indexOf("'company_work_routes.php' =>")<upload.indexOf("'routes.php' =>"));
 assert(upload.includes('hash_equals(\\$srcSha, \\$dstSha)'),'protected installation verifies hashes');
+assert(upload.includes("opcache_invalidate(\\$dst, true)"),'protected PHP replacement invalidates stale OPcache bytecode');
 assert(fs.readFileSync(path.join(root,'php/lib/CompanyWork.php'),'utf8').includes("__DIR__.'/company-work-template.xlsx'"),'runtime reads canonical protected template');
 
 // The bank validator is required by CompanyWork at load time. It must be
