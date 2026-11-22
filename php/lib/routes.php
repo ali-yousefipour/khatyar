@@ -1796,7 +1796,7 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
 // session refresh. Missing files or a partial deploy must never fatal the
 // unrelated API bootstrap. Only profile endpoints load these modules.
 $profileFormsRequestPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
-if (preg_match('~^/api/(?:my/(?:custom-fields|user-profile-form|complete-profile)|me/profile|admin/user-profile-form(?:/.*)?)$~', $profileFormsRequestPath)) {
+if (preg_match('~^/api/(?:my/(?:custom-fields|user-profile-form)|me/(?:profile|complete-profile)|admin/user-profile-form(?:/.*)?)$~', $profileFormsRequestPath)) {
   require_once __DIR__.'/UserProfileForms.php';
   require_once __DIR__.'/UserProfileFormValues.php';
 }
@@ -1833,7 +1833,7 @@ route('POST', '/api/admin/user-profile-form/publish', function($p,$b,$u){
 }, false, ADMIN);
 
 // Atomic user-profile save with published conditional rules and fixed legacy bindings.
-require_once __DIR__.'/UserProfileFormValues.php';
+// Dependencies are loaded only for the profile API paths above.
 route('PUT', '/api/me/complete-profile', function($p,$b,$u){
   if(_req_setting('allow_android_profile_edit',true)!==true)Http::error('ویرایش اطلاعات پرسنلی توسط مدیر غیرفعال شده است',403);
   if(!is_array($b['values']??null)||count($b['values'])>400)Http::error('ساختار مقادیر فرم نامعتبر است',422);
