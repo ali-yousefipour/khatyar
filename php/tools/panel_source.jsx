@@ -6612,6 +6612,7 @@ function CustomFieldInput({field,value,onChange}){
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
 function CustomFieldsFiller({userId}){
   const [fields,setFields]=useState(null); const [vals,setVals]=useState({}); const [originalVals,setOriginalVals]=useState({}); const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [open,setOpen]=useState(false);
+  useEffect(()=>{setOpen(false);setFields(null);setVals({});setOriginalVals({});setError("");},[userId]);
   const load=()=>{setOpen(true);setError("");db.customFields().then(fs=>{
     setFields((fs||[]).filter(f=>Number(f.is_active)!==0));
     if(userId)db.userCustomValues(userId).then(vs=>{
