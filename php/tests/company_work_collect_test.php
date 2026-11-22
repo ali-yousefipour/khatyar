@@ -13,7 +13,7 @@ class Db {
   static function insert($sql,$params=[]){if(self::$fail)throw new RuntimeException('synthetic archive failure');self::$inserted[]=[$sql,$params];return 9;}
 }
 class Seniority {static $value=730;static function listRows(){return ['rows'=>[['id'=>1,'seniority_days'=>self::$value]]];}}
-function _shift_rotation_report($y,$m){return ['source'=>'live','rows'=>[]];}
+function _shift_rotation_report($y,$m){if(!empty($GLOBALS['simulate_rotation_outage']))throw new RuntimeException('synthetic rotation database outage');return ['source'=>'live','rows'=>[]];}
 function _shift_rotation_rows($users,$punches,$start,$end){$GLOBALS['rotation_used']=[$users[0]['id'],$start->format('Y-m-d'),$end->format('Y-m-d')];return [['user_id'=>1,'morning'=>10.5,'afternoon'=>9.5,'night'=>2,'missing_source'=>false]];}
 function attendance_report_owned_by_entry_date($uid,$from,$to){
   $GLOBALS['attendance_calls'][]=[$uid,$from,$to];$days=[];
@@ -24,6 +24,12 @@ function _db_table_exists_safe($table){return Db::$officeBatch!==null;}
 require_once __DIR__.'/../lib/CompanyWork.php';
 class IsolatedCollectedCompanyWork extends CompanyWork {static $dir;static function directory(){return self::$dir;}}
 function yes($label,$value){if(!$value)throw new RuntimeException('FAIL '.$label);echo "PASS $label\n";}
+// Infrastructure failures must identify the exact computation stage without
+// exposing SQL details or being misreported as a corrupted organization file.
+$GLOBALS['simulate_rotation_outage']=true;
+try { CompanyWork::collect(['id'=>8,'jy'=>1405,'jm'=>7,'rows_json'=>'[]'],5); throw new LogicException('expected rotation failure'); }
+catch(PayrollError $e){yes('rotation failure classified as retryable 503 with specific stage',$e->getCode()===503&&str_contains($e->getMessage(),'چرخش شیفت')&&!str_contains($e->getMessage(),'synthetic')); }
+$GLOBALS['simulate_rotation_outage']=false;
 Db::$users=[['id'=>1,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','national_code'=>'0012345678','username'=>'0012345678','marital_status'=>'متاهل','children_count'=>2,'employment_start_date'=>'1405/07/15','employment_end_date'=>null]];
 Db::$requests=[['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/15','to_jdate'=>'1405/07/17'],['type'=>'annual','unit'=>'hourly','the_date'=>'1405/07/18','from_time'=>'08:00','to_time'=>'15:33']];
 $row=['source_row'=>4,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','role'=>'سمت اعلامی سازمان','friday_hours'=>7.5,'holiday_hours'=>2,'overtime_hours'=>12.75];
