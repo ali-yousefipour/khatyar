@@ -1909,7 +1909,7 @@ function Users(){
       <td><div className="users-device-tags">{u.android_bound&&<span title="دستگاه اندروید متصل">📱 اندروید</span>}{u.web_bound&&<span title="مرورگر وب متصل">🖥 وب</span>}{!u.android_bound&&!u.web_bound&&<span className="users-device-empty">—</span>}</div></td>
       <td><span className={"badge "+(u.is_active?"b-ok":"b-no")}>{u.is_active?"فعال":"غیرفعال"}</span></td>
       <td><div className="row users-row-actions" style={{gap:6,flexWrap:"wrap"}}>
-        <button className="btn g" onClick={()=>{setEditTab("profile");const newDraft={...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""};editBaselineRef.current=newDraft;setCustomDirty(false);setSaveMessage("");setEdit(newDraft);setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
+        <button className="btn g" onClick={()=>{setEditTab("profile");const newDraft={...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""};editBaselineRef.current=newDraft;setCustomDirty(false);setSaveMessage("");setEdit(newDraft);setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{if(editBaselineRef.current&&Number(editBaselineRef.current.id)===Number(u.id))editBaselineRef.current={...editBaselineRef.current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''};setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
         <button className="btn g users-danger-action" onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
     {!users.length&&!usersLoading&&!usersError&&<div className="users-empty-state" role="status"><strong>کاربری با این فیلترها پیدا نشد</strong><span>عبارت جست‌وجو یا وضعیت و سمت انتخابی را تغییر دهید و دوباره فیلتر کنید.</span><button className="btn g" onClick={()=>{const cleared={q:"",role_id:"",zone_id:"",active:""};setF(cleared);reload(cleared);}}>پاک‌کردن فیلترها</button></div>}
@@ -2014,7 +2014,7 @@ function Users(){
         <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
       </div>
       <div style={{display:editTab==="custom"?"block":"none"}}>
-        <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit} saveRef={customSaveRef}/>
+        <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit} saveRef={customSaveRef} onDirtyChange={setCustomDirty}/>
       </div>
       </div>}
       {editTab==="access"&&<>
@@ -6793,7 +6793,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
   </div>;
 }
 
-function CustomFieldsFiller({userId,profile,saveRef=null}){
+function CustomFieldsFiller({userId,profile,saveRef=null,onDirtyChange=null}){
   const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null),[success,setSuccess]=useState("");
   const [attachmentPresence,setAttachmentPresence]=useState({});
@@ -6828,6 +6828,16 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
   const values={...(profile||{}),...Object.fromEntries(Object.entries(vals).map(([id,value])=>["cf_"+id,value])),
     ...Object.fromEntries(Object.entries(attachmentPresence).map(([id,exists])=>["cf_"+id,exists?"1":null]))};
   const fieldState=field=>adminProfileFieldState(field.profile_definition||field,values);
+  useEffect(()=>{
+    if(!onDirtyChange)return;
+    const dirty=(fields||[]).some(field=>{
+      const state=adminProfileFieldState(field.profile_definition||field,values);
+      return state.visible&&state.enabled&&!state.readonly&&
+        !["image","file"].includes(field.ftype)&&
+        String(vals[field.id]??"")!==String(originalVals[field.id]??"");
+    });
+    onDirtyChange(dirty);
+  },[fields,vals,originalVals,profile,onDirtyChange]);
   const visible=(fields||[]).filter(field=>fieldState(field).visible);
   const sections=visible.reduce((groups,field)=>{
     const title=field.group||"اطلاعات تکمیلی";
@@ -6837,6 +6847,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
   },[]);
   const save=async(mode='save')=>{
     if(busy||fields===null)return false;
+    if(mode==='committed'){setOriginalVals({...vals});return true;}
     const changed={};
     for(const field of visible){
       const state=fieldState(field);
