@@ -6574,6 +6574,31 @@ function BirthdaySettings({v,set,save}){
 // رندر یک ورودی بر اساس نوع فیلد سفارشی (مشترک پنل)
 function CustomFieldInput({field,value,onChange}){
   const opts=(field.options||"").split("|").filter(Boolean);
+  if(field.ftype==="repeater"){
+    let config={};
+    try{config=JSON.parse(field.options||"{}")||{};}catch(_){}
+    const columns=Array.isArray(config.columns)?config.columns:[];
+    const maxRows=Math.min(20,Math.max(1,Number(config.max_rows)||12));
+    let rows=[];
+    try{const parsed=JSON.parse(String(value||"[]"));if(Array.isArray(parsed))rows=parsed;}catch(_){}
+    const update=updated=>onChange(JSON.stringify(updated));
+    return <div style={{display:"grid",gap:9}}>
+      {rows.map((row,index)=><div key={index} style={{padding:12,border:"1px solid var(--line)",borderRadius:12}}>
+        <strong>ردیف {faPlain(index+1)}</strong>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+          {columns.map(col=><label key={col.key} className="label">{col.label}{col.required?" *":""}
+            <CustomFieldInput field={{ftype:col.type,options:(col.options||[]).join("|")}}
+              value={row?.[col.key]??""}
+              onChange={v=>update(rows.map((item,i)=>i===index?{...item,[col.key]:v}:item))}/>
+          </label>)}
+        </div>
+        <button type="button" className="btn g" onClick={()=>update(rows.filter((_,i)=>i!==index))}>حذف ردیف</button>
+      </div>)}
+      {rows.length<maxRows&&columns.length>0&&<button type="button" className="btn g"
+        onClick={()=>update([...rows,{}])}>+ افزودن ردیف ({faPlain(rows.length)} از {faPlain(maxRows)})</button>}
+      {!columns.length&&<p className="muted">تعریف ستون‌های این گروه معتبر نیست.</p>}
+    </div>;
+  }
   if(field.ftype==="textarea") return <textarea className="input" rows="2" value={value||""} onChange={e=>onChange(e.target.value)}/>;
   if(field.ftype==="number") return <input className="input" type="number" value={value||""} onChange={e=>onChange(e.target.value)}/>;
   if(field.ftype==="date") return <JDate value={value||""} onChange={onChange}/>;
@@ -6586,9 +6611,27 @@ function CustomFieldInput({field,value,onChange}){
 
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
 function CustomFieldsFiller({userId}){
-  const [fields,setFields]=useState(null); const [vals,setVals]=useState({}); const [open,setOpen]=useState(false);
-  const load=()=>{ setOpen(true); db.customFields().then(fs=>{ setFields(fs||[]); if(userId) db.userCustomValues(userId).then(vs=>{ const m={}; (vs||[]).forEach(v=>m[v.field_id]=v.value); setVals(m); }); }); };
-  const save=async()=>{ await db.saveUserCustomValues(userId,vals); alert("اطلاعات تکمیلی ذخیره شد."); };
+  const [fields,setFields]=useState(null); const [vals,setVals]=useState({}); const [originalVals,setOriginalVals]=useState({}); const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [open,setOpen]=useState(false);
+  const load=()=>{setOpen(true);setError("");db.customFields().then(fs=>{
+    setFields((fs||[]).filter(f=>Number(f.is_active)!==0));
+    if(userId)db.userCustomValues(userId).then(vs=>{
+      const m={};(vs||[]).forEach(v=>m[v.field_id]=v.value);setVals(m);setOriginalVals(m);
+    }).catch(e=>setError(e.message||"دریافت اطلاعات تکمیلی ناموفق بود."));
+  }).catch(e=>{setFields([]);setError(e.message||"دریافت فهرست فیلدها ناموفق بود.");});};
+  const save=async()=>{
+    if(busy)return;
+    const changed={};
+    for(const [id,value] of Object.entries(vals))
+      if(String(value??"")!==String(originalVals[id]??""))changed[id]=value;
+    if(!Object.keys(changed).length)return;
+    setBusy(true);setError("");
+    try{
+      await db.saveUserCustomValues(userId,changed);
+      setOriginalVals({...vals});
+      alert("اطلاعات تکمیلی ذخیره شد.");
+    }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");}
+    finally{setBusy(false);}
+  };
   if(!userId) return null;
   return(<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>
     {!open?<button className="btn g" type="button" onClick={load}>اطلاعات تکمیلی (فیلدهای سفارشی)</button>:
@@ -6599,7 +6642,8 @@ function CustomFieldsFiller({userId}){
          <label className="label">{f.label}{f.required==1?" *":""}{f.user_editable==1?"":" 🔒"}</label>
          <CustomFieldInput field={f} value={vals[f.id]} onChange={v=>setVals({...vals,[f.id]:v})}/>
        </div>)}
-       <button className="btn p" onClick={save}>ذخیرهٔ اطلاعات تکمیلی</button>
+       {error&&<p role="alert" className="muted" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
+       <button className="btn p" disabled={busy} onClick={save}>{busy?"در حال ذخیره…":"ذخیرهٔ اطلاعات تکمیلی"}</button>
      </div>}
   </div>);
 }
