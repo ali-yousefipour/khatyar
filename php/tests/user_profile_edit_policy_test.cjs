@@ -33,10 +33,16 @@ assert.match(custom,/String\(vals\[f\.id\]\?\?''\)!==String\(originalVals\[f\.id
 assert.match(account,/profile_definition:\{readonly:true/,'unbound legacy fields cannot bypass published schema');
 assert.match(custom,/profile_definition:\{readonly:true/,'custom field editor keeps unbound records read-only');
 
-for(const kind of ['time','mobile','phone','email','national_id','iban','account','card','radio','address']){
+for(const kind of ['time','mobile','phone','email','national_id','iban','account','card','radio','address','image','file']){
   assert.match(panel,new RegExp('\\["'+kind+'","'),'form designer exposes '+kind);
   assert.match(routes,new RegExp("'"+kind+"'"),'PHP admin endpoints accept '+kind);
 }
+const privateRoutes=['/api/me/profile-attachment/{field_id}','/api/admin/users/{id}/profile-attachment/{field_id}'];
+for(const endpoint of privateRoutes)assert(routes.includes(endpoint),'private attachment route exists: '+endpoint);
+const attachmentLibrary=fs.readFileSync(path.join(root,'lib/UserProfileAttachments.php'),'utf8');
+assert.match(attachmentLibrary,/private\/profile-attachments/,'uploaded documents stay outside public root');
+assert.match(attachmentLibrary,/is_uploaded_file\(/,'uploads must originate from HTTP multipart');
+assert.match(attachmentLibrary,/hash_equals|hash_file/,'attachment integrity metadata is checked');
 assert.match(custom,/field\.ftype === 'time'/,'Android renders time inputs');
 assert.match(custom,/field\.ftype === 'address'/,'Android renders multiline address inputs');
 assert.match(panel,/const defaultRepeater=/,'web form designer supplies child-group template');
