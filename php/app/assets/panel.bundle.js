@@ -7314,14 +7314,17 @@ function CustomFieldsManager() {
     catch (e) {
         alert(e.message);
     } };
-    const del = async (fld) => { if (!confirm("حذف فیلد «" + fld.label + "» و همهٔ مقادیر ثبت‌شده؟"))
-        return; try {
-        await db.delCustomField(fld.id);
-        load();
-    }
-    catch (e) {
-        alert(e.message);
-    } };
+    const del = async (fld) => {
+        if (!confirm("فیلد «" + fld.label + "» غیرفعال شود؟ اطلاعات ثبت‌شده کاربران محفوظ می‌ماند."))
+            return;
+        try {
+            await db.updCustomField(fld.id, { is_active: 0 });
+            load();
+        }
+        catch (e) {
+            alert(e.message || "غیرفعال‌سازی فیلد ناموفق بود.");
+        }
+    };
     if (fields === null)
         return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const needOptions = form && (form.ftype === "select" || form.ftype === "multiselect");
@@ -7379,7 +7382,7 @@ function CustomFieldsManager() {
                         React.createElement("td", { style: { whiteSpace: "nowrap" } },
                             React.createElement("button", { className: "btn g", onClick: () => setForm({ ...f }) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                             " ",
-                            React.createElement("button", { className: "btn d", onClick: () => del(f) }, "\u062D\u0630\u0641"))));
+                            React.createElement("button", { className: "btn g", disabled: !f.is_active, onClick: () => del(f) }, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0627\u0645\u0646"))));
                 })))));
 }
 function InventoryAdmin() {
