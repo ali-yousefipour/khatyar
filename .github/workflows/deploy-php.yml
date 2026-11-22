@@ -370,6 +370,13 @@ jobs:
                 continue
               fi
 
+              # Private PHP libraries must NEVER be written directly over FTP.
+              # They are staged under /assets and installed by the existing
+              # token-protected host-side PHP bridge with SHA-256 verification.
+              if [[ "${rel}" == lib/* ]]; then
+                continue
+              fi
+
               dir="$(dirname "${rel}")"
               if [ "${dir}" = "." ]; then
                 remote_dir="/"
@@ -544,6 +551,24 @@ jobs:
                 }
               ' "${response}" "${name}" "${expected_sha}"
             done
+
+            # Verify *every* protected payload entry, not just the legacy
+            # hard-coded subset. Reject new modules that were not staged by the
+            # host-side bridge, rather than silently omitting their deployment.
+            while IFS= read -r local_path; do
+              [ -f "${local_path}" ] || continue
+              module_name="${local_path##*/}"
+              expected_sha="$(sha256sum "${local_path}" | awk '{print $1}')"
+              php -r '
+                $response=json_decode($argv[1],true);
+                $name=$argv[2]; $expected=$argv[3];
+                if(!is_array($response) || empty($response["ok"]) ||
+                   !hash_equals($expected,(string)($response["files"][$name] ?? ""))) {
+                  fwrite(STDERR,"ERROR: protected lib bridge did not install ".$name.PHP_EOL);
+                  exit(1);
+                }
+              ' "${response}" "${module_name}" "${expected_sha}"
+            done < <(find deploy-payload/lib -maxdepth 1 -type f -print | sort)
 
             echo
             echo "Host-side attendance PHP library installation completed."
