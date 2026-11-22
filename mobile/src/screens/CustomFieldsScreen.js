@@ -20,7 +20,7 @@ function JDateInput({ value, onChange }) {
   );
 }
 
-function FieldInput({ field, value, onChange, onBlur }) {
+export function FieldInput({ field, value, onChange, onBlur }) {
   const opts = (field.options || '').split('|').filter(Boolean);
   if (field.ftype === 'textarea')
     return <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} multiline value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
