@@ -498,7 +498,7 @@ class CompanyWork {
       ++$personDone;
       self::companyProgress(48+(int)floor(32*$personDone/max(1,$personTotal)),
         'محاسبه تردد، مرخصی، استعلاجی و غیبت کارکنان',$personDone,$personTotal);
-      if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
+      if(!$r['user_id']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
       if(!$r['national_code'])$r['errors'][]='کد ملی معتبر در اطلاعات پرسنل موجود نیست';
       $r['national_validation']=IdentityBankingValidation::nationalId($r['national_code']);
@@ -576,7 +576,7 @@ class CompanyWork {
   }
   /** Clone the sanitized reference's styles. All strings are literal cells, never formulas. */
   static function write($snapshot,$target){
-    if(empty($snapshot['rows'])||!empty($snapshot['has_errors']))self::fail('ابتدا مغایرت‌های پرسنلی را رفع کنید');
+    if(empty($snapshot['rows']))self::fail('فایل سازمان فاقد ردیف پرسنلی است');
     if(!copy(__DIR__.'/company-work-template.xlsx',$target))throw new RuntimeException('قالب اکسل در دسترس نیست');
     $zip=new ZipArchive();if($zip->open($target)!==true)throw new RuntimeException('ساخت اکسل ناموفق بود');
     try{
@@ -589,13 +589,23 @@ class CompanyWork {
       foreach($snapshot['rows'] as $r){
         $n++;$row=$pattern->cloneNode(true);$row->setAttribute('r',(string)$n);$data->appendChild($row);
         foreach($row->childNodes as $cell)if($cell instanceof DOMElement && $cell->localName==='c')$cell->setAttribute('r',preg_replace('/\d+$/',(string)$n,$cell->getAttribute('r')));
+        // Preserve unknown payroll figures as blank cells, never fabricate zero.
+        $numeric=static function(array $row,string $key){$v=$row[$key]??null;return $v!==null&&$v!==''&&is_numeric($v)?(float)$v:'';};
+        $days=$numeric($r,'days');$absence=$numeric($r,'absence_days');$sick=$numeric($r,'sick_days');
+        $seniority=$numeric($r,'seniority_days');$children=$numeric($r,'children');
         $values=[
-          'A'=>$n-3,'B'=>$r['first_name'],'C'=>$r['last_name'],'D'=>$r['personnel_code'],'E'=>$r['national_code'],'F'=>$r['account'],'G'=>$r['role'],
-          'H'=>(float)$r['days'],'I'=>(float)$r['leave_days'],'J'=>(float)$r['absence_days'],'K'=>(float)$r['sick_days'],'L'=>$r['days']-$r['absence_days']-$r['sick_days'],
-          'M'=>$r['marital_code'],'N'=>(int)$r['children'],'O'=>(float)$r['friday_hours'],'P'=>(float)$r['holiday_hours'],'Q'=>(float)$r['night_hours'],'R'=>(float)$r['overtime_hours'],
-          'S'=>$r['seniority_days']/365,'T'=>(float)$r['morning'],'U'=>(float)$r['afternoon'],'V'=>(float)$r['night'],'W'=>(string)($r['notes']??''),'X'=>(float)$r['seniority_days']];
+          'A'=>$n-3,'B'=>(string)($r['first_name']??''),'C'=>(string)($r['last_name']??''),'D'=>(string)($r['personnel_code']??''),
+          'E'=>(string)($r['national_code']??''),'F'=>(string)($r['account']??''),'G'=>(string)($r['role']??''),
+          'H'=>$days,'I'=>$numeric($r,'leave_days'),'J'=>$absence,'K'=>$sick,
+          'L'=>($days!==''&&$absence!==''&&$sick!=='')?$days-$absence-$sick:'',
+          'M'=>$numeric($r,'marital_code'),'N'=>$children,
+          'O'=>$numeric($r,'friday_hours'),'P'=>$numeric($r,'holiday_hours'),
+          'Q'=>$numeric($r,'night_hours'),'R'=>$numeric($r,'overtime_hours'),
+          'S'=>$seniority!==''?$seniority/365:'',
+          'T'=>$numeric($r,'morning'),'U'=>$numeric($r,'afternoon'),'V'=>$numeric($r,'night'),
+          'W'=>(string)($r['notes']??''),'X'=>$seniority];
         foreach($values as $col=>$value){
-          $cell=self::setCell($doc,$row,$col,$n,$value,$col==='L'?"H$n-J$n-K$n":($col==='S'?"X$n/365":null));
+          $cell=self::setCell($doc,$row,$col,$n,$value,$col==='L'&&$value!==''?"H$n-J$n-K$n":($col==='S'&&$value!==''?"X$n/365":null));
           if($col==='W' && $value!==''){
             // Long Persian notes must remain readable in the generated file.
             $original=(int)$cell->getAttribute('s');
@@ -646,10 +656,17 @@ class CompanyWork {
       $zip->addFromString('xl/workbook.xml',$book->saveXML());
     }finally{$zip->close();}
   }
-  /** Preserve the XLSX template and add native Excel notes to column N. */
+  /** Preserve the XLSX template and add native Excel notes to names (B/C) and child allowances (N). */
   static function addChildAllowanceComments($file,$snapshot){
     $notes=[];
-    foreach($snapshot['rows']??[] as $i=>$r)if(!empty($r['child_allowance_warning']))$notes[$i+4]=$r['child_allowance_warning'];
+    $unattended=[];
+    foreach($snapshot['discrepancies']['no_attendance_in_file']??[] as $item)$unattended[(int)($item['source_row']??0)]=$item['reason']??'بدون تردد ثبت‌شده';
+    foreach($snapshot['rows']??[] as $i=>$r){
+      $line=$i+4;
+      if(!empty($r['child_allowance_warning']))$notes['N'.$line]=$r['child_allowance_warning'];
+      $issues=array_values(array_unique(array_filter(array_merge((array)($r['errors']??[]),(array)($r['validation_warnings']??[]),isset($unattended[(int)($r['source_row']??0)])?[$unattended[(int)$r['source_row']]]:[]))));
+      if($issues){$message="مغایرت‌های تأییدشده هنگام تولید فایل شرکت:\n".implode("\n",array_map(static fn($issue)=>'• '.$issue,$issues));$notes['B'.$line]=$message;$notes['C'.$line]=$message;}
+    }
     if(!$notes)return;
     $z=new ZipArchive();
     if($z->open($file)!==true)throw new RuntimeException('بازکردن فایل برای درج کامنت ممکن نیست');
@@ -685,12 +702,15 @@ class CompanyWork {
       $list=$doc->createElementNS($ns,'commentList');$root->appendChild($list);
       $vml='<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>';
       $shape=1025;
-      foreach($notes as $line=>$message){
-        $entry=$doc->createElementNS($ns,'comment');$entry->setAttribute('ref','N'.$line);$entry->setAttribute('authorId','0');
+      foreach($notes as $ref=>$message){
+        if(!preg_match('/^([BCN])(\\d+)$/',$ref,$match))throw new RuntimeException('آدرس یادداشت اکسل نامعتبر است');
+        $column=array_search($match[1],['A','B','C','D','E','F','G','H','I','J','K','L','M','N'],true);
+        $line=(int)$match[2];
+        $entry=$doc->createElementNS($ns,'comment');$entry->setAttribute('ref',$ref);$entry->setAttribute('authorId','0');
         $text=$doc->createElementNS($ns,'text');$t=$doc->createElementNS($ns,'t');$t->appendChild($doc->createTextNode($message));
         $text->appendChild($t);$entry->appendChild($text);$list->appendChild($entry);
         $r=$line-1;
-        $vml.='<v:shape id="_x0000_s'.$shape++.'" type="#_x0000_t202" style="position:absolute;visibility:hidden"><v:textbox><div/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>13, 15, '.$r.', 2, 17, 15, '.($r+4).', 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>'.$r.'</x:Row><x:Column>13</x:Column></x:ClientData></v:shape>';
+        $vml.='<v:shape id="_x0000_s'.$shape++.'" type="#_x0000_t202" style="position:absolute;visibility:hidden"><v:textbox><div/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>13, 15, '.$r.', 2, '.($column+4).', 15, '.($r+4).', 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>'.$r.'</x:Row><x:Column>'.$column.'</x:Column></x:ClientData></v:shape>';
       }
       $vml.='</xml>';
       $ct=self::xml($z->getFromName('[Content_Types].xml'));$ctns='http://schemas.openxmlformats.org/package/2006/content-types';
@@ -704,7 +724,7 @@ class CompanyWork {
         if(!$z->addFromString($name,$contents))throw new RuntimeException('ثبت کامنت‌های اکسل ناموفق بود');
     }finally{$z->close();}
   }
-  static function generate($source,$accountField,$actor){
+  static function generate($source,$accountField,$actor,$acknowledgeDiscrepancies=false){
     // Keep a stage-specific, non-sensitive diagnostic in PHP logs. Never report
     // a successful archive when its actual XLSX or database insert has failed.
     $stage='preflight';$target=null;
@@ -718,7 +738,9 @@ class CompanyWork {
         self::fail('افزونه‌های موردنیاز ساخت اکسل روی سرور فعال نیستند. کد پیگیری: '.$reference,503);
       $stage='collect';
       $snapshot=self::collect($source,$accountField);
-      if($snapshot['has_errors'])return ['generated'=>false,'snapshot'=>$snapshot];
+      if($snapshot['has_errors']&&!$acknowledgeDiscrepancies)return ['generated'=>false,'requires_confirmation'=>true,'snapshot'=>$snapshot];
+      $snapshot['discrepancies_acknowledged']=$snapshot['has_errors']&&$acknowledgeDiscrepancies;
+      $snapshot['discrepancies_acknowledged_by']=$snapshot['discrepancies_acknowledged']?(int)$actor:null;
       self::companyProgress(85,'آماده‌سازی آرشیو خصوصی فایل شرکت');
       $stage='archive_directory';
       $key=bin2hex(random_bytes(16));$target=static::path($key);
