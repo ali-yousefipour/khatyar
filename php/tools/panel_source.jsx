@@ -4904,12 +4904,14 @@ function UserProfileFormDesigner(){
   const [selected,setSelected]=useState(null),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
   const [message,setMessage]=useState(""),[error,setError]=useState(""),[migration,setMigration]=useState(false);
   const [choices,setChoices]=useState([]),[choice,setChoice]=useState(""),[preview,setPreview]=useState(false);
+  const [versions,setVersions]=useState([]);
   const [previewValues,setPreviewValues]=useState({gender:"",marital_status:"",children_count:0});
   const [undo,setUndo]=useState([]),[redo,setRedo]=useState([]),dragRef=useRef(null);
   const load=async()=>{
     setBusy(true);setError("");
     try{
-      const [data,available]=await Promise.all([GET('/admin/user-profile-form'),db.customFields()]);
+      const [data,available,history]=await Promise.all([GET('/admin/user-profile-form'),db.customFields(),GET('/admin/user-profile-form/versions').catch(()=>({versions:[]}))]);
+      setVersions(history.versions||[]);
       setModel(data.schema);setRevision(Number(data.revision)||0);
       setPublished(Number(data.published_version)||0);setMigration(!!data.migration_required);
       setChoices((available||[]).filter(f=>Number(f.is_active)!==0));
@@ -5023,8 +5025,17 @@ function UserProfileFormDesigner(){
     if(migration||dirty){setError("ابتدا پیش‌نویس را ذخیره کنید و از اجرای Migration اطمینان یابید.");return;}
     if(!window.confirm("نسخه جدید فرم اطلاعات پرسنلی برای کاربران وب و اندروید منتشر شود؟"))return;
     setBusy(true);setError("");
-    try{const r=await SEND('POST','/admin/user-profile-form/publish',{revision});setPublished(r.version);setMessage("نسخه "+faPlain(r.version)+" منتشر شد.");}
+    try{const r=await SEND('POST','/admin/user-profile-form/publish',{revision});setPublished(r.version);setMessage("نسخه "+faPlain(r.version)+" منتشر شد.");
+      const history=await GET("/admin/user-profile-form/versions");setVersions(history.versions||[]);}
     catch(e){setError(e.message||"انتشار نسخه ناموفق بود.");}finally{setBusy(false);}
+  };
+  const restore=async version=>{
+    if(!window.confirm("نسخه "+faPlain(version)+" به‌عنوان پیش‌نویس جدید بازیابی شود؟ نسخه منتشرشده فعلی تغییر نمی‌کند."))return;
+    setBusy(true);setError("");
+    try{const result=await SEND('POST','/admin/user-profile-form/restore',{version,revision});
+      setModel(result.schema);setRevision(result.revision);setDirty(false);setSelected(null);
+      setUndo([]);setRedo([]);setMessage("نسخه قدیمی در پیش‌نویس بازیابی شد. برای اعمال روی کاربران باید منتشر شود.");
+    }catch(e){setError(e.message||"بازیابی نسخه ناموفق بود.");}finally{setBusy(false);}
   };
   const actions=[["show","نمایش"],["hide","مخفی"],["enable","فعال"],["disable","غیرفعال"],["require","اجباری"],["optional","اختیاری"],["readonly","فقط‌خواندنی"],["editable","قابل ویرایش"]];
   const operators=[["eq","برابر"],["neq","نابرابر"],["gt","بزرگ‌تر"],["gte","بزرگ‌تر یا مساوی"],["lt","کوچک‌تر"],["lte","کوچک‌تر یا مساوی"],["contains","شامل"],["not_contains","شامل نمی‌شود"],["empty","خالی"],["not_empty","خالی نیست"],["in","یکی از گزینه‌ها"],["not_in","هیچ‌کدام"],["true","درست"],["false","نادرست"],["date_between","در محدوده تاریخ"],["date_outside","خارج محدوده تاریخ"]];
@@ -5043,6 +5054,9 @@ function UserProfileFormDesigner(){
       <button className="btn p" disabled={busy||dirty||migration} onClick={publish}>انتشار نسخه</button>
       <small className="muted">نسخه منتشرشده: {faPlain(published)} · بازنگری پیش‌نویس: {faPlain(revision)}</small>
     </div>
+    {versions.length>0&&<details style={{marginBottom:14}}><summary>تاریخچه نسخه‌های منتشرشده ({faPlain(versions.length)})</summary>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>{versions.map(item=><button key={item.version} className="btn g" disabled={busy} onClick={()=>restore(Number(item.version))}>نسخه {faPlain(item.version)} · بازیابی پیش‌نویس</button>)}</div>
+    </details>}
     {!model?<p className="muted">در حال دریافت فرم…</p>:preview?
       <div style={{display:"grid",gap:12}}>
         <div className="row" style={{flexWrap:"wrap",gap:8}}>
