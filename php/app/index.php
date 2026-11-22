@@ -342,6 +342,11 @@ foreach ($routes as &$employmentRoute) {
       if(!is_array($custom)||count($custom)>400)Http::error('فیلدهای سفارشی نامعتبر هستند',422);
       foreach(array_keys($custom) as $key)
         if(!ctype_digit((string)$key)||(int)$key<1)Http::error('شناسه فیلد سفارشی نامعتبر است',422);
+      $newPassword=(string)($body['new_password']??'');
+      if($newPassword!==''&&(
+        strlen($newPassword)<12||strlen($newPassword)>128||
+        in_array($newPassword,['123456','12345678','123456789','password123'],true)))
+        Http::error('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر و غیرقابل حدس باشد',422);
       $targetId=(int)$params['id'];
       if($targetId<1||!Db::one('SELECT id FROM users WHERE id=?',[$targetId]))
         Http::error('کاربر انتخابی یافت نشد',404);
@@ -363,6 +368,8 @@ foreach ($routes as &$employmentRoute) {
         $result=$originalHandler($params,$body,$user);
         _save_custom_values($targetId,$custom,false);
         if(!empty($updates))Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
+        if($newPassword!=='')Db::run('UPDATE users SET password_hash=?,must_change_pw=1 WHERE id=?',
+          [password_hash($newPassword,PASSWORD_BCRYPT),$targetId]);
         $pdo->commit();
         return $result;
       }catch(Throwable $error){
