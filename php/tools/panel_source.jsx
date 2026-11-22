@@ -1964,7 +1964,7 @@ function Users(){
       <LeaveBalance userId={edit.id}/>
       {(edit.device_model||edit.android_version)&&<div className="muted" style={{fontSize:11.5,marginTop:8}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخهٔ برنامه: {edit.app_version||"—"}</div>}
       <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
-      <UserCustomValues userId={edit.id}/>
+      <CustomFieldsFiller userId={edit.id}/>
       <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
       </>}
       {editTab==="access"&&<>
