@@ -1752,14 +1752,16 @@ function _save_custom_values($uid, $values, $onlyEditable){
 }
 
 route('GET', '/api/my/custom-fields', function($p,$b,$u){
+  $editAllowed=_req_setting('allow_android_profile_edit',true) === true;
   $fields = Db::all("SELECT id,label,fkey,ftype,options,required,user_editable FROM custom_fields WHERE is_active=1 AND user_editable=1 ORDER BY sort_order, id");
   $vals = Db::all("SELECT field_id, value FROM custom_field_values WHERE user_id=?", [$u['id']]);
   $map = []; foreach ($vals as $v) $map[$v['field_id']] = $v['value'];
-  foreach ($fields as &$f) $f['value'] = $map[$f['id']] ?? null;
+  foreach ($fields as &$f) { $f['value'] = $map[$f['id']] ?? null; $f['user_editable'] = $editAllowed && !empty($f['user_editable']); }
   return $fields;
 }, false);
 
 route('POST', '/api/my/custom-fields', function($p,$b,$u){
+  if (_req_setting('allow_android_profile_edit',true) !== true) Http::error('ویرایش اطلاعات تکمیلی در اپ توسط مدیر غیرفعال شده است',403);
   $req = Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 AND user_editable=1 AND required=1");
   $values = $b['values'] ?? [];
   foreach ($req as $rf) {
@@ -11796,6 +11798,7 @@ route('GET', '/api/admin/settings', function($p,$b,$u){
   return $out;
 },false,ADMIN);
 route('PUT', '/api/admin/settings', function($p,$b,$u){
+  if(array_key_exists('allow_android_profile_edit',$b) && !is_bool($b['allow_android_profile_edit'])) Http::error('مجوز ویرایش اندروید باید مقدار درست یا نادرست داشته باشد',422);
   foreach(['staff_auto_close_minutes'=>1,'staff_reentry_gap_minutes'=>0] as $key=>$min){
     if(!array_key_exists($key,$b))continue;
     $raw=$b[$key];
@@ -12743,6 +12746,7 @@ function _identity_save_national_code($raw,$excludeUserId=0){
   return $code;
 }
 route('PUT', '/api/me/profile', function($p,$b,$u){
+  if (_req_setting('allow_android_profile_edit',true) !== true) Http::error('ویرایش اطلاعات پرسنلی در اپ توسط مدیر غیرفعال شده است',403);
   if (isset($b['email']) && $b['email']!=='' && !filter_var($b['email'], FILTER_VALIDATE_EMAIL)) Http::error('ایمیل نامعتبر است', 400);
   if(array_key_exists('national_code',$b))
     $b['national_code']=_identity_save_national_code($b['national_code'],(int)$u['id']);
@@ -12765,6 +12769,7 @@ route('GET', '/api/me/full-profile', function($p,$b,$u){
   $r['zone_chief_inspector_name']=$context['chief']['name']??'';
   $r['zone_chief_inspector_id']=$context['chief']['id']??null;
   $r['zone_inspectors']=$context['inspectors'];
+  $r['profile_edit_allowed']=_req_setting('allow_android_profile_edit',true) === true;
   return $r;
 });
 
