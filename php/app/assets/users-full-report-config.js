@@ -18,7 +18,7 @@ css.textContent=`
 .kh-ur-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px;max-height:320px;overflow:auto;padding:10px;border:1px solid #dbe7e2;border-radius:12px}
 .kh-ur-fields label{display:flex;align-items:center;gap:7px;padding:7px;border-radius:8px;background:#f5f9f7;cursor:pointer}
 .kh-ur-fields input{accent-color:#087f5b}.kh-ur-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-.kh-ur-panel button,.kh-ur-panel select,.kh-ur-panel input[type=search]{font:inherit;border-radius:10px;padding:9px 12px;border:1px solid #b9d6cc;max-width:100%}
+.kh-ur-panel button,.kh-ur-panel select,.kh-ur-panel input[type=search],.kh-ur-panel input[type=text]{font:inherit;border-radius:10px;padding:9px 12px;border:1px solid #b9d6cc;max-width:100%}
 .kh-ur-primary{background:#087f5b;color:#fff;border-color:#087f5b!important}
 .kh-ur-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:12px 0}
 .kh-ur-controls label{display:grid;gap:5px}
@@ -59,6 +59,17 @@ const roleLabel=el('label',{text:'سمت سازمانی'},filterArea),role=el('s
 const zoneLabel=el('label',{text:'منطقه'},filterArea),zone=el('select',{},zoneLabel);
 el('option',{value:'',text:'تمام سمت‌ها'},role);
 el('option',{value:'',text:'تمام مناطق'},zone);
+const dateInputs={};
+for(const [key,title] of [
+ ['employment_start_from','شروع همکاری از تاریخ'],
+ ['employment_start_to','شروع همکاری تا تاریخ'],
+ ['employment_end_from','پایان همکاری از تاریخ'],
+ ['employment_end_to','پایان همکاری تا تاریخ']
+]){
+ const parent=el('label',{text:title},filterArea);
+ const input=el('input',{type:'text',placeholder:'۱۴۰۵/۰۱/۰۱',dir:'ltr',maxlength:'10'},parent);
+ dateInputs[key]=input;
+}
 const presetArea=el('div',{class:'kh-ur-controls'},box);
 const presetLabel=el('label',{text:'قالب ذخیره‌شده'},presetArea),presetSelect=el('select',{},presetLabel);
 el('option',{value:'',text:'قالب جدید / تنظیمات فعلی'},presetSelect);
@@ -148,6 +159,7 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
  secondDir.value=stored?.sorts?.[1]?.direction==='desc'?'desc':'asc';
  thirdDir.value=stored?.sorts?.[2]?.direction==='desc'?'desc':'asc';
  active.value=['1','0'].includes(stored?.active)?stored.active:'all';
+ for(const [key,input] of Object.entries(dateInputs))input.value=stored?.[key]||'';
  let preferredRole=stored?.role_id||'',preferredZone=stored?.zone_id||'';
  Promise.all([
  request('/api/admin/roles').then(r=>r.json()).catch(()=>[]),
@@ -179,7 +191,8 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    sorts:[{key:sort.value,direction:dir.value},...[
      {key:second.value,direction:secondDir.value},{key:third.value,direction:thirdDir.value}
    ].filter(x=>!!x.key)],
-   active:active.value,role_id:role.value||'',zone_id:zone.value||''
+   active:active.value,role_id:role.value||'',zone_id:zone.value||'',
+   ...Object.fromEntries(Object.entries(dateInputs).map(([key,input])=>[key,input.value.trim()]))
  });
  savePreset.onclick=()=>{localStorage.setItem(storageKey,JSON.stringify(payload()));status.textContent='تنظیمات ستون‌ها در این مرورگر ذخیره شد.';};
  let serverPresets=[];
@@ -208,6 +221,7 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    active.value=['all','1','0'].includes(settings.active)?settings.active:'all';
    preferredRole=settings.role_id||'';preferredZone=settings.zone_id||'';
    role.value=String(preferredRole);zone.value=String(preferredZone);
+   for(const [key,input] of Object.entries(dateInputs))input.value=settings[key]||'';
    presetName.value=record.name;visibility.value=record.visibility==='shared'?'shared':'private';
    updateCount();
  };
@@ -235,6 +249,7 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;
    dir.value='asc';second.value='';third.value='';active.value='all';
    role.value='';zone.value='';preferredRole='';preferredZone='';
+   for(const input of Object.values(dateInputs))input.value='';
    updateCount();status.textContent='تمام ستون‌ها با ترتیب پیش‌فرض اصلی سامانه فعال شدند.';
  };
  preview.onclick=async()=>{try{
