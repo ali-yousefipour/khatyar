@@ -52,6 +52,7 @@ jobs:
           php php/tests/company_work_reconciliation_test.php
           node php/tests/company_work_reconciliation_ui_test.cjs
           node php/tests/company_work_ui_test.cjs
+          node php/tests/company_work_progress_test.cjs
           node php/tests/company_work_deployment_test.cjs
           node php/tests/company_work_http_test.cjs
           php -l php/lib/KhatyarFormsSchema.php
