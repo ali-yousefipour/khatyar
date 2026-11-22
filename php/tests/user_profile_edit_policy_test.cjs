@@ -42,7 +42,7 @@ for(const endpoint of privateRoutes)assert(routes.includes(endpoint),'private at
 const attachmentLibrary=fs.readFileSync(path.join(root,'lib/UserProfileAttachments.php'),'utf8');
 assert.match(attachmentLibrary,/private\/profile-attachments/,'uploaded documents stay outside public root');
 assert.match(attachmentLibrary,/is_uploaded_file\(/,'uploads must originate from HTTP multipart');
-assert.match(attachmentLibrary,/hash_equals|hash_file/,'attachment integrity metadata is checked');
+assert.match(attachmentLibrary,/hash\('sha256'/,'SHA-256 attachment integrity metadata is recorded');
 assert.match(custom,/field\.ftype === 'time'/,'Android renders time inputs');
 assert.match(custom,/field\.ftype === 'address'/,'Android renders multiline address inputs');
 assert.match(panel,/const defaultRepeater=/,'web form designer supplies child-group template');
