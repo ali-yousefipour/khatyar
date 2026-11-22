@@ -35,8 +35,16 @@ final class UserFullReport {
     }
     $custom=[];
     if(self::hasTable('custom_fields')) {
-      $records=Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id");
-      foreach($records as $f) $custom[]=['key'=>'custom:'.(int)$f['id'],'label'=>(string)$f['label'],'group'=>'فیلدهای سفارشی'];
+      $records=Db::all("SELECT id,label,ftype,options FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id");
+      foreach($records as $f) {
+        $col=['key'=>'custom:'.(int)$f['id'],'label'=>(string)$f['label'],'group'=>'فیلدهای سفارشی'];
+        if(($f['ftype']??'')==='repeater'){
+          $config=json_decode((string)($f['options']??''),true);
+          $col['type']='repeater';
+          $col['columns']=is_array($config)?($config['columns']??[]):[];
+        }
+        $custom[]=$col;
+      }
     }
     $original=array_merge($base,$custom);
     // Published profile definitions control column labels and order without
@@ -64,6 +72,10 @@ final class UserFullReport {
         $row=$lookup[$key];
         $row['label']=(string)($field['label']??$row['label']);
         $row['group']=(string)($section['title']??$row['group']);
+        if(($field['type']??'')==='repeater'){
+          $row['type']='repeater';
+          $row['columns']=$field['columns']??($row['columns']??[]);
+        }
         $ordered[$key]=$row;
       }
     }
@@ -71,6 +83,27 @@ final class UserFullReport {
       if(!isset($ordered[$row['key']])&&!isset($excluded[$row['key']]))$ordered[$row['key']]=$row;
     }
     return array_values($ordered);
+  }
+  public static function formatRepeatRows(string $raw,array $columns): string {
+    if($raw==='')return '';
+    $rows=json_decode($raw,true);
+    if(!is_array($rows)||!array_is_list($rows))return 'داده تکرارشونده نامعتبر';
+    if(!$rows)return '';
+    $lines=[];
+    foreach(array_slice($rows,0,20) as $index=>$row){
+      if(!is_array($row))continue;
+      $parts=[];
+      foreach(array_slice($columns,0,8) as $column){
+        $key=$column['key']??null;
+        if(!is_string($key)||!array_key_exists($key,$row)||$row[$key]===null||$row[$key]==='')continue;
+        if(!is_scalar($row[$key]))continue;
+        $value=(string)$row[$key];
+        if(($column['type']??'')==='boolean')$value=$value==='1'?'بله':'خیر';
+        $parts[]=(string)($column['label']??$key).': '.$value;
+      }
+      if($parts)$lines[]='ردیف '.($index+1).' - '.implode('؛ ',$parts);
+    }
+    return implode("\n",$lines);
   }
   public static function run(array $body): void {
     $fields=self::schema();
@@ -142,6 +175,8 @@ final class UserFullReport {
     foreach($users as $u) {
       $row=[];foreach($columns as $key){
         $value=(string)$getter($u,$key);
+        if(($lookup[$key]['type']??'')==='repeater')
+          $value=self::formatRepeatRows($value,(array)($lookup[$key]['columns']??[]));
         // Prevent spreadsheet formula injection in user-controlled text.
         if(preg_match('/^[=+@\\-]/u',$value))$value="'".$value;
         $row[]=$value;
