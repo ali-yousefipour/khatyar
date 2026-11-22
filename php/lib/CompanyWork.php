@@ -275,6 +275,35 @@ class CompanyWork {
       $out[$type]=$minutes/self::DAY_MINUTES;
     }return $out;
   }
+  /** Build period-specific, auditable notes for the organization's XLSX column W. */
+  static function workNotes($user,$requests,$year,$month,$absenceDays){
+    $first=sprintf('%04d-%02d-01',(int)$year,(int)$month);
+    $last=sprintf('%04d-%02d-%02d',(int)$year,(int)$month,IranCalendar::monthLength($year,$month));
+    $human=static fn($date)=>strtr(str_replace('-','/',$date),array_combine(str_split('0123456789'),preg_split('//u','۰۱۲۳۴۵۶۷۸۹',-1,PREG_SPLIT_NO_EMPTY)));
+    $notes=[];
+    $begin=IranCalendar::normalize($user['employment_start_date']??'');
+    $finish=IranCalendar::normalize($user['employment_end_date']??'');
+    if($begin && $begin>=$first && $begin<=$last)
+      $notes[]='این فرد در تاریخ '.$human($begin).' شروع به کار نموده است';
+    if($finish && $finish>=$first && $finish<=$last)
+      $notes[]='این فرد در تاریخ '.$human($finish).' به همکاری خود پایان داده است';
+    if((float)$absenceDays>0)
+      $notes[]='تعداد روز غیبت: '.$human((string)(floor((float)$absenceDays)==(float)$absenceDays?(int)$absenceDays:(float)$absenceDays));
+    $sick=[];
+    foreach($requests as $request){
+      if(($request['type']??'')!=='sick')continue;
+      $hourly=($request['unit']??'daily')==='hourly';
+      $from=IranCalendar::normalize($hourly?($request['the_date']??''):($request['from_jdate']??$request['the_date']??''));
+      $to=$hourly?$from:IranCalendar::normalize($request['to_jdate']??$request['from_jdate']??$request['the_date']??'');
+      if(!$from||!$to||$to<$first||$from>$last)continue;
+      $from=max($from,$first);$to=min($to,$last);
+      $key=$from.'|'.$to;
+      $sick[$key]='استعلاجی از تاریخ '.$human($from).' تا تاریخ '.$human($to);
+    }
+    ksort($sick,SORT_STRING);
+    foreach($sick as $part)$notes[]=$part;
+    return implode('؛ ',$notes);
+  }
   static function minutes($v){if(is_numeric($v))return (float)$v;if(preg_match('/^(\d+):([0-5]\d)$/D',(string)$v,$m))return (int)$m[1]*60+(int)$m[2];self::fail('مقدار شب‌کاری گزارش معتبر نیست');}
   static function metrics($user,$report,$requests,$year,$month,$today){
     $from=self::date(sprintf('%04d-%02d-01',$year,$month));$to=$from->modify('+'.(IranCalendar::monthLength($year,$month)-1).' days');
@@ -321,6 +350,7 @@ class CompanyWork {
     $collectStage='seniority';
     $seniority=array_column(Seniority::listRows()['rows'],null,'id');
     $collectStage='rotation';
+    // Rotate only for the source file's explicitly selected Jalali period.
     $rotationReport=_shift_rotation_report($year,$month);$rotation=array_column($rotationReport['rows'],null,'user_id');
     if(!function_exists('attendance_report_owned_by_entry_date'))require_once dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
     $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
@@ -359,7 +389,10 @@ class CompanyWork {
       $collectStage='approved_leaves';
       $requests=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time FROM requests WHERE user_id=? AND status='approved' AND type IN('annual','sick')",[$uid]);
       $collectStage='metrics';
-      try{$r=array_merge($r,self::metrics($u,$report,$requests,$year,$month,$today));}catch(PayrollError $e){$r['errors'][]=$e->getMessage();}
+      try{
+        $r=array_merge($r,self::metrics($u,$report,$requests,$year,$month,$today));
+        $r['notes']=self::workNotes($u,$requests,$year,$month,$r['recorded_absence_days']??$r['absence_days']);
+      }catch(PayrollError $e){$r['errors'][]=$e->getMessage();}
       if($r['errors'])$hasErrors=true;
     }unset($r);
     return ['rows'=>$rows,'has_errors'=>$hasErrors,'year'=>$year,'month'=>$month,'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']],'attendance_source'=>$rotationReport['source'],'as_of'=>$today->format('Y-m-d'),'partial'=>self::date($to)>=$today,'leave_minutes_per_day'=>self::DAY_MINUTES];
@@ -411,7 +444,7 @@ class CompanyWork {
           'A'=>$n-3,'B'=>$r['first_name'],'C'=>$r['last_name'],'D'=>$r['personnel_code'],'E'=>$r['national_code'],'F'=>$r['account'],'G'=>$r['role'],
           'H'=>(float)$r['days'],'I'=>(float)$r['leave_days'],'J'=>(float)$r['absence_days'],'K'=>(float)$r['sick_days'],'L'=>$r['days']-$r['absence_days']-$r['sick_days'],
           'M'=>$r['married'],'N'=>(int)$r['children'],'O'=>(float)$r['friday_hours'],'P'=>(float)$r['holiday_hours'],'Q'=>(float)$r['night_hours'],'R'=>(float)$r['overtime_hours'],
-          'S'=>$r['seniority_days']/365,'T'=>(float)$r['morning'],'U'=>(float)$r['afternoon'],'V'=>(float)$r['night'],'W'=>'','X'=>(float)$r['seniority_days']];
+          'S'=>$r['seniority_days']/365,'T'=>(float)$r['morning'],'U'=>(float)$r['afternoon'],'V'=>(float)$r['night'],'W'=>(string)($r['notes']??''),'X'=>(float)$r['seniority_days']];
         foreach($values as $col=>$value){
           $cell=self::setCell($doc,$row,$col,$n,$value,$col==='L'?"H$n-J$n-K$n":($col==='S'?"X$n/365":null));
           if(in_array($col,['I','K','L','O','P','Q','R','S','T','U','V'],true)){
