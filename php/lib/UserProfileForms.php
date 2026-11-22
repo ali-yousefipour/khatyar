@@ -104,10 +104,17 @@ final class UserProfileForms {
     if($customIds){
       $ids=array_keys($customIds);
       $marks=implode(',',array_fill(0,count($ids),'?'));
-      $known=Db::all("SELECT id FROM custom_fields WHERE id IN ($marks) AND is_active=1",$ids);
-      $actual=array_fill_keys(array_map('intval',array_column($known,'id')),true);
+      $known=Db::all("SELECT id,ftype FROM custom_fields WHERE id IN ($marks) AND is_active=1",$ids);
+      $actual=[];
+      foreach($known as $record)$actual[(int)$record['id']]=(string)($record['ftype']??'');
       foreach($ids as $id)if(!isset($actual[$id]))
         throw new InvalidArgumentException('فیلد سفارشی غیرفعال یا ناشناخته است: '.$id);
+      foreach($schema['sections'] as $section)foreach($section['fields'] as $field){
+        if(($field['binding']??null)!=='custom')continue;
+        $id=(int)$field['custom_field_id'];
+        if(($field['type']??'')!==$actual[$id])
+          throw new InvalidArgumentException('نوع فیلد سفارشی با منبع ذخیره‌سازی مطابقت ندارد: '.$id);
+      }
     }
   }
   public static function published(): array {
