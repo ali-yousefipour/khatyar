@@ -27,4 +27,12 @@ assert.match(source,/custom_values:customChanges/);
 assert.match(source,/if\(mode==='payload'\)return changed/);
 assert.doesNotMatch(source,/const customSaved=await customSaveRef\.current\(\)/);
 assert.match(source,/if\(busy\|\|fields===null\)return false/);
+assert.match(modal,/users-edit-summary/);
+assert.match(modal,/users-edit-footer/);
+assert.match(modal,/closeUserEditor/);
+assert.match(modal,/save\(edit,false\)/);
+assert.match(source,/editDirty&&!confirm/);
+assert.match(source,/onDirtyChange=\{setCustomDirty\}/);
+assert.match(source,/ذخیره موفق بود، اما بازخوانی اطلاعات/);
+
 console.log('PASS: nine persistent user editor tabs and legacy personnel values');
