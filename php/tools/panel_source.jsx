@@ -1803,6 +1803,7 @@ function Users(){
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
   const [usersLoading,setUsersLoading]=useState(false); const [usersError,setUsersError]=useState("");
   const [savingUser,setSavingUser]=useState(false); const [exportingUsers,setExportingUsers]=useState(false);
+  const [identityAudit,setIdentityAudit]=useState(null),[identityAuditQ,setIdentityAuditQ]=useState(""),[identityAuditBusy,setIdentityAuditBusy]=useState(false);
   const requestSeq=useRef(0);
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>(x[k]===""||x[k]==null)&&delete x[k]);return x;};
   const reload=async(filters=f)=>{const request=++requestSeq.current;setUsersLoading(true);setUsersError("");try{const us=await db.users(clean(filters));if(request!==requestSeq.current)return;setUsers((Array.isArray(us)?us:[]).map(u=>({...u,is_active:(u.is_active==1||u.is_active===true)})));pg.setPage(1);}catch(error){if(request===requestSeq.current)setUsersError(error.message||"دریافت فهرست کاربران ناموفق بود.");}finally{if(request===requestSeq.current)setUsersLoading(false);}};
@@ -1827,6 +1828,37 @@ function Users(){
     }
     if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); await reload(); }catch(error){alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}finally{setSavingUser(false);} };
   const add=async u=>{ const r=await db.createUser(u); setAdding(false); reload(); if(r&&r.sms_sent) alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
+  const auditAllUsers=async()=>{
+    if(identityAuditBusy)return;
+    setIdentityAuditBusy(true);setIdentityAuditQ("");
+    let offset=0,steps=0,total=0,issues=[],counts={};
+    setIdentityAudit({issues:[],counts:{},total:0,scanned:0,done:false});
+    try{
+      for(;;){
+        const page=await GET('/admin/company-work/identity-audit?offset='+offset+'&limit=150');
+        const scanned=Number(page.scanned)||0;
+        total=Number(page.total)||0;
+        issues=issues.concat(Array.isArray(page.issues)?page.issues:[]);
+        for(const [key,value] of Object.entries(page.counts||{}))counts[key]=(counts[key]||0)+Number(value||0);
+        offset+=scanned;
+        setIdentityAudit({issues,counts,total,scanned:offset,done:!!page.done});
+        if(page.done||page.next_offset===null)break;
+        if(scanned===0||++steps>10000)throw Error('ادامه ممیزی امکان‌پذیر نیست؛ عملیات متوقف شد.');
+        offset=Number(page.next_offset);
+      }
+    }catch(error){alert('ممیزی اطلاعات کاربران ناموفق بود: '+(error.message||error));}
+    finally{setIdentityAuditBusy(false);}
+  };
+  const exportIdentityAudit=async()=>{
+    try{
+      const response=await fetch(API_BASE+'/admin/company-work/identity-audit/export',{headers:tok()});
+      if(!response.ok)throw Error('دسترسی به گزارش ممیزی امکان‌پذیر نیست');
+      const blob=await response.blob(),url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download='ممیزی-اطلاعات-هویتی-بانکی.xlsx';a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+    }catch(e){alert(e.message||'دانلود گزارش ناموفق بود');}
+  };
+
   const revoke=async(id,type)=>{ if(confirm("شناسهٔ دستگاه ("+(type==='android'?'اندروید':'وب')+") حذف شود؟")){ await db.revokeDevice(id,type); reload(); } };
   const delUser=async u=>{ if(confirm('حذف کامل کاربر «'+u.first_name+' '+u.last_name+'»؟ برگشت‌ناپذیر است.')){try{await db.deleteUser(u.id);await reload();}catch(error){alert('حذف کاربر ناموفق بود: '+(error.message||error));}} };
   const pickPhoto=async(u,file)=>{ if(!file)return; const data=await compressImage(file,512,0.6); await db.adminSetPhoto(u.id,data); setEdit(e=>e?{...e,photo:data}:e); reload(); };
@@ -1841,7 +1873,7 @@ function Users(){
     </div>
     {usersTab==="vehicles"?<PersonnelVehicleAssets/>:<PersonnelVehicleChecklistV2/>}
   </div>);
-  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" disabled={exportingUsers} onClick={async()=>{setExportingUsers(true);try{const res=await fetch(db.usersExportUrl(),{headers:tok()});if(!res.ok)throw new Error("دریافت فایل از سرور ناموفق بود");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="اطلاعات_کامل_کاربران.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){alert(e.message||"خطا در دریافت خروجی کاربران");}finally{setExportingUsers(false);}}}>{exportingUsers?"در حال آماده‌سازی خروجی…":"⤓ خروجی کامل کاربران (Excel)"}</button></div></div>
+  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" disabled={exportingUsers} onClick={async()=>{setExportingUsers(true);try{const res=await fetch(db.usersExportUrl(),{headers:tok()});if(!res.ok)throw new Error("دریافت فایل از سرور ناموفق بود");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="اطلاعات_کامل_کاربران.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){alert(e.message||"خطا در دریافت خروجی کاربران");}finally{setExportingUsers(false);}}}>{exportingUsers?"در حال آماده‌سازی خروجی…":"⤓ خروجی کامل کاربران (Excel)"}</button><button className="btn g" disabled={identityAuditBusy} onClick={auditAllUsers}>${identityAuditBusy?"در حال ممیزی…":"بررسی صحت اطلاعات هویتی و بانکی کاربران"}</button></div></div>
     <div className="users-overview" aria-label="خلاصه نتایج فعلی"><div className="users-overview-card"><span>کاربران در نتایج فعلی</span><strong>{fa(users.length)}</strong><small>مطابق آخرین فیلتر اعمال‌شده</small></div><div className="users-overview-card"><span>کاربران فعال</span><strong>{fa(users.filter(u=>u.is_active).length)}</strong><small>در نتایج فعلی</small></div><div className="users-overview-card"><span>کاربران غیرفعال</span><strong>{fa(users.filter(u=>!u.is_active).length)}</strong><small>در نتایج فعلی</small></div></div>
     <div className="row page-switcher" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       <button className="btn p">اطلاعات کاربران</button>
@@ -1947,6 +1979,18 @@ function Users(){
         <button className="btn g" onClick={()=>revoke(edit.id,'android')}>حذف دستگاه اندروید</button>
         <button className="btn g" onClick={()=>revoke(edit.id,'web')}>حذف نشست وب</button></div>
       <button className="btn p" style={{marginTop:14}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
+    {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
+      <p role="status">پیشرفت: {fa(identityAudit.scanned)} از {fa(identityAudit.total)} کاربر {identityAudit.done?"— تکمیل شد":"— در حال بررسی"}</p>
+      <progress style={{width:"100%"}} max={Math.max(identityAudit.total,1)} value={identityAudit.scanned} aria-label="میزان واقعی پیشرفت ممیزی"/>
+      <div className="row" style={{gap:8,flexWrap:"wrap",marginBlock:12}}>
+        {Object.entries(identityAudit.counts||{}).filter(([key])=>key!=="valid").map(([key,value])=><span className="badge" key={key}>{({invalid_national:"کد ملی نامعتبر",missing_national:"کد ملی ناموجود",duplicate_national:"کد ملی تکراری",invalid_iban:"شبای نامعتبر",bank_mismatch:"مغایرت بانک",unverified_account:"حساب استعلام‌نشده",missing_banking:"اطلاعات بانکی ناموجود"})[key]||key}: {fa(value)}</span>)}
+      </div>
+      <label>جستجو در مغایرت‌ها<input className="input" type="search" value={identityAuditQ} onChange={e=>setIdentityAuditQ(e.target.value)}/></label>
+      <div style={{overflowX:"auto",maxHeight:"50vh"}}><table style={{minWidth:650}}><thead><tr><th>نام</th><th>شماره پرسنلی</th><th>وضعیت</th><th>مغایرت</th></tr></thead>
+      <tbody>{identityAudit.issues.filter(r=>[r.name,r.personnel_code,...(r.errors||[])].join(" ").includes(identityAuditQ)).map(r=><tr key={r.user_id}><td>{r.name}</td><td>{faPlain(r.personnel_code||"—")}</td><td>{r.is_active?"فعال":"غیرفعال"}</td><td>{(r.errors||[]).join("؛ ")}</td></tr>)}</tbody></table></div>
+      <p className="muted">بدون تغییر اطلاعات کاربران؛ ساختار شماره‌ها بررسی می‌شود و مالکیت حساب تأیید نمی‌شود.</p>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn" disabled={identityAuditBusy} onClick={exportIdentityAudit}>خروجی Excel مغایرت‌ها</button><button className="btn" onClick={()=>setIdentityAudit(null)}>بستن</button></div>
+    </Modal>}
     {adding&&<AddUser roles={roles} zones={zones} onClose={()=>setAdding(false)} onSave={add}/>}
     {lineModal&&<LineAssign user={lineModal} onClose={()=>setLineModal(null)}/>}
   </div>);
