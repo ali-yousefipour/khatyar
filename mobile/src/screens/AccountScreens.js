@@ -1,4 +1,6 @@
 import AccountFormHeader from '../components/AccountFormHeader';
+import { FieldInput } from './CustomFieldsScreen';
+import {profileFieldState,profileSchemaCustomFields} from '../userProfileRules';
 import { normalizeIranianDigits, validateNationalId, validateUserInput } from '../identityBankingValidation';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, PanResponder, Modal } from 'react-native';
@@ -210,8 +212,28 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   const [inspectors, setInspectors] = useState([]);
   const [birthPickerOpen, setBirthPickerOpen] = useState(false);
   const [nationalTouched,setNationalTouched] = useState(false);
+  const [originalProfile,setOriginalProfile] = useState(null);
+  const [extraFields,setExtraFields] = useState([]);
+  const [extraValues,setExtraValues] = useState({});
+  const [originalExtraValues,setOriginalExtraValues] = useState({});
+  const [formInfo,setFormInfo] = useState(null);
+  const [extraError,setExtraError] = useState('');
   useEffect(() => {
-    request('/me/full-profile', { noStore: true }).then(setP).catch(() => setP({}));
+    request('/me/full-profile', { noStore: true }).then(profile=>{setP(profile);setOriginalProfile(profile);}).catch(() => setP({}));
+    Promise.all([request('/my/custom-fields',{noStore:true}),request('/my/user-profile-form',{noStore:true}).catch(()=>null)])
+      .then(([list,form])=>{
+        setFormInfo(form);
+        const raw=Array.isArray(list)?list:[];
+        const configured=profileSchemaCustomFields(form?.schema);
+        const byId=new Map(raw.map(x=>[Number(x.id),x]));
+        const ordered=configured.filter(x=>byId.has(Number(x.custom_field_id)))
+          .map(x=>({...byId.get(Number(x.custom_field_id)),profile_definition:x}));
+        const remaining=raw.filter(x=>!configured.some(y=>Number(y.custom_field_id)===Number(x.id)));
+        setExtraFields([...ordered,...remaining]);
+        const values={};raw.forEach(x=>{if(x.value!=null)values[x.id]=x.value;});
+        setExtraValues(values);setOriginalExtraValues(values);
+      }).catch(e=>setExtraError(e.message||'دریافت فیلدهای تکمیلی ناموفق بود'));
+
     request('/me/zone-options').then((z) => {
       setZoneOpts(z);
       if (z.current) { setZoneId(z.current.zone_id || null); setInspectors(z.current.inspector_ids || []); }
@@ -226,7 +248,16 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   }, [zoneId]);
   if (!p) return <View style={s.center}><Text style={s.muted}>در حال بارگذاری…</Text></View>;
   const set = (k, v) => { if(p.profile_edit_allowed===false)return; setP({ ...p, [k]: v }); };
-  const profileReadOnly=p.profile_edit_allowed===false;
+  const profileReadOnly=p.profile_edit_allowed===false||formInfo?.profile_edit_allowed===false;
+  const valuesForRules={...p,...Object.fromEntries(Object.entries(extraValues).map(([id,value])=>['cf_'+id,value]))};
+  const systemDefinitions=(formInfo?.schema?.sections||[]).flatMap(section=>section.fields||[]);
+  const systemFieldState=key=>{
+    const definition=systemDefinitions.find(f=>f.key===key&&f.binding==='system');
+    return definition?profileFieldState(definition,valuesForRules):{visible:true,enabled:true,readonly:false,required:false};
+  };
+  const extraVisible=extraFields.filter(field=>profileFieldState(field.profile_definition||field,valuesForRules).visible);
+  const extraEditable=field=>!profileReadOnly&&!!field.user_editable&&
+    !profileFieldState(field.profile_definition||field,valuesForRules).readonly;
   const toggleInspector = (id) => { if(profileReadOnly)return; setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]); };
   const notFoundMsg = () => Alert.alert('بازرس پیدا نشد', 'اگر بازرس شما در فهرست نیست، لطفاً با بازرس خود تماس بگیرید و با ایشان هماهنگ کنید که ابتدا منطقه و مسئول بالادستی خود را در برنامه انتخاب کند تا نامش به فهرست بازرسین این منطقه اضافه شود. سپس این صفحه را دوباره بررسی کنید.');
   async function save() {
@@ -240,12 +271,27 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
     }
     setBusy(true);
     try {
-      await request('/me/profile', { method: 'PUT', queueIfOffline: false, body: {
-        email: p.email, mobile: p.mobile, address: p.address,
-        national_code: normalizeIranianDigits(p.national_code || '') || null,
-        marital_status: p.marital_status, children_count: p.children_count,
-        birth_date: p.birth_date || null, signature_data: p.signature_data || null,
-      } });
+      const allowedSystem=['email','mobile','address','national_code','marital_status','children_count','birth_date'];
+      const changed={};
+      for(const key of allowedSystem){
+        const value=key==='national_code'?(normalizeIranianDigits(p.national_code||'')||null):p[key]??null;
+        const before=key==='national_code'?(normalizeIranianDigits(originalProfile?.national_code||'')||null):originalProfile?.[key]??null;
+        const state=systemFieldState(key);
+        if(String(value??'')!==String(before??'')&&state.visible&&state.enabled&&!state.readonly)changed[key]=value;
+      }
+      for(const field of extraFields){
+        const key='cf_'+field.id,val=extraValues[field.id];
+        if(!extraEditable(field)||!profileFieldState(field.profile_definition||field,valuesForRules).visible)continue;
+        if(String(val??'')!==String(originalExtraValues[field.id]??''))changed[key]=val??'';
+      }
+      if(Object.keys(changed).length){
+        await request('/me/complete-profile',{method:'PUT',queueIfOffline:false,
+          body:{form_version:Number(formInfo?.version)||0,values:changed}});
+      }
+      // The signature is a separate media attribute and remains on its existing protected route.
+      if(p.signature_data!==originalProfile?.signature_data){
+        await request('/me/profile',{method:'PUT',queueIfOffline:false,body:{signature_data:p.signature_data||null}});
+      }
       if (zoneOpts?.enabled) {
         await request('/me/zone-select', { method: 'POST', body: { zone_id: zoneId, inspector_ids: inspectors, chief_inspector_id: zoneChief?.id || null } }).catch(() => {});
       }
@@ -279,9 +325,21 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       </View>
       <Text style={s.label}>تعداد فرزند</Text>
       <TextInput editable={!profileReadOnly} style={s.input} value={String(p.children_count || '')} onChangeText={(v) => set('children_count', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
-      <TouchableOpacity style={s.supplementaryBtn} onPress={() => navigation.navigate('CustomFields')}>
-        <View style={{ flex: 1 }}><Text style={s.supplementaryTitle}>اطلاعات تکمیلی من</Text><Text style={s.supplementaryHint}>مشاهده و تکمیل اطلاعات سازمانی و اختصاصی</Text></View><Text style={s.supplementaryArrow}>‹</Text>
-      </TouchableOpacity>
+      <View style={{marginTop:18,paddingVertical:12,borderTopWidth:1,borderColor:CC.line}}>
+        <Text style={s.supplementaryTitle}>اطلاعات جامع پرسنلی — فیلدهای تکمیلی</Text>
+        {!!extraError&&<Text accessibilityRole="alert" style={{color:'#b91c1c',textAlign:'right',marginTop:8}}>{extraError}</Text>}
+        {extraVisible.map(field=>{
+          const state=profileFieldState(field.profile_definition||field,valuesForRules);
+          const editable=extraEditable(field)&&state.enabled;
+          return <View key={field.id} style={{marginTop:12}}>
+            <Text style={s.label}>{field.label}{state.required&&editable?' *':''}{!editable?' (فقط نمایش)':''}</Text>
+            {editable?<FieldInput field={field} value={extraValues[field.id]??''}
+              onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}/>:
+              <Text style={[s.input,s.ro]}>{String(extraValues[field.id]??'—').replace(/\\|/g,'، ')}</Text>}
+          </View>;
+        })}
+        {extraVisible.length===0&&<Text style={s.muted}>فیلد تکمیلی دیگری برای نمایش وجود ندارد.</Text>}
+      </View>
       {zoneOpts?.enabled && !profileReadOnly && (
         <View style={s.zoneBox}>
           <Text style={s.zoneTitle}>منطقه و بازرسان</Text>
