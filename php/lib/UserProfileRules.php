@@ -13,6 +13,25 @@ final class UserProfileRules {
   private const VALUE_FREE=['empty','not_empty','true','false'];
   private const NUMERIC=['gt','gte','lt','lte'];
   private const DATES=['date_between','date_outside'];
+  private static function asciiDigits(string $value): string {
+    return str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],
+      ['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
+  }
+  private static function number($value): ?float {
+    if(!is_scalar($value)||is_bool($value))return null;
+    $text=self::asciiDigits(trim((string)$value));
+    if(!preg_match('/^-?\\d+(?:\\.\\d+)?$/D',$text))return null;
+    $number=(float)$text;
+    return is_finite($number)?$number:null;
+  }
+  private static function jalali($value): ?string {
+    if(!is_string($value))return null;
+    $text=str_replace('/','-',self::asciiDigits($value));
+    if(!preg_match('/^(1[34]\\d{2})-(\\d{2})-(\\d{2})$/D',$text,$m))return null;
+    $month=(int)$m[2];$day=(int)$m[3];
+    if($month<1||$month>12||$day<1||$day>($month<=6?31:30))return null;
+    return $text;
+  }
 
   private static function fail(string $msg): never {throw new InvalidArgumentException($msg);}
   private static function fieldKey($value): string {
@@ -37,10 +56,12 @@ final class UserProfileRules {
   }
   public static function validate(array $schema): void {
     if(!isset($schema['sections'])||!is_array($schema['sections'])||!array_is_list($schema['sections']))self::fail('گروه‌های فرم نامعتبرند');
-    $fields=[];$deps=[];
+    $fields=[];$deps=[];$sectionKeys=[];
     foreach($schema['sections'] as $section){
       if(!is_array($section)||empty($section['key']))self::fail('گروه فاقد شناسه است');
-      self::fieldKey($section['key']);
+      $sectionKey=self::fieldKey($section['key']);
+      if(isset($sectionKeys[$sectionKey]))self::fail('شناسه گروه تکراری است: '.$sectionKey);
+      $sectionKeys[$sectionKey]=true;
       if(!isset($section['fields'])||!is_array($section['fields'])||!array_is_list($section['fields']))self::fail('فیلدهای گروه نامعتبرند');
       foreach($section['fields'] as $field){
         if(!is_array($field))self::fail('تعریف فیلد نامعتبر است');
@@ -104,12 +125,12 @@ final class UserProfileRules {
       case 'contains':return is_array($actual)?in_array($desired,$actual,true):is_scalar($actual)&&str_contains((string)$actual,(string)$desired);
       case 'not_contains':return is_array($actual)?!in_array($desired,$actual,true):!is_scalar($actual)||!str_contains((string)$actual,(string)$desired);
       case 'gt':case 'gte':case 'lt':case 'lte':
-        if($empty||!is_numeric($actual)||!is_numeric($desired))return false;
-        return match($rule['op']){'gt'=>(float)$actual>(float)$desired,'gte'=>(float)$actual>=(float)$desired,'lt'=>(float)$actual<(float)$desired,default=>(float)$actual<=(float)$desired};
+        $a=self::number($actual);$b=self::number($desired);
+        if($a===null||$b===null)return false;
+        return match($rule['op']){'gt'=>$a>$b,'gte'=>$a>=$b,'lt'=>$a<$b,default=>$a<=$b};
       case 'date_between':case 'date_outside':
-        $valid=static fn($v)=>is_string($v)&&preg_match('/^\\d{4}[-\\/]\\d{2}[-\\/]\\d{2}$/D',$v);
-        if(!$valid($actual)||!$valid($desired[0])||!$valid($desired[1]))return false;
-        $a=str_replace('/','-',$actual);$lo=str_replace('/','-',$desired[0]);$hi=str_replace('/','-',$desired[1]);
+        $a=self::jalali($actual);$lo=self::jalali($desired[0]??null);$hi=self::jalali($desired[1]??null);
+        if($a===null||$lo===null||$hi===null||$lo>$hi)return false;
         $inside=$a>=$lo&&$a<=$hi;return $rule['op']==='date_between'?$inside:!$inside;
     }
     return false;
