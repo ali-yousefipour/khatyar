@@ -37,6 +37,11 @@ $multiList=UserProfileFormValues::plan($multiSchema,['cf_3'=>['الف','ج']],[]
 t('JSON array multiselect stays compatible',$multiList['custom'][3]==='الف|ج');
 invalid('unknown multiselect option rejected',fn()=>UserProfileFormValues::plan($multiSchema,['cf_3'=>'الف|نامعتبر'],[],true));
 invalid('duplicate multiselect option rejected',fn()=>UserProfileFormValues::plan($multiSchema,['cf_3'=>'الف|الف'],[],true));
+$dateSchema=['sections'=>[['key'=>'identity','fields'=>[['key'=>'birth_date','type'=>'date','binding'=>'system']]]]];
+$dateResult=UserProfileFormValues::plan($dateSchema,['birth_date'=>'۱۴۰۵/۰۷/۳۰'],[],true);
+t('Persian Jalali date is normalized',$dateResult['system']['birth_date']==='1405-07-30');
+invalid('Jalali month 13 rejected',fn()=>UserProfileFormValues::plan($dateSchema,['birth_date'=>'1405/13/01'],[],true));
+invalid('Jalali month seven day 31 rejected',fn()=>UserProfileFormValues::plan($dateSchema,['birth_date'=>'1405/07/31'],[],true));
 $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
