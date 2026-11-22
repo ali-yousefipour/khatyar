@@ -9,6 +9,7 @@ class FakeConnection {
  public function rollBack(){[Db::$links,Db::$primary]=$this->snapshot;$this->snapshot=null;}
 }
 class Db {
+ public static $leadership=[];
  public static $links=[];
  public static $primary=[];
  public static $failWrite=false;
@@ -29,7 +30,7 @@ class Db {
    ['id'=>1,'name'=>'منطقه مادر','parent_id'=>null],
    ['id'=>2,'name'=>'زیرمنطقه','parent_id'=>1],
    ['id'=>3,'name'=>'نامرتبط','parent_id'=>null]];
-  if(str_contains($sql,'FROM zone_leadership'))return [];
+  if(str_contains($sql,'FROM zone_leadership'))return self::$leadership;
   if(str_contains($sql,'SELECT id FROM users'))return array_map(fn($u)=>['id'=>$u['id']],self::users());
   if(str_contains($sql,'FROM users u'))return self::users();
   throw new RuntimeException('Unexpected query '.$sql);
@@ -41,7 +42,8 @@ class Db {
    ['id'=>12,'first_name'=>'بازرس دو','zone_id'=>2,'is_active'=>1,'role_title'=>'بازرس مقیم'],
    ['id'=>13,'first_name'=>'اپراتور','zone_id'=>2,'is_active'=>1,'role_title'=>'اپراتور'],
    ['id'=>14,'first_name'=>'ناظر','zone_id'=>2,'is_active'=>1,'role_title'=>'ناظر خط'],
-   ['id'=>15,'first_name'=>'غریبه','zone_id'=>3,'is_active'=>1,'role_title'=>'اپراتور']
+   ['id'=>15,'first_name'=>'غریبه','zone_id'=>3,'is_active'=>1,'role_title'=>'اپراتور'],
+   ['id'=>16,'first_name'=>'بازرس مامور','zone_id'=>3,'is_active'=>1,'role_title'=>'بازرس']
   ];
  }
 }
@@ -68,4 +70,17 @@ try{ZoneChartSync::synchronize(1);throw new RuntimeException('Write error ignore
 catch(RuntimeException $e){if($e->getMessage()!=='Simulated SQL failure')throw $e;}
 Db::$failWrite=false;
 if([Db::$links,Db::$primary]!==$before||Db::pdo()->inTransaction())throw new RuntimeException('Transactional rollback failed');
+// Designated inspectors can serve a subregion without changing their home zone.
+Db::$leadership=[
+ ['zone_id'=>1,'senior_user_id'=>10,'inspector_ids'=>'[]'],
+ ['zone_id'=>2,'senior_user_id'=>null,'inspector_ids'=>'[11,16]']
+];
+Db::$links[16]=[99];Db::$primary[16]=99;
+$cross=ZoneChartSync::snapshot(1);
+if(!in_array(16,$cross['responsible_leader_ids'],true)||parentsOf($cross['edges'],13)!==[11,16]||parentsOf($cross['edges'],16)!==[10])
+  throw new RuntimeException('Cross-zone inspector missing from regional hierarchy');
+$crossSaved=ZoneChartSync::synchronize(1);
+sort(Db::$links[13]);sort(Db::$links[14]);sort(Db::$links[16]);
+if(Db::$links[13]!==[11,16]||Db::$links[14]!==[11,16]||Db::$links[16]!==[10,99]||Db::$primary[16]!==99)
+  throw new RuntimeException('Cross-zone supervisor synchronization lost existing or new relations');
 echo "PASS region chart synchronization: two inspectors, parent senior, descendant scope, isolation, missing zone\n";
