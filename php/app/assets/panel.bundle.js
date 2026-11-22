@@ -2707,6 +2707,25 @@ async function downloadSeniorityReport(rows, period) {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
+async function downloadSeniorityHistory(period = '') {
+    const response = await _fetchWithAuth(API_BASE + '/admin/seniority/period-history-export', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ period }) });
+    if (!response.ok) {
+        let message = 'ساخت فایل تاریخچه سنوات ناموفق بود.';
+        try {
+            const detail = await response.json();
+            message = detail.error || detail.message || message;
+        }
+        catch (_) { }
+        throw new Error(message);
+    }
+    const url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
+    link.href = url;
+    link.download = 'seniority-period-history.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
 function seniorityFilter(rows, filters) {
     const normalize = value => seniorityEn(value).replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLowerCase();
     const query = normalize(filters.q);
@@ -2737,6 +2756,8 @@ function PersonnelSeniority() {
     const [selectedPeriod, setSelectedPeriod] = useState('');
     const [periodStatus, setPeriodStatus] = useState(null);
     const [periodHistory, setPeriodHistory] = useState(null);
+    const [periodHistoryQuery, setPeriodHistoryQuery] = useState('');
+    const [periodHistoryType, setPeriodHistoryType] = useState('');
     const [periodConfirm, setPeriodConfirm] = useState(false);
     const [periodResult, setPeriodResult] = useState(null);
     const mutation = useRef(false), generation = useRef(0);
@@ -2777,6 +2798,8 @@ function PersonnelSeniority() {
             setError(failure.message || 'وضعیت دوره دریافت نشد.'); });
         return () => { live = false; };
     }, [selectedPeriod, data]);
+    const filteredPeriodHistory = (periodHistory || []).filter(run => (!periodHistoryQuery || seniorityEn([run.period, run.actor_name, run.status].join(' ')).includes(seniorityEn(periodHistoryQuery))) && (!periodHistoryType || run.run_type === periodHistoryType));
+    const periodHistoryPager = usePager(filteredPeriodHistory, 20);
     const currentYear = Number(((data === null || data === void 0 ? void 0 : data.period) || '1405-01').slice(0, 4));
     const years = Array.from({ length: 9 }, (_, i) => currentYear - 4 + i);
     const monthNames = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
@@ -3040,12 +3063,19 @@ function PersonnelSeniority() {
                     React.createElement("button", { className: "btn p", onClick: performPeriodRun }, "\u062A\u0623\u06CC\u06CC\u062F \u0648 \u0627\u062C\u0631\u0627"),
                     React.createElement("button", { className: "btn g", onClick: () => setPeriodConfirm(false) }, "\u0627\u0646\u0635\u0631\u0627\u0641")))),
         periodHistory && React.createElement(Modal, { title: "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0633\u0646\u0648\u0627\u062A", onClose: () => setPeriodHistory(null) },
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 12 } },
+                React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0633\u0646\u0648\u0627\u062A", placeholder: "\u0645\u0627\u0647\u060C \u0646\u0627\u0645 \u0645\u062F\u06CC\u0631 \u06CC\u0627 \u0648\u0636\u0639\u06CC\u062A", value: periodHistoryQuery, onChange: event => setPeriodHistoryQuery(event.target.value) }),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0645\u062D\u0627\u0633\u0628\u0647 \u0633\u0646\u0648\u0627\u062A", value: periodHistoryType, onChange: event => setPeriodHistoryType(event.target.value) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647 \u0627\u0646\u0648\u0627\u0639"),
+                    React.createElement("option", { value: "final" }, "\u0642\u0637\u0639\u06CC"),
+                    React.createElement("option", { value: "forecast" }, "\u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC")),
+                React.createElement("button", { className: "btn g", onClick: () => downloadSeniorityHistory().catch(failure => alert(failure.message)) }, "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647")),
             React.createElement("div", { style: { maxHeight: '65vh', overflow: 'auto' } },
                 React.createElement("table", { className: "tbl" },
                     React.createElement("thead", null,
                         React.createElement("tr", null, ['ماه', 'نوع', 'تاریخ اجرا', 'اجراکننده', 'پردازش‌شده', 'بدون تغییر', 'خطا', 'وضعیت'].map(title => React.createElement("th", { key: title }, title)))),
                     React.createElement("tbody", null,
-                        periodHistory.map(run => React.createElement("tr", { key: run.id },
+                        periodHistoryPager.slice.map(run => React.createElement("tr", { key: run.id },
                             React.createElement("td", null, faPlain(run.period)),
                             React.createElement("td", null, run.run_type === 'forecast' ? 'پیش‌بینی' : 'قطعی'),
                             React.createElement("td", null, run.started_at),
@@ -3054,8 +3084,9 @@ function PersonnelSeniority() {
                             React.createElement("td", null, fa(run.skipped_count)),
                             React.createElement("td", null, fa(run.failed_count)),
                             React.createElement("td", null, run.status))),
-                        !periodHistory.length && React.createElement("tr", null,
-                            React.createElement("td", { colSpan: 8 }, "\u0647\u0646\u0648\u0632 \u0639\u0645\u0644\u06CC\u0627\u062A\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")))))),
+                        !filteredPeriodHistory.length && React.createElement("tr", null,
+                            React.createElement("td", { colSpan: 8 }, "\u0647\u0646\u0648\u0632 \u0639\u0645\u0644\u06CC\u0627\u062A\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))))),
+            periodHistoryPager.Pager()),
         editing && React.createElement(Modal, { title: 'سنوات ' + editing.first_name + ' ' + editing.last_name, onClose: () => !busy && setEditing(null) },
             React.createElement("form", { onSubmit: event => { event.preventDefault(); save(); } },
                 React.createElement("label", { className: "label", style: { display: 'block', marginTop: 14 } },
