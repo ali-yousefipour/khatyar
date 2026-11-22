@@ -120,6 +120,51 @@ class CompanyWork {
     foreach($rows as &$r)if(($seen[Payroll::identity($r['personnel_code'])??'']??0)>1){$r['errors'][]='شماره پرسنلی تکراری در فایل سازمان';$r['user_id']=null;}unset($r);
     return $rows;
   }
+  /** Lightweight discrepancy preview: no monthly attendance or rotation calculation. */
+  static function previewDiscrepancies($source,$accountField){
+    $users=self::users();
+    $byId=array_column($users,null,'id');
+    $rows=self::matchRows(json_decode($source['rows_json'],true,512,JSON_THROW_ON_ERROR),$users);
+    $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);
+    if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
+    $accounts=array_column(Db::all('SELECT user_id,value FROM custom_field_values WHERE field_id=?',[(int)$accountField]),'value','user_id');
+    $start=self::date(sprintf('%04d/%02d/01',(int)$source['jy'],(int)$source['jm']));
+    $end=$start->modify('+'.IranCalendar::monthLength((int)$source['jy'],(int)$source['jm']).' days');
+    $worked=Db::all('SELECT DISTINCT user_id FROM staff_attendance WHERE check_in>=? AND check_in<?',
+      [$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
+    $workedIds=array_fill_keys(array_map('intval',array_column($worked,'user_id')),true);
+    $fileIds=[];$discrepancies=['inactive_in_file'=>[],'unmatched_in_file'=>[],'worked_not_in_file'=>[],'no_attendance_in_file'=>[]];
+    foreach($rows as &$row){
+      $uid=(int)($row['user_id']??0);
+      if(!$uid){
+        $discrepancies['unmatched_in_file'][]=['source_row'=>$row['source_row']??null,'name'=>trim(($row['first_name']??'').' '.($row['last_name']??'')),'personnel_code'=>$row['personnel_code']??'','reason'=>implode('؛ ',$row['errors'])];
+        continue;
+      }
+      $fileIds[$uid]=true;$person=$byId[$uid];
+      if(isset($person['is_active'])&&!(int)$person['is_active']){
+        $row['errors'][]='کاربر در سامانه غیرفعال است؛ وضعیت همکاری و کارکرد دوره بررسی شود';
+        $discrepancies['inactive_in_file'][]=['source_row'=>$row['source_row']??null,'user_id'=>$uid,'name'=>trim($person['first_name'].' '.$person['last_name']),'personnel_code'=>$person['personnel_code']];
+      }
+      $account=Payroll::normalize($accounts[$uid]??'');
+      $check=self::bankAccountCheck($account);
+      if(!$check['valid'])$row['errors'][]=$check['message'];
+      if(!isset($workedIds[$uid]))$discrepancies['no_attendance_in_file'][]=[
+        'source_row'=>$row['source_row']??null,'user_id'=>$uid,
+        'name'=>trim(($row['first_name']??'').' '.($row['last_name']??'')),
+        'personnel_code'=>$row['personnel_code']??'',
+        'reason'=>'در ماه انتخابی هیچ تردد ورودی ثبت نشده است؛ مرخصی و مأموریت در محاسبه نهایی بررسی می‌شوند'];
+    }unset($row);
+    foreach($workedIds as $uid=>$_)if(!isset($fileIds[$uid])){
+      $person=$byId[$uid]??null;
+      $discrepancies['worked_not_in_file'][]=[
+        'user_id'=>$uid,'name'=>$person?trim($person['first_name'].' '.$person['last_name']):'کاربر فاقد پرونده',
+        'personnel_code'=>$person['personnel_code']??''];
+    }
+    return ['rows'=>$rows,'discrepancies'=>$discrepancies,'has_errors'=>
+      (bool)count(array_filter($rows,static fn($r)=>!empty($r['errors'])))||count($discrepancies['worked_not_in_file'])>0,
+      'requires_confirmation'=>true,'preview_only'=>true,
+      'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']]];
+  }
   static function users(){return Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.marital_status,u.children_count,u.employment_start_date,u.employment_end_date,u.is_active,u.zone_id,z.name AS zone_name,r.title AS role_title FROM users u LEFT JOIN zones z ON z.id=u.zone_id LEFT JOIN roles r ON r.id=u.role_id');}
   static function schema(){
     static $ready=false;if($ready)return;
