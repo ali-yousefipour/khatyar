@@ -8681,6 +8681,349 @@ const SETTINGS_SECTION_INDEX = [
         "title": "پشتیبان‌گیری، بازیابی و پاکسازی"
     }
 ];
+/** Versioned personnel form designer. Legacy profile values remain untouched. */
+function UserProfileFormDesigner() {
+    const [model, setModel] = useState(null), [revision, setRevision] = useState(0), [published, setPublished] = useState(0);
+    const [selected, setSelected] = useState(null), [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false);
+    const [message, setMessage] = useState(""), [error, setError] = useState(""), [migration, setMigration] = useState(false);
+    const [choices, setChoices] = useState([]), [choice, setChoice] = useState(""), [preview, setPreview] = useState(false);
+    const [previewValues, setPreviewValues] = useState({ gender: "", marital_status: "", children_count: 0 });
+    const [undo, setUndo] = useState([]), [redo, setRedo] = useState([]), dragRef = useRef(null);
+    const load = async () => {
+        setBusy(true);
+        setError("");
+        try {
+            const [data, available] = await Promise.all([GET('/admin/user-profile-form'), db.customFields()]);
+            setModel(data.schema);
+            setRevision(Number(data.revision) || 0);
+            setPublished(Number(data.published_version) || 0);
+            setMigration(!!data.migration_required);
+            setChoices((available || []).filter(f => Number(f.is_active) !== 0));
+            setDirty(false);
+            setUndo([]);
+            setRedo([]);
+        }
+        catch (e) {
+            setError(e.message || "دریافت ساختار فرم ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    useEffect(() => { let live = true; load().catch(e => { if (live)
+        setError(e.message); }); return () => { live = false; }; }, []);
+    const modify = fn => {
+        setModel(prev => { if (!prev)
+            return prev; const next = JSON.parse(JSON.stringify(prev)); fn(next); setUndo(stack => [...stack.slice(-29), prev]); setRedo([]); setDirty(true); setMessage(""); return next; });
+    };
+    const history = direction => {
+        if (direction === "undo" && undo.length) {
+            const previous = undo[undo.length - 1];
+            setUndo(undo.slice(0, -1));
+            setRedo(arr => [...arr, model]);
+            setModel(previous);
+            setDirty(true);
+        }
+        if (direction === "redo" && redo.length) {
+            const next = redo[redo.length - 1];
+            setRedo(redo.slice(0, -1));
+            setUndo(arr => [...arr, model]);
+            setModel(next);
+            setDirty(true);
+        }
+    };
+    const fields = ((model === null || model === void 0 ? void 0 : model.sections) || []).flatMap(s => s.fields || []);
+    const current = fields.find(f => f.key === selected);
+    const editField = (key, value) => modify(d => { for (const s of d.sections) {
+        const f = s.fields.find(x => x.key === selected);
+        if (f) {
+            f[key] = value;
+            return;
+        }
+    } });
+    const moveField = (section, index, by) => modify(d => {
+        const list = d.sections[section].fields, newIndex = index + by;
+        if (newIndex < 0 || newIndex >= list.length)
+            return;
+        list.splice(newIndex, 0, list.splice(index, 1)[0]);
+    });
+    const moveGroup = (index, by) => modify(d => {
+        const next = index + by;
+        if (next < 0 || next >= d.sections.length)
+            return;
+        d.sections.splice(next, 0, d.sections.splice(index, 1)[0]);
+    });
+    const onDrop = (section, index) => {
+        const from = dragRef.current;
+        dragRef.current = null;
+        if (!from)
+            return;
+        if (from.type === "section") {
+            if (from.section === section)
+                return;
+            modify(d => d.sections.splice(section, 0, d.sections.splice(from.section, 1)[0]));
+            return;
+        }
+        modify(d => {
+            var _a;
+            const item = (_a = d.sections[from.section]) === null || _a === void 0 ? void 0 : _a.fields.splice(from.index, 1)[0];
+            if (!item)
+                return;
+            const at = from.section === section && from.index < index ? index - 1 : index;
+            d.sections[section].fields.splice(Math.min(at, d.sections[section].fields.length), 0, item);
+        });
+    };
+    const addExisting = () => {
+        const f = choices.find(x => String(x.id) === choice);
+        if (!f)
+            return;
+        const key = "cf_" + f.id;
+        if (fields.some(x => x.key === key)) {
+            setError("این فیلد از قبل در فرم وجود دارد.");
+            return;
+        }
+        modify(d => {
+            const last = d.sections.find(x => x.key === "additional") || d.sections[d.sections.length - 1];
+            last.fields.push({ key, label: f.label, type: f.ftype || "text", binding: "custom",
+                custom_field_id: Number(f.id), options: String(f.options || "").split("|").filter(Boolean),
+                required: !!Number(f.required), readonly: !Number(f.user_editable), rules: [] });
+        });
+        setChoice("");
+        setSelected(key);
+    };
+    const addGroup = () => modify(d => {
+        let id = 1;
+        while (d.sections.some(s => s.key === "group_" + id))
+            id++;
+        d.sections.push({ key: "group_" + id, title: "گروه جدید", fields: [] });
+    });
+    const appendRule = () => {
+        const source = fields.find(x => x.key !== selected);
+        if (!source)
+            return;
+        editField("rules", [...(current.rules || []), { action: "show", when: { all: [{ field: source.key, op: "eq", value: "" }] } }]);
+    };
+    const editRule = (index, fn) => modify(d => {
+        const field = d.sections.flatMap(s => s.fields).find(x => x.key === selected);
+        const rule = field.rules[index];
+        fn(rule);
+    });
+    const match = (condition, values) => {
+        if (condition === null || condition === void 0 ? void 0 : condition.all)
+            return condition.all.every(c => match(c, values));
+        if (condition === null || condition === void 0 ? void 0 : condition.any)
+            return condition.any.some(c => match(c, values));
+        const v = values[condition === null || condition === void 0 ? void 0 : condition.field], x = condition === null || condition === void 0 ? void 0 : condition.value;
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "empty")
+            return v == null || v === "";
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_empty")
+            return v != null && v !== "";
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "eq")
+            return String(v !== null && v !== void 0 ? v : "") === String(x !== null && x !== void 0 ? x : "");
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "neq")
+            return String(v !== null && v !== void 0 ? v : "") !== String(x !== null && x !== void 0 ? x : "");
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "gt")
+            return Number(v) > Number(x);
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "gte")
+            return Number(v) >= Number(x);
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "lt")
+            return Number(v) < Number(x);
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "lte")
+            return Number(v) <= Number(x);
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "in")
+            return Array.isArray(x) && x.map(String).includes(String(v));
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_in")
+            return Array.isArray(x) && !x.map(String).includes(String(v));
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "true")
+            return v === true || v === 1 || v === "1";
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "false")
+            return v === false || v === 0 || v === "0" || v == null;
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "contains")
+            return String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "not_contains")
+            return !String(v !== null && v !== void 0 ? v : "").includes(String(x !== null && x !== void 0 ? x : ""));
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "date_between")
+            return Array.isArray(x) && v >= x[0] && v <= x[1];
+        if ((condition === null || condition === void 0 ? void 0 : condition.op) === "date_outside")
+            return Array.isArray(x) && (v < x[0] || v > x[1]);
+        return false;
+    };
+    const stateOf = (field) => {
+        const state = { visible: field.visible !== false, required: !!field.required, readonly: !!field.readonly, enabled: field.enabled !== false };
+        for (const rule of field.rules || []) {
+            if (!match(rule.when, previewValues))
+                continue;
+            const a = rule.action;
+            if (a === "show")
+                state.visible = true;
+            if (a === "hide")
+                state.visible = false;
+            if (a === "require")
+                state.required = true;
+            if (a === "optional")
+                state.required = false;
+            if (a === "readonly")
+                state.readonly = true;
+            if (a === "editable")
+                state.readonly = false;
+            if (a === "enable")
+                state.enabled = true;
+            if (a === "disable")
+                state.enabled = false;
+        }
+        return state;
+    };
+    const save = async () => {
+        if (!model || migration)
+            return;
+        setBusy(true);
+        setError("");
+        setMessage("");
+        try {
+            const r = await SEND('PUT', '/admin/user-profile-form', { schema: model, revision });
+            setRevision(Number(r.revision));
+            setDirty(false);
+            setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد.");
+        }
+        catch (e) {
+            setError(e.message || "ثبت پیش‌نویس ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const publish = async () => {
+        if (migration || dirty) {
+            setError("ابتدا پیش‌نویس را ذخیره کنید و از اجرای Migration اطمینان یابید.");
+            return;
+        }
+        if (!window.confirm("نسخه جدید فرم اطلاعات پرسنلی برای کاربران وب و اندروید منتشر شود؟"))
+            return;
+        setBusy(true);
+        setError("");
+        try {
+            const r = await SEND('POST', '/admin/user-profile-form/publish', { revision });
+            setPublished(r.version);
+            setMessage("نسخه " + faPlain(r.version) + " منتشر شد.");
+        }
+        catch (e) {
+            setError(e.message || "انتشار نسخه ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const actions = [["show", "نمایش"], ["hide", "مخفی"], ["enable", "فعال"], ["disable", "غیرفعال"], ["require", "اجباری"], ["optional", "اختیاری"], ["readonly", "فقط‌خواندنی"], ["editable", "قابل ویرایش"]];
+    const operators = [["eq", "برابر"], ["neq", "نابرابر"], ["gt", "بزرگ‌تر"], ["gte", "بزرگ‌تر یا مساوی"], ["lt", "کوچک‌تر"], ["lte", "کوچک‌تر یا مساوی"], ["contains", "شامل"], ["not_contains", "شامل نمی‌شود"], ["empty", "خالی"], ["not_empty", "خالی نیست"], ["in", "یکی از گزینه‌ها"], ["not_in", "هیچ‌کدام"], ["true", "درست"], ["false", "نادرست"], ["date_between", "در محدوده تاریخ"], ["date_outside", "خارج محدوده تاریخ"]];
+    return React.createElement("div", { className: "user-profile-designer", style: { marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 14 } },
+        React.createElement("h3", null, "\u0641\u0631\u0645\u200C\u0633\u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
+        React.createElement("p", { className: "muted" }, "\u0637\u0631\u0627\u062D\u06CC \u0646\u0633\u062E\u0647\u200C\u062F\u0627\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062C\u0627\u0645\u0639 \u067E\u0631\u0633\u0646\u0644\u06CC\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062A\u0631\u062A\u06CC\u0628 \u0648 \u0634\u0631\u0648\u0637 \u0628\u062F\u0648\u0646 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u067E\u0627\u06CC\u06AF\u0627\u0647 \u062F\u0627\u062F\u0647."),
+        migration && React.createElement("p", { role: "alert", style: { padding: 12, background: "#fff4df", borderRadius: 8 } },
+            "\u067E\u0627\u06CC\u06AF\u0627\u0647 \u062F\u0627\u062F\u0647 \u0641\u0631\u0645\u200C\u0633\u0627\u0632 \u0647\u0646\u0648\u0632 \u0622\u0645\u0627\u062F\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0628\u062A\u062F\u0627 Migration \u0627\u06CC\u0645\u0646 ",
+            React.createElement("code", null, "20261122_user_profile_forms.sql"),
+            " \u0631\u0627 \u067E\u0633 \u0627\u0632 \u062A\u0647\u06CC\u0647 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0627\u062C\u0631\u0627 \u06A9\u0646\u06CC\u062F. \u0641\u0631\u0645 \u0641\u0639\u0644\u06CC \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A."),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)" } }, error),
+        message && React.createElement("p", { role: "status", style: { color: "var(--ok,#087f5b)" } }, message),
+        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+            React.createElement("button", { className: "btn g", onClick: load, disabled: busy }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0645\u062C\u062F\u062F"),
+            React.createElement("button", { className: "btn g", onClick: () => history("undo"), disabled: !undo.length || busy }, "\u0628\u0627\u0632\u06AF\u0634\u062A \u062A\u063A\u06CC\u06CC\u0631"),
+            React.createElement("button", { className: "btn g", onClick: () => history("redo"), disabled: !redo.length || busy }, "\u0627\u0646\u062C\u0627\u0645 \u0645\u062C\u062F\u062F"),
+            React.createElement("button", { className: "btn g", onClick: () => setPreview(!preview) }, preview ? "بازگشت به طراحی" : "پیش‌نمایش شرط‌ها"),
+            React.createElement("button", { className: "btn p", disabled: busy || !dirty || migration, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u067E\u06CC\u0634\u200C\u0646\u0648\u06CC\u0633"),
+            React.createElement("button", { className: "btn p", disabled: busy || dirty || migration, onClick: publish }, "\u0627\u0646\u062A\u0634\u0627\u0631 \u0646\u0633\u062E\u0647"),
+            React.createElement("small", { className: "muted" },
+                "\u0646\u0633\u062E\u0647 \u0645\u0646\u062A\u0634\u0631\u0634\u062F\u0647: ",
+                faPlain(published),
+                " \u00B7 \u0628\u0627\u0632\u0646\u06AF\u0631\u06CC \u067E\u06CC\u0634\u200C\u0646\u0648\u06CC\u0633: ",
+                faPlain(revision))),
+        !model ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0631\u0645\u2026") : preview ?
+            React.createElement("div", { style: { display: "grid", gap: 12 } },
+                React.createElement("div", { className: "row", style: { flexWrap: "wrap", gap: 8 } }, fields.filter(f => ["gender", "marital_status", "children_count"].includes(f.key)).map(f => { var _a; return React.createElement("label", { key: f.key },
+                    f.label,
+                    React.createElement("input", { className: "input", value: (_a = previewValues[f.key]) !== null && _a !== void 0 ? _a : "", onChange: e => setPreviewValues(v => ({ ...v, [f.key]: e.target.value })) })); })),
+                model.sections.map(section => React.createElement("section", { key: section.key, className: "card-p" },
+                    React.createElement("h4", null, section.title),
+                    section.fields.filter(f => stateOf(f).visible).map(f => React.createElement("div", { key: f.key, style: { padding: 6, marginBlock: 4 } },
+                        f.label,
+                        stateOf(f).required ? " *" : "",
+                        " ",
+                        stateOf(f).readonly ? "🔒" : ""))))) :
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 14, alignItems: "start" } },
+                React.createElement("div", { style: { minWidth: 0 } },
+                    React.createElement("h4", null, "\u06AF\u0631\u0648\u0647\u200C\u0647\u0627 \u0648 \u062A\u0631\u062A\u06CC\u0628 \u0641\u06CC\u0644\u062F\u0647\u0627"),
+                    React.createElement("button", { className: "btn g", type: "button", onClick: addGroup }, "\u0627\u0641\u0632\u0648\u062F\u0646 \u06AF\u0631\u0648\u0647"),
+                    (model.sections || []).map((section, si) => React.createElement("div", { key: section.key, className: "card-p", style: { marginTop: 10, padding: 12 }, draggable: true, onDragStart: () => dragRef.current = { type: "section", section: si }, onDragOver: e => e.preventDefault(), onDrop: e => { e.preventDefault(); onDrop(si, 0); } },
+                        React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 6, flexWrap: "wrap" } },
+                            React.createElement("input", { className: "input", "aria-label": "\u0646\u0627\u0645 \u06AF\u0631\u0648\u0647", value: section.title || "", onChange: e => modify(d => d.sections[si].title = e.target.value) }),
+                            React.createElement("button", { className: "btn g", onClick: () => moveGroup(si, -1), disabled: si === 0 }, "\u2191"),
+                            React.createElement("button", { className: "btn g", onClick: () => moveGroup(si, 1), disabled: si === model.sections.length - 1 }, "\u2193")),
+                        (section.fields || []).map((f, fi) => React.createElement("div", { key: f.key, draggable: true, onDragStart: e => { e.stopPropagation(); dragRef.current = { type: "field", section: si, index: fi }; }, onDragOver: e => { e.preventDefault(); e.stopPropagation(); }, onDrop: e => { e.stopPropagation(); e.preventDefault(); onDrop(si, fi); }, style: { display: "flex", alignItems: "center", gap: 5, marginTop: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, background: selected === f.key ? "var(--warn-soft,#fff3db)" : "transparent" } },
+                            React.createElement("button", { type: "button", className: "btn g", style: { flex: 1, textAlign: "right" }, onClick: () => setSelected(f.key) },
+                                f.label || f.key,
+                                " ",
+                                React.createElement("small", null,
+                                    "(",
+                                    f.key,
+                                    ")")),
+                            React.createElement("button", { className: "btn g", onClick: () => moveField(si, fi, -1), disabled: fi === 0 }, "\u2191"),
+                            React.createElement("button", { className: "btn g", onClick: () => moveField(si, fi, 1), disabled: fi === section.fields.length - 1 }, "\u2193"))))),
+                    React.createElement("div", { style: { marginTop: 12 } },
+                        React.createElement("h4", null, "\u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u06CC\u0644\u062F \u0633\u0641\u0627\u0631\u0634\u06CC \u0645\u0648\u062C\u0648\u062F"),
+                        React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
+                            React.createElement("select", { className: "input", value: choice, onChange: e => setChoice(e.target.value) },
+                                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0641\u06CC\u0644\u062F \u0627\u0632 \u0641\u0647\u0631\u0633\u062A \u0641\u0639\u0644\u06CC"),
+                                choices.filter(c => !fields.some(f => f.key === "cf_" + c.id)).map(c => React.createElement("option", { key: c.id, value: c.id }, c.label))),
+                            React.createElement("button", { className: "btn p", onClick: addExisting, disabled: !choice }, "\u0627\u0641\u0632\u0648\u062F\u0646 \u0628\u0647 \u0641\u0631\u0645")))),
+                React.createElement("div", { style: { minWidth: 0 } },
+                    React.createElement("h4", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0641\u06CC\u0644\u062F \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647"),
+                    !current ? React.createElement("p", { className: "muted" }, "\u06CC\u06A9 \u0641\u06CC\u0644\u062F \u0631\u0627 \u0628\u0631\u0627\u06CC \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0639\u0646\u0648\u0627\u0646\u060C \u0638\u0627\u0647\u0631 \u0648 \u0634\u0631\u0648\u0637 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.") :
+                        React.createElement("div", { className: "card-p", style: { padding: 14 } },
+                            React.createElement("p", { className: "muted" },
+                                "\u0634\u0646\u0627\u0633\u0647 \u062B\u0627\u0628\u062A: ",
+                                React.createElement("code", null, current.key),
+                                " \u00B7 \u0630\u062E\u06CC\u0631\u0647\u200C\u0633\u0627\u0632\u06CC: ",
+                                current.binding),
+                            React.createElement("label", null,
+                                "\u0639\u0646\u0648\u0627\u0646 \u0641\u0627\u0631\u0633\u06CC",
+                                React.createElement("input", { className: "input", value: current.label || "", onChange: e => editField("label", e.target.value) })),
+                            React.createElement("label", null,
+                                "\u0645\u062A\u0646 \u0631\u0627\u0647\u0646\u0645\u0627",
+                                React.createElement("input", { className: "input", value: current.description || "", onChange: e => editField("description", e.target.value) })),
+                            React.createElement("label", null,
+                                "Placeholder",
+                                React.createElement("input", { className: "input", value: current.placeholder || "", onChange: e => editField("placeholder", e.target.value) })),
+                            React.createElement("label", null,
+                                "\u0646\u0648\u0639 \u0641\u06CC\u0644\u062F",
+                                React.createElement("input", { className: "input", readOnly: true, value: current.type || "" })),
+                            React.createElement("label", null,
+                                "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
+                                React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
+                            React.createElement("div", { style: { display: "grid", gap: 4, marginTop: 8 } }, [["required", "اجباری"], ["readonly", "فقط خواندنی"], ["visible", "نمایش در فرم"], ["enabled", "فعال"]].map(([k, label]) => React.createElement("label", { key: k, className: "row", style: { gap: 8 } },
+                                React.createElement("input", { type: "checkbox", checked: current[k] !== undefined ? !!current[k] : k === "visible" || k === "enabled", onChange: e => editField(k, e.target.checked) }),
+                                label))),
+                            React.createElement("h4", { style: { marginTop: 15 } }, "\u0642\u0648\u0627\u0646\u06CC\u0646 \u0634\u0631\u0637\u06CC"),
+                            React.createElement("button", { className: "btn g", onClick: appendRule }, "\u0627\u0641\u0632\u0648\u062F\u0646 \u0642\u0627\u0646\u0648\u0646"),
+                            (current.rules || []).map((rule, ri) => {
+                                var _a, _b;
+                                const groupKey = ((_a = rule.when) === null || _a === void 0 ? void 0 : _a.any) ? "any" : "all", parts = ((_b = rule.when) === null || _b === void 0 ? void 0 : _b[groupKey]) || [rule.when];
+                                return React.createElement("div", { key: ri, style: { border: "1px solid var(--line)", padding: 10, borderRadius: 10, marginTop: 9 } },
+                                    React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
+                                        React.createElement("select", { className: "input", "aria-label": "\u0639\u0645\u0644 \u0642\u0627\u0646\u0648\u0646", value: rule.action, onChange: e => editRule(ri, r => r.action = e.target.value) }, actions.map(([v, t]) => React.createElement("option", { key: v, value: v }, t))),
+                                        React.createElement("select", { className: "input", "aria-label": "\u062A\u0631\u06A9\u06CC\u0628 \u0634\u0631\u0637\u200C\u0647\u0627", value: groupKey, onChange: e => editRule(ri, r => r.when = { [e.target.value]: parts }) },
+                                            React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0634\u0631\u0648\u0637 (AND)"),
+                                            React.createElement("option", { value: "any" }, "\u06CC\u06A9\u06CC \u0627\u0632 \u0634\u0631\u0648\u0637 (OR)")),
+                                        React.createElement("button", { className: "btn g", onClick: () => editField("rules", current.rules.filter((_, i) => i !== ri)) }, "\u062D\u0630\u0641 \u0642\u0627\u0646\u0648\u0646")),
+                                    parts.map((part, pi) => {
+                                        var _a;
+                                        return React.createElement("div", { key: pi, style: { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 } },
+                                            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062F \u0634\u0631\u0637", value: part.field, onChange: e => editRule(ri, r => r.when[groupKey][pi].field = e.target.value) }, fields.filter(f => f.key !== selected).map(f => React.createElement("option", { key: f.key, value: f.key }, f.label))),
+                                            React.createElement("select", { className: "input", "aria-label": "\u0639\u0645\u0644\u06AF\u0631 \u0634\u0631\u0637", value: part.op, onChange: e => editRule(ri, r => r.when[groupKey][pi].op = e.target.value) }, operators.map(([v, t]) => React.createElement("option", { key: v, value: v }, t))),
+                                            !["empty", "not_empty", "true", "false"].includes(part.op) && React.createElement("input", { className: "input", "aria-label": "\u0645\u0642\u062F\u0627\u0631 \u0634\u0631\u0637", placeholder: "\u0645\u0642\u062F\u0627\u0631", value: Array.isArray(part.value) ? part.value.join("|") : (_a = part.value) !== null && _a !== void 0 ? _a : "", onChange: e => editRule(ri, r => r.when[groupKey][pi].value = ["in", "not_in", "date_between", "date_outside"].includes(part.op) ? e.target.value.split("|") : e.target.value) }),
+                                            React.createElement("button", { className: "btn g", onClick: () => editRule(ri, r => r.when[groupKey].splice(pi, 1)), disabled: parts.length < 2 }, "\u00D7"));
+                                    }),
+                                    React.createElement("button", { className: "btn g", style: { marginTop: 6 }, onClick: () => editRule(ri, r => { var _a; return r.when[groupKey].push({ field: (_a = fields.find(f => f.key !== selected)) === null || _a === void 0 ? void 0 : _a.key, op: "eq", value: "" }); }) }, "+ \u0634\u0631\u0637 \u062F\u06CC\u06AF\u0631"));
+                            })))));
+}
 function Settings() {
     var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v, _w, _x, _y, _z, _0;
     const [v, setV] = useState(null);
@@ -8966,6 +9309,7 @@ function Settings() {
             visitedTabs.includes("fields") && React.createElement("div", { id: "settings-section-17", className: "panel t-fields" },
                 React.createElement("h3", null, "\uD83D\uDDC2 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644"),
                 React.createElement(CustomFieldsManager, null),
+                React.createElement(UserProfileFormDesigner, null),
                 React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
                     React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 6 } },
                         React.createElement("input", { type: "checkbox", checked: !!v.require_complete_profile_login, onChange: e => set("require_complete_profile_login", e.target.checked) }),
