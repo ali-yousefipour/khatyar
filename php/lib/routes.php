@@ -1894,6 +1894,59 @@ route('PUT', '/api/me/complete-profile', function($p,$b,$u){
   }
 }, false);
 
+// ==================== مدارک محرمانهٔ اطلاعات کاربران ====================
+route('POST', '/api/me/profile-attachment/{field_id}', function($p,$b,$u){
+  if(_req_setting('allow_android_profile_edit',true)!==true)
+    Http::error('ویرایش مدارک پرسنلی توسط مدیر غیرفعال شده است',403);
+  require_once __DIR__.'/UserProfileAttachments.php';
+  $fid=(int)$p['field_id'];$uid=(int)$u['id'];
+  try{
+    $field=UserProfileAttachments::definition($fid,$uid,true,true);
+    return UserProfileAttachments::save($uid,$fid,$uid,$_FILES['file']??[],(string)$field['type']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),422);}
+  catch(RuntimeException $error){error_log('profile attachment save unavailable: '.get_class($error));Http::error('ذخیره امن مدرک در سرور در دسترس نیست',503);}
+},false);
+
+route('GET', '/api/me/profile-attachment/{field_id}/status', function($p,$b,$u){
+  require_once __DIR__.'/UserProfileAttachments.php';
+  try{
+    UserProfileAttachments::definition((int)$p['field_id'],(int)$u['id'],false,true);
+    return UserProfileAttachments::status((int)$u['id'],(int)$p['field_id']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),404);}
+},false);
+route('GET', '/api/me/profile-attachment/{field_id}', function($p,$b,$u){
+  require_once __DIR__.'/UserProfileAttachments.php';
+  try{
+    UserProfileAttachments::definition((int)$p['field_id'],(int)$u['id'],false,true);
+    UserProfileAttachments::send((int)$u['id'],(int)$p['field_id']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),404);}
+},false);
+
+route('POST', '/api/admin/users/{id}/profile-attachment/{field_id}', function($p,$b,$u){
+  require_once __DIR__.'/UserProfileAttachments.php';
+  $uid=(int)$p['id'];$fid=(int)$p['field_id'];
+  try{
+    $field=UserProfileAttachments::definition($fid,$uid,true,false);
+    return UserProfileAttachments::save($uid,$fid,(int)$u['id'],$_FILES['file']??[],(string)$field['type']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),422);}
+  catch(RuntimeException $error){error_log('admin profile attachment save unavailable: '.get_class($error));Http::error('ذخیره امن مدرک در سرور در دسترس نیست',503);}
+},false,ADMIN);
+
+route('GET', '/api/admin/users/{id}/profile-attachment/{field_id}/status', function($p,$b,$u){
+  require_once __DIR__.'/UserProfileAttachments.php';
+  try{
+    UserProfileAttachments::definition((int)$p['field_id'],(int)$p['id'],false,false);
+    return UserProfileAttachments::status((int)$p['id'],(int)$p['field_id']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),404);}
+},false,ADMIN);
+route('GET', '/api/admin/users/{id}/profile-attachment/{field_id}', function($p,$b,$u){
+  require_once __DIR__.'/UserProfileAttachments.php';
+  try{
+    UserProfileAttachments::definition((int)$p['field_id'],(int)$p['id'],false,false);
+    UserProfileAttachments::send((int)$p['id'],(int)$p['field_id']);
+  }catch(InvalidArgumentException $error){Http::error($error->getMessage(),404);}
+},false,ADMIN);
+
 // ==================== حالت تعمیر (قطع دسترسی همه بجز مدیران) ====================
 function _maintenance_status(){
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'");
