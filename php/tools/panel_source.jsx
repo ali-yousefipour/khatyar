@@ -6612,7 +6612,7 @@ function CustomFieldInput({field,value,onChange}){
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
 function CustomFieldsFiller({userId}){
   const [fields,setFields]=useState(null); const [vals,setVals]=useState({}); const [originalVals,setOriginalVals]=useState({}); const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [open,setOpen]=useState(false);
-  useEffect(()=>{setOpen(false);setFields(null);setVals({});setOriginalVals({});setError("");},[userId]);
+  useEffect(()=>{setOpen(true);setFields(null);setVals({});setOriginalVals({});setError("");if(userId)load();},[userId]);
   const load=()=>{setOpen(true);setError("");db.customFields().then(fs=>{
     setFields((fs||[]).filter(f=>Number(f.is_active)!==0));
     if(userId)db.userCustomValues(userId).then(vs=>{
@@ -6635,7 +6635,8 @@ function CustomFieldsFiller({userId}){
   };
   if(!userId) return null;
   return(<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>
-    {!open?<button className="btn g" type="button" onClick={load}>اطلاعات تکمیلی (فیلدهای سفارشی)</button>:
+    <h4>اطلاعات تکمیلی پرسنل</h4>
+    {!open?<button className="btn g" type="button" onClick={load}>بارگذاری اطلاعات تکمیلی</button>:
      fields===null?<span className="muted">در حال بارگذاری…</span>:
      fields.length===0?<p className="muted" style={{fontSize:12}}>فیلد سفارشی‌ای تعریف نشده است. از منوی «فیلدهای سفارشی» اضافه کنید.</p>:
      <div>
