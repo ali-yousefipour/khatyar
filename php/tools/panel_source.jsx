@@ -1803,6 +1803,7 @@ function Users(){
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
   const [usersLoading,setUsersLoading]=useState(false); const [usersError,setUsersError]=useState("");
   const [savingUser,setSavingUser]=useState(false); const [exportingUsers,setExportingUsers]=useState(false);
+  const customSaveRef=useRef(null);
   const [identityAudit,setIdentityAudit]=useState(null),[identityAuditQ,setIdentityAuditQ]=useState(""),[identityAuditBusy,setIdentityAuditBusy]=useState(false);
   const requestSeq=useRef(0);
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>(x[k]===""||x[k]==null)&&delete x[k]);return x;};
@@ -1826,6 +1827,7 @@ function Users(){
       setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:persisted.employment_start_date||'',employment_end_date:persisted.employment_end_date||''}:current);
       return;
     }
+    if(customSaveRef.current){const customSaved=await customSaveRef.current();if(customSaved===false)throw new Error("ذخیره اطلاعات تکمیلی انجام نشد؛ مقادیر اصلاح‌شده در فرم حفظ شدند.");}
     if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); await reload(); }catch(error){alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}finally{setSavingUser(false);} };
   const add=async u=>{ const r=await db.createUser(u); setAdding(false); reload(); if(r&&r.sms_sent) alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
   const auditAllUsers=async()=>{
@@ -1997,7 +1999,7 @@ function Users(){
         <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
       </div>
       <div style={{display:editTab==="custom"?"block":"none"}}>
-        <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit}/>
+        <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit} saveRef={customSaveRef}/>
       </div>
       </div>}
       {editTab==="access"&&<>
@@ -6771,7 +6773,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
   </div>;
 }
 
-function CustomFieldsFiller({userId,profile}){
+function CustomFieldsFiller({userId,profile,saveRef=null}){
   const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null);
   const [attachmentPresence,setAttachmentPresence]=useState({});
@@ -6814,7 +6816,7 @@ function CustomFieldsFiller({userId,profile}){
     return groups;
   },[]);
   const save=async()=>{
-    if(busy)return;
+    if(busy||fields===null)return false;
     const changed={};
     for(const field of visible){
       const state=fieldState(field);
@@ -6822,15 +6824,16 @@ function CustomFieldsFiller({userId,profile}){
       const id=field.id,value=vals[id];
       if(String(value??"")!==String(originalVals[id]??""))changed[id]=value??"";
     }
-    if(!Object.keys(changed).length)return;
+    if(!Object.keys(changed).length)return true;
     setBusy(true);setError("");
     try{
       await db.saveUserCustomValues(userId,changed);
       setOriginalVals({...vals});
-      alert("اطلاعات تکمیلی ذخیره شد.");
-    }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");}
+      return true;
+    }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");return false;}
     finally{setBusy(false);}
   };
+  useEffect(()=>{if(saveRef)saveRef.current=save;return()=>{if(saveRef&&saveRef.current===save)saveRef.current=null;};},[saveRef,save]);
   if(!userId)return null;
   return <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--line)"}}>
     <h4>اطلاعات تکمیلی پرسنل</h4>
