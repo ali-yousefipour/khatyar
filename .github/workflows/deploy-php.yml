@@ -885,7 +885,8 @@ jobs:
           done
 
       - name: Smoke-test production API and login routes
-        if: ${{ always() }}
+        # Avoid misreporting the website as unhealthy when upload never reached the host.
+        if: ${{ success() && env.SKIP_HOST_UPLOAD != 'true' }}
         shell: bash
         run: |
           set -uo pipefail
