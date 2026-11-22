@@ -22,6 +22,37 @@ function JDateInput({ value, onChange }) {
 
 export function FieldInput({ field, value, onChange, onBlur }) {
   const opts = (field.options || '').split('|').filter(Boolean);
+  if (field.ftype === 'repeater') {
+    let settings={};
+    try{settings=JSON.parse(field.options||'{}')||{};}catch(_){}
+    const definition=field.profile_definition||{};
+    const columns=Array.isArray(definition.columns)?definition.columns:
+      (Array.isArray(settings.columns)?settings.columns:[]);
+    const maxRows=Math.min(20,Math.max(1,Number(definition.max_rows??settings.max_rows??12)||12));
+    let rows=[];
+    try{const parsed=JSON.parse(String(value||'[]'));if(Array.isArray(parsed))rows=parsed;}catch(_){}
+    const write=next=>onChange(JSON.stringify(next));
+    return <View style={{gap:10}}>
+      {rows.map((row,index)=><View key={index} style={{padding:12,borderWidth:1,borderColor:C.line,borderRadius:12,backgroundColor:'#fff'}}>
+        <Text style={[s.sectionT,{marginBottom:10}]}>ردیف {index+1}</Text>
+        {columns.map(col=><View key={col.key} style={{marginBottom:10}}>
+          <Text style={s.label}>{col.label}{col.required?' *':''}</Text>
+          <FieldInput field={{ftype:col.type,options:(col.options||[]).join('|'),label:col.label}}
+            value={row?.[col.key]??''}
+            onChange={v=>write(rows.map((item,i)=>i===index?{...item,[col.key]:v}:item))}/>
+        </View>)}
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="حذف این ردیف"
+          onPress={()=>write(rows.filter((_,i)=>i!==index))} style={s.btnGhost}>
+          <Text style={s.btnGhostTxt}>حذف ردیف {index+1}</Text>
+        </TouchableOpacity>
+      </View>)}
+      {rows.length<maxRows&&columns.length>0&&<TouchableOpacity accessibilityRole="button"
+        style={[s.btn,{marginTop:0}]} onPress={()=>write([...rows,{}])}>
+        <Text style={s.btnTxt}>+ افزودن ردیف ({rows.length} از {maxRows})</Text>
+      </TouchableOpacity>}
+      {!columns.length&&<Text style={s.muted}>ستون‌های این گروه در فرم‌ساز تعریف نشده‌اند.</Text>}
+    </View>;
+  }
   if (field.ftype === 'textarea' || field.ftype === 'address')
     return <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} multiline value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
   if (field.ftype === 'time')
