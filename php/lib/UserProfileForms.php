@@ -114,6 +114,21 @@ final class UserProfileForms {
     Db::run("INSERT INTO user_form_audit_logs(form_id,actor_id,action,metadata_json) VALUES(?,?,?,?)",[(int)$id,$actor,'save_draft','{}']);
     return ['ok'=>true,'revision'=>$next];
   }
+  public static function versions(): array {
+    if(!self::available())return [];
+    return Db::all('SELECT v.version,v.published_by,v.published_at FROM user_form_versions v JOIN user_form_definitions f ON f.id=v.form_id WHERE f.form_key=? ORDER BY v.version DESC LIMIT 100',[self::KEY]);
+  }
+  public static function restoreDraft(int $version,int $revision,int $actor): array {
+    if($version<1||!self::available())throw new DomainException('نسخه معتبر نیست');
+    $row=Db::one('SELECT v.schema_json FROM user_form_versions v JOIN user_form_definitions f ON f.id=v.form_id WHERE f.form_key=? AND v.version=?',[self::KEY,$version]);
+    if(!$row)throw new DomainException('نسخه قدیمی یافت نشد');
+    $schema=json_decode($row['schema_json'],true,512,JSON_THROW_ON_ERROR);
+    $result=self::saveDraft($schema,$revision,$actor);
+    $id=self::definition()['id'];
+    Db::run("INSERT INTO user_form_audit_logs(form_id,actor_id,action,version,metadata_json) VALUES(?,?,?,?,?)",
+      [(int)$id,$actor,'restore_draft',$version,'{}']);
+    return $result+['restored_from'=>$version,'schema'=>$schema];
+  }
   public static function publish(int $revision,int $actor): array {
     if(!self::available())throw new RuntimeException('مهاجرت فرم‌ساز اجرا نشده است');
     $pdo=Db::pdo();$pdo->beginTransaction();
