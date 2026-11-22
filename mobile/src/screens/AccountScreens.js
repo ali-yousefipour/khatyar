@@ -225,10 +225,12 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
     }).catch(() => { setZoneChief(null); setZoneInspectors([]); }).finally(() => setLoadingZ(false));
   }, [zoneId]);
   if (!p) return <View style={s.center}><Text style={s.muted}>در حال بارگذاری…</Text></View>;
-  const set = (k, v) => setP({ ...p, [k]: v });
+  const set = (k, v) => { if(p.profile_edit_allowed===false)return; setP({ ...p, [k]: v }); };
+  const profileReadOnly=p.profile_edit_allowed===false;
   const toggleInspector = (id) => setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
   const notFoundMsg = () => Alert.alert('بازرس پیدا نشد', 'اگر بازرس شما در فهرست نیست، لطفاً با بازرس خود تماس بگیرید و با ایشان هماهنگ کنید که ابتدا منطقه و مسئول بالادستی خود را در برنامه انتخاب کند تا نامش به فهرست بازرسین این منطقه اضافه شود. سپس این صفحه را دوباره بررسی کنید.');
   async function save() {
+    if(p?.profile_edit_allowed===false){Alert.alert('فقط مشاهده','مدیر سامانه امکان ویرایش اطلاعات پرسنلی را غیرفعال کرده است.');return;}
     const national=normalizeIranianDigits(p?.national_code||'');
     const validation=validateUserInput({national_code:national});
     if(national && !validation.valid){
@@ -253,6 +255,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   return (
     <ScrollView style={{ backgroundColor: CC.paper }} contentContainerStyle={s.formContent} keyboardShouldPersistTaps="handled">
       <AccountFormHeader section="حساب کاربری" title="ویرایش اطلاعات من" description="اطلاعات تماس، مشخصات فردی و اطلاعات سازمانی خود را مرور و به‌روز کنید." />
+      {profileReadOnly&&<Text accessibilityRole="alert" style={s.muted}>ویرایش اطلاعات توسط مدیر سامانه غیرفعال شده است؛ اطلاعات فعلاً فقط برای مشاهده هستند.</Text>}
       {vehicleAction}
       <Text style={s.label}>نام</Text>
       <TextInput style={[s.input, s.ro]} value={`${p.first_name || ''} ${p.last_name || ''}`} editable={false} />
@@ -264,7 +267,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       <TextInput style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
       {nationalTouched && !!p.national_code && <Text accessibilityRole="alert" style={{color:validateNationalId(p.national_code).valid?CC.muted:'#b91c1c',textAlign:'right',marginTop:4}}>{validateNationalId(p.national_code).valid?'✓ ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است.':validateNationalId(p.national_code).errors[0]}</Text>}
       <Text style={s.label}>تاریخ تولد</Text>
-      <TouchableOpacity style={[s.input, s.dateInput]} onPress={() => setBirthPickerOpen(true)}>
+      <TouchableOpacity style={[s.input, s.dateInput]} disabled={profileReadOnly} onPress={() => setBirthPickerOpen(true)}>
         <Text style={p.birth_date ? s.dateTxt : s.datePlaceholder}>{p.birth_date ? cleanJDateLabel(p.birth_date) : 'انتخاب تاریخ تولد'}</Text>
       </TouchableOpacity>
       <JDatePicker visible={birthPickerOpen} initial={parseJDate(p.birth_date) || null} minYear={1300} maxYear={1410} onClose={() => setBirthPickerOpen(false)} onSelect={(d) => set('birth_date', `${d.jy}-${String(d.jm).padStart(2, '0')}-${String(d.jd).padStart(2, '0')}`)} />
@@ -279,7 +282,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       <TouchableOpacity style={s.supplementaryBtn} onPress={() => navigation.navigate('CustomFields')}>
         <View style={{ flex: 1 }}><Text style={s.supplementaryTitle}>اطلاعات تکمیلی من</Text><Text style={s.supplementaryHint}>مشاهده و تکمیل اطلاعات سازمانی و اختصاصی</Text></View><Text style={s.supplementaryArrow}>‹</Text>
       </TouchableOpacity>
-      {zoneOpts?.enabled && (
+      {zoneOpts?.enabled && !profileReadOnly && (
         <View style={s.zoneBox}>
           <Text style={s.zoneTitle}>منطقه و بازرسان</Text>
           <Text style={s.label}>۱) ابتدا منطقهٔ خود را انتخاب کنید</Text>
@@ -302,8 +305,8 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
           <Text style={s.zoneHint}>این انتخاب‌ها به‌صورت خودکار در چارت سازمانی و منطقه‌بندی نیروها اعمال می‌شوند.</Text>
         </View>
       )}
-      <SignaturePad value={p.signature_data || null} onChange={(v) => set('signature_data', v)} />
-      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={save}><Text style={s.btnTxt}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ اطلاعات'}</Text></TouchableOpacity>
+      {!profileReadOnly&&<SignaturePad value={p.signature_data || null} onChange={(v) => set('signature_data', v)} />}
+      {!profileReadOnly&&<TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={save}><Text style={s.btnTxt}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ اطلاعات'}</Text></TouchableOpacity>}
     </ScrollView>
   );
 }
