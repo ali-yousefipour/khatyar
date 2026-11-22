@@ -359,7 +359,7 @@ class CompanyWork {
       }
       $fileIds[$uid]=true;
       $person=$byId[$uid];
-      if(!(int)($person['is_active']??0)){
+      if(array_key_exists('is_active',$person) && !(int)$person['is_active']){
         $r['errors'][]='کاربر در سامانه غیرفعال است؛ وضعیت همکاری و کارکرد دوره بررسی شود';
         $discrepancies['inactive_in_file'][]=['source_row'=>$r['source_row']??null,'user_id'=>$uid,'name'=>trim($person['first_name'].' '.$person['last_name']),'personnel_code'=>$person['personnel_code']];
       }
@@ -375,7 +375,6 @@ class CompanyWork {
         'name'=>$person?trim($person['first_name'].' '.$person['last_name']):'کاربر فاقد پرونده',
         'personnel_code'=>$person['personnel_code']??''];
     }
-    $collectStage='staff_reconciliation';
     $collectStage='account_field';
     $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
     $collectStage='account_values';
@@ -443,6 +442,7 @@ class CompanyWork {
       try{
         $r=array_merge($r,self::metrics($u,$report,$requests,$year,$month,$today));
         $r['notes']=self::workNotes($u,$requests,$year,$month,$r['recorded_absence_days']??$r['absence_days']);
+        if($r['child_allowance_warning'])$r['notes'].=($r['notes']!==''?'؛ ':'').$r['child_allowance_warning'];
       }catch(PayrollError $e){$r['errors'][]=$e->getMessage();}
       if($r['errors'])$hasErrors=true;
     }unset($r);
