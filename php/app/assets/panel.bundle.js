@@ -3565,7 +3565,7 @@ function Users() {
                     " \u00B7 \u0646\u0633\u062E\u0647\u0654 \u0628\u0631\u0646\u0627\u0645\u0647: ",
                     edit.app_version || "—"),
                 React.createElement(PayrollEditor, { userId: edit.id, userName: `${edit.first_name || ""} ${edit.last_name || ""}`.trim() }),
-                React.createElement(CustomFieldsFiller, { userId: edit.id }),
+                React.createElement(CustomFieldsFiller, { key: edit.id, userId: edit.id, profile: edit }),
                 React.createElement("label", null, "\u0622\u062F\u0631\u0633 \u0645\u062D\u0644 \u0633\u06A9\u0648\u0646\u062A"),
                 React.createElement("textarea", { className: "input", rows: "2", value: edit.address || "", onChange: e => setEdit({ ...edit, address: e.target.value }) })),
             editTab === "access" && React.createElement(React.Fragment, null,
@@ -11414,38 +11414,165 @@ function CustomFieldInput({ field, value, onChange }) {
     return React.createElement("input", { className: "input", value: value || "", onChange: e => onChange(e.target.value) });
 }
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
-function CustomFieldsFiller({ userId }) {
-    const [fields, setFields] = useState(null);
-    const [vals, setVals] = useState({});
-    const [originalVals, setOriginalVals] = useState({});
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState("");
-    const [open, setOpen] = useState(false);
-    useEffect(() => { setOpen(true); setFields(null); setVals({}); setOriginalVals({}); setError(""); if (userId)
-        load(); }, [userId]);
-    const load = () => {
-        setOpen(true);
-        setError("");
-        db.customFields().then(fs => {
-            setFields((fs || []).filter(f => Number(f.is_active) !== 0));
-            if (userId)
-                db.userCustomValues(userId).then(vs => {
-                    const m = {};
-                    (vs || []).forEach(v => { var _a; const id = Number((_a = v.field_id) !== null && _a !== void 0 ? _a : v.id); if (Number.isSafeInteger(id) && id > 0)
-                        m[id] = v.value; });
-                    setVals(m);
-                    setOriginalVals(m);
-                }).catch(e => setError(e.message || "دریافت اطلاعات تکمیلی ناموفق بود."));
-        }).catch(e => { setFields([]); setError(e.message || "دریافت فهرست فیلدها ناموفق بود."); });
+/** Pure preview evaluation for the admin's published personnel form. */
+function adminProfileCondition(rule, values) {
+    if (!rule || typeof rule !== "object")
+        return false;
+    if (Array.isArray(rule.all))
+        return rule.all.length > 0 && rule.all.every(part => adminProfileCondition(part, values));
+    if (Array.isArray(rule.any))
+        return rule.any.length > 0 && rule.any.some(part => adminProfileCondition(part, values));
+    const actual = values[rule.field], desired = rule.value;
+    const empty = actual == null || actual === "" || (Array.isArray(actual) && actual.length === 0);
+    const numeric = value => {
+        if (value == null || typeof value === "boolean" || typeof value === "object")
+            return null;
+        const raw = String(value).replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+            .replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).trim();
+        return /^-?\d+(?:\.\d+)?$/.test(raw) ? Number(raw) : null;
     };
+    const date = value => {
+        if (typeof value !== "string")
+            return null;
+        const raw = value.replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+            .replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\//g, "-");
+        const m = /^(1[34]\d{2})-(\d{2})-(\d{2})$/.exec(raw);
+        if (!m)
+            return null;
+        const month = Number(m[2]), day = Number(m[3]);
+        return month >= 1 && month <= 12 && day >= 1 && day <= (month <= 6 ? 31 : 30) ? raw : null;
+    };
+    switch (rule.op) {
+        case "empty": return empty;
+        case "not_empty": return !empty;
+        case "true": return actual === true || actual === 1 || actual === "1";
+        case "false": return actual === false || actual === 0 || actual === "0" || empty;
+        case "eq": return !empty && actual != null && desired != null && typeof actual !== "object" && typeof desired !== "object" && String(actual) === String(desired);
+        case "neq": return empty || actual == null || desired == null || typeof actual === "object" || typeof desired === "object" || String(actual) !== String(desired);
+        case "contains": return Array.isArray(actual) ? actual.includes(desired) : String(actual !== null && actual !== void 0 ? actual : "").includes(String(desired !== null && desired !== void 0 ? desired : ""));
+        case "not_contains": return Array.isArray(actual) ? !actual.includes(desired) : !String(actual !== null && actual !== void 0 ? actual : "").includes(String(desired !== null && desired !== void 0 ? desired : ""));
+        case "in":
+        case "not_in": {
+            if (!Array.isArray(desired))
+                return false;
+            const chosen = Array.isArray(actual) ? actual.map(String) : empty ? [] : String(actual).split("|");
+            const matches = chosen.some(x => desired.map(String).includes(x));
+            return rule.op === "in" ? matches : !matches;
+        }
+        case "gt":
+        case "gte":
+        case "lt":
+        case "lte": {
+            const a = numeric(actual), b = numeric(desired);
+            if (a === null || b === null)
+                return false;
+            return rule.op === "gt" ? a > b : rule.op === "gte" ? a >= b : rule.op === "lt" ? a < b : a <= b;
+        }
+        case "date_between":
+        case "date_outside": {
+            const a = date(actual), lo = date(desired === null || desired === void 0 ? void 0 : desired[0]), hi = date(desired === null || desired === void 0 ? void 0 : desired[1]);
+            if (!a || !lo || !hi || lo > hi)
+                return false;
+            const matched = a >= lo && a <= hi;
+            return rule.op === "date_between" ? matched : !matched;
+        }
+        default: return false;
+    }
+}
+function adminProfileFieldState(field, values) {
+    const state = { visible: field.visible !== false && field.web_visible !== false,
+        enabled: field.enabled !== false, required: !!field.required, readonly: !!field.admin_readonly };
+    for (const rule of field.rules || []) {
+        if (!adminProfileCondition(rule.when, values))
+            continue;
+        if (rule.action === "show")
+            state.visible = true;
+        if (rule.action === "hide")
+            state.visible = false;
+        if (rule.action === "enable")
+            state.enabled = true;
+        if (rule.action === "disable")
+            state.enabled = false;
+        if (rule.action === "require")
+            state.required = true;
+        if (rule.action === "optional")
+            state.required = false;
+        if (rule.action === "readonly")
+            state.readonly = true;
+        if (rule.action === "editable")
+            state.readonly = false;
+    }
+    if (field.web_visible === false)
+        state.visible = false;
+    if (!state.visible || !state.enabled || state.readonly)
+        state.required = false;
+    return state;
+}
+function CustomFieldsFiller({ userId, profile }) {
+    const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null);
+    const load = async () => {
+        var _a, _b;
+        setError("");
+        setFields(null);
+        try {
+            const [list, existing, form] = await Promise.all([
+                db.customFields(), db.userCustomValues(userId), GET('/my/user-profile-form').catch(() => null)
+            ]);
+            const active = (list || []).filter(f => Number(f.is_active) !== 0);
+            const defs = (((_a = form === null || form === void 0 ? void 0 : form.schema) === null || _a === void 0 ? void 0 : _a.sections) || []).flatMap(section => (section.fields || []).map(field => ({ ...field, group: section.title || "اطلاعات تکمیلی" })));
+            const byId = new Map(defs.filter(f => f.binding === "custom").map(f => [Number(f.custom_field_id), f]));
+            const order = new Map(defs.filter(f => f.binding === "custom").map((f, i) => [Number(f.custom_field_id), i]));
+            setFields(active.map(field => {
+                const definition = byId.get(Number(field.id));
+                return definition ? { ...field, label: definition.label || field.label,
+                    ftype: definition.type || field.ftype,
+                    profile_definition: definition,
+                    group: definition.group,
+                    options: definition.type === "repeater" ? field.options :
+                        Array.isArray(definition.options) ? definition.options.join("|") : field.options
+                } : { ...field, group: "سایر اطلاعات تکمیلی", profile_definition: (form === null || form === void 0 ? void 0 : form.schema) ? { web_visible: false } : null };
+            }).sort((a, b) => { var _a, _b; return ((_a = order.get(Number(a.id))) !== null && _a !== void 0 ? _a : 100000) - ((_b = order.get(Number(b.id))) !== null && _b !== void 0 ? _b : 100000); }));
+            const m = {};
+            for (const row of existing || []) {
+                const id = Number((_b = row.field_id) !== null && _b !== void 0 ? _b : row.id);
+                if (Number.isSafeInteger(id) && id > 0)
+                    m[id] = row.value;
+            }
+            setVals(m);
+            setOriginalVals({ ...m });
+            setSchema((form === null || form === void 0 ? void 0 : form.schema) || null);
+        }
+        catch (e) {
+            setFields([]);
+            setError(e.message || "دریافت اطلاعات تکمیلی ناموفق بود.");
+        }
+    };
+    useEffect(() => { setVals({}); setOriginalVals({}); setSchema(null); if (userId)
+        load(); }, [userId]);
+    const values = { ...(profile || {}), ...Object.fromEntries(Object.entries(vals).map(([id, value]) => ["cf_" + id, value])) };
+    const fieldState = field => adminProfileFieldState(field.profile_definition || field, values);
+    const visible = (fields || []).filter(field => fieldState(field).visible);
+    const sections = visible.reduce((groups, field) => {
+        const title = field.group || "اطلاعات تکمیلی";
+        if (!groups.some(group => group.title === title))
+            groups.push({ title, fields: [] });
+        groups.find(group => group.title === title).fields.push(field);
+        return groups;
+    }, []);
     const save = async () => {
         var _a;
         if (busy)
             return;
         const changed = {};
-        for (const [id, value] of Object.entries(vals))
+        for (const field of visible) {
+            const state = fieldState(field);
+            if (!state.enabled || state.readonly)
+                continue;
+            const id = field.id, value = vals[id];
             if (String(value !== null && value !== void 0 ? value : "") !== String((_a = originalVals[id]) !== null && _a !== void 0 ? _a : ""))
-                changed[id] = value;
+                changed[id] = value !== null && value !== void 0 ? value : "";
+        }
         if (!Object.keys(changed).length)
             return;
         setBusy(true);
@@ -11464,20 +11591,26 @@ function CustomFieldsFiller({ userId }) {
     };
     if (!userId)
         return null;
-    return (React.createElement("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" } },
+    return React.createElement("div", { style: { marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" } },
         React.createElement("h4", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u067E\u0631\u0633\u0646\u0644"),
-        !open ? React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC") :
-            fields === null ? React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") :
-                fields.length === 0 ? React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0641\u06CC\u0644\u062F \u0633\u0641\u0627\u0631\u0634\u06CC\u200C\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0632 \u0645\u0646\u0648\u06CC \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC\u00BB \u0627\u0636\u0627\u0641\u0647 \u06A9\u0646\u06CC\u062F.") :
-                    React.createElement("div", null,
-                        fields.map(f => React.createElement("div", { key: f.id, style: { marginBottom: 8 } },
+        fields === null ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC\u2026") :
+            sections.length === 0 ? React.createElement("p", { className: "muted" }, "\u0641\u06CC\u0644\u062F \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0642\u0627\u0628\u0644 \u0646\u0645\u0627\u06CC\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.") :
+                sections.map(section => React.createElement("section", { key: section.title, className: "card-p", style: { padding: 12, marginTop: 10 } },
+                    React.createElement("h5", null, section.title),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))", gap: 12 } }, section.fields.map(field => {
+                        var _a, _b;
+                        const state = fieldState(field);
+                        return React.createElement("div", { key: field.id, style: { minWidth: 0 } },
                             React.createElement("label", { className: "label" },
-                                f.label,
-                                f.required == 1 ? " *" : "",
-                                f.user_editable == 1 ? "" : " 🔒"),
-                            React.createElement(CustomFieldInput, { field: f, value: vals[f.id], onChange: v => setVals({ ...vals, [f.id]: v }) }))),
-                        error && React.createElement("p", { role: "alert", className: "muted", style: { color: "var(--danger,#b42318)" } }, error),
-                        React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیرهٔ اطلاعات تکمیلی"))));
+                                field.label,
+                                state.required ? " *" : "",
+                                !state.enabled || state.readonly ? " (فقط نمایش)" : ""),
+                            state.enabled && !state.readonly ?
+                                React.createElement(CustomFieldInput, { field: field, value: (_a = vals[field.id]) !== null && _a !== void 0 ? _a : "", onChange: value => setVals(current => ({ ...current, [field.id]: value })) }) :
+                                React.createElement("p", { style: { whiteSpace: "pre-wrap" } }, String((_b = vals[field.id]) !== null && _b !== void 0 ? _b : "—")));
+                    })))),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)" } }, error),
+        !!sections.length && React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیره اطلاعات تکمیلی"));
 }
 // تنظیمات کلی حقوق (نرخ ساعت و ضرایب)
 function PayrollSettings({ v, set, save }) {
