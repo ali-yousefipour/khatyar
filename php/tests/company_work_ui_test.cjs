@@ -55,6 +55,7 @@ const settle=()=>new Promise(r=>setImmediate(r));
   // second, explicit download action in its details dialog.
   const downloadBefore=downloads.filter(x=>x[0]==='download').length;
   response=async(url,options)=>{
+    if(url.includes('/sources/1/preview'))return ok({rows:[row],has_errors:false,requires_confirmation:true,preview_only:true,account_field:{label:'شماره حساب'}});
     if(url.includes('/sources/1/generate'))return ok({generated:true,id:41,snapshot:{rows:[row],has_errors:false,account_field:{label:'شماره حساب'}}});
     if(url.includes('/files/41/download'))return {ok:true,headers:{get:()=> 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},blob:async()=>({size:512})};
     return ok(archive);
