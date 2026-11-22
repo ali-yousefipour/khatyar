@@ -27,6 +27,32 @@ jobs:
           python3 audit/advanced_inventory.py
           python3 audit/independent_loc.py
           python3 audit/ui_catalog.py
+      - name: Upload source snapshot for in-depth static audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-source-review-snapshot
+          retention-days: 3
+          path: |
+            mobile/src/
+            mobile/App.js
+            mobile/package.json
+            mobile/app.config.js
+            mobile/plugins/
+            php/lib/
+            php/tools/
+            php/app/*.html
+            php/app/*.php
+            php/app/assets/*.js
+            php/app/assets/*.css
+            php/db/
+            db/
+            backend/src/
+            backend/package.json
+            .github/workflows/
+            !**/.env
+            !**/*.key
+            !**/*.pem
+            !**/vendor/**
       - name: Upload complete audit data
         uses: actions/upload-artifact@v4
         with:
