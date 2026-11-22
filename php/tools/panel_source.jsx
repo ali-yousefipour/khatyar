@@ -6616,7 +6616,7 @@ function CustomFieldsFiller({userId}){
   const load=()=>{setOpen(true);setError("");db.customFields().then(fs=>{
     setFields((fs||[]).filter(f=>Number(f.is_active)!==0));
     if(userId)db.userCustomValues(userId).then(vs=>{
-      const m={};(vs||[]).forEach(v=>m[v.field_id]=v.value);setVals(m);setOriginalVals(m);
+      const m={};(vs||[]).forEach(v=>{const id=Number(v.field_id??v.id);if(Number.isSafeInteger(id)&&id>0)m[id]=v.value;});setVals(m);setOriginalVals(m);
     }).catch(e=>setError(e.message||"دریافت اطلاعات تکمیلی ناموفق بود."));
   }).catch(e=>{setFields([]);setError(e.message||"دریافت فهرست فیلدها ناموفق بود.");});};
   const save=async()=>{
