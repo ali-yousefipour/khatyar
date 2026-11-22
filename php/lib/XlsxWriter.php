@@ -53,7 +53,7 @@ class XlsxWriter {
    */
   function setImage($rowIdx, $colIdx, $bytes, $maxBoxPx = 90) {
     if (!$bytes) return;
-    $w = $h = $maxBoxPx; $jpeg = $bytes; $ext = 'jpeg';
+    $w = $h = $maxBoxPx; $jpeg = $bytes; $ext = str_starts_with($bytes, "\x89PNG\r\n\x1a\n") ? 'png' : 'jpeg';
     if (function_exists('imagecreatefromstring')) {
       $img = @imagecreatefromstring($bytes);
       if ($img !== false) {
@@ -70,6 +70,7 @@ class XlsxWriter {
         imagecopy($canvas, $img, 0, 0, 0, 0, $ow, $oh);
         imagejpeg($canvas, null, 85);
         $jpeg = ob_get_clean();
+        $ext = 'jpeg';
         imagedestroy($canvas); imagedestroy($img);
       }
     }
@@ -105,6 +106,7 @@ class XlsxWriter {
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'.
       '<Default Extension="xml" ContentType="application/xml"/>'.
       '<Default Extension="jpeg" ContentType="image/jpeg"/>'.
+      '<Default Extension="png" ContentType="image/png"/>'.
       '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'.
       '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'.
       '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'.
@@ -285,7 +287,7 @@ class XlsxWriter {
       foreach ($this->images as $rowIdx => $cols2) {
         foreach ($cols2 as $colIdx => $img) {
           $n++;
-          $mediaFile = 'image'.$n.'.jpeg';
+          $mediaFile = 'image'.$n.'.'.$img['ext'];
           $zip->addFromString('xl/media/'.$mediaFile, $img['data']);
           $rid = 'rIdImg'.$n;
           $mediaRels .= '<Relationship Id="'.$rid.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/'.$mediaFile.'"/>';
@@ -356,7 +358,7 @@ class XlsxWriter {
         $drawingRels=$b->getFromName('xl/drawings/_rels/drawing1.xml.rels');
         if($sheetRels===false||$drawingRels===false)throw new RuntimeException('پیوند تصاویر شیت دوم یافت نشد');
         $z->addFromString('xl/worksheets/_rels/sheet2.xml.rels',str_replace('drawing1.xml','drawing2.xml',$sheetRels));
-        $z->addFromString('xl/drawings/_rels/drawing2.xml.rels',preg_replace('/image(\d+)\.jpeg/','s2_image$1.jpeg',$drawingRels));
+        $z->addFromString('xl/drawings/_rels/drawing2.xml.rels',preg_replace('/image(\d+)\.(jpeg|png)/','s2_image$1.$2',$drawingRels));
         for($i=0;$i<$b->numFiles;$i++){
           $name=$b->getNameIndex($i);
           if(strpos($name,'xl/media/')===0 && substr($name,-1)!=='/')$z->addFromString('xl/media/s2_'.basename($name),$b->getFromIndex($i));
