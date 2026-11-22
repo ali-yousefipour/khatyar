@@ -18,11 +18,30 @@ fi
 while IFS= read -r -d '' js; do node --check "$js"; done < <(find "$stage" -name '*.js' -print0)
 test -n "$FTP_USER" && test -n "$FTP_PASS"
 cert="$stage/ftp-cert.pem"
-# Bootstrap trust only after checking the certificate fingerprint recorded by the failed deployment.
-timeout 30s openssl s_client -starttls ftp -connect "$FTP_HOST:21" -servername "$FTP_HOST" -showcerts </dev/null 2>/dev/null | openssl x509 -out "$cert"
 expected='89:D1:FA:62:43:86:94:55:EC:ED:41:A3:7C:82:D1:6C:DF:40:07:34'
-actual="$(openssl x509 -in "$cert" -noout -fingerprint -sha1 | cut -d= -f2)"
-if [ "$actual" != "$expected" ]; then echo 'FTP certificate changed; deployment stopped' >&2; exit 1; fi
+# Transient connection failures must not be confused with a changed certificate.
+# Never disable TLS or trust an unverified fingerprint.
+verified=false
+for attempt in 1 2 3 4; do
+  rm -f "$cert"
+  echo "FTPS certificate preflight: attempt $attempt/4"
+  if timeout 18s openssl s_client -starttls ftp -connect "$FTP_HOST:21" -servername "$FTP_HOST" -showcerts </dev/null 2>"$stage/tls-error.log" | openssl x509 -out "$cert" 2>/dev/null; then
+    actual="$(openssl x509 -in "$cert" -noout -fingerprint -sha1 | cut -d= -f2)"
+    if [ "$actual" != "$expected" ]; then
+      echo "SECURITY: FTP certificate fingerprint differs from pinned value; refusing deployment." >&2
+      exit 1
+    fi
+    verified=true
+    break
+  fi
+  echo "FTPS handshake unavailable on attempt $attempt; waiting before retry." >&2
+  if [ "$attempt" -lt 4 ]; then sleep $((attempt * 4)); fi
+done
+if [ "$verified" != true ]; then
+  echo "ERROR: Cannot reach a verified FTPS endpoint at the configured host on port 21." >&2
+  echo "Check hosting connectivity, FTP TLS availability, firewall and GitHub runner access. Deployment stopped without plaintext fallback." >&2
+  exit 1
+fi
 cmd="$stage/upload.commands"
 {
   echo 'set cmd:fail-exit yes'
