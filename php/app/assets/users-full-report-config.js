@@ -7,7 +7,7 @@ let busy=false;
 const css=document.createElement('style');
 css.textContent=`
 #kh-user-report-modal{position:fixed;inset:0;z-index:2147482600;display:grid;place-items:center;padding:16px;background:#092b2588;direction:rtl;font:14px Vazirmatn,Tahoma,sans-serif}
-#kh-user-report-modal[hidden]{display:none}
+#kh-user-report-modal[hidden],.kh-ur-fields [hidden]{display:none!important}
 .kh-ur-panel{box-sizing:border-box;width:min(750px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:#fff;color:#193c32;border:1px solid #d0e5dc;border-radius:20px;padding:clamp(16px,3vw,24px);box-shadow:0 22px 75px #0004}
 .kh-ur-panel h2{margin:0;font-size:19px}.kh-ur-panel p{line-height:1.8;color:#52685f}
 .kh-ur-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px;max-height:320px;overflow:auto;padding:10px;border:1px solid #dbe7e2;border-radius:12px}
@@ -46,7 +46,7 @@ const close=el('button',{type:'button',text:'انصراف'},foot);
 const dismiss=()=>{cover.remove();busy=false;};
 close.onclick=dismiss;
 cover.addEventListener('click',e=>{if(e.target===cover)dismiss();});
-const escape=e=>{if(e.key==='Escape'){e.preventDefault();dismiss();}};cover.addEventListener('keydown',escape);
+const escape=e=>{if(e.key==='Escape'){e.preventDefault();dismiss();lastFocus?.focus();}};cover.addEventListener('keydown',escape);
 let lastFocus=document.activeElement;
 const originalDismiss=dismiss;
 close.addEventListener('click',()=>lastFocus?.focus());
