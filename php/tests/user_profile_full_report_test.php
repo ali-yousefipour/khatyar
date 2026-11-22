@@ -14,7 +14,7 @@ $form=['sections'=>[
  ['key'=>'personal','title'=>'هویت','fields'=>[
   ['key'=>'last_name','binding'=>'system','label'=>'نام خانوادگی کارکنان'],
   ['key'=>'national_code','binding'=>'system','label'=>'کد ملی','report_visible'=>false],
-  ['key'=>'first_name','binding'=>'system','label'=>'نام']]]];
+  ['key'=>'first_name','binding'=>'system','label'=>'نام']]]]];
 $out=UserFullReport::orderedByProfile($original,$form);
 verifyProfileReport('published form controls report column order',array_column($out,'key')===['custom:8','last_name','first_name','id']);
 verifyProfileReport('published form controls Persian labels and groups',$out[0]['label']==='شماره حساب بانک شهر'&&$out[0]['group']==='اطلاعات بانکی');
