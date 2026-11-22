@@ -111,6 +111,7 @@ jobs:
           node php/tests/org_chart_deployment_test.cjs
           node php/tests/regional_team_deployment_test.cjs
           php php/tests/regional_team_test.php
+          php -l php/lib/SeniorityPeriods.php
           php php/tests/seniority_test.php
           node php/tests/seniority_ui_test.cjs
           node php/tests/org_regions_ui_test.cjs
