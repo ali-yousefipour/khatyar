@@ -70,6 +70,7 @@ _company_work_route('POST','/import',function($p,$b,$u){
 });
 _company_work_route('GET','/sources/{id}',function($p,$b,$u){$s=CompanyWork::source($p['id']);return ['id'=>(int)$s['id'],'year'=>(int)$s['jy'],'month'=>(int)$s['jm'],'rows'=>CompanyWork::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),CompanyWork::users())];});
 _company_work_route('GET','/sources/{id}/download',function($p,$b,$u){$s=CompanyWork::source($p['id']);CompanyWork::download($s,$s['file_name']);});
+_company_work_route('POST','/sources/{id}/preview',function($p,$b,$u){return CompanyWork::previewDiscrepancies(CompanyWork::source($p['id']),(int)($b['account_field_id']??0));});
 _company_work_route('POST','/sources/{id}/generate',function($p,$b,$u){
   // Reuse the established monthly-report progress channel; its token is scoped
   // to the authenticated user and stored outside the public web root.
