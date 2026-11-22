@@ -8478,6 +8478,15 @@ function CompanyWorkReport({year,month,onPeriodChange}){
   });
   const showSource=id=>action("دریافت جزئیات…",async()=>{const data=await request("/sources/"+id);if(life.current.alive){setDetail({...data,title:"کارکرد تأییدشدهٔ سازمان"});setQuery("");}});
   const showFile=id=>action("دریافت جزئیات…",async()=>{const data=await request("/files/"+id);if(life.current.alive){setDetail({...data.snapshot,fileId:Number(data.id)||Number(id),title:"نسخهٔ ثبت‌شدهٔ فایل شرکت"});setQuery("");}});
+  const previewCompany=id=>action("بررسی سریع مغایرت‌های فایل شرکت…",async()=>{
+    const data=await request("/sources/"+id+"/preview",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({account_field_id:Number(account)})
+    });
+    if(!life.current.alive)return;
+    setDetail({...data,sourceId:Number(id),title:"پیش‌نمایش مغایرت‌ها و تأیید ساخت فایل شرکت"});
+    setQuery("");
+  });
   const generate=(id,acknowledge=false)=>action("محاسبه و ساخت فایل شرکت…",async()=>{
     const overlay=typeof window!=="undefined"?window.KhatyarLongOperation:null;
     const progressId=(()=>{try{
@@ -8517,7 +8526,6 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       const fileId=data.generated?Number(data.id):0;
       setDetail({...data.snapshot,fileId:fileId>0?fileId:null,sourceId:data.requires_confirmation?Number(id):null,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌های گزارش شرکت؛ بررسی و تأیید برای ادامه"});
       setQuery("");
-      await load();
       if(data.generated){
         if(!fileId||fileId<1)setError("فایل محاسبه شده اما شناسه آرشیو آن دریافت نشد؛ آرشیو را بررسی کنید.");
         else{
@@ -8525,6 +8533,9 @@ function CompanyWorkReport({year,month,onPeriodChange}){
           catch(e){if(life.current.alive&&e.name!=="AbortError")setError("فایل شرکت در آرشیو ذخیره شد اما دانلود خودکار انجام نشد: "+e.message+" — از دکمه دانلود فایل شرکت استفاده کنید.");}
         }
       }
+      // Refresh the archive only after handling the generated download.
+      // A slow archive listing must never prevent the file download.
+      await load();
     }finally{
       tracking.active=false;
       clearInterval(tracking.timer);
@@ -8585,7 +8596,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       <label>فیلد شماره حساب در اطلاعات پرسنل<select className="input" disabled={!!busy} value={account} onChange={e=>setAccount(e.target.value)}><option value="">انتخاب فیلد شماره حساب</option>{archive.account_fields.map(f=><option key={f.id} value={f.id}>{f.label}</option>)}</select></label>
       {!archive.account_fields.length&&<p role="alert">فیلد شماره حساب در اطلاعات تکمیلی پرسنل تعریف نشده است؛ ابتدا آن را در تنظیمات فیلدها ایجاد و تکمیل کنید.</p>}
       <p className="muted">مرخصی استحقاقی: مجموع روزهای روزانه × ۴۵۳ دقیقه + دقایق ساعتی، تقسیم بر ۴۵۳. غیبت از شروع همکاری تا روزهای پایان‌یافته محاسبه می‌شود. فایل ماه جاری شامل داده‌های ثبت‌شده تا امروز است.</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>{archive.sources.filter(s=>!s.deleted_at).map(s=><article key={s.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12}}><strong style={{overflowWrap:"anywhere"}}>{s.file_name}</strong><p className="muted">ثبت: {faDate(s.created_at)}</p><div className="row" style={{gap:6,flexWrap:"wrap"}}><button className="btn" disabled={!!busy} onClick={()=>showSource(s.id)}>جزئیات و تطبیق</button><button className="btn" disabled={!!busy} onClick={()=>download("sources",s.id)}>دانلود فایل سازمان</button><button className="btn p" disabled={!!busy||!account} onClick={()=>generate(s.id)}>ساخت و آرشیو فایل شرکت</button><button className="btn" disabled={!!busy} onClick={()=>changeArchive("sources",s.id)}>حذف فایل سازمان</button></div></article>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>{archive.sources.filter(s=>!s.deleted_at).map(s=><article key={s.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12}}><strong style={{overflowWrap:"anywhere"}}>{s.file_name}</strong><p className="muted">ثبت: {faDate(s.created_at)}</p><div className="row" style={{gap:6,flexWrap:"wrap"}}><button className="btn" disabled={!!busy} onClick={()=>showSource(s.id)}>جزئیات و تطبیق</button><button className="btn" disabled={!!busy} onClick={()=>download("sources",s.id)}>دانلود فایل سازمان</button><button className="btn p" disabled={!!busy||!account} onClick={()=>previewCompany(s.id)}>ساخت و آرشیو فایل شرکت</button><button className="btn" disabled={!!busy} onClick={()=>changeArchive("sources",s.id)}>حذف فایل سازمان</button></div></article>)}</div>
     </>}
     <h4 style={{marginTop:24}}>آرشیو فایل‌های نهایی شرکت</h4>
     {archive&&!archive.files.filter(f=>!f.deleted_at).length&&<p className="muted">هنوز خروجی شرکتی برای این ماه ساخته نشده است.</p>}
