@@ -71,10 +71,18 @@ final class UserProfileFormValues {
     if(in_array($type,['file','image','calculated','description','divider','heading'],true))
       self::fail('این فیلد با درخواست متنی قابل ثبت نیست؛ مسیر امن اختصاصی لازم است');
     if($value===null||$value==='')return null;
+    // Legacy Android inputs serialize a multi-select as pipe-delimited options.
+    // Accept the same format as a JSON list, without relaxing option validation.
+    if($type==='multiselect'&&is_string($value)&&$value!==''){
+      $value=explode('|',$value);
+      if(count($value)>50)self::fail('تعداد گزینه‌های انتخاب‌شده بیش از حد مجاز است');
+    }
     if(is_array($value)){
       if($type!=='multiselect')self::fail('این فیلد چندانتخابی نیست');
       $choices=$field['options']??[];
-      foreach($value as $one)if(!in_array($one,$choices,true))self::fail('گزینه نامعتبر است');
+      if(count($value)!==count(array_unique($value)))self::fail('گزینه تکراری مجاز نیست');
+      foreach($value as $one)if(!is_string($one)||!in_array($one,$choices,true)||str_contains($one,'|'))
+        self::fail('گزینه نامعتبر است');
       return implode('|',$value);
     }
     if($type==='boolean'||$type==='checkbox') {
