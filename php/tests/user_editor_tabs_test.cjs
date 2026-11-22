@@ -1,0 +1,24 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../tools/panel_source.jsx'),'utf8');
+const start=source.indexOf('{edit&&<Modal title="ویرایش کاربر"');
+const end=source.indexOf('{identityAudit',start);
+assert.ok(start>0&&end>start,'user edit modal must remain in the management panel');
+const modal=source.slice(start,end);
+const sections=['profile','identity','contact','organization','employment','family','financial','custom','access'];
+for(const name of sections){
+  assert.ok(modal.includes('editTab==="'+name+'"'),'missing user edit tab '+name);
+}
+for(const name of sections.filter(x=>x!=='access')){
+  assert.ok(modal.includes('display:editTab==="'+name+'"'),'tab must preserve component state '+name);
+}
+for(const value of ['first_name','last_name','national_code','birth_date','phone','email','address','role_id','zone_id','rank_stars','employment_start_date','employment_end_date','marital_status','children_count']){
+  assert.ok(modal.includes('edit.'+value),'existing personnel value missing from editor '+value);
+}
+assert.match(modal,/<CustomFieldsFiller/);
+assert.match(modal,/<PayrollEditor/);
+assert.match(modal,/<LeaveBalance/);
+assert.match(modal,/disabled=\{savingUser\}/);
+console.log('PASS: nine persistent user editor tabs and legacy personnel values');
