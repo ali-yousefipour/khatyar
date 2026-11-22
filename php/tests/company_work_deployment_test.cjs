@@ -20,5 +20,5 @@ assert(fs.readFileSync(path.join(root,'php/lib/CompanyWork.php'),'utf8').include
 assert(flow.includes('lib/IdentityBankingValidation.php lib/KhatyarFormsSchema.php'),'forced payload includes bank validator');
 assert(upload.includes('[ -f deploy-payload/lib/IdentityBankingValidation.php ]'),'protected installer activates for validator-only changes');
 assert(upload.includes('IdentityBankingValidation.php CompanyWork.php'),'validator staged before CompanyWork');
-assert(upload.includes('for name in Db.php Jwt.php Http.php IdentityBankingValidation.php'),'installer response checksum validates bank dependency');
+assert(upload.match(/for name in Db\.php Jwt\.php Http\.php[^\n]*IdentityBankingValidation\.php; do/),'installer response checksum validates bank dependency');
 console.log('PASS company deployment: all dependencies staged, allowed and checksum verified through protected PHP installation before routes');
