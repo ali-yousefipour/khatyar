@@ -49,7 +49,7 @@ assert.match(routes,/UserProfileFormValues::normalizeField\(\$field,\$val\)/,'ad
 assert.match(panel,/function CustomFieldInput/,'web admin uses shared custom-field renderer');
 assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable child rows');
 assert.match(panel,/\[originalVals,setOriginalVals\]=useState\(\{\}\)/,'admin saves only changed custom values');
-assert.match(panel,/v\.field_id\?\?v\.id/,'web personnel editor maps API custom values by field id');
+assert.match(panel,/row\.field_id\?\?row\.id/,'web personnel editor maps API custom values by field id');
 assert.match(panel,/\[userId\]\);/,'web personnel editor isolates records across user switches');
 assert.match(panel,/<CustomFieldsFiller key=\{edit\.id\} userId=\{edit\.id\} profile=\{edit\}\/>/,'unified personnel tab mounts published-rule-aware editor');
 assert.doesNotMatch(panel,/<UserCustomValues userId=\{edit\.id\}\/>/,'stale legacy custom editor is no longer mounted');
