@@ -31,7 +31,7 @@ try { CompanyWork::collect(['id'=>8,'jy'=>1405,'jm'=>7,'rows_json'=>'[]'],5); th
 catch(PayrollError $e){yes('rotation failure classified as retryable 503 with specific stage',$e->getCode()===503&&str_contains($e->getMessage(),'چرخش شیفت')&&!str_contains($e->getMessage(),'synthetic')); }
 $GLOBALS['simulate_rotation_outage']=false;
 Db::$users=[['id'=>1,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','national_code'=>'0012345678','username'=>'0012345678','marital_status'=>'متاهل','children_count'=>2,'employment_start_date'=>'1405/07/15','employment_end_date'=>null]];
-Db::$requests=[['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/15','to_jdate'=>'1405/07/17'],['type'=>'annual','unit'=>'hourly','the_date'=>'1405/07/18','from_time'=>'08:00','to_time'=>'15:33']];
+Db::$requests=[['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/15','to_jdate'=>'1405/07/17'],['type'=>'annual','unit'=>'hourly','the_date'=>'1405/07/18','from_time'=>'08:00','to_time'=>'15:33'],['type'=>'sick','unit'=>'daily','from_jdate'=>'1405/07/22','to_jdate'=>'1405/07/24']];
 $row=['source_row'=>4,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','role'=>'سمت اعلامی سازمان','friday_hours'=>7.5,'holiday_hours'=>2,'overtime_hours'=>12.75];
 $source=['id'=>8,'jy'=>1405,'jm'=>7,'rows_json'=>CompanyWork::json([$row])];
 $out=CompanyWork::collect($source,5);$r=$out['rows'][0];
@@ -42,11 +42,35 @@ yes('seniority days, demographics and rotation joined',$r['seniority_days']===73
 yes('canonical attendance called with exact Jalali period',$GLOBALS['attendance_calls'][0]===[1,'1405/07/01','1405/07/30']);
 yes('inactive personnel use existing rotation classifier',$GLOBALS['rotation_used'][0]===1);
 yes('new hire absences and 453-minute leave combined',$r['days']===16&&$r['absence_days']===1&&$r['leave_days']==4&&$r['night_hours']===2.5);
+yes('selected month sick interval and new hire absence are recorded in notes',
+  str_contains($r['notes'],'این فرد در تاریخ ۱۴۰۵/۰۷/۱۵ شروع به کار نموده است')
+  &&str_contains($r['notes'],'تعداد روز غیبت: ۱')
+  &&str_contains($r['notes'],'استعلاجی از تاریخ ۱۴۰۵/۰۷/۲۲ تا تاریخ ۱۴۰۵/۰۷/۲۴'));
+$notes=CompanyWork::workNotes(
+  ['employment_start_date'=>'1405/07/15','employment_end_date'=>'1405/07/27'],
+  [['type'=>'sick','unit'=>'daily','from_jdate'=>'1405/06/29','to_jdate'=>'1405/07/02'],
+   ['type'=>'sick','unit'=>'daily','from_jdate'=>'1405/08/01','to_jdate'=>'1405/08/03'],
+   ['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/10','to_jdate'=>'1405/07/11']],
+  1405,7,2);
+yes('employment end, in-period sick overlap and absence are annotated',
+  str_contains($notes,'۱۴۰۵/۰۷/۲۷ به همکاری خود پایان داده است')
+  &&str_contains($notes,'تعداد روز غیبت: ۲')
+  &&str_contains($notes,'استعلاجی از تاریخ ۱۴۰۵/۰۷/۰۱ تا تاریخ ۱۴۰۵/۰۷/۰۲')
+  &&!str_contains($notes,'۱۴۰۵/۰۸/۰۱'));
+yes('notes exclude employment boundaries from an unrelated month',
+  !str_contains(CompanyWork::workNotes(
+    ['employment_start_date'=>'1405/07/15','employment_end_date'=>'1405/07/27'],[],1405,8,0),'شروع به کار'));
+
 $root=sys_get_temp_dir().'/company-collect-'.bin2hex(random_bytes(6));mkdir($root,0700);IsolatedCollectedCompanyWork::$dir=$root;
 try{
   $generated=IsolatedCollectedCompanyWork::generate($source,5,1);yes('successful generation persists file and snapshot',$generated['generated']&&$generated['id']===9&&count(glob($root.'/*.xlsx'))===1);
   $saved=Db::$inserted[0][1];$snapshot=json_decode($saved[5],true);yes('archive snapshot stores exact values and account source',$snapshot['rows'][0]['account']==='0000123456'&&$snapshot['account_field']['id']===5);
-  $file=glob($root.'/*.xlsx')[0];$hash=hash_file('sha256',$file);Db::$account='123456789';yes('later database edits cannot alter archived file',hash_file('sha256',$file)===$hash);
+  $file=glob($root.'/*.xlsx')[0];
+  $z=new ZipArchive();if($z->open($file)!==true)throw new RuntimeException('output XLSX unreadable');
+  $sheet=$z->getFromName('xl/worksheets/sheet1.xml');$z->close();
+  yes('generated XLSX W4 contains Persian employment and sick leave notes',
+    str_contains($sheet,'۱۴۰۵/۰۷/۱۵')&&str_contains($sheet,'استعلاجی از تاریخ')&&str_contains($sheet,'تعداد روز غیبت'));
+  $hash=hash_file('sha256',$file);Db::$account='123456789';yes('later database edits cannot alter archived file',hash_file('sha256',$file)===$hash);
   Seniority::$value=null;$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('missing seniority blocks export instead of zero',$blocked['generated']===false&&count(glob($root.'/*.xlsx'))===1&&str_contains(implode(' ',$blocked['snapshot']['rows'][0]['errors']),'سنوات'));
   Seniority::$value=730;Db::$users[0]['last_name']='ناسازگار';$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('generation rechecks current personnel identity',$blocked['generated']===false&&count(Db::$inserted)===1);
   Db::$users[0]['last_name']='نمونه';Db::$fail=true;try{IsolatedCollectedCompanyWork::generate($source,5,1);throw new RuntimeException('expected failure');}catch(PayrollError $e){yes('failed archive insert returns trackable retryable error and removes orphan file',$e->getCode()===503&&str_contains($e->getMessage(),'ثبت آرشیو')&&str_contains($e->getMessage(),'کد پیگیری')&&count(glob($root.'/*.xlsx'))===1);}
