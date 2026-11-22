@@ -256,6 +256,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
     return definition?profileFieldState(definition,valuesForRules):{visible:true,enabled:true,readonly:false,required:false};
   };
   const extraVisible=extraFields.filter(field=>profileFieldState(field.profile_definition||field,valuesForRules).visible);
+  const systemCanEdit=key=>!profileReadOnly&&systemFieldState(key).visible&&systemFieldState(key).enabled&&!systemFieldState(key).readonly;
   const extraEditable=field=>!profileReadOnly&&!!field.user_editable&&
     !profileFieldState(field.profile_definition||field,valuesForRules).readonly;
   const toggleInspector = (id) => { if(profileReadOnly)return; setInspectors((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]); };
@@ -305,26 +306,26 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       {vehicleAction}
       <Text style={s.label}>نام</Text>
       <TextInput style={[s.input, s.ro]} value={`${p.first_name || ''} ${p.last_name || ''}`} editable={false} />
-      <Text style={s.label}>ایمیل</Text>
-      <TextInput editable={!profileReadOnly} style={s.input} value={p.email || ''} onChangeText={(v) => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
-      <Text style={s.label}>موبایل</Text>
-      <TextInput editable={!profileReadOnly} style={s.input} value={p.mobile || ''} onChangeText={(v) => set('mobile', v)} keyboardType="phone-pad" />
-      <Text style={s.label}>کد ملی</Text>
-      <TextInput editable={!profileReadOnly} style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
+      {systemFieldState('email').visible&&<Text style={s.label}>ایمیل</Text>}
+      <TextInput editable={systemCanEdit('email')} style={s.input} value={p.email || ''} onChangeText={(v) => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
+      {systemFieldState('mobile').visible&&<Text style={s.label}>موبایل</Text>}
+      <TextInput editable={systemCanEdit('mobile')} style={s.input} value={p.mobile || ''} onChangeText={(v) => set('mobile', v)} keyboardType="phone-pad" />
+      {systemFieldState('national_code').visible&&<Text style={s.label}>کد ملی</Text>}
+      <TextInput editable={systemCanEdit('national_code')} style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
       {nationalTouched && !!p.national_code && <Text accessibilityRole="alert" style={{color:validateNationalId(p.national_code).valid?CC.muted:'#b91c1c',textAlign:'right',marginTop:4}}>{validateNationalId(p.national_code).valid?'✓ ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است.':validateNationalId(p.national_code).errors[0]}</Text>}
-      <Text style={s.label}>تاریخ تولد</Text>
-      <TouchableOpacity style={[s.input, s.dateInput]} disabled={profileReadOnly} onPress={() => setBirthPickerOpen(true)}>
+      {systemFieldState("birth_date").visible&&<Text style={s.label}>تاریخ تولد</Text>}
+      <TouchableOpacity style={[s.input, s.dateInput]} disabled={!systemCanEdit("birth_date")} onPress={() => setBirthPickerOpen(true)}>
         <Text style={p.birth_date ? s.dateTxt : s.datePlaceholder}>{p.birth_date ? cleanJDateLabel(p.birth_date) : 'انتخاب تاریخ تولد'}</Text>
       </TouchableOpacity>
       <JDatePicker visible={birthPickerOpen} initial={parseJDate(p.birth_date) || null} minYear={1300} maxYear={1410} onClose={() => setBirthPickerOpen(false)} onSelect={(d) => set('birth_date', `${d.jy}-${String(d.jm).padStart(2, '0')}-${String(d.jd).padStart(2, '0')}`)} />
-      <Text style={s.label}>آدرس</Text>
-      <TextInput editable={!profileReadOnly} style={[s.input, { height: 70, textAlignVertical: 'top' }]} multiline value={p.address || ''} onChangeText={(v) => set('address', v)} />
-      <Text style={s.label}>وضعیت تأهل</Text>
-      <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-        {['مجرد', 'متأهل'].map((m) => <TouchableOpacity key={m} style={[s.chip, p.marital_status === m && s.chipOn]} disabled={profileReadOnly} onPress={() => set('marital_status', m)}><Text style={[s.chipTxt, p.marital_status === m && { color: '#fff' }]}>{m}</Text></TouchableOpacity>)}
-      </View>
-      <Text style={s.label}>تعداد فرزند</Text>
-      <TextInput editable={!profileReadOnly} style={s.input} value={String(p.children_count || '')} onChangeText={(v) => set('children_count', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+      {systemFieldState('address').visible&&<Text style={s.label}>آدرس</Text>}
+      <TextInput editable={systemCanEdit('address')} style={[s.input, { height: 70, textAlignVertical: 'top' }]} multiline value={p.address || ''} onChangeText={(v) => set('address', v)} />
+      {systemFieldState("marital_status").visible&&<Text style={s.label}>وضعیت تأهل</Text>}
+      {systemFieldState("marital_status").visible&&<View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+        {['مجرد', 'متأهل'].map((m) => <TouchableOpacity key={m} style={[s.chip, p.marital_status === m && s.chipOn]} disabled={!systemCanEdit("marital_status")} onPress={() => set('marital_status', m)}><Text style={[s.chipTxt, p.marital_status === m && { color: '#fff' }]}>{m}</Text></TouchableOpacity>)}
+      </View>}
+      {systemFieldState('children_count').visible&&<Text style={s.label}>تعداد فرزند</Text>}
+      <TextInput editable={systemCanEdit('children_count')} style={s.input} value={String(p.children_count || '')} onChangeText={(v) => set('children_count', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
       <View style={{marginTop:18,paddingVertical:12,borderTopWidth:1,borderColor:CC.line}}>
         <Text style={s.supplementaryTitle}>اطلاعات جامع پرسنلی — فیلدهای تکمیلی</Text>
         {!!extraError&&<Text accessibilityRole="alert" style={{color:'#b91c1c',textAlign:'right',marginTop:8}}>{extraError}</Text>}
