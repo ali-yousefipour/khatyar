@@ -21,4 +21,7 @@ assert.match(modal,/<CustomFieldsFiller/);
 assert.match(modal,/<PayrollEditor/);
 assert.match(modal,/<LeaveBalance/);
 assert.match(modal,/disabled=\{savingUser\}/);
+assert.match(modal,/saveRef=\{customSaveRef\}/);
+assert.match(source,/if\(customSaveRef\.current\)/);
+assert.match(source,/if\(busy\|\|fields===null\)return false/);
 console.log('PASS: nine persistent user editor tabs and legacy personnel values');
