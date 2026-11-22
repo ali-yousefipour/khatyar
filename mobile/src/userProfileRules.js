@@ -41,7 +41,7 @@ export function profileRuleMatches(rule,values){
   }
 }
 export function profileFieldState(field,values){
-  const state={visible:field.visible!==false,enabled:field.enabled!==false,required:!!field.required,readonly:!!field.readonly};
+  const state={visible:field.visible!==false&&field.android_visible!==false,enabled:field.enabled!==false,required:!!field.required,readonly:!!field.readonly};
   for(const rule of field.rules||[]){
     if(!profileRuleMatches(rule.when,values))continue;
     switch(rule.action){
@@ -55,6 +55,7 @@ export function profileFieldState(field,values){
       case 'editable':state.readonly=false;break;
     }
   }
+  if(field.android_visible===false)state.visible=false;
   if(!state.visible||!state.enabled||state.readonly)state.required=false;
   return state;
 }
