@@ -11421,6 +11421,7 @@ function CustomFieldsFiller({ userId }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [open, setOpen] = useState(false);
+    useEffect(() => { setOpen(false); setFields(null); setVals({}); setOriginalVals({}); setError(""); }, [userId]);
     const load = () => {
         setOpen(true);
         setError("");
