@@ -6681,14 +6681,14 @@ function adminProfileFieldState(field,values){
   if(!state.visible||!state.enabled||state.readonly)state.required=false;
   return state;
 }
-function AdminPrivateProfileAttachment({field,userId,readOnly=false}){
+function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
   const [status,setStatus]=useState(null),[selected,setSelected]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const path="/admin/users/"+userId+"/profile-attachment/"+field.id;
   useEffect(()=>{
     let active=true;
     setStatus(null);setSelected(null);setError("");
-    GET(path+"/status").then(info=>{if(active)setStatus(info);})
+    GET(path+"/status").then(info=>{if(active){setStatus(info);onStatus?.(field.id,!!info?.exists);}})
       .catch(e=>{if(active)setError(e.message||"دریافت وضعیت مدرک ناموفق بود");});
     return()=>{active=false;};
   },[userId,field.id]);
@@ -6702,7 +6702,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false}){
       const result=await _readJsonResponse(response);
       if(!response.ok||!result?.ok)throw new Error(result?.error||result?.message||"ثبت مدرک در سرور تأیید نشد");
       const updated=await GET(path+"/status",{ttl:0});
-      setStatus(updated);setSelected(null);
+      setStatus(updated);onStatus?.(field.id,!!updated?.exists);setSelected(null);
     }catch(e){setError(e.message||"ارسال مدرک ناموفق بود");}
     finally{setBusy(false);}
   };
@@ -6737,6 +6737,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false}){
 function CustomFieldsFiller({userId,profile}){
   const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null);
+  const [attachmentPresence,setAttachmentPresence]=useState({});
   const load=async()=>{
     setError("");setFields(null);
     try{
@@ -6764,8 +6765,9 @@ function CustomFieldsFiller({userId,profile}){
       setVals(m);setOriginalVals({...m});setSchema(form?.schema||null);
     }catch(e){setFields([]);setError(e.message||"دریافت اطلاعات تکمیلی ناموفق بود.");}
   };
-  useEffect(()=>{setVals({});setOriginalVals({});setSchema(null);if(userId)load();},[userId]);
-  const values={...(profile||{}),...Object.fromEntries(Object.entries(vals).map(([id,value])=>["cf_"+id,value]))};
+  useEffect(()=>{setVals({});setOriginalVals({});setSchema(null);setAttachmentPresence({});if(userId)load();},[userId]);
+  const values={...(profile||{}),...Object.fromEntries(Object.entries(vals).map(([id,value])=>["cf_"+id,value])),
+    ...Object.fromEntries(Object.entries(attachmentPresence).map(([id,exists])=>["cf_"+id,exists?"1":null]))};
   const fieldState=field=>adminProfileFieldState(field.profile_definition||field,values);
   const visible=(fields||[]).filter(field=>fieldState(field).visible);
   const sections=visible.reduce((groups,field)=>{
@@ -6805,7 +6807,8 @@ function CustomFieldsFiller({userId,profile}){
             return <div key={field.id} style={{minWidth:0}}>
               <label className="label">{field.label}{state.required?" *":""}{!state.enabled||state.readonly?" (فقط نمایش)":""}</label>
               {["image","file"].includes(field.ftype)?
-                <AdminPrivateProfileAttachment key={userId+"-"+field.id} field={field} userId={userId} readOnly={!state.enabled||state.readonly}/>:
+                <AdminPrivateProfileAttachment key={userId+"-"+field.id} field={field} userId={userId} readOnly={!state.enabled||state.readonly}
+                  onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
                 state.enabled&&!state.readonly?
                 <CustomFieldInput field={field} value={vals[field.id]??""} onChange={value=>setVals(current=>({...current,[field.id]:value}))}/>:
                 <p style={{whiteSpace:"pre-wrap"}}>{String(vals[field.id]??"—")}</p>}
