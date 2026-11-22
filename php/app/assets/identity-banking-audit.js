@@ -24,7 +24,7 @@
     controls.append(start,stop,search,filter,download);download.disabled=true;
     const wrap=make('div');wrap.className='kh-audit-table';const table=make('table'),thead=make('thead'),hrow=make('tr'),tbody=make('tbody');
     ['نام','شماره پرسنلی','وضعیت','مغایرت'].forEach(t=>hrow.append(make('th',t)));thead.append(hrow);table.append(thead,tbody);wrap.append(table);panel.append(wrap);
-    const results=[];const totals={};let controller=null;let running=false;
+    const results=[];const totals={};let controller=null;let running=false;let cursor=0;let completed=false;
     const filtered=()=>results.filter(r=>{
       const text=[r.name,r.personnel_code,...(r.errors||[])].join(' ').toLowerCase();
       const query=search.value.trim().toLowerCase();if(query&&!text.includes(query))return false;
@@ -55,7 +55,7 @@
     };
     start.onclick=async()=>{
       if(running)return;running=true;controller=new AbortController();start.disabled=true;
-      let cursor=0;results.length=0;Object.keys(totals).forEach(k=>delete totals[k]);render();download.disabled=true;
+      if(completed){cursor=0;results.length=0;Object.keys(totals).forEach(k=>delete totals[k]);completed=false;render();download.disabled=true;}
       try{
         while(running){
           const token=localStorage.token||'';
@@ -69,13 +69,13 @@
           progress.value=Math.max(0,Math.min(100,Number(payload.percent||0)));
           status.textContent='بررسی '+number(payload.processed)+' از '+number(payload.total)+' نفر — '+number(progress.value)+'٪ | موارد نیازمند بررسی: '+number(results.length);
           render();download.disabled=results.length===0;
-          if(payload.finished||payload.next_cursor==null)break;
+          if(payload.finished||payload.next_cursor==null){completed=true;break;}
           const next=Number(payload.next_cursor);if(next<=cursor)throw new Error('خطا در ادامه پردازش');
           cursor=next;
         }
         if(running)status.textContent='ممیزی کامل شد. '+number(results.length)+' پرونده نیازمند بررسی شناسایی شد. '+Object.entries(totals).map(([k,v])=>k+': '+number(v)).join(' | ');
       }catch(error){if(running)status.textContent='ممیزی کامل نشد: '+(error?.message||'خطای نامشخص');}
-      finally{running=false;start.disabled=false;}
+      finally{running=false;start.disabled=false;start.textContent=completed?'اجرای مجدد ممیزی':'ادامه ممیزی';}
     };
     close.focus();
   }
