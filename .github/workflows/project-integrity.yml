@@ -47,6 +47,8 @@ jobs:
           php php/tests/user_profile_rules_test.php
           php php/tests/user_profile_forms_test.php
           php php/tests/user_profile_form_values_test.php
+          php -l php/lib/UserFullReport.php
+          node --check php/app/assets/users-full-report-config.js
           php php/tests/user_profile_full_report_test.php
           php -l php/lib/UserProfileAttachments.php
           php php/tests/user_profile_attachments_test.php
