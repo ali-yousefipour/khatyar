@@ -18,8 +18,8 @@ final class UserFullReportPresets {
   }
 
   /** Reject obsolete, forged, and unauthorized fields before persisting a preset. */
-  public static function validated(array $raw): array {
-    $lookup=array_column(UserFullReport::availableColumns(),null,'key');
+  public static function validated(array $raw,?array $available=null): array {
+    $lookup=array_column($available??UserFullReport::availableColumns(),null,'key');
     $columns=$raw['columns']??null;
     if(!is_array($columns)||!array_is_list($columns)||!count($columns)||count($columns)>500)
       throw new InvalidArgumentException('فهرست ستون‌ها معتبر نیست');
