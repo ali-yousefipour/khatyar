@@ -5045,6 +5045,28 @@ function UserProfileFormDesigner(){
     if(!section||section.fields.length)return;
     d.sections=d.sections.filter(s=>s.key!==key);
   });
+  const syncRepeater=async()=>{
+    if(current?.type!=="repeater")return;
+    setBusy(true);setError("");
+    try{
+      const latest=await db.customFields();
+      const source=(latest||[]).find(f=>Number(f.id)===Number(current.custom_field_id));
+      if(!source||source.ftype!=="repeater")throw Error("گروه تکرارشونده در فیلدهای سفارشی پیدا نشد.");
+      const config=JSON.parse(source.options||"{}");
+      if(!Array.isArray(config.columns)||!config.columns.length)
+        throw Error("تعریف ستون‌های گروه تکرارشونده نامعتبر است.");
+      modify(d=>{
+        const target=d.sections.flatMap(section=>section.fields).find(f=>f.key===selected);
+        if(!target)return;
+        target.columns=config.columns;
+        target.max_rows=Number(config.max_rows)||12;
+        target.min_rows=Number(config.min_rows)||0;
+      });
+      setChoices(latest);
+      setMessage("تعریف جدید ستون‌ها وارد پیش‌نویس شد. ابتدا ذخیره و سپس منتشر کنید.");
+    }catch(error){setError(error.message||"همگام‌سازی گروه ناموفق بود.");}
+    finally{setBusy(false);}
+  };
   const addGroup=()=>modify(d=>{
     let id=1;while(d.sections.some(s=>s.key==="group_"+id))id++;
     d.sections.push({key:"group_"+id,title:"گروه جدید",fields:[]});
@@ -5240,7 +5262,10 @@ function UserProfileFormDesigner(){
                     <label key={key}>{label}<input className="input" type="number" value={current[key]??""}
                       onChange={e=>editField(key,e.target.value===""?null:Number(e.target.value))}/></label>):null}
                 </div>}
-              {current.type==="repeater"?<p className="muted">ستون‌های این گروه در «فیلدهای سفارشی پرسنل» تعریف می‌شوند. برای بارگذاری تغییرات، فرم را مجدداً بارگذاری کنید.</p>:
+              {current.type==="repeater"?<div>
+                <p className="muted">ستون‌های این گروه در «فیلدهای سفارشی پرسنل» تعریف می‌شوند.</p>
+                <button type="button" className="btn g" disabled={busy} onClick={syncRepeater}>همگام‌سازی ستون‌ها از فیلدهای سفارشی</button>
+              </div>:
               <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>}
               <div style={{display:"grid",gap:4,marginTop:8}}>
                 {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:["visible","enabled","android_visible","web_visible","report_visible"].includes(k)} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
