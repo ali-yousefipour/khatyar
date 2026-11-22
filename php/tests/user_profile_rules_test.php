@@ -23,6 +23,13 @@ checkRule('nested OR sets conditional requirement',UserProfileRules::state($fami
 checkRule('numeric comparisons use numbers',UserProfileRules::matches(['field'=>'children','op'=>'gte','value'=>2],['children'=>2]));
 checkRule('date comparisons use Jalali lexicographical order',UserProfileRules::matches(['field'=>'date','op'=>'date_between','value'=>['1405/01/01','1405/12/29']],['date'=>'1405/08/10']));
 checkRule('empty and not-empty operators',UserProfileRules::matches(['field'=>'comment','op'=>'empty'],[])&&UserProfileRules::matches(['field'=>'comment','op'=>'not_empty'],['comment'=>'ok']));
+checkRule('Persian digits compare exactly as Android',UserProfileRules::matches(['field'=>'children','op'=>'gte','value'=>'۲'],['children'=>'۳']));
+checkRule('invalid month must not satisfy date range',!UserProfileRules::matches(['field'=>'date','op'=>'date_between','value'=>['1405/01/01','1405/12/30']],['date'=>'1405/13/01']));
+checkRule('invalid day must not satisfy date range',!UserProfileRules::matches(['field'=>'date','op'=>'date_between','value'=>['1405/01/01','1405/12/30']],['date'=>'1405/07/31']));
+checkRule('reversed dates never match',!UserProfileRules::matches(['field'=>'date','op'=>'date_outside','value'=>['1405/12/30','1405/01/01']],['date'=>'1405/08/10']));
+$duplicateSection=$schema;
+$duplicateSection['sections'][]=['key'=>'personal','fields'=>[]];
+rejectsRule('duplicate group keys rejected',$duplicateSection);
 $cycle=$schema;$cycle['sections'][0]['fields'][0]['rules']=[['action'=>'show','when'=>['field'=>'spouse','op'=>'eq','value'=>'yes']]];
 rejectsRule('circular dependencies rejected',$cycle);
 $self=$schema;$self['sections'][0]['fields'][0]['rules']=[['action'=>'hide','when'=>['field'=>'gender','op'=>'eq','value'=>'female']]];
