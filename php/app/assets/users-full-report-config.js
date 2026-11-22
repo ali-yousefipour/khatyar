@@ -8,6 +8,11 @@ const css=document.createElement('style');
 css.textContent=`
 #kh-user-report-modal{position:fixed;inset:0;z-index:2147482600;display:grid;place-items:center;padding:16px;background:#092b2588;direction:rtl;font:14px Vazirmatn,Tahoma,sans-serif}
 #kh-user-report-modal[hidden],.kh-ur-fields [hidden]{display:none!important}
+.kh-ur-groups{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.kh-ur-group{border:1px solid #d0e5dc;padding:8px;border-radius:10px;background:#f6faf8;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kh-ur-group strong{font-size:12px}
+.kh-ur-group button{padding:5px 8px;font-size:12px}
+.kh-ur-unselected{font-size:12px;line-height:1.8;overflow-wrap:anywhere}
 .kh-ur-panel{box-sizing:border-box;width:min(750px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:#fff;color:#193c32;border:1px solid #d0e5dc;border-radius:20px;padding:clamp(16px,3vw,24px);box-shadow:0 22px 75px #0004}
 .kh-ur-panel h2{margin:0;font-size:19px}.kh-ur-panel p{line-height:1.8;color:#52685f}
 .kh-ur-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px;max-height:320px;overflow:auto;padding:10px;border:1px solid #dbe7e2;border-radius:12px}
@@ -33,7 +38,9 @@ const actions=el('div',{class:'kh-ur-actions'},box);
 const all=el('button',{type:'button',text:'انتخاب همه'},actions);
 const none=el('button',{type:'button',text:'حذف انتخاب‌ها'},actions);
 const count=el('span',{role:'status'},actions);
+const groupPanel=el('div',{class:'kh-ur-groups'},box);
 const fields=el('div',{class:'kh-ur-fields'},box);
+const unselected=el('p',{class:'kh-ur-unselected',role:'status'},box);
 const controls=el('div',{class:'kh-ur-controls'},box);
 const sortLabel=el('label',{text:'مرتب‌سازی بر اساس'},controls),sort=el('select',{},sortLabel);
 const dirLabel=el('label',{text:'جهت مرتب‌سازی'},controls),dir=el('select',{},dirLabel);
@@ -85,7 +92,9 @@ status.textContent='در حال دریافت فهرست فیلدها…';
 request(API+'full-report-options').then(r=>r.json()).then(data=>{
  const columns=Array.isArray(data.columns)?data.columns:[];
  if(!columns.length)throw Error('فیلدی برای گزارش دریافت نشد');
- const checks=[];
+ const canonicalOrder=columns.map(col=>col.key);
+ const columnByKey=new Map(columns.map(col=>[col.key,col]));
+ const checks=[],groupChecks=new Map(),groupLabels=new Map();
  const storageKey='khatyar.users.full-report.selection.v2';
  let stored=null;
  try{stored=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(_){}
@@ -97,6 +106,9 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    check.checked=!stored||!Array.isArray(stored.columns)||stored.columns.includes(column.key);
    el('span',{text:column.label+' · '+(column.group||'سایر')},label);
    checks.push(check);check.addEventListener('change',update);
+   const group=column.group||'سایر';
+   if(!groupChecks.has(group))groupChecks.set(group,[]);
+   groupChecks.get(group).push(check);
    const move=(step)=>{const from=checks.indexOf(check),to=from+step;if(to<0||to>=checks.length)return;const other=checks[to];checks[from]=other;checks[to]=check;
      if(step<0)fields.insertBefore(label,other.parentElement);
      else fields.insertBefore(other.parentElement,label);
@@ -121,6 +133,15 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    });
    for(const s of [sort,second,third])el('option',{value:column.key,text:column.label},s);
  });
+ for(const [name,members] of groupChecks){
+   const card=el('div',{class:'kh-ur-group'},groupPanel);
+   el('strong',{text:name},card);
+   const counter=el('span',{role:'status'},card);groupLabels.set(name,counter);
+   const selectGroup=el('button',{type:'button',text:'انتخاب گروه'},card);
+   const clearGroup=el('button',{type:'button',text:'حذف گروه'},card);
+   selectGroup.onclick=()=>{members.forEach(item=>item.checked=true);updateCount();};
+   clearGroup.onclick=()=>{members.forEach(item=>item.checked=false);updateCount();};
+ }
  sort.value=(stored&&columns.some(c=>c.key===stored.sort))?stored.sort:(columns.some(c=>c.key==='id')?'id':columns[0].key);
  dir.value=stored?.direction==='desc'?'desc':'asc';
  second.value=stored?.sorts?.[1]?.key||'';third.value=stored?.sorts?.[2]?.key||'';
@@ -136,7 +157,17 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    for(const item of (Array.isArray(zones)?zones:zones.items||zones.zones||[]))el('option',{value:item.id,text:item.name||item.title||String(item.id)},zone);
    role.value=String(preferredRole);zone.value=String(preferredZone);
  });
- const updateCount=()=>{const n=checks.filter(c=>c.checked).length;count.textContent=n.toLocaleString('fa-IR')+' ستون انتخاب شده';save.disabled=n===0;};
+ const updateCount=()=>{
+   const selected=checks.filter(c=>c.checked),n=selected.length;
+   count.textContent=n.toLocaleString('fa-IR')+' ستون از '+checks.length.toLocaleString('fa-IR')+' ستون فعال';
+   for(const [name,members] of groupChecks){
+     const selectedCount=members.filter(item=>item.checked).length;
+     groupLabels.get(name).textContent=selectedCount.toLocaleString('fa-IR')+' از '+members.length.toLocaleString('fa-IR');
+   }
+   const removed=checks.filter(c=>!c.checked).map(c=>columnByKey.get(c.value)?.label||c.value);
+   unselected.textContent=removed.length?'ستون‌های انتخاب‌نشده ('+removed.length.toLocaleString('fa-IR')+'): '+removed.join('، '):'تمام ستون‌های مجاز در گزارش فعال هستند.';
+   save.disabled=n===0;
+ };
  function update(){updateCount();}
  all.onclick=()=>{checks.forEach(c=>c.checked=true);updateCount();};
  none.onclick=()=>{checks.forEach(c=>c.checked=false);updateCount();};
@@ -197,7 +228,15 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    await refreshPresets();presetName.value='';status.textContent='قالب حذف شد.';
  }catch(err){status.textContent=err.message;}};
  refreshPresets().catch(err=>{status.textContent='بارگذاری قالب‌های ذخیره‌شده ممکن نشد: '+err.message;});
- reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';second.value='';third.value='';active.value='all';role.value='';zone.value='';preferredRole='';preferredZone='';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
+ reset.onclick=()=>{
+   localStorage.removeItem(storageKey);
+   checks.sort((a,b)=>canonicalOrder.indexOf(a.value)-canonicalOrder.indexOf(b.value));
+   for(const check of checks){check.checked=true;fields.appendChild(check.parentElement);}
+   sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;
+   dir.value='asc';second.value='';third.value='';active.value='all';
+   role.value='';zone.value='';preferredRole='';preferredZone='';
+   updateCount();status.textContent='تمام ستون‌ها با ترتیب پیش‌فرض اصلی سامانه فعال شدند.';
+ };
  preview.onclick=async()=>{try{
    preview.disabled=true;previewArea.replaceChildren();status.textContent='در حال آماده‌سازی پیش‌نمایش…';
    const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload(),preview:true})});
