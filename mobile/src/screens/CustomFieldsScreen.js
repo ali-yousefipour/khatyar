@@ -332,7 +332,10 @@ export default function CustomFieldsScreen({ navigation }) {
           {readonly.map((f) => (
             <View key={f.id} style={s.roRow}>
               <Text style={s.label}>{f.label}</Text>
-              <Text style={s.roVal}>{showVal(f)}</Text>
+              {['image','file'].includes(f.ftype)?
+                <PrivateProfileAttachment field={f} readOnly
+                  onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
+                <Text style={s.roVal}>{showVal(f)}</Text>}
             </View>
           ))}
         </View>
