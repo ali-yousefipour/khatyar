@@ -4,7 +4,7 @@ import { request } from '../api';
 import { validateIban,validateAccount,normalizeIranianDigits,bankCodeFromName } from '../identityBankingValidation';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
-import {profileFieldState,profileSchemaCustomFields} from '../userProfileRules';
+import {profileFieldState,profileSchemaCustomFields,profileCanEdit} from '../userProfileRules';
 
 // تبدیل تاریخ شمسی ساده: ورودی متنی YYYY-MM-DD (کاربر شمسی وارد می‌کند)
 function JDateInput({ value, onChange }) {
@@ -133,7 +133,7 @@ export default function CustomFieldsScreen({ navigation }) {
     const missing = (fields || []).filter((f) => {const st=profileFieldState(f.profile_definition||f,merged);return st.visible&&st.enabled&&st.required&&f.user_editable&&!st.readonly&&!String(vals[f.id]??'').trim();});
     if (missing.length) { Alert.alert('تکمیل الزامی', `این موارد الزامی‌اند: ${missing.map((m) => m.label).join('، ')}`); return; }
     for(const field of fields||[]){
-      if(!field.user_editable||!profileFieldState(field.profile_definition||field,{...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))}).visible)continue;
+      if(!field.user_editable||!profileCanEdit(field.profile_definition||field,profile)||!profileFieldState(field.profile_definition||field,{...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))}).visible)continue;
       const check=bankValidation(field,vals[field.id],fields,vals);
       if(check&&!check.valid){
         setTouched(current=>({...current,[field.id]:true}));
@@ -159,8 +159,8 @@ export default function CustomFieldsScreen({ navigation }) {
 
   const values={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))};
   const visible=fields.filter(f=>profileFieldState(f.profile_definition||f,values).visible);
-  const editable = visible.filter((f) => editingAllowed && f.user_editable && !profileFieldState(f.profile_definition||f,values).readonly);
-  const readonly = visible.filter((f) => !editingAllowed || !f.user_editable || profileFieldState(f.profile_definition||f,values).readonly);
+  const editable = visible.filter((f) => editingAllowed && f.user_editable && profileCanEdit(f.profile_definition||f,profile) && !profileFieldState(f.profile_definition||f,values).readonly);
+  const readonly = visible.filter((f) => !editingAllowed || !f.user_editable || !profileCanEdit(f.profile_definition||f,profile) || profileFieldState(f.profile_definition||f,values).readonly);
   const showVal = (f) => (f.ftype === 'checkbox') ? (vals[f.id] === '1' || vals[f.id] === true ? 'بله' : 'خیر') : ((String(vals[f.id] || '')).replace(/\|/g, '، ') || '—');
 
   if (!editing) {
