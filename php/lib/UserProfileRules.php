@@ -142,7 +142,10 @@ final class UserProfileRules {
       case 'in':
       case 'not_in':
         $options=array_map('strval',$desired);
-        $selected=is_array($actual)?array_map('strval',$actual):($empty?[]:[(string)$actual]);
+        // Existing custom_field_values store multi-select answers as "a|b".
+        // Parse them only for set-membership operators, preserving ordinary text semantics.
+        $selected=is_array($actual)?array_map('strval',$actual):
+          ($empty?[]:explode('|',(string)$actual));
         $match=count(array_intersect($selected,$options))>0;
         return $rule['op']==='in'?$match:!$match;
       case 'contains':return is_array($actual)?in_array($desired,$actual,true):is_scalar($actual)&&str_contains((string)$actual,(string)$desired);
