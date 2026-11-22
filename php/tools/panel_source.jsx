@@ -4897,6 +4897,227 @@ const SETTINGS_SECTION_INDEX=[
     "title": "پشتیبان‌گیری، بازیابی و پاکسازی"
   }
 ];
+
+/** Versioned personnel form designer. Legacy profile values remain untouched. */
+function UserProfileFormDesigner(){
+  const [model,setModel]=useState(null),[revision,setRevision]=useState(0),[published,setPublished]=useState(0);
+  const [selected,setSelected]=useState(null),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
+  const [message,setMessage]=useState(""),[error,setError]=useState(""),[migration,setMigration]=useState(false);
+  const [choices,setChoices]=useState([]),[choice,setChoice]=useState(""),[preview,setPreview]=useState(false);
+  const [previewValues,setPreviewValues]=useState({gender:"",marital_status:"",children_count:0});
+  const [undo,setUndo]=useState([]),[redo,setRedo]=useState([]),dragRef=useRef(null);
+  const load=async()=>{
+    setBusy(true);setError("");
+    try{
+      const [data,available]=await Promise.all([GET('/admin/user-profile-form'),db.customFields()]);
+      setModel(data.schema);setRevision(Number(data.revision)||0);
+      setPublished(Number(data.published_version)||0);setMigration(!!data.migration_required);
+      setChoices((available||[]).filter(f=>Number(f.is_active)!==0));
+      setDirty(false);setUndo([]);setRedo([]);
+    }catch(e){setError(e.message||"دریافت ساختار فرم ناموفق بود.");}
+    finally{setBusy(false);}
+  };
+  useEffect(()=>{let live=true;load().catch(e=>{if(live)setError(e.message)});return()=>{live=false;};},[]);
+  const modify=fn=>{
+    setModel(prev=>{if(!prev)return prev;const next=JSON.parse(JSON.stringify(prev));fn(next);setUndo(stack=>[...stack.slice(-29),prev]);setRedo([]);setDirty(true);setMessage("");return next;});
+  };
+  const history=direction=>{
+    if(direction==="undo"&&undo.length){const previous=undo[undo.length-1];setUndo(undo.slice(0,-1));setRedo(arr=>[...arr,model]);setModel(previous);setDirty(true);}
+    if(direction==="redo"&&redo.length){const next=redo[redo.length-1];setRedo(redo.slice(0,-1));setUndo(arr=>[...arr,model]);setModel(next);setDirty(true);}
+  };
+  const fields=(model?.sections||[]).flatMap(s=>s.fields||[]);
+  const current=fields.find(f=>f.key===selected);
+  const editField=(key,value)=>modify(d=>{for(const s of d.sections){const f=s.fields.find(x=>x.key===selected);if(f){f[key]=value;return;}}});
+  const moveField=(section,index,by)=>modify(d=>{
+    const list=d.sections[section].fields,newIndex=index+by;
+    if(newIndex<0||newIndex>=list.length)return;
+    list.splice(newIndex,0,list.splice(index,1)[0]);
+  });
+  const moveGroup=(index,by)=>modify(d=>{
+    const next=index+by;if(next<0||next>=d.sections.length)return;
+    d.sections.splice(next,0,d.sections.splice(index,1)[0]);
+  });
+  const onDrop=(section,index)=>{
+    const from=dragRef.current;dragRef.current=null;
+    if(!from)return;
+    if(from.type==="section"){if(from.section===section)return;modify(d=>d.sections.splice(section,0,d.sections.splice(from.section,1)[0]));return;}
+    modify(d=>{
+      const item=d.sections[from.section]?.fields.splice(from.index,1)[0];
+      if(!item)return;
+      const at=from.section===section&&from.index<index?index-1:index;
+      d.sections[section].fields.splice(Math.min(at,d.sections[section].fields.length),0,item);
+    });
+  };
+  const addExisting=()=>{
+    const f=choices.find(x=>String(x.id)===choice);
+    if(!f)return;
+    const key="cf_"+f.id;
+    if(fields.some(x=>x.key===key)){setError("این فیلد از قبل در فرم وجود دارد.");return;}
+    modify(d=>{
+      const last=d.sections.find(x=>x.key==="additional")||d.sections[d.sections.length-1];
+      last.fields.push({key,label:f.label,type:f.ftype||"text",binding:"custom",
+        custom_field_id:Number(f.id),options:String(f.options||"").split("|").filter(Boolean),
+        required:!!Number(f.required),readonly:!Number(f.user_editable),rules:[]});
+    });setChoice("");setSelected(key);
+  };
+  const addGroup=()=>modify(d=>{
+    let id=1;while(d.sections.some(s=>s.key==="group_"+id))id++;
+    d.sections.push({key:"group_"+id,title:"گروه جدید",fields:[]});
+  });
+  const appendRule=()=>{
+    const source=fields.find(x=>x.key!==selected);
+    if(!source)return;
+    editField("rules",[...(current.rules||[]),{action:"show",when:{all:[{field:source.key,op:"eq",value:""}]}}]);
+  };
+  const editRule=(index,fn)=>modify(d=>{
+    const field=d.sections.flatMap(s=>s.fields).find(x=>x.key===selected);
+    const rule=field.rules[index];fn(rule);
+  });
+  const match=(condition,values)=>{
+    if(condition?.all)return condition.all.every(c=>match(c,values));
+    if(condition?.any)return condition.any.some(c=>match(c,values));
+    const v=values[condition?.field],x=condition?.value;
+    if(condition?.op==="empty")return v==null||v==="";
+    if(condition?.op==="not_empty")return v!=null&&v!=="";
+    if(condition?.op==="eq")return String(v??"")===String(x??"");
+    if(condition?.op==="neq")return String(v??"")!==String(x??"");
+    if(condition?.op==="gt")return Number(v)>Number(x);
+    if(condition?.op==="gte")return Number(v)>=Number(x);
+    if(condition?.op==="lt")return Number(v)<Number(x);
+    if(condition?.op==="lte")return Number(v)<=Number(x);
+    if(condition?.op==="in")return Array.isArray(x)&&x.map(String).includes(String(v));
+    if(condition?.op==="not_in")return Array.isArray(x)&&!x.map(String).includes(String(v));
+    if(condition?.op==="true")return v===true||v===1||v==="1";
+    if(condition?.op==="false")return v===false||v===0||v==="0"||v==null;
+    if(condition?.op==="contains")return String(v??"").includes(String(x??""));
+    if(condition?.op==="not_contains")return !String(v??"").includes(String(x??""));
+    if(condition?.op==="date_between")return Array.isArray(x)&&v>=x[0]&&v<=x[1];
+    if(condition?.op==="date_outside")return Array.isArray(x)&&(v<x[0]||v>x[1]);
+    return false;
+  };
+  const stateOf=(field)=>{
+    const state={visible:field.visible!==false,required:!!field.required,readonly:!!field.readonly,enabled:field.enabled!==false};
+    for(const rule of field.rules||[]){
+      if(!match(rule.when,previewValues))continue;
+      const a=rule.action;
+      if(a==="show")state.visible=true;
+      if(a==="hide")state.visible=false;
+      if(a==="require")state.required=true;
+      if(a==="optional")state.required=false;
+      if(a==="readonly")state.readonly=true;
+      if(a==="editable")state.readonly=false;
+      if(a==="enable")state.enabled=true;
+      if(a==="disable")state.enabled=false;
+    }
+    return state;
+  };
+  const save=async()=>{
+    if(!model||migration)return;
+    setBusy(true);setError("");setMessage("");
+    try{
+      const r=await SEND('PUT','/admin/user-profile-form',{schema:model,revision});
+      setRevision(Number(r.revision));setDirty(false);setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد.");
+    }catch(e){setError(e.message||"ثبت پیش‌نویس ناموفق بود.");}finally{setBusy(false);}
+  };
+  const publish=async()=>{
+    if(migration||dirty){setError("ابتدا پیش‌نویس را ذخیره کنید و از اجرای Migration اطمینان یابید.");return;}
+    if(!window.confirm("نسخه جدید فرم اطلاعات پرسنلی برای کاربران وب و اندروید منتشر شود؟"))return;
+    setBusy(true);setError("");
+    try{const r=await SEND('POST','/admin/user-profile-form/publish',{revision});setPublished(r.version);setMessage("نسخه "+faPlain(r.version)+" منتشر شد.");}
+    catch(e){setError(e.message||"انتشار نسخه ناموفق بود.");}finally{setBusy(false);}
+  };
+  const actions=[["show","نمایش"],["hide","مخفی"],["enable","فعال"],["disable","غیرفعال"],["require","اجباری"],["optional","اختیاری"],["readonly","فقط‌خواندنی"],["editable","قابل ویرایش"]];
+  const operators=[["eq","برابر"],["neq","نابرابر"],["gt","بزرگ‌تر"],["gte","بزرگ‌تر یا مساوی"],["lt","کوچک‌تر"],["lte","کوچک‌تر یا مساوی"],["contains","شامل"],["not_contains","شامل نمی‌شود"],["empty","خالی"],["not_empty","خالی نیست"],["in","یکی از گزینه‌ها"],["not_in","هیچ‌کدام"],["true","درست"],["false","نادرست"],["date_between","در محدوده تاریخ"],["date_outside","خارج محدوده تاریخ"]];
+  return <div className="user-profile-designer" style={{marginTop:18,borderTop:"1px solid var(--line)",paddingTop:14}}>
+    <h3>فرم‌ساز اطلاعات کاربران</h3>
+    <p className="muted">طراحی نسخه‌دار اطلاعات جامع پرسنلی؛ تغییر ترتیب و شروط بدون جابه‌جایی مقادیر موجود در پایگاه داده.</p>
+    {migration&&<p role="alert" style={{padding:12,background:"#fff4df",borderRadius:8}}>پایگاه داده فرم‌ساز هنوز آماده نشده است. ابتدا Migration ایمن <code>20261122_user_profile_forms.sql</code> را پس از تهیه پشتیبان اجرا کنید. فرم فعلی بدون تغییر فعال است.</p>}
+    {error&&<p role="alert" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
+    {message&&<p role="status" style={{color:"var(--ok,#087f5b)"}}>{message}</p>}
+    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+      <button className="btn g" onClick={load} disabled={busy}>بارگذاری مجدد</button>
+      <button className="btn g" onClick={()=>history("undo")} disabled={!undo.length||busy}>بازگشت تغییر</button>
+      <button className="btn g" onClick={()=>history("redo")} disabled={!redo.length||busy}>انجام مجدد</button>
+      <button className="btn g" onClick={()=>setPreview(!preview)}>{preview?"بازگشت به طراحی":"پیش‌نمایش شرط‌ها"}</button>
+      <button className="btn p" disabled={busy||!dirty||migration} onClick={save}>ذخیره پیش‌نویس</button>
+      <button className="btn p" disabled={busy||dirty||migration} onClick={publish}>انتشار نسخه</button>
+      <small className="muted">نسخه منتشرشده: {faPlain(published)} · بازنگری پیش‌نویس: {faPlain(revision)}</small>
+    </div>
+    {!model?<p className="muted">در حال دریافت فرم…</p>:preview?
+      <div style={{display:"grid",gap:12}}>
+        <div className="row" style={{flexWrap:"wrap",gap:8}}>
+          {fields.filter(f=>["gender","marital_status","children_count"].includes(f.key)).map(f=><label key={f.key}>{f.label}<input className="input" value={previewValues[f.key]??""} onChange={e=>setPreviewValues(v=>({...v,[f.key]:e.target.value}))}/></label>)}
+        </div>
+        {model.sections.map(section=><section key={section.key} className="card-p"><h4>{section.title}</h4>
+          {section.fields.filter(f=>stateOf(f).visible).map(f=><div key={f.key} style={{padding:6,marginBlock:4}}>{f.label}{stateOf(f).required?" *":""} {stateOf(f).readonly?"🔒":""}</div>)}
+        </section>)}
+      </div>:
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:14,alignItems:"start"}}>
+        <div style={{minWidth:0}}>
+          <h4>گروه‌ها و ترتیب فیلدها</h4>
+          <button className="btn g" type="button" onClick={addGroup}>افزودن گروه</button>
+          {(model.sections||[]).map((section,si)=><div key={section.key} className="card-p" style={{marginTop:10,padding:12}}
+            draggable onDragStart={()=>dragRef.current={type:"section",section:si}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();onDrop(si,0)}}>
+            <div className="row" style={{justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
+              <input className="input" aria-label="نام گروه" value={section.title||""} onChange={e=>modify(d=>d.sections[si].title=e.target.value)}/>
+              <button className="btn g" onClick={()=>moveGroup(si,-1)} disabled={si===0}>↑</button>
+              <button className="btn g" onClick={()=>moveGroup(si,1)} disabled={si===model.sections.length-1}>↓</button>
+            </div>
+            {(section.fields||[]).map((f,fi)=><div key={f.key} draggable
+              onDragStart={e=>{e.stopPropagation();dragRef.current={type:"field",section:si,index:fi};}}
+              onDragOver={e=>{e.preventDefault();e.stopPropagation();}}
+              onDrop={e=>{e.stopPropagation();e.preventDefault();onDrop(si,fi);}}
+              style={{display:"flex",alignItems:"center",gap:5,marginTop:6,padding:8,border:"1px solid var(--line)",borderRadius:8,background:selected===f.key?"var(--warn-soft,#fff3db)":"transparent"}}>
+              <button type="button" className="btn g" style={{flex:1,textAlign:"right"}} onClick={()=>setSelected(f.key)}>{f.label||f.key} <small>({f.key})</small></button>
+              <button className="btn g" onClick={()=>moveField(si,fi,-1)} disabled={fi===0}>↑</button>
+              <button className="btn g" onClick={()=>moveField(si,fi,1)} disabled={fi===section.fields.length-1}>↓</button>
+            </div>)}
+          </div>)}
+          <div style={{marginTop:12}}><h4>افزودن فیلد سفارشی موجود</h4><div className="row" style={{gap:6,flexWrap:"wrap"}}>
+            <select className="input" value={choice} onChange={e=>setChoice(e.target.value)}>
+              <option value="">انتخاب فیلد از فهرست فعلی</option>
+              {choices.filter(c=>!fields.some(f=>f.key==="cf_"+c.id)).map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+            </select><button className="btn p" onClick={addExisting} disabled={!choice}>افزودن به فرم</button>
+          </div></div>
+        </div>
+        <div style={{minWidth:0}}>
+          <h4>تنظیمات فیلد انتخاب‌شده</h4>
+          {!current?<p className="muted">یک فیلد را برای ویرایش عنوان، ظاهر و شروط انتخاب کنید.</p>:
+            <div className="card-p" style={{padding:14}}>
+              <p className="muted">شناسه ثابت: <code>{current.key}</code> · ذخیره‌سازی: {current.binding}</p>
+              <label>عنوان فارسی<input className="input" value={current.label||""} onChange={e=>editField("label",e.target.value)}/></label>
+              <label>متن راهنما<input className="input" value={current.description||""} onChange={e=>editField("description",e.target.value)}/></label>
+              <label>Placeholder<input className="input" value={current.placeholder||""} onChange={e=>editField("placeholder",e.target.value)}/></label>
+              <label>نوع فیلد<input className="input" readOnly value={current.type||""}/></label>
+              <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>
+              <div style={{display:"grid",gap:4,marginTop:8}}>
+                {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:k==="visible"||k==="enabled"} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
+              </div>
+              <h4 style={{marginTop:15}}>قوانین شرطی</h4>
+              <button className="btn g" onClick={appendRule}>افزودن قانون</button>
+              {(current.rules||[]).map((rule,ri)=>{
+                const groupKey=rule.when?.any?"any":"all",parts=rule.when?.[groupKey]||[rule.when];
+                return <div key={ri} style={{border:"1px solid var(--line)",padding:10,borderRadius:10,marginTop:9}}>
+                  <div className="row" style={{gap:6,flexWrap:"wrap"}}>
+                    <select className="input" aria-label="عمل قانون" value={rule.action} onChange={e=>editRule(ri,r=>r.action=e.target.value)}>{actions.map(([v,t])=><option key={v} value={v}>{t}</option>)}</select>
+                    <select className="input" aria-label="ترکیب شرط‌ها" value={groupKey} onChange={e=>editRule(ri,r=>r.when={[e.target.value]:parts})}><option value="all">همه شروط (AND)</option><option value="any">یکی از شروط (OR)</option></select>
+                    <button className="btn g" onClick={()=>editField("rules",current.rules.filter((_,i)=>i!==ri))}>حذف قانون</button>
+                  </div>
+                  {parts.map((part,pi)=><div key={pi} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:6}}>
+                    <select className="input" aria-label="فیلد شرط" value={part.field} onChange={e=>editRule(ri,r=>r.when[groupKey][pi].field=e.target.value)}>{fields.filter(f=>f.key!==selected).map(f=><option key={f.key} value={f.key}>{f.label}</option>)}</select>
+                    <select className="input" aria-label="عملگر شرط" value={part.op} onChange={e=>editRule(ri,r=>r.when[groupKey][pi].op=e.target.value)}>{operators.map(([v,t])=><option key={v} value={v}>{t}</option>)}</select>
+                    {!["empty","not_empty","true","false"].includes(part.op)&&<input className="input" aria-label="مقدار شرط" placeholder="مقدار" value={Array.isArray(part.value)?part.value.join("|"):part.value??""} onChange={e=>editRule(ri,r=>r.when[groupKey][pi].value=["in","not_in","date_between","date_outside"].includes(part.op)?e.target.value.split("|"):e.target.value)}/>}
+                    <button className="btn g" onClick={()=>editRule(ri,r=>r.when[groupKey].splice(pi,1))} disabled={parts.length<2}>×</button>
+                  </div>)}
+                  <button className="btn g" style={{marginTop:6}} onClick={()=>editRule(ri,r=>r.when[groupKey].push({field:fields.find(f=>f.key!==selected)?.key,op:"eq",value:""}))}>+ شرط دیگر</button>
+                </div>;
+              })}
+            </div>}
+        </div>
+      </div>}
+  </div>;
+}
+
 function Settings(){
   const [v,setV]=useState(null);
   const [tab,setTab]=useState("general");
@@ -5096,7 +5317,7 @@ function Settings(){
     {}
     {visitedTabs.includes("hr")&&<div id="settings-section-15" className="panel t-hr"><h3>تنظیمات حقوق و دستمزد</h3><PayrollSettings v={v} set={set} save={save}/></div>}
     {visitedTabs.includes("hr")&&<div id="settings-section-16" className="panel t-hr"><h3>🎂 تبریک تولد خودکار</h3><BirthdaySettings v={v} set={set} save={save}/></div>}
-    {visitedTabs.includes("fields")&&<div id="settings-section-17" className="panel t-fields"><h3>🗂 فیلدهای سفارشی پرسنل</h3><CustomFieldsManager/>
+    {visitedTabs.includes("fields")&&<div id="settings-section-17" className="panel t-fields"><h3>🗂 فیلدهای سفارشی پرسنل</h3><CustomFieldsManager/><UserProfileFormDesigner/>
       <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
         <label className="row" style={{gap:8,marginBottom:6}}><input type="checkbox" checked={!!v.require_complete_profile_login} onChange={e=>set("require_complete_profile_login",e.target.checked)}/><b>جلوگیری از ورود کاربرانی که اطلاعات تکمیلی یا امضای خود را وارد نکرده‌اند</b></label>
         <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>در صورت فعال بودن، هر کاربری (به‌جز مدیران) که یکی از فیلدهای سفارشیِ «الزامی» را تکمیل نکرده باشد یا هنوز امضای خود را داخل برنامه ثبت نکرده باشد، هنگام ورود با پیام خطا مواجه شده و اجازهٔ ورود به نرم‌افزار را نخواهد داشت تا زمانی‌که اطلاعات را تکمیل کند. فیلدهای «الزامی» را از همین بخش (فیلدهای سفارشی پرسنل) مشخص کنید.</p>
