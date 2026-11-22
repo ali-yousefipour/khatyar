@@ -108,10 +108,13 @@ final class UserProfileRules {
               $options=$column['options']??null;
               if(!is_array($options)||!array_is_list($options)||count($options)<1||count($options)>50)
                 self::fail('گزینه‌های ستون تکرارشونده معتبر نیست');
-              if(count(array_unique($options))!==count($options))
-                self::fail('گزینه ستون تکراری است');
-              foreach($options as $option)if(!is_string($option)||$option===''||mb_strlen($option)>120||str_contains($option,'|'))
-                self::fail('گزینه ستون نامعتبر است');
+              $seenOptions=[];
+              foreach($options as $option){
+                if(!is_string($option)||$option===''||mb_strlen($option)>120||str_contains($option,'|'))
+                  self::fail('گزینه ستون نامعتبر است');
+                if(isset($seenOptions[$option]))self::fail('گزینه ستون تکراری است');
+                $seenOptions[$option]=true;
+              }
             }
           }
         }
