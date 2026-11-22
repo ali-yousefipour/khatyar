@@ -14730,12 +14730,13 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             throw Error(data.error || data.message || "دریافت اطلاعات ناموفق بود");
         return data;
     };
-    const load = async () => {
+    const load = async ({ preserveError = false } = {}) => {
         try {
             const data = await request("?year=" + year + "&month=" + month);
             if (life.current.alive) {
                 setArchive(data);
-                setError("");
+                if (!preserveError)
+                    setError("");
             }
         }
         catch (e) {
@@ -14753,8 +14754,11 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             await fn();
         }
         catch (e) {
-            if (life.current.alive && e.name !== "AbortError")
+            if (life.current.alive && e.name !== "AbortError") {
                 setError(e.message);
+                if (label === "محاسبه و ساخت فایل شرکت…")
+                    setDetail(previous => previous ? { ...previous, errorMessage: e.message, title: "محاسبه فایل شرکت با خطا مواجه شد" } : previous);
+            }
         }
         finally {
             life.current.locked = false;
@@ -14892,7 +14896,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             }
             // Refresh the archive only after handling the generated download.
             // A slow archive listing must never prevent the file download.
-            await load();
+            await load({ preserveError: true });
         }
         finally {
             tracking.active = false;
@@ -15067,6 +15071,10 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                         return generate(detail.sourceId, true);
                     } } }, "\u062A\u0623\u06CC\u06CC\u062F \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627 \u0648 \u0633\u0627\u062E\u062A \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A"),
                 React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")),
+            detail.errorMessage && React.createElement("p", { role: "alert", style: { color: "var(--danger,#bd2929)", fontWeight: 700 } },
+                "\u062E\u0637\u0627: ",
+                detail.errorMessage,
+                " \u2014 \u0646\u062A\u06CC\u062C\u0647 \u0622\u0631\u0634\u06CC\u0648 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F\u061B \u062F\u0631 \u0635\u0648\u0631\u062A \u0646\u06CC\u0627\u0632 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F."),
             detail.sourceId > 0 && React.createElement("p", { className: "muted", role: "alert" }, "\u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u062F\u0627\u0631\u0627\u06CC \u0645\u063A\u0627\u06CC\u0631\u062A \u0627\u0633\u062A. \u0628\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0634\u0645\u0627 \u0641\u0627\u06CC\u0644 \u062A\u0648\u0644\u06CC\u062F \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062C\u0632\u0626\u06CC\u0627\u062A \u062E\u0637\u0627\u0647\u0627\u06CC \u0647\u0631 \u0646\u0641\u0631 \u062F\u0631 \u06A9\u0627\u0645\u0646\u062A \u0633\u0644\u0648\u0644 \u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u062E\u0648\u0627\u0647\u062F \u0634\u062F \u0648 \u0645\u0642\u0627\u062F\u06CC\u0631 \u0646\u0627\u0645\u0634\u062E\u0635 \u062E\u0627\u0644\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
             detail.discrepancies_acknowledged && React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u0646\u0633\u062E\u0647 \u0628\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627 \u062A\u0648\u0644\u06CC\u062F \u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u062E\u0637\u0627\u0647\u0627 \u06A9\u0627\u0645\u0646\u062A \u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0631\u0627 \u062F\u0631 \u0627\u06A9\u0633\u0644 \u0628\u0627\u0632 \u06A9\u0646\u06CC\u062F."),
             ((_a = detail.rows) === null || _a === void 0 ? void 0 : _a.some(r => r.organization_basis)) && React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u062F\u0631 \u063A\u06CC\u0628\u062A \u0642\u0627\u0628\u0644 \u067E\u0631\u062F\u0627\u062E\u062A \u0648 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0644\u062D\u0627\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0646\u0633\u062E\u0647 \u062D\u0641\u0638 \u0627\u0633\u062A."),
