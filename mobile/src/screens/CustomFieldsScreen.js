@@ -123,7 +123,8 @@ export default function CustomFieldsScreen({ navigation }) {
         ftype:f.type||byId.get(Number(f.custom_field_id)).ftype,
         options:Array.isArray(f.options)?f.options.join('|'):byId.get(Number(f.custom_field_id)).options,
         profile_definition:f}));
-      const other=fs.filter(f=>!configured.some(c=>Number(c.custom_field_id)===Number(f.id)));
+      const other=fs.filter(f=>!configured.some(c=>Number(c.custom_field_id)===Number(f.id)))
+        .map(f=>formResponse?.schema?{...f,user_editable:false,profile_definition:{readonly:true,binding:'custom',key:'cf_'+f.id}}:f);
       setFields([...ordered,...other]);
       const m = {};
       fs.forEach((f) => { if (f.value != null) m[f.id] = f.value; });
