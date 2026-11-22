@@ -1964,7 +1964,7 @@ function Users(){
       <LeaveBalance userId={edit.id}/>
       {(edit.device_model||edit.android_version)&&<div className="muted" style={{fontSize:11.5,marginTop:8}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخهٔ برنامه: {edit.app_version||"—"}</div>}
       <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
-      <CustomFieldsFiller userId={edit.id}/>
+      <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit}/>
       <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
       </>}
       {editTab==="access"&&<>
@@ -6610,20 +6610,124 @@ function CustomFieldInput({field,value,onChange}){
 }
 
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
-function CustomFieldsFiller({userId}){
-  const [fields,setFields]=useState(null); const [vals,setVals]=useState({}); const [originalVals,setOriginalVals]=useState({}); const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [open,setOpen]=useState(false);
-  useEffect(()=>{setOpen(true);setFields(null);setVals({});setOriginalVals({});setError("");if(userId)load();},[userId]);
-  const load=()=>{setOpen(true);setError("");db.customFields().then(fs=>{
-    setFields((fs||[]).filter(f=>Number(f.is_active)!==0));
-    if(userId)db.userCustomValues(userId).then(vs=>{
-      const m={};(vs||[]).forEach(v=>{const id=Number(v.field_id??v.id);if(Number.isSafeInteger(id)&&id>0)m[id]=v.value;});setVals(m);setOriginalVals(m);
-    }).catch(e=>setError(e.message||"دریافت اطلاعات تکمیلی ناموفق بود."));
-  }).catch(e=>{setFields([]);setError(e.message||"دریافت فهرست فیلدها ناموفق بود.");});};
+/** Pure preview evaluation for the admin's published personnel form. */
+function adminProfileCondition(rule,values){
+  if(!rule||typeof rule!=="object")return false;
+  if(Array.isArray(rule.all))return rule.all.length>0&&rule.all.every(part=>adminProfileCondition(part,values));
+  if(Array.isArray(rule.any))return rule.any.length>0&&rule.any.some(part=>adminProfileCondition(part,values));
+  const actual=values[rule.field],desired=rule.value;
+  const empty=actual==null||actual===""||(Array.isArray(actual)&&actual.length===0);
+  const numeric=value=>{
+    if(value==null||typeof value==="boolean"||typeof value==="object")return null;
+    const raw=String(value).replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+      .replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).trim();
+    return /^-?\d+(?:\.\d+)?$/.test(raw)?Number(raw):null;
+  };
+  const date=value=>{
+    if(typeof value!=="string")return null;
+    const raw=value.replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)))
+      .replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\//g,"-");
+    const m=/^(1[34]\d{2})-(\d{2})-(\d{2})$/.exec(raw);
+    if(!m)return null;
+    const month=Number(m[2]),day=Number(m[3]);
+    return month>=1&&month<=12&&day>=1&&day<=(month<=6?31:30)?raw:null;
+  };
+  switch(rule.op){
+    case "empty":return empty;
+    case "not_empty":return !empty;
+    case "true":return actual===true||actual===1||actual==="1";
+    case "false":return actual===false||actual===0||actual==="0"||empty;
+    case "eq":return !empty&&actual!=null&&desired!=null&&typeof actual!=="object"&&typeof desired!=="object"&&String(actual)===String(desired);
+    case "neq":return empty||actual==null||desired==null||typeof actual==="object"||typeof desired==="object"||String(actual)!==String(desired);
+    case "contains":return Array.isArray(actual)?actual.includes(desired):String(actual??"").includes(String(desired??""));
+    case "not_contains":return Array.isArray(actual)?!actual.includes(desired):!String(actual??"").includes(String(desired??""));
+    case "in":case "not_in":{
+      if(!Array.isArray(desired))return false;
+      const chosen=Array.isArray(actual)?actual.map(String):empty?[]:String(actual).split("|");
+      const matches=chosen.some(x=>desired.map(String).includes(x));
+      return rule.op==="in"?matches:!matches;
+    }
+    case "gt":case "gte":case "lt":case "lte":{
+      const a=numeric(actual),b=numeric(desired);
+      if(a===null||b===null)return false;
+      return rule.op==="gt"?a>b:rule.op==="gte"?a>=b:rule.op==="lt"?a<b:a<=b;
+    }
+    case "date_between":case "date_outside":{
+      const a=date(actual),lo=date(desired?.[0]),hi=date(desired?.[1]);
+      if(!a||!lo||!hi||lo>hi)return false;
+      const matched=a>=lo&&a<=hi;
+      return rule.op==="date_between"?matched:!matched;
+    }
+    default:return false;
+  }
+}
+function adminProfileFieldState(field,values){
+  const state={visible:field.visible!==false&&field.web_visible!==false,
+    enabled:field.enabled!==false,required:!!field.required,readonly:!!field.admin_readonly};
+  for(const rule of field.rules||[]){
+    if(!adminProfileCondition(rule.when,values))continue;
+    if(rule.action==="show")state.visible=true;
+    if(rule.action==="hide")state.visible=false;
+    if(rule.action==="enable")state.enabled=true;
+    if(rule.action==="disable")state.enabled=false;
+    if(rule.action==="require")state.required=true;
+    if(rule.action==="optional")state.required=false;
+    if(rule.action==="readonly")state.readonly=true;
+    if(rule.action==="editable")state.readonly=false;
+  }
+  if(field.web_visible===false)state.visible=false;
+  if(!state.visible||!state.enabled||state.readonly)state.required=false;
+  return state;
+}
+function CustomFieldsFiller({userId,profile}){
+  const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
+  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null);
+  const load=async()=>{
+    setError("");setFields(null);
+    try{
+      const [list,existing,form]=await Promise.all([
+        db.customFields(),db.userCustomValues(userId),GET('/my/user-profile-form').catch(()=>null)
+      ]);
+      const active=(list||[]).filter(f=>Number(f.is_active)!==0);
+      const defs=(form?.schema?.sections||[]).flatMap(section=>(section.fields||[]).map(field=>({...field,group:section.title||"اطلاعات تکمیلی"})));
+      const byId=new Map(defs.filter(f=>f.binding==="custom").map(f=>[Number(f.custom_field_id),f]));
+      const order=new Map(defs.filter(f=>f.binding==="custom").map((f,i)=>[Number(f.custom_field_id),i]));
+      setFields(active.map(field=>{
+        const definition=byId.get(Number(field.id));
+        return definition?{...field,label:definition.label||field.label,
+          ftype:definition.type||field.ftype,
+          profile_definition:definition,
+          group:definition.group,
+          options:definition.type==="repeater"?field.options:
+            Array.isArray(definition.options)?definition.options.join("|"):field.options
+        }:{...field,group:"سایر اطلاعات تکمیلی",profile_definition:form?.schema?{web_visible:false}:null};
+      }).sort((a,b)=>(order.get(Number(a.id))??100000)-(order.get(Number(b.id))??100000)));
+      const m={};for(const row of existing||[]){
+        const id=Number(row.field_id??row.id);
+        if(Number.isSafeInteger(id)&&id>0)m[id]=row.value;
+      }
+      setVals(m);setOriginalVals({...m});setSchema(form?.schema||null);
+    }catch(e){setFields([]);setError(e.message||"دریافت اطلاعات تکمیلی ناموفق بود.");}
+  };
+  useEffect(()=>{setVals({});setOriginalVals({});setSchema(null);if(userId)load();},[userId]);
+  const values={...(profile||{}),...Object.fromEntries(Object.entries(vals).map(([id,value])=>["cf_"+id,value]))};
+  const fieldState=field=>adminProfileFieldState(field.profile_definition||field,values);
+  const visible=(fields||[]).filter(field=>fieldState(field).visible);
+  const sections=visible.reduce((groups,field)=>{
+    const title=field.group||"اطلاعات تکمیلی";
+    if(!groups.some(group=>group.title===title))groups.push({title,fields:[]});
+    groups.find(group=>group.title===title).fields.push(field);
+    return groups;
+  },[]);
   const save=async()=>{
     if(busy)return;
     const changed={};
-    for(const [id,value] of Object.entries(vals))
-      if(String(value??"")!==String(originalVals[id]??""))changed[id]=value;
+    for(const field of visible){
+      const state=fieldState(field);
+      if(!state.enabled||state.readonly)continue;
+      const id=field.id,value=vals[id];
+      if(String(value??"")!==String(originalVals[id]??""))changed[id]=value??"";
+    }
     if(!Object.keys(changed).length)return;
     setBusy(true);setError("");
     try{
@@ -6633,21 +6737,28 @@ function CustomFieldsFiller({userId}){
     }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");}
     finally{setBusy(false);}
   };
-  if(!userId) return null;
-  return(<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>
+  if(!userId)return null;
+  return <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--line)"}}>
     <h4>اطلاعات تکمیلی پرسنل</h4>
-    {!open?<button className="btn g" type="button" onClick={load}>بارگذاری اطلاعات تکمیلی</button>:
-     fields===null?<span className="muted">در حال بارگذاری…</span>:
-     fields.length===0?<p className="muted" style={{fontSize:12}}>فیلد سفارشی‌ای تعریف نشده است. از منوی «فیلدهای سفارشی» اضافه کنید.</p>:
-     <div>
-       {fields.map(f=><div key={f.id} style={{marginBottom:8}}>
-         <label className="label">{f.label}{f.required==1?" *":""}{f.user_editable==1?"":" 🔒"}</label>
-         <CustomFieldInput field={f} value={vals[f.id]} onChange={v=>setVals({...vals,[f.id]:v})}/>
-       </div>)}
-       {error&&<p role="alert" className="muted" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
-       <button className="btn p" disabled={busy} onClick={save}>{busy?"در حال ذخیره…":"ذخیرهٔ اطلاعات تکمیلی"}</button>
-     </div>}
-  </div>);
+    {fields===null?<p className="muted">در حال دریافت اطلاعات تکمیلی…</p>:
+      sections.length===0?<p className="muted">فیلد تکمیلی قابل نمایش وجود ندارد.</p>:
+      sections.map(section=><section key={section.title} className="card-p" style={{padding:12,marginTop:10}}>
+        <h5>{section.title}</h5>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,220px),1fr))",gap:12}}>
+          {section.fields.map(field=>{
+            const state=fieldState(field);
+            return <div key={field.id} style={{minWidth:0}}>
+              <label className="label">{field.label}{state.required?" *":""}{!state.enabled||state.readonly?" (فقط نمایش)":""}</label>
+              {state.enabled&&!state.readonly?
+                <CustomFieldInput field={field} value={vals[field.id]??""} onChange={value=>setVals(current=>({...current,[field.id]:value}))}/>:
+                <p style={{whiteSpace:"pre-wrap"}}>{String(vals[field.id]??"—")}</p>}
+            </div>;
+          })}
+        </div>
+      </section>)}
+    {error&&<p role="alert" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
+    {!!sections.length&&<button className="btn p" disabled={busy} onClick={save}>{busy?"در حال ذخیره…":"ذخیره اطلاعات تکمیلی"}</button>}
+  </div>;
 }
 
 
