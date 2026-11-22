@@ -4,8 +4,8 @@ const filename=path.join(__dirname,'../src/userProfileRules.js');
 const code=fs.readFileSync(filename,'utf8');
 assert(!/\beval\(|new Function\(/.test(code),'no executable rules');
 const context=vm.createContext({});
-vm.runInContext(code.replace(/export function /g,'function ')+';globalThis.exports={profileRuleMatches,profileFieldState,profileSchemaCustomFields}',context);
-const {profileRuleMatches:matches,profileFieldState:state,profileSchemaCustomFields:custom}=context.exports;
+vm.runInContext(code.replace(/export function /g,'function ')+';globalThis.exports={profileRuleMatches,profileFieldState,profileSchemaCustomFields,profileCanEdit}',context);
+const {profileRuleMatches:matches,profileFieldState:state,profileSchemaCustomFields:custom,profileCanEdit:canEdit}=context.exports;
 const values={gender:'زن',marital_status:'متاهل',children_count:2,employment_start_date:'1405/08/01'};
 assert(matches({all:[{field:'gender',op:'eq',value:'زن'},{field:'children_count',op:'gt',value:0}]},values));
 assert(matches({any:[{field:'gender',op:'eq',value:'مرد'},{field:'marital_status',op:'eq',value:'متاهل'}]},values));
@@ -16,4 +16,7 @@ assert(state({required:true,rules:[{action:'hide',when:{field:'gender',op:'eq',v
 assert(state({rules:[{action:'require',when:{field:'children_count',op:'gt',value:0}}]},values).required===true);
 const fields=custom({sections:[{fields:[{binding:'system',key:'first_name'},{binding:'custom',key:'cf_7',custom_field_id:7}]}]});
 assert.equal(fields.length,1);assert.equal(fields[0].key,'cf_7');
+assert(canEdit({edit_roles:[5]},{id:12,role_id:5}));
+assert(!canEdit({edit_roles:[5]},{id:12,role_id:9}));
+assert(!canEdit({edit_roles:[5],deny_users:[12]},{id:12,role_id:5}));
 console.log('PASS mobile personnel forms: AND/OR, gender, family, Jalali, Persian number, readonly and no eval');
