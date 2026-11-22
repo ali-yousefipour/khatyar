@@ -24,7 +24,7 @@ assert.match(full,/profile_edit_allowed/,'profile GET carries view-only flag');
 const customGet=routeBlock('GET','/api/my/custom-fields');
 assert.match(customGet,/\$editAllowed/,'custom field GET applies live edit policy');
 assert.match(account,/profileReadOnly/,'Android renders view-only profile');
-assert.match(account,/editable=\{!profileReadOnly\}/,'Android disables inputs');
+assert.match(account,/editable=\{systemCanEdit\('/,'Android disables conditional and readonly inputs');
 assert.match(account,/!profileReadOnly&&<TouchableOpacity[^\n]+onPress=\{save\}/,'Android hides save');
 assert.match(custom,/editable = visible\.filter/,'custom fields only allow visible and permitted fields');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
