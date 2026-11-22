@@ -175,13 +175,15 @@ const playFile=async(message,{generation=sessionRef.current,manual=false,all=fal
     await entry.done;
   }catch(error){finish();}
 };
-const pollFailRef=useRef(0),reconnectRef=useRef(false),nextReconnectRef=useRef(0);
+// Keep failed long-polls from hammering PHP during a transient outage.
+const pollFailRef=useRef(0),pollAllFailRef=useRef(0),nextPollAtRef=useRef(0),nextPollAllAtRef=useRef(0),reconnectRef=useRef(false),nextReconnectRef=useRef(0);
+const radioRetryDelay=failures=>Math.min(30000,1500*Math.pow(2,Math.min(5,Math.max(0,failures-1))))+Math.floor(Math.random()*750);
 const poll=async()=>{
-  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current)return;
+  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current||Date.now()<nextPollAtRef.current)return;
   pollingRef.current=true;const requestedChannel=Number(channelRef.current),generation=sessionRef.current;
   try{const response=await request(`/radio-api-v2.php?op=poll&channel_id=${requestedChannel}&after=${lastIdRef.current}&wait_ms=3500`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
-    pollFailRef.current=0;setLoadError('');const channelBusy=!!response.busy;setBusy(channelBusy);setSpeaker(response.speaker_id?{id:Number(response.speaker_id),name:response.speaker_name||'کاربر در حال صحبت',role:response.speaker_role||''}:null);
+    pollFailRef.current=0;nextPollAtRef.current=0;setLoadError('');const channelBusy=!!response.busy;setBusy(channelBusy);setSpeaker(response.speaker_id?{id:Number(response.speaker_id),name:response.speaker_name||'کاربر در حال صحبت',role:response.speaker_role||''}:null);
     if(lastBusyRef.current!==null&&lastBusyRef.current!==channelBusy&&!recordingRef.current){playEffect(channelBusy?'channel_busy':'channel_free',channelBusy?squelchClosePlayer:squelchOpenPlayer)}lastBusyRef.current=channelBusy;
     for(const message of Array.isArray(response.messages)?response.messages:[]){
       if(generation!==sessionRef.current||resyncingRef.current)break;
@@ -190,14 +192,15 @@ const poll=async()=>{
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation});
     }
     if(generation===sessionRef.current)loadRecentMessages();
-  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else{pollFailRef.current++;if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else{pollFailRef.current++;nextPollAtRef.current=Date.now()+radioRetryDelay(pollFailRef.current);if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}}
   finally{pollingRef.current=false;}
 };
 const pollAll=async()=>{
-  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||!listenAllRef.current||pollAllRef.current||resyncingRef.current)return;
+  if(!user?.id||!enabledRef.current||AppState.currentState!=='active'||!listenAllRef.current||pollAllRef.current||resyncingRef.current||Date.now()<nextPollAllAtRef.current)return;
   pollAllRef.current=true;const generation=sessionRef.current;
   try{const response=await request(`/radio-api-v2.php?op=poll-all&after=${listenAllLastIdRef.current}&wait_ms=3500`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
+    pollAllFailRef.current=0;nextPollAllAtRef.current=0;setLoadError('');
     const activeSpeaker=activeListenAllSpeaker(response);
     setBusy(!!activeSpeaker);setSpeaker(activeSpeaker);
     for(const message of Array.isArray(response.messages)?response.messages:[]){
@@ -205,7 +208,7 @@ const pollAll=async()=>{
       if(Number(message.id)<=listenAllLastIdRef.current)continue;listenAllLastIdRef.current=Number(message.id);
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation,all:true});
     }
-  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else{pollAllFailRef.current++;nextPollAllAtRef.current=Date.now()+radioRetryDelay(pollAllFailRef.current);if(pollAllFailRef.current>=3)setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}}}
   finally{pollAllRef.current=false;}
 };
 const presence=async()=>{if(!user?.id||!enabledRef.current||!channelRef.current)return;try{await request('/radio-api-v2.php?op=presence',{method:'POST',body:{channel_id:channelRef.current}})}catch(e){}};
