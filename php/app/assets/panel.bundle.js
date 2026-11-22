@@ -11747,7 +11747,7 @@ function CustomFieldsFiller({ userId, profile, saveRef = null }) {
                     })))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)" } }, error),
         success && React.createElement("p", { role: "status", style: { color: "var(--ok,#087f5b)" } }, success),
-        !!sections.length && React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیره اطلاعات تکمیلی"));
+        !!sections.length && React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 12 } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC \u0648 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0628\u0627 \u062F\u06A9\u0645\u0647 \u00AB\u0630\u062E\u06CC\u0631\u0647 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A\u00BB \u067E\u0627\u06CC\u06CC\u0646 \u0647\u0645\u06CC\u0646 \u067E\u0646\u062C\u0631\u0647\u060C \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647 \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."));
 }
 // تنظیمات کلی حقوق (نرخ ساعت و ضرایب)
 function PayrollSettings({ v, set, save }) {
