@@ -1926,9 +1926,12 @@ function Users(){
     {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
       <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
         <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
+        <button role="tab" aria-selected={editTab==="financial"} className={"btn "+(editTab==="financial"?"p":"g")} onClick={()=>setEditTab("financial")}>حقوق و اطلاعات مالی</button>
+        <button role="tab" aria-selected={editTab==="custom"} className={"btn "+(editTab==="custom"?"p":"g")} onClick={()=>setEditTab("custom")}>اطلاعات تکمیلی و سفارشی</button>
         <button role="tab" aria-selected={editTab==="access"} className={"btn "+(editTab==="access"?"p":"g")} onClick={()=>setEditTab("access")}>تنظیمات حساب و دسترسی</button>
       </div>
-      {editTab==="profile"&&<>
+      {<div>
+      <div style={{display:editTab==="profile"?"block":"none"}}>
       <div className="row" style={{gap:10,alignItems:"center"}}>
         {edit.photo?<img src={edit.photo} style={{width:60,height:60,borderRadius:12,objectFit:"cover"}}/>:<span className="pf2" style={{width:60,height:60,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
         <label className="btn g" style={{cursor:"pointer"}}>تغییر عکس<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label></div>
@@ -1963,10 +1966,15 @@ function Users(){
       <div style={{flex:1,minWidth:170}}><label>تعداد ستاره درجه</label><input className="input" type="number" min="0" max="5" value={edit.rank_stars??""} placeholder="خالی = پیش‌فرض سمت" onChange={e=>setEdit({...edit,rank_stars:e.target.value===""?null:Math.max(0,Math.min(5,+e.target.value||0))})}/><span className="muted" style={{fontSize:11}}>پیش‌فرض: ناظر/اپراتور ۱، بازرس ۲، سربازرس ۴</span></div>
       <LeaveBalance userId={edit.id}/>
       {(edit.device_model||edit.android_version)&&<div className="muted" style={{fontSize:11.5,marginTop:8}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخهٔ برنامه: {edit.app_version||"—"}</div>}
-      <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
-      <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit}/>
       <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
-      </>}
+      </div>
+      <div style={{display:editTab==="financial"?"block":"none"}}>
+        <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
+      </div>
+      <div style={{display:editTab==="custom"?"block":"none"}}>
+        <CustomFieldsFiller key={edit.id} userId={edit.id} profile={edit}/>
+      </div>
+      </div>}
       {editTab==="access"&&<>
       <label>تغییر رمز عبور (خالی = بدون تغییر)</label><input className="input" type="password" autoComplete="new-password" value={pw} placeholder="رمز جدید" onChange={e=>setPw(e.target.value)}/>
       <div className="row" style={{gap:16,marginTop:12,flexWrap:"wrap"}}>
