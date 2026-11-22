@@ -14812,7 +14812,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         setQuery("");
     } });
     const showFile = id => action("دریافت جزئیات…", async () => { const data = await request("/files/" + id); if (life.current.alive) {
-        setDetail({ ...data.snapshot, title: "نسخهٔ ثبت‌شدهٔ فایل شرکت" });
+        setDetail({ ...data.snapshot, fileId: Number(data.id) || Number(id), title: "نسخهٔ ثبت‌شدهٔ فایل شرکت" });
         setQuery("");
     } });
     const generate = id => action("محاسبه و ساخت فایل شرکت…", async () => {
@@ -14864,9 +14864,23 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             if (!life.current.alive)
                 return;
             overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { percent: 100, stage: data.generated ? "فایل شرکت با موفقیت در آرشیو ثبت شد" : "محاسبه پایان یافت؛ مغایرت‌ها را بررسی کنید" });
-            setDetail({ ...data.snapshot, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
+            const fileId = data.generated ? Number(data.id) : 0;
+            setDetail({ ...data.snapshot, fileId: fileId > 0 ? fileId : null, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
             setQuery("");
             await load();
+            if (data.generated) {
+                if (!fileId || fileId < 1)
+                    setError("فایل محاسبه شده اما شناسه آرشیو آن دریافت نشد؛ آرشیو را بررسی کنید.");
+                else {
+                    try {
+                        await downloadFile("files", fileId);
+                    }
+                    catch (e) {
+                        if (life.current.alive && e.name !== "AbortError")
+                            setError("فایل شرکت در آرشیو ذخیره شد اما دانلود خودکار انجام نشد: " + e.message + " — از دکمه دانلود فایل شرکت استفاده کنید.");
+                    }
+                }
+            }
         }
         finally {
             tracking.active = false;
@@ -14877,7 +14891,10 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 overlay === null || overlay === void 0 ? void 0 : overlay.end(handle);
         }
     });
-    const download = (kind, id) => action("دریافت فایل…", async () => {
+    const downloadFile = async (kind, id) => {
+        var _a, _b, _c, _e;
+        if (!["sources", "files"].includes(kind) || !Number.isSafeInteger(Number(id)) || Number(id) < 1)
+            throw Error("شناسه فایل آرشیوی معتبر نیست.");
         const controller = new AbortController();
         life.current.controller = controller;
         const res = await fetch(API_BASE + "/admin/company-work/" + kind + "/" + id + "/download", { headers: tok(), signal: controller.signal });
@@ -14886,19 +14903,32 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             try {
                 data = await res.json();
             }
-            catch (_a) { }
-            throw Error(data.error || data.message || "دانلود فایل ناموفق بود");
+            catch (_f) { }
+            throw Error(data.error || data.message || "دریافت فایل از آرشیو ناموفق بود");
         }
+        const mime = String(((_b = (_a = res.headers) === null || _a === void 0 ? void 0 : _a.get) === null || _b === void 0 ? void 0 : _b.call(_a, "content-type")) || "").toLowerCase();
+        if (mime.includes("text/html") || mime.includes("application/json"))
+            throw Error("سرور به‌جای فایل اکسل، پاسخ غیرمعتبر برگرداند.");
         const blob = await res.blob();
+        if (typeof blob.size === "number" && blob.size < 100)
+            throw Error("فایل اکسل دریافتی خالی یا ناقص است.");
         if (!life.current.alive)
             return;
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = (kind === "sources" ? "کارکرد-سازمان-" : "کارکرد-شرکت-") + year + "-" + month + ".xlsx";
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-    });
+        try {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = (kind === "sources" ? "کارکرد-سازمان-" : "کارکرد-شرکت-") + year + "-" + month + (kind === "files" ? "-نسخه-" + id : "") + ".xlsx";
+            if ((_c = document.body) === null || _c === void 0 ? void 0 : _c.appendChild)
+                document.body.appendChild(a);
+            a.click();
+            (_e = a.remove) === null || _e === void 0 ? void 0 : _e.call(a);
+        }
+        finally {
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        }
+    };
+    const download = (kind, id) => action("دریافت فایل…", () => downloadFile(kind, id));
     const changeArchive = (kind, id, restore = false) => {
         if (!restore && !window.confirm("این مورد از آرشیو فعال حذف شود؟ امکان بازیابی از بخش حذف‌شده‌ها وجود دارد. فایل‌های وابسته حفظ می‌شوند."))
             return;
@@ -15019,7 +15049,9 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             bankAudit.done && React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0646\u0647\u0627 \u0648\u0636\u0639\u06CC\u062A \u0633\u0627\u062E\u062A\u0627\u0631\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F\u061B \u0645\u0627\u0644\u06A9\u06CC\u062A \u0648 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646 \u062D\u0633\u0627\u0628 \u0628\u0627\u0646\u06A9\u06CC \u0627\u0633\u062A\u0639\u0644\u0627\u0645 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u06A9\u0631\u062F\u0646\u062F."),
             React.createElement("button", { type: "button", className: "btn", onClick: () => setBankAudit(null) }, "\u0628\u0633\u062A\u0646")),
         detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
-            React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", alignItems: "center" } },
+                detail.fileId > 0 && React.createElement("button", { type: "button", className: "btn p", disabled: !!busy, onClick: () => download("files", detail.fileId) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A (XLSX)"),
+                React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")),
             ((_a = detail.rows) === null || _a === void 0 ? void 0 : _a.some(r => r.organization_basis)) && React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u062F\u0631 \u063A\u06CC\u0628\u062A \u0642\u0627\u0628\u0644 \u067E\u0631\u062F\u0627\u062E\u062A \u0648 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0644\u062D\u0627\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0646\u0633\u062E\u0647 \u062D\u0641\u0638 \u0627\u0633\u062A."),
             detail.account_field && React.createElement("p", { className: "muted" },
                 "\u0645\u0646\u0628\u0639 \u062D\u0633\u0627\u0628: ",
