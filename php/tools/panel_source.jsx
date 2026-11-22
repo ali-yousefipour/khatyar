@@ -6684,6 +6684,7 @@ function adminProfileFieldState(field,values){
 function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
   const [status,setStatus]=useState(null),[selected,setSelected]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const uploadLock=useRef(false);
   const path="/admin/users/"+userId+"/profile-attachment/"+field.id;
   useEffect(()=>{
     let active=true;
@@ -6693,18 +6694,21 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
     return()=>{active=false;};
   },[userId,field.id]);
   const upload=async()=>{
-    if(busy||!selected)return;
+    if(busy||uploadLock.current||!selected)return;
     if(selected.size>8388608){setError("حداکثر حجم فایل ۸ مگابایت است.");return;}
-    setBusy(true);setError("");
+    uploadLock.current=true;setBusy(true);setError("");
     try{
       const data=new FormData();data.append("file",selected,selected.name);
       const response=await _fetchWithAuth(API_BASE+path,{method:"POST",body:data});
       const result=await _readJsonResponse(response);
       if(!response.ok||!result?.ok)throw new Error(result?.error||result?.message||"ثبت مدرک در سرور تأیید نشد");
-      const updated=await GET(path+"/status",{ttl:0});
-      setStatus(updated);onStatus?.(field.id,!!updated?.exists);setSelected(null);
+      setStatus({exists:true,name:result.name||selected.name||"مدرک خصوصی"});
+      onStatus?.(field.id,true);setSelected(null);
+      try{const updated=await GET(path+"/status",{ttl:0});
+        setStatus(updated);onStatus?.(field.id,!!updated?.exists);
+      }catch(_){setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست.");}
     }catch(e){setError(e.message||"ارسال مدرک ناموفق بود");}
-    finally{setBusy(false);}
+    finally{uploadLock.current=false;setBusy(false);}
   };
   const download=async()=>{
     setBusy(true);setError("");
