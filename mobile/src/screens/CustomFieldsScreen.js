@@ -115,7 +115,11 @@ export default function CustomFieldsScreen({ navigation }) {
       setFormSchema(formResponse?.schema||null);
       setEditingAllowed(formResponse?.profile_edit_allowed!==false&&profileResponse?.profile_edit_allowed!==false);
       const configured=profileSchemaCustomFields(formResponse?.schema),byId=new Map(fs.map(f=>[Number(f.id),f]));
-      const ordered=configured.filter(f=>byId.has(Number(f.custom_field_id))).map(f=>({...byId.get(Number(f.custom_field_id)),profile_definition:f}));
+      const ordered=configured.filter(f=>byId.has(Number(f.custom_field_id))).map(f=>({...byId.get(Number(f.custom_field_id)),
+        label:f.label||byId.get(Number(f.custom_field_id)).label,
+        ftype:f.type||byId.get(Number(f.custom_field_id)).ftype,
+        options:Array.isArray(f.options)?f.options.join('|'):byId.get(Number(f.custom_field_id)).options,
+        profile_definition:f}));
       const other=fs.filter(f=>!configured.some(c=>Number(c.custom_field_id)===Number(f.id)));
       setFields([...ordered,...other]);
       const m = {};
