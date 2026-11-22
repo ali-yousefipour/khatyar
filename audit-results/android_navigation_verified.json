@@ -1,0 +1,578 @@
+[
+  {
+    "route": "Login",
+    "component": "LoginScreen",
+    "title": "ورود",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/LoginScreen.js"
+  },
+  {
+    "route": "Dashboard",
+    "component": "DashboardScreen",
+    "title": "داشبورد",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/DashboardScreen.js"
+  },
+  {
+    "route": "SendQueue",
+    "component": "SendQueueScreen",
+    "title": "صف ارسال",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SendQueueScreen.js"
+  },
+  {
+    "route": "AppUpdateCheck",
+    "component": "AppUpdateCheckScreen",
+    "title": "بررسی به‌روزرسانی برنامه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "Search",
+    "component": "SearchScreen",
+    "title": "جستجوی تاکسی و تاکسیران",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SearchScreen.js"
+  },
+  {
+    "route": "Driver",
+    "component": "DriverScreen",
+    "title": "اطلاعات راننده",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/DriverScreen.js"
+  },
+  {
+    "route": "Vehicle",
+    "component": "VehicleScreen",
+    "title": "اطلاعات خودرو",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "Debt",
+    "component": "DebtScreen",
+    "title": "بدهی آبونمان",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/DebtScreen.js"
+  },
+  {
+    "route": "Checklist",
+    "component": "ChecklistScreen",
+    "title": "چک‌لیست خودرو",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/ChecklistScreen.js"
+  },
+  {
+    "route": "Notice",
+    "component": "NoticeScreen",
+    "title": "ثبت تذکر",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/NoticeScreen.js"
+  },
+  {
+    "route": "Reports",
+    "component": "ReportsScreen",
+    "title": "ارسال گزارش",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/ReportsScreen.js"
+  },
+  {
+    "route": "Sms",
+    "component": "SmsScreen",
+    "title": "ارسال پیامک به رانندگان",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SmsScreen.js"
+  },
+  {
+    "route": "BotMessages",
+    "component": "BotMessageScreen",
+    "title": "ارسال پیام در ربات‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/BotMessageScreen.js"
+  },
+  {
+    "route": "Requests",
+    "component": "RequestsScreen",
+    "title": "درخواست‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/RequestsScreen.js"
+  },
+  {
+    "route": "RequestInbox",
+    "component": "RequestInboxScreen",
+    "title": "کارتابل تأیید درخواست‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "WorkSummary",
+    "component": "WorkSummaryScreen",
+    "title": "کارکرد من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "SalarySlips",
+    "component": "SalarySlipsScreen",
+    "title": "فیش‌های حقوقی من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "CompanyRequests",
+    "component": "CompanyRequestsDriverGateScreen",
+    "title": "ارسال برای شرکت",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/CompanyRequestsDriverGateScreen.js"
+  },
+  {
+    "route": "Subscription",
+    "component": "SubscriptionScreen",
+    "title": "اشتراک گروهی و انفرادی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SubscriptionScreen.js"
+  },
+  {
+    "route": "CheckIn",
+    "component": "CheckInScreen",
+    "title": "ثبت حضور من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/CheckInScreen.js"
+  },
+  {
+    "route": "Forms",
+    "component": "FormsScreen",
+    "title": "فرم‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/FormsScreen.js"
+  },
+  {
+    "route": "Cultural",
+    "component": "CulturalScreen",
+    "title": "فعالیت‌های فرهنگی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/CulturalScreen.js"
+  },
+  {
+    "route": "Welfare",
+    "component": "WelfareScreen",
+    "title": "رفاهیات",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/WelfareScreen.js"
+  },
+  {
+    "route": "TempDrivers",
+    "component": "TempDriversScreen",
+    "title": "رانندگان موقت",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/TempDriversScreen.js"
+  },
+  {
+    "route": "Notifications",
+    "component": "NotificationsScreen",
+    "title": "اعلان‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/NotificationsScreen.js"
+  },
+  {
+    "route": "FieldAlerts",
+    "component": "FieldAlertsScreen",
+    "title": "هشدارها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/FieldAlertsScreen.js"
+  },
+  {
+    "route": "ActivityReport",
+    "component": "ActivityReportScreen",
+    "title": "فعالیت رانندگان هر خط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "ExpInsurance",
+    "component": "ExpInsuranceScreen",
+    "title": "وضعیت بیمه و معاینه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "ExpTaxi",
+    "component": "ExpTaxiScreen",
+    "title": "افراد فاقد اعتبار",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "ExpOplic",
+    "component": "ExpOplicScreen",
+    "title": "خودروهای فاقد بهره‌برداری",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "TeamReport",
+    "component": "TeamReportScreen",
+    "title": "زیرمجموعه من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "InboxReports",
+    "component": "InboxReportsScreen",
+    "title": "گزارشات دریافتی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "ReportDetail",
+    "component": "ReportDetailScreen",
+    "title": "جزئیات گزارش",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "OfficialPresence",
+    "component": "OfficialPresenceScreen",
+    "title": "ثبت حضور مسئولین در خط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/OfficialPresenceScreen.js"
+  },
+  {
+    "route": "Inventory",
+    "component": "InventoryScreen",
+    "title": "اقلام تحویلی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/InventoryScreen.js"
+  },
+  {
+    "route": "Messages",
+    "component": "MessagesScreen",
+    "title": "پیام‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/MessagesScreen.js"
+  },
+  {
+    "route": "Attendance",
+    "component": "AttendanceScreen",
+    "title": "گزارش حضور",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "PastNotices",
+    "component": "PastNoticesScreen",
+    "title": "تذکرات قبلی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "PastChecklists",
+    "component": "PastChecklistsScreen",
+    "title": "چک‌لیست‌های قبلی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "DriverSms",
+    "component": "DriverSmsScreen",
+    "title": "پیامک‌های راننده",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "MySms",
+    "component": "MySmsScreen",
+    "title": "پیامک‌های ارسالی من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "CustomFields",
+    "component": "CustomFieldsScreen",
+    "title": "اطلاعات تکمیلی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/CustomFieldsScreen.js"
+  },
+  {
+    "route": "Outage",
+    "component": "OutageScreen",
+    "title": "اعلام قطع سیستم نوبت‌دهی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/OutageScreen.js"
+  },
+  {
+    "route": "MyAllowedLines",
+    "component": "MyAllowedLinesScreen",
+    "title": "خطوط مجاز شما",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/MyAllowedLinesScreen.js"
+  },
+  {
+    "route": "Profile",
+    "component": "ProfileScreen",
+    "title": "حساب کاربری",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "ChangePassword",
+    "component": "ChangePasswordScreen",
+    "title": "تغییر رمز",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "EditProfile",
+    "component": "EditProfileWithVehicle",
+    "title": "ویرایش اطلاعات من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "PersonnelVehicleAsset",
+    "component": "PersonnelVehicleAssetScreen",
+    "title": "مشخصات خودرو یا موتورسیکلت",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/PersonnelVehicleAssetScreen.js"
+  },
+  {
+    "route": "PersonnelVehicleChecklist",
+    "component": "PersonnelVehicleChecklistScreen",
+    "title": "چک‌لیست خودرویی و موتوری",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/PersonnelVehicleChecklistScreen.js"
+  },
+  {
+    "route": "MapSettings",
+    "component": "MapSettingsScreen",
+    "title": "تنظیمات نقشه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/MapSettingsScreen.js"
+  },
+  {
+    "route": "ExpiryNotificationSettings",
+    "component": "ExpiryNotificationSettingsScreen",
+    "title": "تنظیمات اعلان اعتبار",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/ExpiryNotificationSettingsScreen.js"
+  },
+  {
+    "route": "FieldAlertSettings",
+    "component": "FieldAlertSettingsScreen",
+    "title": "تنظیمات هشدارهای میدانی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/FieldAlertSettingsScreen.js"
+  },
+  {
+    "route": "ImportTimes",
+    "component": "ImportTimesScreen",
+    "title": "آخرین زمان‌های به‌روزرسانی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/ImportTimesScreen.js"
+  },
+  {
+    "route": "AppLockSettings",
+    "component": "AppLockSettingsScreen",
+    "title": "قفل برنامه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/AppLockSettingsScreen.js"
+  },
+  {
+    "route": "CrashReports",
+    "component": "CrashReportsScreen",
+    "title": "گزارش خطاهای برنامه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/CrashReportsScreen.js"
+  },
+  {
+    "route": "LineVisitProgram",
+    "component": "LineVisitProgramScreen",
+    "title": "برنامه بازدید و پوشش خط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/LineVisitProgramScreen.js"
+  },
+  {
+    "route": "LineLocation",
+    "component": "LineLocationScreen",
+    "title": "ثبت موقعیت و تصویر خطوط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/LineLocationScreen.js"
+  },
+  {
+    "route": "MyDailyMission",
+    "component": "MyDailyMissionScreen",
+    "title": "مأموریت روزانه من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/MyDailyMissionScreen.js"
+  },
+  {
+    "route": "RoleDashboard",
+    "component": "RoleDashboardScreen",
+    "title": "داشبورد و امتیاز من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/RoleDashboardScreen.js"
+  },
+  {
+    "route": "Leaderboard",
+    "component": "LeaderboardScreen",
+    "title": "رتبه‌بندی و نشان‌ها",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/LeaderboardScreen.js"
+  },
+  {
+    "route": "Radio",
+    "component": "RadioScreen",
+    "title": "بی‌سیم خطیار",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/RadioScreen.js"
+  },
+  {
+    "route": "Help",
+    "component": "HelpScreen",
+    "title": "راهنمای برنامه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/HelpScreen.js"
+  },
+  {
+    "route": "Settings",
+    "component": "SettingsScreen",
+    "title": "تنظیمات",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SettingsScreen.js"
+  },
+  {
+    "route": "PrivacyPolicy",
+    "component": "PrivacyPolicyScreen",
+    "title": "سیاست حریم خصوصی",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/PrivacyPolicyScreen.js"
+  },
+  {
+    "route": "AboutApp",
+    "component": "AboutAppScreen",
+    "title": "درباره برنامه",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/AboutAppScreen.js"
+  },
+  {
+    "route": "StationCapture",
+    "component": "StationCaptureScreen",
+    "title": "ثبت موقعیت و تصویر خطوط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/StationCaptureScreen.js"
+  },
+  {
+    "route": "MyStations",
+    "component": "MyStationsScreen",
+    "title": "ایستگاه‌های ثبت‌شده من",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/MyStationsScreen.js"
+  },
+  {
+    "route": "PresentList",
+    "component": "PresentListScreen",
+    "title": "حاضرین در خط",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/PresentListScreen.js"
+  },
+  {
+    "route": "SchoolService",
+    "component": "SchoolServiceScreen",
+    "title": "سرویس مدارس",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/SchoolServiceScreen.js"
+  },
+  {
+    "route": "Complaints",
+    "component": "ComplaintsScreen",
+    "title": "شکایات تاکسیرانان",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/screens/ComplaintsScreen.js"
+  },
+  {
+    "route": "ComplaintDetail",
+    "component": "ComplaintDetailScreen",
+    "title": "جزئیات شکایت",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "not_resolved_from_name"
+  },
+  {
+    "route": "PresenceCheckWizard",
+    "component": "PresenceCheckWizard",
+    "title": "صحت‌سنجی حضور",
+    "source": "mobile/App.js",
+    "line": 153,
+    "source_component": "mobile/src/PresenceCheckWizard.js"
+  }
+]

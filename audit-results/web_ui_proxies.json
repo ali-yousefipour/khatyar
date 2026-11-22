@@ -1,0 +1,29 @@
+{
+  "php_app_html_pages": 16,
+  "web_html_paths": [
+    "php/app/docs.html",
+    "php/app/landing.html",
+    "php/app/account-deletion.html",
+    "php/app/privacy.html",
+    "php/app/panel.html",
+    "php/app/line-location.html",
+    "php/app/salary_slips_admin.html",
+    "php/app/help.html",
+    "php/app/app.html",
+    "php/app/school-complaints-portal.html",
+    "php/app/company_requests_admin.html",
+    "php/app/radio-admin.html",
+    "php/app/public-form.html",
+    "php/app/messenger_center.html",
+    "php/app/line-location-admin.html",
+    "php/app/uploads/index.html"
+  ],
+  "panel_source_bytes": 1488225,
+  "panel_source_lines": 12722,
+  "panel_tab_candidates": 318,
+  "panel_modal_candidates": 172,
+  "panel_form_elements": 823,
+  "panel_table_tags": 131,
+  "panel_extracted_html_tables": 131,
+  "web_tab_dom_candidates": 1
+}

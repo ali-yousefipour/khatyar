@@ -1,20 +1,20 @@
 {
-  "commit": "77339091cf56496579c6687b2669697dfc145cf3",
-  "files": 2438,
-  "directories": 186,
+  "commit": "4b0260289e1452746794fef5e2680f8e29f96f79",
+  "files": 2448,
+  "directories": 187,
   "by_extension": {
     "(none)": 32,
-    ".py": 15,
+    ".py": 16,
     ".php": 278,
     ".sh": 11,
     ".yml": 40,
     ".xml": 27,
     ".iml": 1,
     ".md": 167,
+    ".json": 37,
     ".example": 8,
     ".js": 475,
     ".html": 47,
-    ".json": 28,
     ".png": 816,
     ".css": 22,
     ".svg": 6,
@@ -44,7 +44,7 @@
     ".spec": 1
   },
   "by_section": {
-    "other": 381,
+    "other": 391,
     "backend_js": 128,
     "generated_or_vendor": 22,
     "test": 189,
@@ -56,9 +56,9 @@
   },
   "code_totals": {
     "other": {
-      "files": 33,
-      "loc": 9165,
-      "sloc_approx": 8276,
+      "files": 34,
+      "loc": 9201,
+      "sloc_approx": 8312,
       "blanks": 552,
       "comment_lines_approx": 337
     },
@@ -120,7 +120,7 @@
     }
   },
   "duplicate_group_count": 292,
-  "unique_content_count": 1513,
+  "unique_content_count": 1523,
   "screen_files": 64,
   "navigation_registrations": 1,
   "mobile_modal_occurrences": 542,

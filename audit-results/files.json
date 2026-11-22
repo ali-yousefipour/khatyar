@@ -156,8 +156,8 @@
     "path": ".github/workflows/isolated-static-audit.yml",
     "section": "other",
     "ext": ".yml",
-    "loc": 27,
-    "sloc_approx": 27,
+    "loc": 30,
+    "sloc_approx": 30,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -664,6 +664,96 @@
     "sloc_approx": 19,
     "blank": 2,
     "comment_lines_approx": 2
+  },
+  {
+    "path": "audit-results/api_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 1102,
+    "sloc_approx": 1102,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/duplicates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 1803,
+    "sloc_approx": 1803,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/files.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 13277,
+    "sloc_approx": 13277,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/modal_occurrences.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 2712,
+    "sloc_approx": 2712,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/navigation.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 7,
+    "sloc_approx": 7,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/screen_paths.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 66,
+    "sloc_approx": 66,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/summary.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 131,
+    "sloc_approx": 131,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/table_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 237,
+    "sloc_approx": 237,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/wizard_candidates.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 35,
+    "sloc_approx": 35,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit/advanced_inventory.py",
+    "section": "other",
+    "ext": ".py",
+    "loc": 36,
+    "sloc_approx": 36,
+    "blank": 0,
+    "comment_lines_approx": 0
   },
   {
     "path": "audit/khatyar_inventory.py",
