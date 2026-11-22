@@ -1585,7 +1585,7 @@ function LiveMap(){
   </div>);
 }
 
-function Modal({title,onClose,children,style}){
+function Modal({title,onClose,children,style,className=''}){
   const dialogRef=useRef(null);
   const titleId=useRef("modal-title-"+Math.random().toString(36).slice(2));
   const closeRef=useRef(onClose);
@@ -1611,7 +1611,7 @@ function Modal({title,onClose,children,style}){
     return()=>{document.removeEventListener("keydown",onKeyDown);if(previous?.isConnected)previous.focus();};
   },[]);
   return <div className="modal-bg" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="modal dashboard-dialog" style={style} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId.current} tabIndex={-1}>
+    <div className={"modal dashboard-dialog"+(className?" "+className:"")} style={style} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId.current} tabIndex={-1}>
       <div className="dashboard-dialog-head"><h3 id={titleId.current}>{title}</h3><button className="dashboard-dialog-close" type="button" aria-label="بستن پنجره" onClick={onClose}>×</button></div>
       {children}
     </div>
@@ -1924,7 +1924,7 @@ function Users(){
       </div>:<p className="muted" style={{textAlign:"center",padding:12}}>برای این نیرو تعهدی ثبت نشده است.</p>}
       <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
     </Modal>}
-    {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
+    {edit&&<Modal title="ویرایش کاربر" className="users-edit-dialog" style={{width:"min(1100px,calc(100vw - 24px))"}} onClose={()=>{setEdit(null);setPw("");}}>
       <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12,position:"sticky",top:0,zIndex:5,background:"var(--surface,#fff)",padding:"8px 4px",borderBottom:"1px solid var(--line)"}}>
         <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
         <button role="tab" aria-selected={editTab==="identity"} className={"btn "+(editTab==="identity"?"p":"g")} onClick={()=>setEditTab("identity")}>اطلاعات هویتی</button>
