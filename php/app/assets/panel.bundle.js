@@ -11421,7 +11421,8 @@ function CustomFieldsFiller({ userId }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [open, setOpen] = useState(false);
-    useEffect(() => { setOpen(false); setFields(null); setVals({}); setOriginalVals({}); setError(""); }, [userId]);
+    useEffect(() => { setOpen(true); setFields(null); setVals({}); setOriginalVals({}); setError(""); if (userId)
+        load(); }, [userId]);
     const load = () => {
         setOpen(true);
         setError("");
@@ -11463,18 +11464,20 @@ function CustomFieldsFiller({ userId }) {
     };
     if (!userId)
         return null;
-    return (React.createElement("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" } }, !open ? React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC (\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC)") :
-        fields === null ? React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") :
-            fields.length === 0 ? React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0641\u06CC\u0644\u062F \u0633\u0641\u0627\u0631\u0634\u06CC\u200C\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0632 \u0645\u0646\u0648\u06CC \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC\u00BB \u0627\u0636\u0627\u0641\u0647 \u06A9\u0646\u06CC\u062F.") :
-                React.createElement("div", null,
-                    fields.map(f => React.createElement("div", { key: f.id, style: { marginBottom: 8 } },
-                        React.createElement("label", { className: "label" },
-                            f.label,
-                            f.required == 1 ? " *" : "",
-                            f.user_editable == 1 ? "" : " 🔒"),
-                        React.createElement(CustomFieldInput, { field: f, value: vals[f.id], onChange: v => setVals({ ...vals, [f.id]: v }) }))),
-                    error && React.createElement("p", { role: "alert", className: "muted", style: { color: "var(--danger,#b42318)" } }, error),
-                    React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیرهٔ اطلاعات تکمیلی"))));
+    return (React.createElement("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" } },
+        React.createElement("h4", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u067E\u0631\u0633\u0646\u0644"),
+        !open ? React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC") :
+            fields === null ? React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") :
+                fields.length === 0 ? React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0641\u06CC\u0644\u062F \u0633\u0641\u0627\u0631\u0634\u06CC\u200C\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0632 \u0645\u0646\u0648\u06CC \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC\u00BB \u0627\u0636\u0627\u0641\u0647 \u06A9\u0646\u06CC\u062F.") :
+                    React.createElement("div", null,
+                        fields.map(f => React.createElement("div", { key: f.id, style: { marginBottom: 8 } },
+                            React.createElement("label", { className: "label" },
+                                f.label,
+                                f.required == 1 ? " *" : "",
+                                f.user_editable == 1 ? "" : " 🔒"),
+                            React.createElement(CustomFieldInput, { field: f, value: vals[f.id], onChange: v => setVals({ ...vals, [f.id]: v }) }))),
+                        error && React.createElement("p", { role: "alert", className: "muted", style: { color: "var(--danger,#b42318)" } }, error),
+                        React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیرهٔ اطلاعات تکمیلی"))));
 }
 // تنظیمات کلی حقوق (نرخ ساعت و ضرایب)
 function PayrollSettings({ v, set, save }) {
