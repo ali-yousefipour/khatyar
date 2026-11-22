@@ -412,8 +412,21 @@ class CompanyWork {
     if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
     $collectStage='rotation';
     // Rotate only for the source file's explicitly selected Jalali period.
-    $rotationReport=_shift_rotation_report($year,$month);$rotation=array_column($rotationReport['rows'],null,'user_id');
-    if(!function_exists('attendance_report_owned_by_entry_date'))require_once dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
+    $rotationReport=_shift_rotation_report($year,$month);
+    $collectStage='rotation_result';
+    if(!is_array($rotationReport) || !isset($rotationReport['rows']) || !is_array($rotationReport['rows']) || !in_array($rotationReport['source']??null,['live','finalized'],true))
+      throw new RuntimeException('Invalid rotation report result');
+    $rotation=array_column($rotationReport['rows'],null,'user_id');
+    // The rotation report can succeed while its next, independent attendance
+    // helper fails to load. Never label that as a shift rotation failure.
+    $collectStage='attendance_helper';
+    if(!function_exists('attendance_report_owned_by_entry_date')){
+      $attendanceHelper=dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
+      if(!is_readable($attendanceHelper))throw new RuntimeException('Entry-owned attendance report helper is not deployed');
+      require_once $attendanceHelper;
+    }
+    if(!function_exists('attendance_report_owned_by_entry_date'))throw new RuntimeException('Entry-owned attendance report helper is unavailable');
+    $collectStage='rotation_inactive_batch';
     // The general live report covers only currently active staff. Inactive staff
     // in the approved organization source still need their historical punches.
     // Fetch them together, rather than issuing an attendance query per employee.
@@ -490,6 +503,8 @@ class CompanyWork {
         'staff_lookup'=>'دریافت اطلاعات پرسنل','identity_matching'=>'تطبیق اطلاعات پرسنل',
         'account_field'=>'انتخاب فیلد شماره حساب','account_values'=>'دریافت شماره حساب‌ها',
         'seniority'=>'محاسبه سنوات','rotation'=>'محاسبه چرخش شیفت',
+        'rotation_result'=>'بررسی نتیجه چرخش شیفت','attendance_helper'=>'بارگذاری ماژول گزارش تردد',
+        'rotation_inactive_batch'=>'تکمیل چرخش شیفت کارکنان غیرفعال',
         'approved_organization_basis'=>'تطبیق کارکرد سازمان','personnel_metrics'=>'محاسبات پرسنلی',
         'attendance_daily'=>'دریافت کارکرد روزانه','approved_leaves'=>'دریافت مرخصی‌ها',
         'metrics'=>'محاسبه خلاصه کارکرد'
