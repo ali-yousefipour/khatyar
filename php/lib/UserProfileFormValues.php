@@ -62,6 +62,10 @@ final class UserProfileFormValues {
     }
     return $result;
   }
+  /** Validate one configured custom field without bypassing the profile rules. */
+  public static function normalizeField(array $field,$value): mixed {
+    return self::validateValue($field,$value);
+  }
   private static function checkCard(string $value): array {
     $value=str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
     if(!preg_match('/^\\d{16}$/D',$value))return ['valid'=>false];
