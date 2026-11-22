@@ -34,11 +34,17 @@ function harness(data) {
     useRef: initial => { const slot = index++; return state[slot] ?? (state[slot] = { current: initial }); },
     useMemo: callback => callback(),
     useEffect: (callback, dependencies) => {
-      const slot = index++;
-      if (!effects[slot]) pending.push(() => { effects[slot] = { dependencies, cleanup: callback() }; });
+      const slot=index++;
+      const changed=!effects[slot] || JSON.stringify(effects[slot].dependencies)!==JSON.stringify(dependencies);
+      if(changed) pending.push(()=>{effects[slot]?.cleanup?.();effects[slot]={dependencies,cleanup:callback()};});
     },
     usePager: rows => ({ slice: rows, Pager: () => null }),
-    GET: async () => { if (failGet) throw Error('network failed'); return data; },
+    GET: async endpoint => {
+      if(failGet) throw Error('network failed');
+      if(endpoint.startsWith('/admin/seniority/period-status'))return {period:'1405-07',status:'not_calculated',final_count:0,forecast_count:0};
+      if(endpoint.startsWith('/admin/seniority/period-history'))return {rows:[],total:0};
+      return data;
+    },
     SEND: async (method, endpoint, body) => {
       sent.push({ method, endpoint, body });
       if (failSave) throw Error('write failed');
@@ -101,12 +107,15 @@ async function main() {
   app.failSave(false);
   await nodes(tree, item => item.type === 'form')[0].props.onSubmit({ preventDefault() {} }); await settle(); tree = app.render();
   assert.ok(!button(tree, 'ذخیره سنوات'));
-  const update = button(tree, 'به‌روزرسانی تا انتهای ماه');
-  const first = update.props.onClick();
-  const second = update.props.onClick();
-  await Promise.all([first, second]); tree = app.render();
-  assert.equal(app.sent.filter(call => call.endpoint.endsWith('/recalculate')).length, 1);
-  assert.ok(content(tree).includes('نتیجه به‌روزرسانی'));
+  await settle(); tree=app.render();
+  const update=button(tree,'به‌روزرسانی سنوات تا پایان ماه انتخابی');
+  assert.ok(update);
+  update.props.onClick();tree=app.render();
+  assert.ok(content(tree).includes('تأیید محاسبه سنوات'));
+  await button(tree,'تأیید و اجرا').props.onClick();await settle();tree=app.render();
+  assert.equal(app.sent.filter(call=>call.endpoint.endsWith('/period-run')).length,1);
+  assert.ok(content(tree).includes('نتیجه عملیات'));
+  assert.deepEqual(JSON.parse(JSON.stringify(app.sent.find(call=>call.endpoint.endsWith('/period-run')).body.user_ids)),[1]);
   const progress = [];
   app.context.targets = rows;
   app.context.progress = (done, total) => progress.push([done, total]);
