@@ -13,17 +13,21 @@ $raw=[
  'columns'=>['custom:9','first_name','id'],
  'sort'=>'id','direction'=>'asc',
  'sorts'=>[['key'=>'first_name','direction'=>'asc'],['key'=>'id','direction'=>'desc']],
- 'active'=>'1','zone_id'=>7,'role_id'=>''
+ 'active'=>'1','zone_id'=>7,'role_id'=>'',
+ 'employment_start_from'=>'۱۴۰۵/۰۱/۰۱','employment_start_to'=>'1405-08-30'
 ];
 $result=UserFullReportPresets::validated($raw,$registry);
 checkPreset('retains deliberate column order',$result['columns']===$raw['columns']);
 checkPreset('retains multi-column sort',$result['sorts']===$raw['sorts']);
 checkPreset('normalizes allowed organizational filters',$result['zone_id']===7&&$result['active']==='1');
+checkPreset('normalizes Jalali date filters',$result['employment_start_from']==='1405-01-01'&&$result['employment_start_to']==='1405-08-30');
 foreach([
  ['columns'=>['password_hash'],'sort'=>'id'],
  ['columns'=>['id'],'sort'=>'password_hash'],
  ['columns'=>['id'],'sort'=>'id','active'=>'invalid'],
  ['columns'=>['id'],'sort'=>'id','zone_id'=>'7 OR 1=1'],
+ ['columns'=>['id'],'sort'=>'id','employment_start_from'=>'1405-13-02'],
+ ['columns'=>['id'],'sort'=>'id','employment_start_from'=>'1405-08-20','employment_start_to'=>'1405-01-01'],
  ['columns'=>['id'],'sort'=>'id','sorts'=>[['key'=>'foo','direction'=>'asc']]],
  ['columns'=>[],'sort'=>'id']
 ] as $invalid){
