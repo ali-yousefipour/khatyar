@@ -23,7 +23,10 @@ function harness(component, db) {
   const values = [];
   const effects = [];
   let confirmed = true;
+  const storage = {getItem:()=>null,removeItem:()=>{}};
   const context = vm.createContext({
+    sessionStorage:storage,
+    window:{sessionStorage:storage,addEventListener(){},removeEventListener(){}},
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
     useState: initial => {
       const slot = index++;
