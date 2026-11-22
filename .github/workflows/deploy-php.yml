@@ -43,6 +43,9 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          node --check app/assets/identity-banking-audit.js
+          node --check app/assets/identity-banking-inputs.js
+          node --check app/assets/users-full-report-config.js
           node --check app/assets/panel-long-operation-progress.js
           node tests/panel_long_operation_progress_test.cjs
           node tests/panel_post_login_loading_test.cjs
@@ -95,6 +98,7 @@ jobs:
           php tests/leave_substitute_pending_guard_test.php
           php -l app/cron_bale.php
           php -l lib/CompanyWork.php
+          php -l app/api/admin-attendance-report-owned.php
           php -l lib/company_work_routes.php
           php tests/company_work_test.php
           php tests/company_work_archive_test.php
@@ -575,6 +579,28 @@ jobs:
               exit 1
             }
           done < <(find deploy-payload -type f -print | sort)
+
+      - name: Smoke-test public panel JavaScript after FTP verification
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in identity-banking-audit.js identity-banking-inputs.js users-full-report-config.js; do
+            target="${RUNNER_TEMP}/${asset}"
+            headers="${RUNNER_TEMP}/${asset}.headers"
+            curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --max-time 35 \
+              --header 'Cache-Control: no-cache' \
+              --dump-header "${headers}" \
+              --output "${target}" \
+              "https://khat-yar.ir/assets/${asset}?deploy=${GITHUB_SHA}"
+            mime="$(grep -i '^content-type:' "${headers}" | tail -1 | tr -d '\r' || true)"
+            if ! printf '%s' "${mime}" | grep -Eiq 'javascript|ecmascript'; then
+              echo "ERROR: ${asset} has invalid browser MIME: ${mime}" >&2
+              exit 1
+            fi
+            node --check "${target}"
+            echo "Public JS smoke check passed: ${asset} (${mime})"
+          done
 
       - name: Delete removed PHP files from FTP root
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-deletions.txt') != '' }}
