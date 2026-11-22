@@ -22,4 +22,7 @@ catch(InvalidArgumentException $e){testProfileForm('unknown system binding rejec
 $changed=$schema;$changed['sections'][3]['fields'][0]['custom_field_id']=999;
 try{UserProfileForms::validate($changed);throw new RuntimeException('FAIL arbitrary custom binding');}
 catch(InvalidArgumentException $e){testProfileForm('mismatched custom field binding rejected',true);}
+$wrongType=$schema;$wrongType['sections'][0]['fields'][0]['type']='number';
+try{UserProfileForms::validate($wrongType);throw new RuntimeException('FAIL system type mutation');}
+catch(InvalidArgumentException $e){testProfileForm('protected system field types cannot change',true);}
 echo "Profile form storage contract tests passed\n";
