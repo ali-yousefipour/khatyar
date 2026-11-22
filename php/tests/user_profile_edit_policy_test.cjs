@@ -56,6 +56,8 @@ assert.match(panel,/function AdminPrivateProfileAttachment/,'web admin supports 
 assert.match(panel,/data\.append\("file",selected,selected\.name\)/,'web document form sends binary multipart');
 assert.match(panel,/_fetchWithAuth\(API_BASE\+path,\{method:"POST",body:data\}\)/,'web document uploads use session-bound authentication');
 assert.match(panel,/AdminPrivateProfileAttachment key=/,'web editor mounts private attachment widget per user');
+assert.match(panel,/attachmentPresence,setAttachmentPresence/,'web forms track private document status independently from text values');
+assert.match(panel,/onStatus=\{\(id,exists\)=>setAttachmentPresence/,'document upload updates web conditional fields');
 assert.match(panel,/state\.readonly\|\|\["image","file"\]\.includes\(field\.ftype\)/,'private document fields excluded from legacy text saves');
 assert.match(panel,/function CustomFieldInput/,'web admin uses shared custom-field renderer');
 assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable child rows');
