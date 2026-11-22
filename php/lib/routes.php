@@ -3796,7 +3796,18 @@ function _attendance_work_review_need($u){
 function _final_work_month($y,$m){
   static $ready=false;
   if(!$ready){
-    Db::run("CREATE TABLE IF NOT EXISTS finalized_work_months (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,monthly_json LONGTEXT NOT NULL,daily_json LONGTEXT NOT NULL,finalized_by BIGINT NULL,finalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Existing production tables are often readable even when CREATE permission
+    // is restricted. A read-only work-report path must not fail on redundant DDL.
+    try {
+      Db::run("CREATE TABLE IF NOT EXISTS finalized_work_months (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,monthly_json LONGTEXT NOT NULL,daily_json LONGTEXT NOT NULL,finalized_by BIGINT NULL,finalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $ddlFailure) {
+      try {
+        Db::one("SELECT jy FROM finalized_work_months LIMIT 1");
+      } catch (Throwable $readFailure) {
+        throw $ddlFailure;
+      }
+      error_log('finalized_work_months: existing table readable; skipped unavailable CREATE permission');
+    }
     $ready=true;
   }
   return Db::one("SELECT * FROM finalized_work_months WHERE jy=? AND jm=?",[$y,$m]);
