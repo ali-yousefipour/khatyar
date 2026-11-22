@@ -3827,10 +3827,10 @@ function _work_month_rows($y,$m){
   $final=_final_work_month($y,$m);
   return _work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m));
 }
-function _work_month_people(){
+function _work_month_people($includeEmploymentWindows=true){
   $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
   // The finalization test intentionally evaluates this helper on its own.
-  $windows=function_exists('_work_employment_windows')?_work_employment_windows():[];
+  $windows=$includeEmploymentWindows&&function_exists('_work_employment_windows')?_work_employment_windows():[];
   $byId=[];foreach($people as $person){
     if(isset($windows[(int)$person['id']]['start'])&&$windows[(int)$person['id']]['start']!=='')$person['employment_start_date']=$windows[(int)$person['id']]['start'];
     $byId[(int)$person['id']]=$person;
@@ -4125,7 +4125,9 @@ function _shift_rotation_report($year,$month){
     }
   }else{
     $rotationStage='active_personnel';
-    $people=array_values(_work_month_people());
+    // Rotation only needs identity and punch dates; avoid optional employment
+    // metadata queries that can fail on legacy hosting schemas.
+    $people=array_values(_work_month_people(false));
     $rotationStage='attendance_punches';
     $punches=Db::all("SELECT a.id attendance_id,a.user_id,a.check_in,a.check_out
       FROM staff_attendance a JOIN users u ON u.id=a.user_id
