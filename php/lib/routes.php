@@ -1798,7 +1798,7 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
 $profileFormsRequestPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
 if (preg_match('~^/api/(?:my/(?:custom-fields|user-profile-form|complete-profile)|me/profile|admin/user-profile-form(?:/.*)?)$~', $profileFormsRequestPath)) {
   require_once __DIR__.'/UserProfileForms.php';
-  // UserProfileFormValues is loaded only for personnel profile API requests above.
+  require_once __DIR__.'/UserProfileFormValues.php';
 }
 // No destructive migration occurs during these reads. Legacy fields remain active
 // until the additive user_profile_forms migration is explicitly installed.
