@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/Payroll.php';
 require_once __DIR__.'/IranCalendar.php';
+require_once __DIR__.'/IdentityBankingValidation.php';
 
 /** Organization inputs and generated company reports are immutable, private archives. */
 class CompanyWork {
@@ -85,24 +86,20 @@ class CompanyWork {
     }finally{$zip->close();}
   }
   /** Structural validation only; account ownership and activity require a bank inquiry. */
+  /** Legacy report contract mapped to the shared offline validator. */
   static function bankAccountCheck($raw){
-    $value=strtoupper(preg_replace('/[\s\x{200C}\x{00A0}]+/u','',Payroll::normalize((string)$raw)));
-    if(str_starts_with($value,'IR')){
-      if(!preg_match('/^IR[0-9]{24}$/D',$value))
-        return ['valid'=>false,'status'=>'invalid_iban','message'=>'قالب شماره شبا نامعتبر است'];
-      $body=substr($value,4).'1827'.substr($value,2,2);
-      $remainder=0;
-      foreach(str_split($body) as $digit)$remainder=($remainder*10+(int)$digit)%97;
-      if($remainder!==1)return ['valid'=>false,'status'=>'invalid_iban','message'=>'رقم کنترلی شبا نامعتبر است'];
-      if(substr($value,4,3)!=='061')
-        return ['valid'=>false,'status'=>'wrong_bank','message'=>'شماره شبا متعلق به بانک شهر (کد ۰۶۱) نیست'];
-      return ['valid'=>true,'status'=>'shahr_iban_checksum_valid','message'=>'ساختار و رقم کنترلی شبای بانک شهر معتبر است؛ مالکیت و فعال‌بودن حساب استعلام نشده است'];
+    $value=IdentityBankingValidation::digits($raw);
+    if(preg_match('/^IR/i',trim($value))){
+      $r=IdentityBankingValidation::iban($value,'061');
+      return ['valid'=>$r['valid'],'status'=>$r['valid']?'shahr_iban_checksum_valid':
+        ($r['status']==='mismatch'?'wrong_bank':'invalid_iban'),
+        'message'=>$r['errors'][0]??$r['warnings'][0]??'شماره شبا از نظر ساختار بررسی شد',
+        'verificationLevel'=>'offline_structural','bankCode'=>$r['bankCode']??null];
     }
-    $digits=preg_replace('/\D/','',$value);
-    $valid=(bool)preg_match('/^[0-9][0-9 .-]{2,38}[0-9]$/D',$value)
-      &&strlen($digits)>=4&&preg_match('/[1-9]/',$digits);
-    return ['valid'=>$valid,'status'=>$valid?'account_unverified':'invalid_account',
-      'message'=>$valid?'شماره حساب از نظر قالب اولیه پذیرفته شد؛ صحت حساب و بانک آن نیازمند استعلام رسمی است':'شماره حساب دارای قالب معتبر نیست'];
+    $r=IdentityBankingValidation::account($value);
+    return ['valid'=>$r['valid'],'status'=>$r['valid']?'account_unverified':'invalid_account',
+      'message'=>$r['errors'][0]??$r['warnings'][0]??'شماره حساب نیازمند استعلام است',
+      'verificationLevel'=>'offline_structural'];
   }
   static function matchRows($rows,$users){
     $codes=[];$names=[];
@@ -442,6 +439,9 @@ class CompanyWork {
       if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
       if(!$r['national_code'])$r['errors'][]='کد ملی معتبر در اطلاعات پرسنل موجود نیست';
+      $r['national_validation']=IdentityBankingValidation::nationalId($r['national_code']);
+      // Existing legacy records are audited first; migration to hard blocking is deliberate.
+      if(!$r['national_validation']['valid'])$r['validation_warnings'][]='کد ملی از نظر رقم کنترل نیازمند اصلاح است';
       $r['bank_validation']=self::bankAccountCheck($r['account']);
       if(!$r['bank_validation']['valid'])$r['errors'][]=$r['bank_validation']['message'];
       $r['seniority_days']=$seniority[$uid]['seniority_days']??null;if($r['seniority_days']===null)$r['errors'][]='مبنای سنوات پرسنل ثبت نشده است';
