@@ -354,6 +354,15 @@ class CompanyWork {
     if($approved['days']){$first=$approved['days'][0]['jdate'];[$y,$m]=array_map('intval',explode('-',substr($first,0,7)));for($n=1;$n<=IranCalendar::monthLength($y,$m);$n++){$j=sprintf('%04d-%02d-%02d',$y,$m,$n);if(!isset($days[$j]))$days[$j]=['jdate'=>$j,'outside_employment_period'=>true,'absent'=>0,'night'=>'00:00'];}}
     ksort($days);return ['report'=>array_replace($report,['days'=>array_values($days)]),'covered_absence_days'=>$covered];
   }
+  /** Resolve the attendance helper in both production (/khat-yar.ir) and repository (/app) layouts. */
+  static function attendanceHelperFile($root=null){
+    $root=rtrim((string)($root??dirname(__DIR__)),'/');
+    foreach(['/khat-yar.ir/api/admin-attendance-report-owned.php','/app/api/admin-attendance-report-owned.php'] as $suffix){
+      $candidate=$root.$suffix;
+      if(is_file($candidate)&&is_readable($candidate))return $candidate;
+    }
+    throw new RuntimeException('Entry-owned attendance report helper is not deployed');
+  }
   static function collect($source,$accountField){
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
@@ -421,9 +430,7 @@ class CompanyWork {
     // helper fails to load. Never label that as a shift rotation failure.
     $collectStage='attendance_helper';
     if(!function_exists('attendance_report_owned_by_entry_date')){
-      $attendanceHelper=dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
-      if(!is_readable($attendanceHelper))throw new RuntimeException('Entry-owned attendance report helper is not deployed');
-      require_once $attendanceHelper;
+      require_once self::attendanceHelperFile();
     }
     if(!function_exists('attendance_report_owned_by_entry_date'))throw new RuntimeException('Entry-owned attendance report helper is unavailable');
     $collectStage='rotation_inactive_batch';
