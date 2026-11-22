@@ -44,11 +44,12 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '2.0.5'; $appV = '2.0.5';
+  $siteV = '2.0.13'; $appV = '2.0.13';
   $releaseNotes = [
-    'version' => '2.0.5',
-    'title' => 'تغییرات نسخه ۲.۰.۵',
+    'version' => '2.0.13',
+    'title' => 'تغییرات نسخه ۲.۰.۱۳',
     'items' => [
+      'اعتبارسنجی ساختاری آفلاین کد ملی و شبا در وب و اندروید، ممیزی دسته‌ای اطلاعات بانکی کاربران',
       'رفع خطای اتصال و پخش بی‌سیم و بهبود مدیریت اتصال‌های دیتابیس',
       'تکرار هشدار صحت‌سنجی تا بازشدن ویزارد و اصلاح مهلت انجام آن',
       'استفاده از دوربین سیستمی گوشی و نمایش صحت‌سنجی انجام‌شده در صف ارسال',
