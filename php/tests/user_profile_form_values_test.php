@@ -57,6 +57,27 @@ $contact=UserProfileFormValues::plan($contactSchema,['cf_47'=>'۰۵۱۳۳۴۴۵�
 t('Iranian landline and 24-hour time normalize Persian digits',$contact['custom'][47]==='05133445566'&&$contact['custom'][48]==='14:30');
 invalid('invalid landline rejected',fn()=>UserProfileFormValues::plan($contactSchema,['cf_47'=>'1234'],[],true));
 invalid('invalid hour rejected',fn()=>UserProfileFormValues::plan($contactSchema,['cf_48'=>'25:30'],[],true));
+$childrenSchema=['sections'=>[['key'=>'family','fields'=>[
+ ['key'=>'cf_51','type'=>'repeater','binding'=>'custom','custom_field_id'=>51,'required'=>true,
+  'min_rows'=>0,'max_rows'=>3,'columns'=>[
+    ['key'=>'name','label'=>'نام فرزند','type'=>'text','required'=>true],
+    ['key'=>'birth','label'=>'تاریخ تولد','type'=>'date','required'=>false]]]
+]]]];
+$childrenJson=json_encode([['name'=>'سارا','birth'=>'۱۴۰۵/۰۷/۳۰']],JSON_UNESCAPED_UNICODE);
+$childrenPlan=UserProfileFormValues::plan($childrenSchema,['cf_51'=>$childrenJson],[],true);
+$childrenSaved=json_decode($childrenPlan['custom'][51],true);
+t('repeatable children stored atomically with normalized Jalali date',
+  count($childrenSaved)===1&&$childrenSaved[0]['name']==='سارا'&&$childrenSaved[0]['birth']==='1405-07-30');
+invalid('repeatable required children reject zero rows',
+  fn()=>UserProfileFormValues::plan($childrenSchema,['cf_51'=>'[]'],[],true));
+invalid('repeatable children reject unknown keys',
+  fn()=>UserProfileFormValues::plan($childrenSchema,['cf_51'=>'[{"name":"سارا","inject":"bad"}]'],[],true));
+invalid('repeatable children reject invalid date',
+  fn()=>UserProfileFormValues::plan($childrenSchema,['cf_51'=>'[{"name":"سارا","birth":"1405/07/31"}]'],[],true));
+invalid('repeatable children enforce max rows',
+  fn()=>UserProfileFormValues::plan($childrenSchema,['cf_51'=>json_encode(array_fill(0,4,['name'=>'سارا']))],[],true));
+invalid('repeatable children reject malformed JSON',
+  fn()=>UserProfileFormValues::plan($childrenSchema,['cf_51'=>'{broken'],[],true));
 $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
