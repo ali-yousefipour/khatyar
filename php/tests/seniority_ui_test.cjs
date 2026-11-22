@@ -111,7 +111,7 @@ async function main() {
   const update=button(tree,'به‌روزرسانی سنوات تا پایان ماه انتخابی');
   assert.ok(update);
   update.props.onClick();tree=app.render();
-  assert.ok(content(tree).includes('تأیید محاسبه سنوات'));
+  assert.ok(nodes(tree,item=>item.type==='Modal'&&item.props?.title==='تأیید محاسبه سنوات').length);
   await button(tree,'تأیید و اجرا').props.onClick();await settle();tree=app.render();
   assert.equal(app.sent.filter(call=>call.endpoint.endsWith('/period-run')).length,1);
   assert.ok(content(tree).includes('نتیجه عملیات'));
