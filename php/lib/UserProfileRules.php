@@ -9,7 +9,7 @@ final class UserProfileRules {
   public const ACTIONS=['show','hide','enable','disable','require','optional','readonly','editable'];
   public const FIELD_TYPES=['text','textarea','number','mobile','phone','email','date','time','select',
     'multiselect','radio','checkbox','boolean','national_id','iban','account','card',
-    'image','file','address','calculated','description','divider','heading'];
+    'image','file','address','calculated','description','divider','heading','repeater'];
   private const VALUE_FREE=['empty','not_empty','true','false'];
   private const NUMERIC=['gt','gte','lt','lte'];
   private const DATES=['date_between','date_outside'];
@@ -86,6 +86,35 @@ final class UserProfileRules {
         }
         if(in_array($field['type'],['select','radio','multiselect'],true)&&empty($field['options']))
           self::fail('برای این نوع فیلد حداقل یک گزینه معتبر لازم است');
+        if(($field['type']??'')==='repeater'){
+          $columns=$field['columns']??null;
+          if(!is_array($columns)||!array_is_list($columns)||count($columns)<1||count($columns)>8)
+            self::fail('گروه تکرارشونده باید بین یک تا هشت ستون داشته باشد');
+          $max=$field['max_rows']??12;
+          if(!is_int($max)||$max<1||$max>20)self::fail('حداکثر ردیف تکرارشونده نامعتبر است');
+          $min=$field['min_rows']??0;
+          if(!is_int($min)||$min<0||$min>$max)self::fail('حداقل ردیف تکرارشونده نامعتبر است');
+          $columnKeys=[];
+          foreach($columns as $column){
+            if(!is_array($column))self::fail('ستون تکرارشونده نامعتبر است');
+            $columnKey=self::fieldKey($column['key']??null);
+            if(isset($columnKeys[$columnKey]))self::fail('شناسه ستون تکراری است');
+            $columnKeys[$columnKey]=true;
+            if(!is_string($column['label']??null)||trim($column['label'])===''||mb_strlen($column['label'])>120)
+              self::fail('عنوان ستون تکرارشونده نامعتبر است');
+            if(!in_array($column['type']??null,['text','number','date','mobile','national_id','select','boolean'],true))
+              self::fail('نوع ستون تکرارشونده پشتیبانی نمی‌شود');
+            if(($column['type']??null)==='select'){
+              $options=$column['options']??null;
+              if(!is_array($options)||!array_is_list($options)||count($options)<1||count($options)>50)
+                self::fail('گزینه‌های ستون تکرارشونده معتبر نیست');
+              if(count(array_unique($options))!==count($options))
+                self::fail('گزینه ستون تکراری است');
+              foreach($options as $option)if(!is_string($option)||$option===''||mb_strlen($option)>120||str_contains($option,'|'))
+                self::fail('گزینه ستون نامعتبر است');
+            }
+          }
+        }
         $fields[$key]=$field;
       }
     }
