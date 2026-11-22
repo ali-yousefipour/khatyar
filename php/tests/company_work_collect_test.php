@@ -41,6 +41,7 @@ yes('bank account and national identity come from database',$r['account']==='000
 yes('seniority days, demographics and rotation joined',$r['seniority_days']===730&&$r['children']===2&&$r['morning']===10.5);
 yes('marital status is coded numerically for XLSX',$r['marital_code']===1);
 yes('plain account is explicitly unverified',($r['bank_validation']['status']??'')==='account_unverified');
+yes('valid Shahr IBAN passes structural check',CompanyWork::bankAccountCheck('IR830610000000000000000000')['status']==='shahr_iban_checksum_valid');
 yes('invalid Shahr IBAN rejected',CompanyWork::bankAccountCheck('IR000610000000000000000000')['valid']===false);
 yes('an IBAN from another bank cannot be accepted as Shahr',CompanyWork::bankAccountCheck('IR820540102680020817909002')['valid']===false);
 yes('rotation uses the selected organization source period',$GLOBALS['rotation_period']===[1405,7]&&$out['year']===1405&&$out['month']===7);
