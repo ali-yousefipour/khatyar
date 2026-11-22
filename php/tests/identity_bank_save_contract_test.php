@@ -19,7 +19,10 @@ $source=file_get_contents(__DIR__.'/../lib/routes.php');
 $start=strpos($source,'function _save_custom_values($uid, $values, $onlyEditable){');
 $end=strpos($source,"\nroute('GET', '/api/my/custom-fields'",$start);
 if($start===false||$end===false)throw new RuntimeException('source contract changed');
-eval(substr($source,$start,$end-$start));
+$method=substr($source,$start,$end-$start);
+// eval() uses this test file's __DIR__, unlike the original routes.php location.
+$method=str_replace("require_once __DIR__.'/IdentityBankingValidation.php';","require_once __DIR__.'/../lib/IdentityBankingValidation.php';",$method);
+eval($method);
 function checkBank($ok,$name){if(!$ok)throw new RuntimeException('FAIL '.$name);echo "PASS $name\n";}
 Db::$fields=[
  ['id'=>1,'fkey'=>'bank_name','label'=>'نام بانک','user_editable'=>1],
