@@ -14815,7 +14815,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         setDetail({ ...data.snapshot, fileId: Number(data.id) || Number(id), title: "نسخهٔ ثبت‌شدهٔ فایل شرکت" });
         setQuery("");
     } });
-    const generate = id => action("محاسبه و ساخت فایل شرکت…", async () => {
+    const generate = (id, acknowledge = false) => action("محاسبه و ساخت فایل شرکت…", async () => {
         const overlay = typeof window !== "undefined" ? window.KhatyarLongOperation : null;
         const progressId = (() => {
             try {
@@ -14860,12 +14860,12 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         else
             overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { stage: "در حال ساخت فایل؛ درصد دقیق در دسترس نیست" });
         try {
-            const data = await request("/sources/" + id + "/generate" + (progressId ? "?progress_id=" + progressId : ""), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_field_id: Number(account) }) });
+            const data = await request("/sources/" + id + "/generate" + (progressId ? "?progress_id=" + progressId : ""), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_field_id: Number(account), acknowledge_discrepancies: acknowledge === true }) });
             if (!life.current.alive)
                 return;
             overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { percent: 100, stage: data.generated ? "فایل شرکت با موفقیت در آرشیو ثبت شد" : "محاسبه پایان یافت؛ مغایرت‌ها را بررسی کنید" });
             const fileId = data.generated ? Number(data.id) : 0;
-            setDetail({ ...data.snapshot, fileId: fileId > 0 ? fileId : null, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
+            setDetail({ ...data.snapshot, fileId: fileId > 0 ? fileId : null, sourceId: data.requires_confirmation ? Number(id) : null, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌های گزارش شرکت؛ بررسی و تأیید برای ادامه" });
             setQuery("");
             await load();
             if (data.generated) {
@@ -15051,7 +15051,12 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
             React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", alignItems: "center" } },
                 detail.fileId > 0 && React.createElement("button", { type: "button", className: "btn p", disabled: !!busy, onClick: () => download("files", detail.fileId) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A (XLSX)"),
+                detail.sourceId > 0 && React.createElement("button", { type: "button", className: "btn p", disabled: !!busy, onClick: () => { if (window.confirm("مغایرت‌های نمایش‌داده‌شده را تأیید می‌کنید؟ فایل با حفظ تمام ردیف‌ها ساخته می‌شود و شرح مشکلات در یادداشت نام و نام خانوادگی هر فرد درج خواهد شد. اعداد نامشخص خالی باقی می‌مانند.")) {
+                        generate(detail.sourceId, true);
+                    } } }, "\u062A\u0623\u06CC\u06CC\u062F \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627 \u0648 \u0633\u0627\u062E\u062A \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A"),
                 React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")),
+            detail.sourceId > 0 && React.createElement("p", { className: "muted", role: "alert" }, "\u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u062F\u0627\u0631\u0627\u06CC \u0645\u063A\u0627\u06CC\u0631\u062A \u0627\u0633\u062A. \u0628\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0634\u0645\u0627 \u0641\u0627\u06CC\u0644 \u062A\u0648\u0644\u06CC\u062F \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062C\u0632\u0626\u06CC\u0627\u062A \u062E\u0637\u0627\u0647\u0627\u06CC \u0647\u0631 \u0646\u0641\u0631 \u062F\u0631 \u06A9\u0627\u0645\u0646\u062A \u0633\u0644\u0648\u0644 \u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u062E\u0648\u0627\u0647\u062F \u0634\u062F \u0648 \u0645\u0642\u0627\u062F\u06CC\u0631 \u0646\u0627\u0645\u0634\u062E\u0635 \u062E\u0627\u0644\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
+            detail.discrepancies_acknowledged && React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u0646\u0633\u062E\u0647 \u0628\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0645\u063A\u0627\u06CC\u0631\u062A\u200C\u0647\u0627 \u062A\u0648\u0644\u06CC\u062F \u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u062E\u0637\u0627\u0647\u0627 \u06A9\u0627\u0645\u0646\u062A \u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0631\u0627 \u062F\u0631 \u0627\u06A9\u0633\u0644 \u0628\u0627\u0632 \u06A9\u0646\u06CC\u062F."),
             ((_a = detail.rows) === null || _a === void 0 ? void 0 : _a.some(r => r.organization_basis)) && React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u062F\u0631 \u063A\u06CC\u0628\u062A \u0642\u0627\u0628\u0644 \u067E\u0631\u062F\u0627\u062E\u062A \u0648 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0644\u062D\u0627\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0646\u0633\u062E\u0647 \u062D\u0641\u0638 \u0627\u0633\u062A."),
             detail.account_field && React.createElement("p", { className: "muted" },
                 "\u0645\u0646\u0628\u0639 \u062D\u0633\u0627\u0628: ",
