@@ -28,6 +28,15 @@ invalid('role permission denies unauthorized editor',fn()=>UserProfileFormValues
 t('role grant allows permitted editor',isset(UserProfileFormValues::plan($roleSchema,['spouse_name'=>'مجاز'],$stored,true,['id'=>7,'role_id'=>5])['custom'][2]));
 $roleSchema['sections'][0]['fields'][3]['deny_users']=[7];
 invalid('user-specific deny overrides role grant',fn()=>UserProfileFormValues::plan($roleSchema,['spouse_name'=>'رد'],$stored,true,['id'=>7,'role_id'=>5]));
+$multiSchema=['sections'=>[['key'=>'options','fields'=>[
+ ['key'=>'cf_3','type'=>'multiselect','binding'=>'custom','custom_field_id'=>3,'options'=>['الف','ب','ج']]
+]]]];
+$multi=UserProfileFormValues::plan($multiSchema,['cf_3'=>'الف|ج'],[],true);
+t('Android pipe-delimited multiselect validates against published choices',$multi['custom'][3]==='الف|ج');
+$multiList=UserProfileFormValues::plan($multiSchema,['cf_3'=>['الف','ج']],[],true);
+t('JSON array multiselect stays compatible',$multiList['custom'][3]==='الف|ج');
+invalid('unknown multiselect option rejected',fn()=>UserProfileFormValues::plan($multiSchema,['cf_3'=>'الف|نامعتبر'],[],true));
+invalid('duplicate multiselect option rejected',fn()=>UserProfileFormValues::plan($multiSchema,['cf_3'=>'الف|الف'],[],true));
 $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
