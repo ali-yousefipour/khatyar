@@ -300,10 +300,7 @@ export default function CustomFieldsScreen({ navigation }) {
             {['image','file'].includes(f.ftype)?
               <PrivateProfileAttachment field={f} readOnly
                 onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
-              {['image','file'].includes(f.ftype)?
-                <PrivateProfileAttachment field={f} readOnly
-                  onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
-                <Text style={s.roVal}>{showVal(f)}</Text>}}
+              <Text style={s.roVal}>{showVal(f)}</Text>}
           </View>
         ))}
         {!editingAllowed&&<Text style={s.muted}>ویرایش اطلاعات تکمیلی توسط مدیر غیرفعال شده است.</Text>}
