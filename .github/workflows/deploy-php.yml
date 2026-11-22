@@ -521,7 +521,7 @@ jobs:
             echo "Host-side attendance PHP library installation completed."
           # The new form and contract modules must be present in the same
           # canonical /lib path used by app/index.php; absence fails deployment.
-          for name in KhatyarFormsSchema.php UserProfileRules.php UserProfileForms.php UserProfileFormValues.php WorkContracts.php RegionalTeam.php school_complaint_accounts.php SchoolComplaintNotifications.php LeaveSubstituteCoverage.php OrganizationWorkPlacement.php WorkReportDefaultPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php organization-template.xlsx work_report_template_routes.php; do
+          for name in KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php UserProfileRules.php UserProfileForms.php UserProfileFormValues.php school_complaint_accounts.php SchoolComplaintNotifications.php LeaveSubstituteCoverage.php OrganizationWorkPlacement.php WorkReportDefaultPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php organization-template.xlsx work_report_template_routes.php; do
             if [ ! -f "deploy-payload/lib/${name}" ]; then
               echo "ERROR: missing required module from deployment payload: ${name}" >&2
               exit 1
