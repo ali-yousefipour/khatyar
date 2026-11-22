@@ -1,0 +1,30 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..');
+const routes=fs.readFileSync(path.join(root,'lib/routes.php'),'utf8');
+const panel=fs.readFileSync(path.join(root,'tools/panel_source.jsx'),'utf8');
+const account=fs.readFileSync(path.join(root,'../mobile/src/screens/AccountScreens.js'),'utf8');
+const custom=fs.readFileSync(path.join(root,'../mobile/src/screens/CustomFieldsScreen.js'),'utf8');
+function routeBlock(method,path,next){
+ const start=routes.indexOf("route('"+method+"', '"+path+"'");
+ assert(start>=0,method+' '+path+' present');
+ const end=next?routes.indexOf(next,start):routes.indexOf("\nroute(",start+10);
+ return routes.slice(start,end<0?start+1800:end);
+}
+assert.match(panel,/allow_android_profile_edit/,'administrator policy visible in settings');
+assert.match(routes,/is_bool\(\$b\['allow_android_profile_edit'\]\)/,'policy accepts only real booleans');
+const profile=routeBlock('PUT','/api/me/profile');
+const fields=routeBlock('POST','/api/my/custom-fields');
+assert.match(profile,/allow_android_profile_edit/,'profile write checks live server policy');
+assert.match(profile,/Http::error\([^;]+403\)/,'profile write denied as HTTP 403');
+assert.match(fields,/allow_android_profile_edit/,'custom values write checks live server policy');
+assert.match(fields,/Http::error\([^;]+403\)/,'custom values write denied as HTTP 403');
+const full=routeBlock('GET','/api/me/full-profile');
+assert.match(full,/profile_edit_allowed/,'profile GET carries view-only flag');
+const customGet=routeBlock('GET','/api/my/custom-fields');
+assert.match(customGet,/\$editAllowed/,'custom field GET applies live edit policy');
+assert.match(account,/profileReadOnly/,'Android renders view-only profile');
+assert.match(account,/editable=\{!profileReadOnly\}/,'Android disables inputs');
+assert.match(account,/!profileReadOnly&&<TouchableOpacity[^\n]+onPress=\{save\}/,'Android hides save');
+assert.match(custom,/editable = fields\.filter/,'custom fields only allow declared editable fields');
+console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
