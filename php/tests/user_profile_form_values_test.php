@@ -28,4 +28,8 @@ invalid('role permission denies unauthorized editor',fn()=>UserProfileFormValues
 t('role grant allows permitted editor',isset(UserProfileFormValues::plan($roleSchema,['spouse_name'=>'مجاز'],$stored,true,['id'=>7,'role_id'=>5])['custom'][2]));
 $roleSchema['sections'][0]['fields'][3]['deny_users']=[7];
 invalid('user-specific deny overrides role grant',fn()=>UserProfileFormValues::plan($roleSchema,['spouse_name'=>'رد'],$stored,true,['id'=>7,'role_id'=>5]));
+$numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
+$persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
+t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
+t('Persian mobile digits normalize safely',$persian['system']['mobile']==='09123456789');
 echo "User profile value tests passed\n";
