@@ -38,7 +38,17 @@ const settle=()=>new Promise(r=>setImmediate(r));
   const query=nodes(tree,n=>n.type==='input'&&!n.props.type)[0];query.props.onChange({target:{value:'ناموجود'}});tree=render();assert(!nodes(tree,n=>n.type==='td').some(n=>text(n)==='کاربر'),'detail search filters real rows');
   const wait=deferred();response=()=>wait.promise;const click=button(tree,'ساخت و آرشیو فایل شرکت').props.onClick;const generating=click();click();
   assert.equal(calls.filter(x=>x.url.endsWith('/generate')).length,1,'duplicate generation suppressed');tree=render();assert(nodes(tree,n=>n.type==='select').every(n=>n.props.disabled),'period locked during generation');
-  response=async()=>ok(archive);wait.resolve(ok({generated:false,snapshot:{rows:[row],has_errors:true,account_field:{label:'شماره حساب'}}}));await generating;tree=render();assert(nodes(tree,n=>n.type==='Modal'&&n.props.title==='مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید').length===1);
+  response=async()=>ok(archive);wait.resolve(ok({generated:false,requires_confirmation:true,snapshot:{rows:[row],has_errors:true,account_field:{label:'شماره حساب'}}}));await generating;tree=render();assert(nodes(tree,n=>n.type==='Modal'&&n.props.title==='مغایرت‌های گزارش شرکت؛ بررسی و تأیید برای ادامه').length===1);
+  assert(button(tree,'تأیید مغایرت‌ها و ساخت فایل شرکت'),'explicit approval offered after discrepancy preview');
+  const beforeAck=calls.filter(x=>x.url.includes('/generate')).length;
+  confirmDelete=false;await button(tree,'تأیید مغایرت‌ها و ساخت فایل شرکت').props.onClick();assert.equal(calls.filter(x=>x.url.includes('/generate')).length,beforeAck,'declined confirmation creates no file');
+  confirmDelete=true;response=async(url,options)=>{
+    if(url.includes('/sources/1/generate')){assert.equal(JSON.parse(options.body).acknowledge_discrepancies,true,'retry must carry explicit user acknowledgement');return ok({generated:true,id:55,snapshot:{rows:[row],has_errors:true,discrepancies_acknowledged:true,account_field:{label:'شماره حساب'}}});}
+    if(url.includes('/files/55/download'))return {ok:true,headers:{get:()=> 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},blob:async()=>({size:512})};
+    return ok(archive);
+  };
+  await button(tree,'تأیید مغایرت‌ها و ساخت فایل شرکت').props.onClick();tree=render();assert(button(tree,'دانلود فایل شرکت (XLSX)'),'approved discrepant archive is downloadable');
+  assert(text(tree).includes('این نسخه با تأیید مغایرت‌ها تولید شده است'),'archived report explicitly marks approval');
   response=async()=>({ok:false,text:async()=>JSON.stringify({error:'دسترسی مجاز نیست'})});await button(tree,'جزئیات و تطبیق').props.onClick();tree=render();assert(text(tree).includes('دسترسی مجاز نیست'));
   response=async()=>({ok:true,blob:async()=>({})});await button(tree,'دانلود فایل سازمان').props.onClick();assert(downloads.some(x=>x[0]==='download'&&x[1].endsWith('.xlsx')));assert(downloads.some(x=>x[0]==='revoke'));
   // A newly generated company archive must download immediately and keep a
