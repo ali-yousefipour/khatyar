@@ -1810,6 +1810,14 @@ route('PUT', '/api/admin/user-profile-form', function($p,$b,$u){
   }catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
   catch(DomainException $e){Http::error($e->getMessage(),409);}
 }, false, ADMIN);
+route('GET', '/api/admin/user-profile-form/versions', function($p,$b,$u){
+  return ['versions'=>UserProfileForms::versions()];
+}, false, ADMIN);
+route('POST', '/api/admin/user-profile-form/restore', function($p,$b,$u){
+  try{return UserProfileForms::restoreDraft((int)($b['version']??0),(int)($b['revision']??-1),(int)$u['id']);}
+  catch(DomainException $e){Http::error($e->getMessage(),409);}
+  catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+}, false, ADMIN);
 route('POST', '/api/admin/user-profile-form/publish', function($p,$b,$u){
   try{return UserProfileForms::publish((int)($b['revision']??-1),(int)$u['id']);}
   catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
