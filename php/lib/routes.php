@@ -1773,6 +1773,32 @@ route('POST', '/api/my/custom-fields', function($p,$b,$u){
   return ['ok'=>true];
 }, false);
 
+// ==================== فرم‌ساز نسخه‌دار اطلاعات جامع پرسنلی ====================
+require_once __DIR__.'/UserProfileForms.php';
+// No destructive migration occurs during these reads. Legacy fields remain active
+// until the additive user_profile_forms migration is explicitly installed.
+route('GET', '/api/my/user-profile-form', function($p,$b,$u){
+  $out=UserProfileForms::published();
+  $out['profile_edit_allowed']=_req_setting('allow_android_profile_edit',true)===true;
+  return $out;
+}, false);
+route('GET', '/api/admin/user-profile-form', function($p,$b,$u){
+  if(!UserProfileForms::available())return ['revision'=>0,'published_version'=>0,'schema'=>UserProfileForms::initialSchema(),'migration_required'=>true];
+  return UserProfileForms::draft();
+}, false, ADMIN);
+route('PUT', '/api/admin/user-profile-form', function($p,$b,$u){
+  try{
+    if(!is_array($b['schema']??null))Http::error('ساختار فرم معتبر نیست',422);
+    return UserProfileForms::saveDraft($b['schema'],(int)($b['revision']??-1),(int)$u['id']);
+  }catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+  catch(DomainException $e){Http::error($e->getMessage(),409);}
+}, false, ADMIN);
+route('POST', '/api/admin/user-profile-form/publish', function($p,$b,$u){
+  try{return UserProfileForms::publish((int)($b['revision']??-1),(int)$u['id']);}
+  catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+  catch(DomainException $e){Http::error($e->getMessage(),409);}
+}, false, ADMIN);
+
 // ==================== حالت تعمیر (قطع دسترسی همه بجز مدیران) ====================
 function _maintenance_status(){
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'");
