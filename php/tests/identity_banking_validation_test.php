@@ -38,4 +38,19 @@ $unverified=IdentityBankingValidation::validateUserInput(['account'=>'۰۰۰۰-�
 assertValidation($unverified['valid']&&$unverified['status']==='offline_unverifiable','internal account is only structurally admitted');
 $invalid=IdentityBankingValidation::validateUserInput(['national_code'=>'0012345678'],[],null);
 assertValidation(!$invalid['valid'],'invalid national checksum blocks new form');
+$audit=IdentityBankingValidation::auditBatch(
+ [['id'=>1,'first_name'=>'آزمون','last_name'=>'یک','personnel_code'=>'0001','national_code'=>'0012345679','is_active'=>1],
+  ['id'=>2,'first_name'=>'آزمون','last_name'=>'دو','personnel_code'=>'0002','national_code'=>'0012345679','is_active'=>0]],
+ [['id'=>10,'fkey'=>'iban','label'=>'شماره شبا'],['id'=>11,'fkey'=>'account_number','label'=>'شماره حساب'],['id'=>12,'fkey'=>'bank_name','label'=>'نام بانک']],
+ [['user_id'=>1,'field_id'=>10,'value'=>'IR830610000000000000000000'],
+  ['user_id'=>1,'field_id'=>11,'value'=>'0000123456'],
+  ['user_id'=>1,'field_id'=>12,'value'=>'بانک شهر'],
+  ['user_id'=>2,'field_id'=>10,'value'=>'IR410540000000000000000002'],
+  ['user_id'=>2,'field_id'=>12,'value'=>'بانک شهر']],
+ [['id'=>1,'national_code'=>'0012345679'],['id'=>2,'national_code'=>'0012345679']]
+);
+assertValidation($audit['counts']['duplicate_national']===2,'batch audit reports duplicate active and inactive');
+assertValidation($audit['counts']['bank_mismatch']===1,'batch audit detects IBAN bank mismatch');
+assertValidation($audit['counts']['unverified_account']===1,'batch audit does not assert account ownership');
+assertValidation(count($audit['issues'])===2,'batch audit exposes mismatch rows without national numbers');
 echo "Offline identity and banking validation tests passed\n";
