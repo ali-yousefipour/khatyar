@@ -1762,6 +1762,23 @@ route('GET', '/api/my/custom-fields', function($p,$b,$u){
 
 route('POST', '/api/my/custom-fields', function($p,$b,$u){
   if (_req_setting('allow_android_profile_edit',true) !== true) Http::error('ویرایش اطلاعات تکمیلی در اپ توسط مدیر غیرفعال شده است',403);
+  $values=$b['values']??[];
+  if(!is_array($values))Http::error('ساختار اطلاعات تکمیلی معتبر نیست',422);
+  $published=UserProfileForms::published();
+  if($published['version']>0){
+    $existing=Db::one('SELECT email,mobile,address,national_code,marital_status,children_count,birth_date FROM users WHERE id=?',[(int)$u['id']])??[];
+    foreach(Db::all('SELECT field_id,value FROM custom_field_values WHERE user_id=?',[(int)$u['id']]) as $row)
+      $existing['cf_'.(int)$row['field_id']]=$row['value'];
+    $submitted=[];
+    foreach($values as $key=>$value){
+      if(!ctype_digit((string)$key))Http::error('شناسه فیلد سفارشی نامعتبر است',422);
+      $submitted['cf_'.(int)$key]=$value;
+    }
+    try{$plan=UserProfileFormValues::plan($published['schema'],$submitted,$existing,true);}
+    catch(InvalidArgumentException $e){Http::error($e->getMessage(),422);}
+    _save_custom_values((int)$u['id'],$plan['custom'],true);
+    return ['ok'=>true,'form_version'=>$published['version']];
+  }
   $req = Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 AND user_editable=1 AND required=1");
   $values = $b['values'] ?? [];
   foreach ($req as $rf) {
