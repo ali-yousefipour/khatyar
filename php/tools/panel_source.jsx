@@ -6775,7 +6775,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
 
 function CustomFieldsFiller({userId,profile,saveRef=null}){
   const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
-  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null),[success,setSuccess]=useState("");
   const [attachmentPresence,setAttachmentPresence]=useState({});
   const load=async()=>{
     setError("");setFields(null);
@@ -6825,10 +6825,10 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
       if(String(value??"")!==String(originalVals[id]??""))changed[id]=value??"";
     }
     if(!Object.keys(changed).length)return true;
-    setBusy(true);setError("");
+    setBusy(true);setError("");setSuccess("");
     try{
       await db.saveUserCustomValues(userId,changed);
-      setOriginalVals({...vals});
+      setOriginalVals({...vals});setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد.");
       return true;
     }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");return false;}
     finally{setBusy(false);}
@@ -6857,6 +6857,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
         </div>
       </section>)}
     {error&&<p role="alert" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
+    {success&&<p role="status" style={{color:"var(--ok,#087f5b)"}}>{success}</p>}
     {!!sections.length&&<button className="btn p" disabled={busy} onClick={save}>{busy?"در حال ذخیره…":"ذخیره اطلاعات تکمیلی"}</button>}
   </div>;
 }
