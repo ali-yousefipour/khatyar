@@ -54,6 +54,7 @@ jobs:
           node php/tests/users_full_report_ui_test.cjs
           node php/tests/user_editor_tabs_test.cjs
           php php/tests/user_profile_full_report_test.php
+          php php/tests/user_full_report_images_test.php
           php -l php/lib/UserProfileAttachments.php
           php php/tests/user_profile_attachments_test.php
           node php/tests/user_profile_deployment_test.cjs
