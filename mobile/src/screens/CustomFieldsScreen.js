@@ -20,6 +20,24 @@ function JDateInput({ value, onChange }) {
   );
 }
 
+export function formatProfileFieldValue(field,value){
+  if(field?.ftype==='repeater'){
+    let config={};
+    try{config=JSON.parse(field.options||'{}')||{};}catch(_){}
+    const columns=field.profile_definition?.columns||config.columns||[];
+    let rows=[];
+    try{rows=JSON.parse(String(value||'[]'));}catch(_){}
+    if(!Array.isArray(rows)||!rows.length)return '—';
+    return rows.map((row,index)=>{
+      const parts=columns.map(col=>row?.[col.key]!==null&&row?.[col.key]!==undefined&&row?.[col.key]!==''?
+        col.label+': '+(String(row[col.key])==='1'&&col.type==='boolean'?'بله':String(row[col.key])):null).filter(Boolean);
+      return 'ردیف '+(index+1)+': '+(parts.join('، ')||'—');
+    }).join('\n');
+  }
+  if(field?.ftype==='checkbox'||field?.ftype==='boolean')return value==='1'||value===true?'بله':'خیر';
+  return String(value??'').replace(/\|/g,'، ')||'—';
+}
+
 export function FieldInput({ field, value, onChange, onBlur }) {
   const opts = (field.options || '').split('|').filter(Boolean);
   if (field.ftype === 'repeater') {
@@ -215,7 +233,7 @@ export default function CustomFieldsScreen({ navigation }) {
   const visible=fields.filter(f=>profileFieldState(f.profile_definition||f,values).visible);
   const editable = visible.filter((f) => editingAllowed && f.user_editable && profileCanEdit(f.profile_definition||f,profile) && profileFieldState(f.profile_definition||f,values).enabled && !profileFieldState(f.profile_definition||f,values).readonly);
   const readonly = visible.filter((f) => !editingAllowed || !f.user_editable || !profileCanEdit(f.profile_definition||f,profile) || !profileFieldState(f.profile_definition||f,values).enabled || profileFieldState(f.profile_definition||f,values).readonly);
-  const showVal = (f) => (f.ftype === 'checkbox') ? (vals[f.id] === '1' || vals[f.id] === true ? 'بله' : 'خیر') : ((String(vals[f.id] || '')).replace(/\|/g, '، ') || '—');
+  const showVal = f => formatProfileFieldValue(f,vals[f.id]);
 
   if (!editing) {
     return (
