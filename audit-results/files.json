@@ -156,8 +156,8 @@
     "path": ".github/workflows/isolated-static-audit.yml",
     "section": "other",
     "ext": ".yml",
-    "loc": 36,
-    "sloc_approx": 36,
+    "loc": 42,
+    "sloc_approx": 42,
     "blank": 0,
     "comment_lines_approx": 0
   },
