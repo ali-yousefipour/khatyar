@@ -666,11 +666,29 @@
     "comment_lines_approx": 2
   },
   {
+    "path": "audit-results/android_navigation_verified.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 578,
+    "sloc_approx": 578,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit-results/api_candidates.json",
     "section": "other",
     "ext": ".json",
     "loc": 1102,
     "sloc_approx": 1102,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
+    "path": "audit-results/backend_route_pattern_review.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 653,
+    "sloc_approx": 653,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -687,8 +705,8 @@
     "path": "audit-results/files.json",
     "section": "other",
     "ext": ".json",
-    "loc": 13277,
-    "sloc_approx": 13277,
+    "loc": 13367,
+    "sloc_approx": 13367,
     "blank": 0,
     "comment_lines_approx": 0
   },
@@ -738,6 +756,15 @@
     "comment_lines_approx": 0
   },
   {
+    "path": "audit-results/web_ui_proxies.json",
+    "section": "other",
+    "ext": ".json",
+    "loc": 29,
+    "sloc_approx": 29,
+    "blank": 0,
+    "comment_lines_approx": 0
+  },
+  {
     "path": "audit-results/wizard_candidates.json",
     "section": "other",
     "ext": ".json",
@@ -750,9 +777,9 @@
     "path": "audit/advanced_inventory.py",
     "section": "other",
     "ext": ".py",
-    "loc": 36,
-    "sloc_approx": 36,
-    "blank": 0,
+    "loc": 46,
+    "sloc_approx": 44,
+    "blank": 2,
     "comment_lines_approx": 0
   },
   {

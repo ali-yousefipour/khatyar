@@ -1,6 +1,6 @@
 {
-  "commit": "4b0260289e1452746794fef5e2680f8e29f96f79",
-  "files": 2448,
+  "commit": "b0d480fc30eb2cc98b287f38b247a185be06fb65",
+  "files": 2451,
   "directories": 187,
   "by_extension": {
     "(none)": 32,
@@ -11,7 +11,7 @@
     ".xml": 27,
     ".iml": 1,
     ".md": 167,
-    ".json": 37,
+    ".json": 40,
     ".example": 8,
     ".js": 475,
     ".html": 47,
@@ -44,7 +44,7 @@
     ".spec": 1
   },
   "by_section": {
-    "other": 391,
+    "other": 394,
     "backend_js": 128,
     "generated_or_vendor": 22,
     "test": 189,
@@ -57,9 +57,9 @@
   "code_totals": {
     "other": {
       "files": 34,
-      "loc": 9201,
-      "sloc_approx": 8312,
-      "blanks": 552,
+      "loc": 9211,
+      "sloc_approx": 8320,
+      "blanks": 554,
       "comment_lines_approx": 337
     },
     "backend_js": {
@@ -120,7 +120,7 @@
     }
   },
   "duplicate_group_count": 292,
-  "unique_content_count": 1523,
+  "unique_content_count": 1526,
   "screen_files": 64,
   "navigation_registrations": 1,
   "mobile_modal_occurrences": 542,

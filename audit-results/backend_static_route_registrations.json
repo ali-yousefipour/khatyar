@@ -1,0 +1,4286 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/session/app-login-config",
+    "file": "php/lib/routes.php",
+    "line": 385
+  },
+  {
+    "method": "GET",
+    "path": "/api/session/web-login-config",
+    "file": "php/lib/routes.php",
+    "line": 386
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/login",
+    "file": "php/lib/routes.php",
+    "line": 516
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/start",
+    "file": "php/lib/routes.php",
+    "line": 517
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/refresh",
+    "file": "php/lib/routes.php",
+    "line": 544
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/renew",
+    "file": "php/lib/routes.php",
+    "line": 546
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/web-signout",
+    "file": "php/lib/routes.php",
+    "line": 547
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/otp-request",
+    "file": "php/lib/routes.php",
+    "line": 630
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/otp-verify",
+    "file": "php/lib/routes.php",
+    "line": 631
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/app-login-request",
+    "file": "php/lib/routes.php",
+    "line": 632
+  },
+  {
+    "method": "POST",
+    "path": "/api/session/app-login-verify",
+    "file": "php/lib/routes.php",
+    "line": 633
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/logout",
+    "file": "php/lib/routes.php",
+    "line": 635
+  },
+  {
+    "method": "POST",
+    "path": "/api/me/forget-checkin",
+    "file": "php/lib/routes.php",
+    "line": 651
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/forget-status",
+    "file": "php/lib/routes.php",
+    "line": 668
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/logout-status",
+    "file": "php/lib/routes.php",
+    "line": 675
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/presence-config",
+    "file": "php/lib/routes.php",
+    "line": 840
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/presence-checks/today",
+    "file": "php/lib/routes.php",
+    "line": 873
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/presence-random-schedule",
+    "file": "php/lib/routes.php",
+    "line": 903
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/presence-check",
+    "file": "php/lib/routes.php",
+    "line": 984
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/presence-alert",
+    "file": "php/lib/routes.php",
+    "line": 1041
+  },
+  {
+    "method": "GET",
+    "path": "/api/geo/reverse",
+    "file": "php/lib/routes.php",
+    "line": 1072
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/presence-checks",
+    "file": "php/lib/routes.php",
+    "line": 1113
+  },
+  {
+    "method": "GET",
+    "path": "/api/presence-image/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1129
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/presence-checks/export",
+    "file": "php/lib/routes.php",
+    "line": 1164
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/presence-checks/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1190
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/presence-violations",
+    "file": "php/lib/routes.php",
+    "line": 1203
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms/credit",
+    "file": "php/lib/routes.php",
+    "line": 1241
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/no-oplic",
+    "file": "php/lib/routes.php",
+    "line": 1244
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/oplic-sms",
+    "file": "php/lib/routes.php",
+    "line": 1265
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms/capacity",
+    "file": "php/lib/routes.php",
+    "line": 1279
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms/limit",
+    "file": "php/lib/routes.php",
+    "line": 1294
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms/limit",
+    "file": "php/lib/routes.php",
+    "line": 1298
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms/usage",
+    "file": "php/lib/routes.php",
+    "line": 1312
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms/test",
+    "file": "php/lib/routes.php",
+    "line": 1316
+  },
+  {
+    "method": "GET",
+    "path": "/api/sms/templates",
+    "file": "php/lib/routes.php",
+    "line": 1322
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/sms-drivers",
+    "file": "php/lib/routes.php",
+    "line": 1338
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bill-sms/options",
+    "file": "php/lib/routes.php",
+    "line": 1363
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bill-sms/preview",
+    "file": "php/lib/routes.php",
+    "line": 1409
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bill-sms/send",
+    "file": "php/lib/routes.php",
+    "line": 1435
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms-contacts",
+    "file": "php/lib/routes.php",
+    "line": 1473
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms-contacts",
+    "file": "php/lib/routes.php",
+    "line": 1477
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/sms-contacts/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1485
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bill-sms/report",
+    "file": "php/lib/routes.php",
+    "line": 1491
+  },
+  {
+    "method": "POST",
+    "path": "/api/sms/send",
+    "file": "php/lib/routes.php",
+    "line": 1502
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/salary-slips/users",
+    "file": "php/lib/routes.php",
+    "line": 1588
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/salary-slips",
+    "file": "php/lib/routes.php",
+    "line": 1595
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/salary-slips",
+    "file": "php/lib/routes.php",
+    "line": 1601
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/salary-slips/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1611
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/salary-slips",
+    "file": "php/lib/routes.php",
+    "line": 1625
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/salary-slips/{id}/download",
+    "file": "php/lib/routes.php",
+    "line": 1632
+  },
+  {
+    "method": "GET",
+    "path": "/api/public/salary-slip/{id}/{token}",
+    "file": "php/lib/routes.php",
+    "line": 1639
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/custom-fields",
+    "file": "php/lib/routes.php",
+    "line": 1649
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/custom-fields",
+    "file": "php/lib/routes.php",
+    "line": 1652
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/custom-fields/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1666
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/custom-fields/{id}",
+    "file": "php/lib/routes.php",
+    "line": 1678
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/custom-values",
+    "file": "php/lib/routes.php",
+    "line": 1685
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/custom-values",
+    "file": "php/lib/routes.php",
+    "line": 1693
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/custom-fields",
+    "file": "php/lib/routes.php",
+    "line": 1771
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/custom-fields",
+    "file": "php/lib/routes.php",
+    "line": 1780
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/user-profile-form",
+    "file": "php/lib/routes.php",
+    "line": 1823
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-profile-form",
+    "file": "php/lib/routes.php",
+    "line": 1828
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/user-profile-form",
+    "file": "php/lib/routes.php",
+    "line": 1832
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-profile-form/versions",
+    "file": "php/lib/routes.php",
+    "line": 1839
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/user-profile-form/restore",
+    "file": "php/lib/routes.php",
+    "line": 1842
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/user-profile-form/publish",
+    "file": "php/lib/routes.php",
+    "line": 1847
+  },
+  {
+    "method": "PUT",
+    "path": "/api/me/complete-profile",
+    "file": "php/lib/routes.php",
+    "line": 1855
+  },
+  {
+    "method": "POST",
+    "path": "/api/me/profile-attachment/{field_id}",
+    "file": "php/lib/routes.php",
+    "line": 1902
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/profile-attachment/{field_id}/status",
+    "file": "php/lib/routes.php",
+    "line": 1914
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/profile-attachment/{field_id}",
+    "file": "php/lib/routes.php",
+    "line": 1921
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/profile-attachment/{field_id}",
+    "file": "php/lib/routes.php",
+    "line": 1929
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/profile-attachment/{field_id}/status",
+    "file": "php/lib/routes.php",
+    "line": 1939
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/profile-attachment/{field_id}",
+    "file": "php/lib/routes.php",
+    "line": 1946
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/maintenance-status",
+    "file": "php/lib/routes.php",
+    "line": 1965
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/maintenance",
+    "file": "php/lib/routes.php",
+    "line": 1968
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/maintenance",
+    "file": "php/lib/routes.php",
+    "line": 1971
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/role-app-items",
+    "file": "php/lib/routes.php",
+    "line": 1980
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/role-app-items",
+    "file": "php/lib/routes.php",
+    "line": 1991
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/app-items",
+    "file": "php/lib/routes.php",
+    "line": 2000
+  },
+  {
+    "method": "POST",
+    "path": "/api/outages",
+    "file": "php/lib/routes.php",
+    "line": 2090
+  },
+  {
+    "method": "POST",
+    "path": "/api/outages/{id}/resolve",
+    "file": "php/lib/routes.php",
+    "line": 2128
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/nobat-lines",
+    "file": "php/lib/routes.php",
+    "line": 2140
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/outages",
+    "file": "php/lib/routes.php",
+    "line": 2152
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/outages/fix-dates",
+    "file": "php/lib/routes.php",
+    "line": 2158
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/outages",
+    "file": "php/lib/routes.php",
+    "line": 2176
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/outages/export",
+    "file": "php/lib/routes.php",
+    "line": 2209
+  },
+  {
+    "method": "GET",
+    "path": "/api/sms/config",
+    "file": "php/lib/routes.php",
+    "line": 2229
+  },
+  {
+    "method": "GET",
+    "path": "/api/sms/drivers-by-line",
+    "file": "php/lib/routes.php",
+    "line": 2239
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/sms-log",
+    "file": "php/lib/routes.php",
+    "line": 2268
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/sms-quota",
+    "file": "php/lib/routes.php",
+    "line": 2273
+  },
+  {
+    "method": "GET",
+    "path": "/api/drivers/{id}/sms",
+    "file": "php/lib/routes.php",
+    "line": 2303
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/forgot-password",
+    "file": "php/lib/routes.php",
+    "line": 2315
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/reset-password",
+    "file": "php/lib/routes.php",
+    "line": 2330
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms-log",
+    "file": "php/lib/routes.php",
+    "line": 2342
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms-log/refresh-status",
+    "file": "php/lib/routes.php",
+    "line": 2356
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms-log/export",
+    "file": "php/lib/routes.php",
+    "line": 2382
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sms-expiry/preview",
+    "file": "php/lib/routes.php",
+    "line": 2475
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms-expiry/sample",
+    "file": "php/lib/routes.php",
+    "line": 2489
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/sms-expiry/send",
+    "file": "php/lib/routes.php",
+    "line": 2497
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/sms-expiry",
+    "file": "php/lib/routes.php",
+    "line": 2512
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/screenshot-policy",
+    "file": "php/lib/routes.php",
+    "line": 2602
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/app-config",
+    "file": "php/lib/routes.php",
+    "line": 2607
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/search-cache",
+    "file": "php/lib/routes.php",
+    "line": 2695
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/checkin-config",
+    "file": "php/lib/routes.php",
+    "line": 2711
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/checkin",
+    "file": "php/lib/routes.php",
+    "line": 2783
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/checkout",
+    "file": "php/lib/routes.php",
+    "line": 2920
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/shift-handover/start",
+    "file": "php/lib/routes.php",
+    "line": 3000
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/shift-handover/accept",
+    "file": "php/lib/routes.php",
+    "line": 3011
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/work-timer",
+    "file": "php/lib/routes.php",
+    "line": 3035
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/attendance-history",
+    "file": "php/lib/routes.php",
+    "line": 3101
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/work-policies",
+    "file": "php/lib/routes.php",
+    "line": 3121
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/work-policies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3127
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/work-policies",
+    "file": "php/lib/routes.php",
+    "line": 3136
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/work-policies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3161
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/work-policies/{id}/assign",
+    "file": "php/lib/routes.php",
+    "line": 3169
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/leave-balance-init",
+    "file": "php/lib/routes.php",
+    "line": 3190
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/leave-balance-init",
+    "file": "php/lib/routes.php",
+    "line": 3196
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shifts",
+    "file": "php/lib/routes.php",
+    "line": 3224
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shifts/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3229
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/shifts",
+    "file": "php/lib/routes.php",
+    "line": 3239
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/shifts/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3253
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/shifts/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3264
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/shifts/{id}/days",
+    "file": "php/lib/routes.php",
+    "line": 3269
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/shifts/{id}/days/{jdate}",
+    "file": "php/lib/routes.php",
+    "line": 3295
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-shifts",
+    "file": "php/lib/routes.php",
+    "line": 3301
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/user-shifts",
+    "file": "php/lib/routes.php",
+    "line": 3306
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/user-shifts/{id}",
+    "file": "php/lib/routes.php",
+    "line": 3327
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/holidays",
+    "file": "php/lib/routes.php",
+    "line": 3337
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/holidays",
+    "file": "php/lib/routes.php",
+    "line": 3338
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/holidays/{jdate}",
+    "file": "php/lib/routes.php",
+    "line": 3346
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/finalization",
+    "file": "php/lib/routes.php",
+    "line": 4138
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/shift-report/finalization",
+    "file": "php/lib/routes.php",
+    "line": 4144
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/progress",
+    "file": "php/lib/routes.php",
+    "line": 4207
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report",
+    "file": "php/lib/routes.php",
+    "line": 4214
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/range",
+    "file": "php/lib/routes.php",
+    "line": 4227
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/rotation",
+    "file": "php/lib/routes.php",
+    "line": 4390
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/rotation/export",
+    "file": "php/lib/routes.php",
+    "line": 4394
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/attendance-report",
+    "file": "php/lib/routes.php",
+    "line": 4554
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/seniority",
+    "file": "php/lib/routes.php",
+    "line": 4562
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/seniority/period-status",
+    "file": "php/lib/routes.php",
+    "line": 4565
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/seniority/period-history",
+    "file": "php/lib/routes.php",
+    "line": 4568
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/seniority/period-history-export",
+    "file": "php/lib/routes.php",
+    "line": 4571
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/seniority/period-run",
+    "file": "php/lib/routes.php",
+    "line": 4574
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/seniority/export",
+    "file": "php/lib/routes.php",
+    "line": 4577
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/seniority/{id}",
+    "file": "php/lib/routes.php",
+    "line": 4591
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/seniority/{id}/recalculate",
+    "file": "php/lib/routes.php",
+    "line": 4594
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/seniority/{id}/history",
+    "file": "php/lib/routes.php",
+    "line": 4597
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/attendance-day-audit",
+    "file": "php/lib/routes.php",
+    "line": 4629
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/attendance-surplus/convert",
+    "file": "php/lib/routes.php",
+    "line": 4683
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/attendance-surplus/reset",
+    "file": "php/lib/routes.php",
+    "line": 4693
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/attendance-surplus/list",
+    "file": "php/lib/routes.php",
+    "line": 4703
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/attendance-punch/{id}",
+    "file": "php/lib/routes.php",
+    "line": 4713
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/attendance-punch/{id}",
+    "file": "php/lib/routes.php",
+    "line": 4755
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/attendance-punch",
+    "file": "php/lib/routes.php",
+    "line": 4764
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/export",
+    "file": "php/lib/routes.php",
+    "line": 4785
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-report/organization-export",
+    "file": "php/lib/routes.php",
+    "line": 5141
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/holidays/fetch",
+    "file": "php/lib/routes.php",
+    "line": 5186
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/leave-blocked-dates",
+    "file": "php/lib/routes.php",
+    "line": 5848
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/leave-blocked-dates",
+    "file": "php/lib/routes.php",
+    "line": 5853
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/leave-blocked-dates/{id}",
+    "file": "php/lib/routes.php",
+    "line": 5864
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/substitutes",
+    "file": "php/lib/routes.php",
+    "line": 5870
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/check-leave-window",
+    "file": "php/lib/routes.php",
+    "line": 5893
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/requests",
+    "file": "php/lib/routes.php",
+    "line": 6084
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/requests",
+    "file": "php/lib/routes.php",
+    "line": 6183
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/my/requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 6211
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/requests/{id}/cancel",
+    "file": "php/lib/routes.php",
+    "line": 6224
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/request-inbox",
+    "file": "php/lib/routes.php",
+    "line": 6236
+  },
+  {
+    "method": "GET",
+    "path": "/api/requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 6248
+  },
+  {
+    "method": "POST",
+    "path": "/api/requests/{id}/decide",
+    "file": "php/lib/routes.php",
+    "line": 6256
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/daily-performance",
+    "file": "php/lib/routes.php",
+    "line": 6320
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/shift-schedule",
+    "file": "php/lib/routes.php",
+    "line": 6364
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/work-summary",
+    "file": "php/lib/routes.php",
+    "line": 6418
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/personnel-leave-report",
+    "file": "php/lib/routes.php",
+    "line": 6467
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/leave-balance",
+    "file": "php/lib/routes.php",
+    "line": 6528
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/leave-balance",
+    "file": "php/lib/routes.php",
+    "line": 6531
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/requests",
+    "file": "php/lib/routes.php",
+    "line": 6534
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/attendance-day-requests",
+    "file": "php/lib/routes.php",
+    "line": 6889
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/requests",
+    "file": "php/lib/routes.php",
+    "line": 6904
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/requests/{id}/detail",
+    "file": "php/lib/routes.php",
+    "line": 6919
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/requests/{id}/leave-context",
+    "file": "php/lib/routes.php",
+    "line": 6942
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/requests/{id}/decision",
+    "file": "php/lib/routes.php",
+    "line": 6957
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7009
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7022
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/requests/export",
+    "file": "php/lib/routes.php",
+    "line": 7044
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/live-staff-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 7117
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/work-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 7121
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/payroll",
+    "file": "php/lib/routes.php",
+    "line": 7144
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/payroll",
+    "file": "php/lib/routes.php",
+    "line": 7146
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/payslip",
+    "file": "php/lib/routes.php",
+    "line": 7195
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/payslip",
+    "file": "php/lib/routes.php",
+    "line": 7202
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/payroll/export",
+    "file": "php/lib/routes.php",
+    "line": 7209
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/company-info",
+    "file": "php/lib/routes.php",
+    "line": 7222
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/holidays/seed-1404",
+    "file": "php/lib/routes.php",
+    "line": 7246
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/holidays/seed-1405",
+    "file": "php/lib/routes.php",
+    "line": 7267
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/birthday",
+    "file": "php/lib/routes.php",
+    "line": 7321
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/birthday/test",
+    "file": "php/lib/routes.php",
+    "line": 7348
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/device-info",
+    "file": "php/lib/routes.php",
+    "line": 7377
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/export",
+    "file": "php/lib/routes.php",
+    "line": 7384
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/me",
+    "file": "php/lib/routes.php",
+    "line": 7441
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/first-login-password",
+    "file": "php/lib/routes.php",
+    "line": 7468
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/initial-setup",
+    "file": "php/lib/routes.php",
+    "line": 7482
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/periodic-renew",
+    "file": "php/lib/routes.php",
+    "line": 7505
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/change-password",
+    "file": "php/lib/routes.php",
+    "line": 7517
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/plate-scan-samples",
+    "file": "php/lib/routes.php",
+    "line": 7526
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/plate-training/status",
+    "file": "php/lib/routes.php",
+    "line": 7542
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/plate-training/samples",
+    "file": "php/lib/routes.php",
+    "line": 7546
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/plate-training/samples/{id}/review",
+    "file": "php/lib/routes.php",
+    "line": 7604
+  },
+  {
+    "method": "GET",
+    "path": "/api/driver-photos/config",
+    "file": "php/lib/routes.php",
+    "line": 7738
+  },
+  {
+    "method": "GET",
+    "path": "/api/driver-photos/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7739
+  },
+  {
+    "method": "POST",
+    "path": "/api/driver-photos/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7744
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/driver-photos/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7745
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/drivers/{id}/photo",
+    "file": "php/lib/routes.php",
+    "line": 7756
+  },
+  {
+    "method": "GET",
+    "path": "/api/search",
+    "file": "php/lib/routes.php",
+    "line": 7757
+  },
+  {
+    "method": "GET",
+    "path": "/api/temp-drivers/search",
+    "file": "php/lib/routes.php",
+    "line": 7866
+  },
+  {
+    "method": "GET",
+    "path": "/api/temp-drivers/special-lines",
+    "file": "php/lib/routes.php",
+    "line": 7886
+  },
+  {
+    "method": "GET",
+    "path": "/api/temp-drivers/vehicle-search",
+    "file": "php/lib/routes.php",
+    "line": 7894
+  },
+  {
+    "method": "POST",
+    "path": "/api/temp-drivers",
+    "file": "php/lib/routes.php",
+    "line": 7921
+  },
+  {
+    "method": "GET",
+    "path": "/api/temp-drivers",
+    "file": "php/lib/routes.php",
+    "line": 7967
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/temp-drivers/{id}",
+    "file": "php/lib/routes.php",
+    "line": 7990
+  },
+  {
+    "method": "GET",
+    "path": "/api/temp-drivers/history",
+    "file": "php/lib/routes.php",
+    "line": 7998
+  },
+  {
+    "method": "POST",
+    "path": "/api/attendance",
+    "file": "php/lib/routes.php",
+    "line": 8027
+  },
+  {
+    "method": "POST",
+    "path": "/api/attendance/exit",
+    "file": "php/lib/routes.php",
+    "line": 8084
+  },
+  {
+    "method": "GET",
+    "path": "/api/attendance/present",
+    "file": "php/lib/routes.php",
+    "line": 8095
+  },
+  {
+    "method": "GET",
+    "path": "/api/attendance/{driverId}",
+    "file": "php/lib/routes.php",
+    "line": 8123
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-work-report",
+    "file": "php/lib/routes.php",
+    "line": 8129
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/present-stats",
+    "file": "php/lib/routes.php",
+    "line": 8167
+  },
+  {
+    "method": "GET",
+    "path": "/api/debt/{nationalId}",
+    "file": "php/lib/routes.php",
+    "line": 8180
+  },
+  {
+    "method": "GET",
+    "path": "/api/debt-by-plate/{plate}",
+    "file": "php/lib/routes.php",
+    "line": 8220
+  },
+  {
+    "method": "GET",
+    "path": "/api/notice-reasons",
+    "file": "php/lib/routes.php",
+    "line": 8237
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/given-notices",
+    "file": "php/lib/routes.php",
+    "line": 8240
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/given-checklists",
+    "file": "php/lib/routes.php",
+    "line": 8267
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/recorders",
+    "file": "php/lib/routes.php",
+    "line": 8304
+  },
+  {
+    "method": "POST",
+    "path": "/api/notices",
+    "file": "php/lib/routes.php",
+    "line": 8310
+  },
+  {
+    "method": "POST",
+    "path": "/api/debt/{billId}/sms",
+    "file": "php/lib/routes.php",
+    "line": 8395
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/license-sms",
+    "file": "php/lib/routes.php",
+    "line": 8418
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/expiry-sms",
+    "file": "php/lib/routes.php",
+    "line": 8444
+  },
+  {
+    "method": "GET",
+    "path": "/api/notices/{driverId}",
+    "file": "php/lib/routes.php",
+    "line": 8475
+  },
+  {
+    "method": "GET",
+    "path": "/api/checklists/{driverId}",
+    "file": "php/lib/routes.php",
+    "line": 8489
+  },
+  {
+    "method": "GET",
+    "path": "/api/checklist/template",
+    "file": "php/lib/routes.php",
+    "line": 8516
+  },
+  {
+    "method": "POST",
+    "path": "/api/checklist",
+    "file": "php/lib/routes.php",
+    "line": 8523
+  },
+  {
+    "method": "POST",
+    "path": "/api/locations",
+    "file": "php/lib/routes.php",
+    "line": 8817
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/station-exits",
+    "file": "php/lib/routes.php",
+    "line": 8939
+  },
+  {
+    "method": "GET",
+    "path": "/api/media",
+    "file": "php/lib/routes.php",
+    "line": 8952
+  },
+  {
+    "method": "GET",
+    "path": "/api/locations/live",
+    "file": "php/lib/routes.php",
+    "line": 9003
+  },
+  {
+    "method": "GET",
+    "path": "/api/locations/live-diagnostics",
+    "file": "php/lib/routes.php",
+    "line": 9008
+  },
+  {
+    "method": "GET",
+    "path": "/api/locations/track",
+    "file": "php/lib/routes.php",
+    "line": 9020
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/version",
+    "file": "php/lib/routes.php",
+    "line": 9036
+  },
+  {
+    "method": "POST",
+    "path": "/api/activity/vpn-status",
+    "file": "php/lib/routes.php",
+    "line": 9060
+  },
+  {
+    "method": "POST",
+    "path": "/api/activity/telemetry",
+    "file": "php/lib/routes.php",
+    "line": 9104
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-leaderboard",
+    "file": "php/lib/routes.php",
+    "line": 9117
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/dashboard-discipline",
+    "file": "php/lib/routes.php",
+    "line": 9235
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/dashboard-discipline",
+    "file": "php/lib/routes.php",
+    "line": 9239
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/top-workers",
+    "file": "php/lib/routes.php",
+    "line": 9243
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users-lite",
+    "file": "php/lib/routes.php",
+    "line": 9248
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/leaderboard",
+    "file": "php/lib/routes.php",
+    "line": 9271
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/personnel-performance",
+    "file": "php/lib/routes.php",
+    "line": 9276
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/commitment-reasons",
+    "file": "php/lib/routes.php",
+    "line": 9374
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/commitment-reasons",
+    "file": "php/lib/routes.php",
+    "line": 9379
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/commitment-reasons/{id}",
+    "file": "php/lib/routes.php",
+    "line": 9389
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-commitments",
+    "file": "php/lib/routes.php",
+    "line": 9396
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/commitments-all",
+    "file": "php/lib/routes.php",
+    "line": 9409
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/user-commitments",
+    "file": "php/lib/routes.php",
+    "line": 9432
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-commitments/{id}/attachment",
+    "file": "php/lib/routes.php",
+    "line": 9450
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/user-commitments/{id}",
+    "file": "php/lib/routes.php",
+    "line": 9458
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-activity",
+    "file": "php/lib/routes.php",
+    "line": 9464
+  },
+  {
+    "method": "POST",
+    "path": "/api/devices/push-token",
+    "file": "php/lib/routes.php",
+    "line": 9547
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/notifications",
+    "file": "php/lib/routes.php",
+    "line": 9551
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/expiry-notification-settings",
+    "file": "php/lib/routes.php",
+    "line": 9561
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/expiry-notification-settings",
+    "file": "php/lib/routes.php",
+    "line": 9564
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/notifications/read",
+    "file": "php/lib/routes.php",
+    "line": 9578
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/notifications/{id}/read",
+    "file": "php/lib/routes.php",
+    "line": 9583
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/my/notifications/{id}",
+    "file": "php/lib/routes.php",
+    "line": 9592
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/notifications/read-type",
+    "file": "php/lib/routes.php",
+    "line": 9596
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/field-alert-preferences",
+    "file": "php/lib/routes.php",
+    "line": 9605
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/field-alert-options",
+    "file": "php/lib/routes.php",
+    "line": 9606
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/field-alert-preferences",
+    "file": "php/lib/routes.php",
+    "line": 9611
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/field-alerts",
+    "file": "php/lib/routes.php",
+    "line": 9618
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/field-alerts/read",
+    "file": "php/lib/routes.php",
+    "line": 9623
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/auto-exit",
+    "file": "php/lib/routes.php",
+    "line": 9629
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/covert-selfie",
+    "file": "php/lib/routes.php",
+    "line": 9658
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/covert-screenshot",
+    "file": "php/lib/routes.php",
+    "line": 9695
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/covert-selfies",
+    "file": "php/lib/routes.php",
+    "line": 9708
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/covert-selfies/{id}/image",
+    "file": "php/lib/routes.php",
+    "line": 9717
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/selfie-commands",
+    "file": "php/lib/routes.php",
+    "line": 9730
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/screenshot-commands",
+    "file": "php/lib/routes.php",
+    "line": 9737
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/covert-selfie/command",
+    "file": "php/lib/routes.php",
+    "line": 9747
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/covert-selfies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 9783
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/covert-selfie-request",
+    "file": "php/lib/routes.php",
+    "line": 9793
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/covert-selfie-request",
+    "file": "php/lib/routes.php",
+    "line": 9800
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/covert-selfie-request/{id}/fulfill",
+    "file": "php/lib/routes.php",
+    "line": 9811
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/tracking-windows",
+    "file": "php/lib/routes.php",
+    "line": 9816
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/tracking-windows",
+    "file": "php/lib/routes.php",
+    "line": 9819
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/unread-counts",
+    "file": "php/lib/routes.php",
+    "line": 9828
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/dashboard",
+    "file": "php/lib/routes.php",
+    "line": 9845
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/lines/{id}/idents",
+    "file": "php/lib/routes.php",
+    "line": 9875
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/lines/{id}/idents",
+    "file": "php/lib/routes.php",
+    "line": 9877
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/line-idents/{id}",
+    "file": "php/lib/routes.php",
+    "line": 9885
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/staff-attendance",
+    "file": "php/lib/routes.php",
+    "line": 9890
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/staff-attendance/export",
+    "file": "php/lib/routes.php",
+    "line": 9912
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/org-chart",
+    "file": "php/lib/routes.php",
+    "line": 9943
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/managers",
+    "file": "php/lib/routes.php",
+    "line": 9961
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/users/{id}/managers",
+    "file": "php/lib/routes.php",
+    "line": 9963
+  },
+  {
+    "method": "GET",
+    "path": "/api/officials/config",
+    "file": "php/lib/routes.php",
+    "line": 9974
+  },
+  {
+    "method": "GET",
+    "path": "/api/officials",
+    "file": "php/lib/routes.php",
+    "line": 9979
+  },
+  {
+    "method": "POST",
+    "path": "/api/official-visits",
+    "file": "php/lib/routes.php",
+    "line": 9982
+  },
+  {
+    "method": "GET",
+    "path": "/api/official-visits/summary",
+    "file": "php/lib/routes.php",
+    "line": 10094
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/official-visits",
+    "file": "php/lib/routes.php",
+    "line": 10097
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/forms",
+    "file": "php/lib/routes.php",
+    "line": 10152
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/forms",
+    "file": "php/lib/routes.php",
+    "line": 10159
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10167
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10184
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/forms/{id}/submissions",
+    "file": "php/lib/routes.php",
+    "line": 10190
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/forms/{id}/export",
+    "file": "php/lib/routes.php",
+    "line": 10211
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/form-submit",
+    "file": "php/lib/routes.php",
+    "line": 10241
+  },
+  {
+    "method": "GET",
+    "path": "/api/public/forms/{slug}",
+    "file": "php/lib/routes.php",
+    "line": 10262
+  },
+  {
+    "method": "POST",
+    "path": "/api/public/forms/{slug}/submit",
+    "file": "php/lib/routes.php",
+    "line": 10268
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/managers",
+    "file": "php/lib/routes.php",
+    "line": 10292
+  },
+  {
+    "method": "POST",
+    "path": "/api/reports",
+    "file": "php/lib/routes.php",
+    "line": 10362
+  },
+  {
+    "method": "GET",
+    "path": "/api/reports",
+    "file": "php/lib/routes.php",
+    "line": 10450
+  },
+  {
+    "method": "GET",
+    "path": "/api/reports/export",
+    "file": "php/lib/routes.php",
+    "line": 10480
+  },
+  {
+    "method": "GET",
+    "path": "/api/reports/monthly",
+    "file": "php/lib/routes.php",
+    "line": 10505
+  },
+  {
+    "method": "PUT",
+    "path": "/api/reports/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10518
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/reports/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10536
+  },
+  {
+    "method": "POST",
+    "path": "/api/reports/{id}/reject",
+    "file": "php/lib/routes.php",
+    "line": 10557
+  },
+  {
+    "method": "GET",
+    "path": "/api/reports/print-config",
+    "file": "php/lib/routes.php",
+    "line": 10572
+  },
+  {
+    "method": "GET",
+    "path": "/api/reports/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10579
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/forward-targets",
+    "file": "php/lib/routes.php",
+    "line": 10635
+  },
+  {
+    "method": "POST",
+    "path": "/api/reports/{id}/action",
+    "file": "php/lib/routes.php",
+    "line": 10640
+  },
+  {
+    "method": "POST",
+    "path": "/api/reports/{id}/cc",
+    "file": "php/lib/routes.php",
+    "line": 10727
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/cc-reports",
+    "file": "php/lib/routes.php",
+    "line": 10746
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/inbox-reports",
+    "file": "php/lib/routes.php",
+    "line": 10763
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/forwarded-reports",
+    "file": "php/lib/routes.php",
+    "line": 10779
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/inbox-reports/archived",
+    "file": "php/lib/routes.php",
+    "line": 10793
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/inbox-reports/{id}/archive",
+    "file": "php/lib/routes.php",
+    "line": 10803
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/reports/{id}/flow",
+    "file": "php/lib/routes.php",
+    "line": 10813
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/birthdays-month",
+    "file": "php/lib/routes.php",
+    "line": 10828
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/gsm-locations",
+    "file": "php/lib/routes.php",
+    "line": 10853
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/cultural-places",
+    "file": "php/lib/routes.php",
+    "line": 10894
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cultural-places",
+    "file": "php/lib/routes.php",
+    "line": 10899
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/cultural-places/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10914
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/cultural-types",
+    "file": "php/lib/routes.php",
+    "line": 10921
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cultural-types",
+    "file": "php/lib/routes.php",
+    "line": 10927
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/cultural-types/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10942
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cultural-activities",
+    "file": "php/lib/routes.php",
+    "line": 10949
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/cultural-activities",
+    "file": "php/lib/routes.php",
+    "line": 10970
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/cultural-activities/{id}",
+    "file": "php/lib/routes.php",
+    "line": 10992
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-cultural",
+    "file": "php/lib/routes.php",
+    "line": 10999
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/cultural-types",
+    "file": "php/lib/routes.php",
+    "line": 11013
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/cultural-places",
+    "file": "php/lib/routes.php",
+    "line": 11020
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/cultural-activities",
+    "file": "php/lib/routes.php",
+    "line": 11027
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/cultural-activities",
+    "file": "php/lib/routes.php",
+    "line": 11049
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/welfare-places",
+    "file": "php/lib/routes.php",
+    "line": 11073
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/welfare-places",
+    "file": "php/lib/routes.php",
+    "line": 11078
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/welfare-places/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11093
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/welfare-items",
+    "file": "php/lib/routes.php",
+    "line": 11100
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/welfare-items",
+    "file": "php/lib/routes.php",
+    "line": 11106
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/welfare-items/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11121
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/welfare-grants",
+    "file": "php/lib/routes.php",
+    "line": 11128
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/welfare-grants",
+    "file": "php/lib/routes.php",
+    "line": 11150
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/welfare-grants/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11173
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-welfare",
+    "file": "php/lib/routes.php",
+    "line": 11180
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/welfare-items",
+    "file": "php/lib/routes.php",
+    "line": 11194
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/welfare-places",
+    "file": "php/lib/routes.php",
+    "line": 11200
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/welfare-grants",
+    "file": "php/lib/routes.php",
+    "line": 11206
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/welfare-grants",
+    "file": "php/lib/routes.php",
+    "line": 11226
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/driver-welfare",
+    "file": "php/lib/routes.php",
+    "line": 11237
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/driver-cultural",
+    "file": "php/lib/routes.php",
+    "line": 11252
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/stats",
+    "file": "php/lib/routes.php",
+    "line": 11266
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/identity-banking/audit",
+    "file": "php/lib/routes.php",
+    "line": 11282
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users",
+    "file": "php/lib/routes.php",
+    "line": 11303
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users",
+    "file": "php/lib/routes.php",
+    "line": 11323
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/users/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11366
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/reset-password",
+    "file": "php/lib/routes.php",
+    "line": 11397
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/revoke-device",
+    "file": "php/lib/routes.php",
+    "line": 11403
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/photo",
+    "file": "php/lib/routes.php",
+    "line": 11410
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/{id}/signature",
+    "file": "php/lib/routes.php",
+    "line": 11415
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/users/{id}/org",
+    "file": "php/lib/routes.php",
+    "line": 11422
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/lines",
+    "file": "php/lib/routes.php",
+    "line": 11442
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/users/{id}/lines",
+    "file": "php/lib/routes.php",
+    "line": 11448
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/users/{id}/checkin-lines",
+    "file": "php/lib/routes.php",
+    "line": 11458
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/roles",
+    "file": "php/lib/routes.php",
+    "line": 11469
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/roles",
+    "file": "php/lib/routes.php",
+    "line": 11470
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/roles/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11476
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/roles/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11481
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/zones/workflow-audit",
+    "file": "php/lib/routes.php",
+    "line": 11503
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/zones",
+    "file": "php/lib/routes.php",
+    "line": 11530
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/zones/{id}/workflow",
+    "file": "php/lib/routes.php",
+    "line": 11581
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/zones/{id}/leaders",
+    "file": "php/lib/routes.php",
+    "line": 11605
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/zones",
+    "file": "php/lib/routes.php",
+    "line": 11634
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/zones/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11656
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/zones/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11673
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/lines",
+    "file": "php/lib/routes.php",
+    "line": 11696
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/lines/{id}/checkin-methods",
+    "file": "php/lib/routes.php",
+    "line": 11698
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/lines",
+    "file": "php/lib/routes.php",
+    "line": 11705
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/drivers",
+    "file": "php/lib/routes.php",
+    "line": 11712
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-performance",
+    "file": "php/lib/routes.php",
+    "line": 11736
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-notices",
+    "file": "php/lib/routes.php",
+    "line": 11753
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/driver-notices/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11760
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/driver-notices/export",
+    "file": "php/lib/routes.php",
+    "line": 11766
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/drivers/{id}/full",
+    "file": "php/lib/routes.php",
+    "line": 11772
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/drivers/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11800
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/drivers/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11807
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bills-cleanup",
+    "file": "php/lib/routes.php",
+    "line": 11809
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bills-debug",
+    "file": "php/lib/routes.php",
+    "line": 11823
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bills",
+    "file": "php/lib/routes.php",
+    "line": 11835
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/official-visits/{id}/image",
+    "file": "php/lib/routes.php",
+    "line": 11878
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/official-visits",
+    "file": "php/lib/routes.php",
+    "line": 11889
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/official-list",
+    "file": "php/lib/routes.php",
+    "line": 11919
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/official-visits/chart",
+    "file": "php/lib/routes.php",
+    "line": 11925
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/notice-reasons",
+    "file": "php/lib/routes.php",
+    "line": 11929
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/notice-reasons/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11930
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/checklist-templates",
+    "file": "php/lib/routes.php",
+    "line": 11931
+  },
+  {
+    "method": "GET",
+    "path": "/api/report-subjects",
+    "file": "php/lib/routes.php",
+    "line": 11964
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/report-subjects",
+    "file": "php/lib/routes.php",
+    "line": 11965
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/report-subjects",
+    "file": "php/lib/routes.php",
+    "line": 11966
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/report-subjects/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11967
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/report-subjects/{id}",
+    "file": "php/lib/routes.php",
+    "line": 11968
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/settings",
+    "file": "php/lib/routes.php",
+    "line": 11970
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/settings",
+    "file": "php/lib/routes.php",
+    "line": 11978
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/public",
+    "file": "php/lib/routes.php",
+    "line": 12030
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cleanup-attachments",
+    "file": "php/lib/routes.php",
+    "line": 12121
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/cleanup",
+    "file": "php/lib/routes.php",
+    "line": 12127
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/report",
+    "file": "php/lib/routes.php",
+    "line": 12133
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/backup",
+    "file": "php/lib/routes.php",
+    "line": 12209
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/backup-json",
+    "file": "php/lib/routes.php",
+    "line": 12221
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/backup-media-list",
+    "file": "php/lib/routes.php",
+    "line": 12233
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/restore",
+    "file": "php/lib/routes.php",
+    "line": 12249
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/purge",
+    "file": "php/lib/routes.php",
+    "line": 12263
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/migrate-images",
+    "file": "php/lib/routes.php",
+    "line": 12274
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bill-reason-codes",
+    "file": "php/lib/routes.php",
+    "line": 12305
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bill-reason-codes",
+    "file": "php/lib/routes.php",
+    "line": 12311
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/oplic-import-filters",
+    "file": "php/lib/routes.php",
+    "line": 12321
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/oplic-import-filters",
+    "file": "php/lib/routes.php",
+    "line": 12330
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/import-times",
+    "file": "php/lib/routes.php",
+    "line": 12345
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/import/{kind}",
+    "file": "php/lib/routes.php",
+    "line": 12374
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/import-chunk/{kind}",
+    "file": "php/lib/routes.php",
+    "line": 12390
+  },
+  {
+    "method": "POST",
+    "path": "/api/bale/webhook/{secret}",
+    "file": "php/lib/routes.php",
+    "line": 12408
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/subscribers",
+    "file": "php/lib/routes.php",
+    "line": 12456
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/log",
+    "file": "php/lib/routes.php",
+    "line": 12464
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/test",
+    "file": "php/lib/routes.php",
+    "line": 12468
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/send",
+    "file": "php/lib/routes.php",
+    "line": 12475
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/menu-items",
+    "file": "php/lib/routes.php",
+    "line": 12501
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/menu-items",
+    "file": "php/lib/routes.php",
+    "line": 12505
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/bale/menu-items/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12512
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/bale/menu-items/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12519
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/custom-replies",
+    "file": "php/lib/routes.php",
+    "line": 12521
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/custom-replies",
+    "file": "php/lib/routes.php",
+    "line": 12525
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/bale/custom-replies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12532
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/bale/custom-replies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12539
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/forms",
+    "file": "php/lib/routes.php",
+    "line": 12541
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/forms",
+    "file": "php/lib/routes.php",
+    "line": 12547
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/bale/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12559
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/bale/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12575
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/form-submissions",
+    "file": "php/lib/routes.php",
+    "line": 12577
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/bale/form-submissions/{id}/review",
+    "file": "php/lib/routes.php",
+    "line": 12591
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/bale/events",
+    "file": "php/lib/routes.php",
+    "line": 12604
+  },
+  {
+    "method": "POST",
+    "path": "/api/{platform}/webhook/{secret}",
+    "file": "php/lib/routes.php",
+    "line": 12615
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/subscribers",
+    "file": "php/lib/routes.php",
+    "line": 12628
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/log",
+    "file": "php/lib/routes.php",
+    "line": 12642
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/test",
+    "file": "php/lib/routes.php",
+    "line": 12648
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/register-webhook",
+    "file": "php/lib/routes.php",
+    "line": 12660
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/send",
+    "file": "php/lib/routes.php",
+    "line": 12687
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/menu-items",
+    "file": "php/lib/routes.php",
+    "line": 12703
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/menu-items",
+    "file": "php/lib/routes.php",
+    "line": 12707
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/messengers/{platform}/menu-items/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12713
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/messengers/{platform}/menu-items/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12719
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/custom-replies",
+    "file": "php/lib/routes.php",
+    "line": 12721
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/custom-replies",
+    "file": "php/lib/routes.php",
+    "line": 12722
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/messengers/{platform}/custom-replies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12728
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/messengers/{platform}/custom-replies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12734
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/forms",
+    "file": "php/lib/routes.php",
+    "line": 12736
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/forms",
+    "file": "php/lib/routes.php",
+    "line": 12742
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/messengers/{platform}/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12748
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/messengers/{platform}/forms/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12754
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/form-submissions",
+    "file": "php/lib/routes.php",
+    "line": 12756
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/{platform}/form-submissions/{id}/review",
+    "file": "php/lib/routes.php",
+    "line": 12768
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/{platform}/events",
+    "file": "php/lib/routes.php",
+    "line": 12782
+  },
+  {
+    "method": "GET",
+    "path": "/api/geofences",
+    "file": "php/lib/routes.php",
+    "line": 12789
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/geofences",
+    "file": "php/lib/routes.php",
+    "line": 12794
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/geofences/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12801
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/geofences/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12805
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messages",
+    "file": "php/lib/routes.php",
+    "line": 12808
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messages",
+    "file": "php/lib/routes.php",
+    "line": 12858
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messages/{id}/receipts",
+    "file": "php/lib/routes.php",
+    "line": 12864
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/messages",
+    "file": "php/lib/routes.php",
+    "line": 12870
+  },
+  {
+    "method": "POST",
+    "path": "/api/my/messages/{id}/read",
+    "file": "php/lib/routes.php",
+    "line": 12881
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/users/{id}",
+    "file": "php/lib/routes.php",
+    "line": 12887
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/health",
+    "file": "php/lib/routes.php",
+    "line": 12899
+  },
+  {
+    "method": "PUT",
+    "path": "/api/me/profile",
+    "file": "php/lib/routes.php",
+    "line": 12926
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/full-profile",
+    "file": "php/lib/routes.php",
+    "line": 12952
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/zone-inspectors",
+    "file": "php/lib/routes.php",
+    "line": 12971
+  },
+  {
+    "method": "GET",
+    "path": "/api/me/zone-options",
+    "file": "php/lib/routes.php",
+    "line": 13001
+  },
+  {
+    "method": "POST",
+    "path": "/api/me/zone-select",
+    "file": "php/lib/routes.php",
+    "line": 13030
+  },
+  {
+    "method": "POST",
+    "path": "/api/me/photo",
+    "file": "php/lib/routes.php",
+    "line": 13057
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/lines",
+    "file": "php/lib/routes.php",
+    "line": 13075
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/reports",
+    "file": "php/lib/routes.php",
+    "line": 13081
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/forgot",
+    "file": "php/lib/routes.php",
+    "line": 13092
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users/{id}/sessions",
+    "file": "php/lib/routes.php",
+    "line": 13110
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/stats",
+    "file": "php/lib/routes.php",
+    "line": 13302
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/driver-activity",
+    "file": "php/lib/routes.php",
+    "line": 13315
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/expiring",
+    "file": "php/lib/routes.php",
+    "line": 13333
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/presence",
+    "file": "php/lib/routes.php",
+    "line": 13362
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/drivers-search",
+    "file": "php/lib/routes.php",
+    "line": 13380
+  },
+  {
+    "method": "GET",
+    "path": "/api/messengers/config",
+    "file": "php/lib/routes.php",
+    "line": 13415
+  },
+  {
+    "method": "POST",
+    "path": "/api/messengers/send-group",
+    "file": "php/lib/routes.php",
+    "line": 13418
+  },
+  {
+    "method": "POST",
+    "path": "/api/debt/{billId}/messenger",
+    "file": "php/lib/routes.php",
+    "line": 13434
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/messengers/invite",
+    "file": "php/lib/routes.php",
+    "line": 13443
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/messengers/subscribers-all",
+    "file": "php/lib/routes.php",
+    "line": 13450
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/logs",
+    "file": "php/lib/routes.php",
+    "line": 13543
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/log-events",
+    "file": "php/lib/routes.php",
+    "line": 13570
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/team",
+    "file": "php/lib/routes.php",
+    "line": 13574
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-activity-range",
+    "file": "php/lib/routes.php",
+    "line": 13637
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-activity-all",
+    "file": "php/lib/routes.php",
+    "line": 13693
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-activity/export",
+    "file": "php/lib/routes.php",
+    "line": 13749
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/push-expiry",
+    "file": "php/lib/routes.php",
+    "line": 13814
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase2-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 13828
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-live",
+    "file": "php/lib/routes.php",
+    "line": 13846
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/project-status",
+    "file": "php/lib/routes.php",
+    "line": 13891
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version",
+    "file": "php/lib/routes.php",
+    "line": 13895
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase5/status",
+    "file": "php/lib/routes.php",
+    "line": 14046
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/rule-engine/roles",
+    "file": "php/lib/routes.php",
+    "line": 14051
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/rule-engine/roles/{role_key}",
+    "file": "php/lib/routes.php",
+    "line": 14056
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/delivery-queue",
+    "file": "php/lib/routes.php",
+    "line": 14081
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/delivery-queue/process",
+    "file": "php/lib/routes.php",
+    "line": 14089
+  },
+  {
+    "method": "POST",
+    "path": "/api/mobile/offline-sync",
+    "file": "php/lib/routes.php",
+    "line": 14095
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/system-health",
+    "file": "php/lib/routes.php",
+    "line": 14129
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/project-status-v5",
+    "file": "php/lib/routes.php",
+    "line": 14143
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v5",
+    "file": "php/lib/routes.php",
+    "line": 14148
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase6/status",
+    "file": "php/lib/routes.php",
+    "line": 14254
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v6",
+    "file": "php/lib/routes.php",
+    "line": 14255
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7",
+    "file": "php/lib/routes.php",
+    "line": 14256
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/holidays/import",
+    "file": "php/lib/routes.php",
+    "line": 14259
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/rule-engine/calculate",
+    "file": "php/lib/routes.php",
+    "line": 14277
+  },
+  {
+    "method": "POST",
+    "path": "/api/mobile/error-log",
+    "file": "php/lib/routes.php",
+    "line": 14282
+  },
+  {
+    "method": "POST",
+    "path": "/api/cron/delivery-queue/process",
+    "file": "php/lib/routes.php",
+    "line": 14288
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/delivery-dead-letters",
+    "file": "php/lib/routes.php",
+    "line": 14298
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/system-health-v2",
+    "file": "php/lib/routes.php",
+    "line": 14300
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cache/clear",
+    "file": "php/lib/routes.php",
+    "line": 14311
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/attendance-reject-logs",
+    "file": "php/lib/routes.php",
+    "line": 14322
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part3/status",
+    "file": "php/lib/routes.php",
+    "line": 14337
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p3",
+    "file": "php/lib/routes.php",
+    "line": 14344
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/offline-sync-logs",
+    "file": "php/lib/routes.php",
+    "line": 14565
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part4/status",
+    "file": "php/lib/routes.php",
+    "line": 14572
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p4",
+    "file": "php/lib/routes.php",
+    "line": 14579
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/offline-sync-conflicts",
+    "file": "php/lib/routes.php",
+    "line": 14626
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/offline-sync-conflicts/{id}/retry",
+    "file": "php/lib/routes.php",
+    "line": 14643
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/offline-sync-conflicts/{id}/ignore",
+    "file": "php/lib/routes.php",
+    "line": 14660
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/offline-sync-conflicts/{id}/mark-conflict",
+    "file": "php/lib/routes.php",
+    "line": 14667
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/offline-sync-conflicts/{id}/audit",
+    "file": "php/lib/routes.php",
+    "line": 14674
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part5/status",
+    "file": "php/lib/routes.php",
+    "line": 14678
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p5",
+    "file": "php/lib/routes.php",
+    "line": 14687
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p6",
+    "file": "php/lib/routes.php",
+    "line": 14691
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/rule-engine/user-overrides",
+    "file": "php/lib/routes.php",
+    "line": 14737
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/rule-engine/user-overrides/{user_id}",
+    "file": "php/lib/routes.php",
+    "line": 14745
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/rule-engine/user-overrides/{user_id}",
+    "file": "php/lib/routes.php",
+    "line": 14755
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-planning/diagnostics",
+    "file": "php/lib/routes.php",
+    "line": 14758
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/attendance/recalculate",
+    "file": "php/lib/routes.php",
+    "line": 14783
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/attendance/auto-close-open-sessions",
+    "file": "php/lib/routes.php",
+    "line": 14796
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/shift-assignment-audit",
+    "file": "php/lib/routes.php",
+    "line": 14809
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part7/status",
+    "file": "php/lib/routes.php",
+    "line": 14813
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p7",
+    "file": "php/lib/routes.php",
+    "line": 14821
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part9/status",
+    "file": "php/lib/routes.php",
+    "line": 14824
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p9",
+    "file": "php/lib/routes.php",
+    "line": 14831
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part10/status",
+    "file": "php/lib/routes.php",
+    "line": 14834
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p10",
+    "file": "php/lib/routes.php",
+    "line": 14845
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p11",
+    "file": "php/lib/routes.php",
+    "line": 14848
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p12",
+    "file": "php/lib/routes.php",
+    "line": 14850
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part12/status",
+    "file": "php/lib/routes.php",
+    "line": 14854
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/system-health-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 15016
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/system-health-dashboard/run",
+    "file": "php/lib/routes.php",
+    "line": 15017
+  },
+  {
+    "method": "POST",
+    "path": "/api/cron/system-health-probe",
+    "file": "php/lib/routes.php",
+    "line": 15018
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/system-health-incidents/{id}/resolve",
+    "file": "php/lib/routes.php",
+    "line": 15026
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/system-health-incidents",
+    "file": "php/lib/routes.php",
+    "line": 15029
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part13/status",
+    "file": "php/lib/routes.php",
+    "line": 15030
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p13",
+    "file": "php/lib/routes.php",
+    "line": 15036
+  },
+  {
+    "method": "GET",
+    "path": "/api/cron/system-health-probe",
+    "file": "php/lib/routes.php",
+    "line": 15037
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/phase7-part14/status",
+    "file": "php/lib/routes.php",
+    "line": 15047
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p14",
+    "file": "php/lib/routes.php",
+    "line": 15052
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p15",
+    "file": "php/lib/routes.php",
+    "line": 15053
+  },
+  {
+    "method": "GET",
+    "path": "/api/project-version-v7p16",
+    "file": "php/lib/routes.php",
+    "line": 15055
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/validate-document",
+    "file": "php/lib/routes.php",
+    "line": 15234
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-document/analyze",
+    "file": "php/lib/routes.php",
+    "line": 15235
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-document/validate",
+    "file": "php/lib/routes.php",
+    "line": 15239
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-document/duplicate-check",
+    "file": "php/lib/routes.php",
+    "line": 15244
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-document/finalize",
+    "file": "php/lib/routes.php",
+    "line": 15250
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/settings",
+    "file": "php/lib/routes.php",
+    "line": 15413
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/prices",
+    "file": "php/lib/routes.php",
+    "line": 15420
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/create",
+    "file": "php/lib/routes.php",
+    "line": 15422
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/upload",
+    "file": "php/lib/routes.php",
+    "line": 15434
+  },
+  {
+    "method": "GET",
+    "path": "/api/subscription/status",
+    "file": "php/lib/routes.php",
+    "line": 15564
+  },
+  {
+    "method": "POST",
+    "path": "/api/subscription/payment",
+    "file": "php/lib/routes.php",
+    "line": 15565
+  },
+  {
+    "method": "GET",
+    "path": "/api/subscription/payment-status/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15578
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/payment",
+    "file": "php/lib/routes.php",
+    "line": 15580
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/payment-status/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15603
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/card-payment",
+    "file": "php/lib/routes.php",
+    "line": 15613
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/upload-payment-receipt",
+    "file": "php/lib/routes.php",
+    "line": 15616
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/card-payment/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15621
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/card-payment/resubmit",
+    "file": "php/lib/routes.php",
+    "line": 15624
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/company-card-payments",
+    "file": "php/lib/routes.php",
+    "line": 15627
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/payment-link/send",
+    "file": "php/lib/routes.php",
+    "line": 15631
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/payment-resend",
+    "file": "php/lib/routes.php",
+    "line": 15644
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-payments/reconcile",
+    "file": "php/lib/routes.php",
+    "line": 15661
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/submit",
+    "file": "php/lib/routes.php",
+    "line": 15668
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/list",
+    "file": "php/lib/routes.php",
+    "line": 15678
+  },
+  {
+    "method": "GET",
+    "path": "/api/company-request/detail/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15681
+  },
+  {
+    "method": "POST",
+    "path": "/api/company-request/update/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15682
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/company-request/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15690
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/company-requests/stats",
+    "file": "php/lib/routes.php",
+    "line": 15707
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-requests/sla-scan",
+    "file": "php/lib/routes.php",
+    "line": 15712
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/company-requests",
+    "file": "php/lib/routes.php",
+    "line": 15730
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/company-requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15735
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/company-requests/{id}",
+    "file": "php/lib/routes.php",
+    "line": 15736
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-requests/{id}/status",
+    "file": "php/lib/routes.php",
+    "line": 15746
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-requests/{id}/payment-review",
+    "file": "php/lib/routes.php",
+    "line": 15810
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-requests/{id}/request-correction",
+    "file": "php/lib/routes.php",
+    "line": 15825
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/company-request-settings",
+    "file": "php/lib/routes.php",
+    "line": 15831
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/company-request-settings",
+    "file": "php/lib/routes.php",
+    "line": 15832
+  },
+  {
+    "method": "POST",
+    "path": "/api/activity/device-health",
+    "file": "php/lib/routes.php",
+    "line": 15897
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/device-health",
+    "file": "php/lib/routes.php",
+    "line": 15921
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/device-health/{user_id}/history",
+    "file": "php/lib/routes.php",
+    "line": 15933
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/visit-program",
+    "file": "php/lib/routes.php",
+    "line": 16041
+  },
+  {
+    "method": "GET",
+    "path": "/api/line-visits/line/{line_id}/snapshot",
+    "file": "php/lib/routes.php",
+    "line": 16048
+  },
+  {
+    "method": "POST",
+    "path": "/api/line-visits",
+    "file": "php/lib/routes.php",
+    "line": 16053
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/line-visits",
+    "file": "php/lib/routes.php",
+    "line": 16066
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/line-visits",
+    "file": "php/lib/routes.php",
+    "line": 16070
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/inspector-mode/{user_id}",
+    "file": "php/lib/routes.php",
+    "line": 16077
+  },
+  {
+    "method": "POST",
+    "path": "/api/subordinate-daily-reviews",
+    "file": "php/lib/routes.php",
+    "line": 16081
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/missions/effective",
+    "file": "php/lib/routes.php",
+    "line": 16467
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/missions/today",
+    "file": "php/lib/routes.php",
+    "line": 16470
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/mission-timeline",
+    "file": "php/lib/routes.php",
+    "line": 16473
+  },
+  {
+    "method": "POST",
+    "path": "/api/mission-timeline/event",
+    "file": "php/lib/routes.php",
+    "line": 16479
+  },
+  {
+    "method": "POST",
+    "path": "/api/mission-visits/start",
+    "file": "php/lib/routes.php",
+    "line": 16489
+  },
+  {
+    "method": "POST",
+    "path": "/api/mission-visits/finish",
+    "file": "php/lib/routes.php",
+    "line": 16512
+  },
+  {
+    "method": "GET",
+    "path": "/api/mission-visits/{id}",
+    "file": "php/lib/routes.php",
+    "line": 16549
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/subordinates/daily",
+    "file": "php/lib/routes.php",
+    "line": 16557
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-daily-performance",
+    "file": "php/lib/routes.php",
+    "line": 16575
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-visit-report",
+    "file": "php/lib/routes.php",
+    "line": 16583
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-execution-settings",
+    "file": "php/lib/routes.php",
+    "line": 16592
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/mission-execution-settings",
+    "file": "php/lib/routes.php",
+    "line": 16596
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-metrics",
+    "file": "php/lib/routes.php",
+    "line": 16607
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-templates",
+    "file": "php/lib/routes.php",
+    "line": 16612
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/mission-templates",
+    "file": "php/lib/routes.php",
+    "line": 16622
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/mission-templates/{id}",
+    "file": "php/lib/routes.php",
+    "line": 16643
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/user-mission-overrides",
+    "file": "php/lib/routes.php",
+    "line": 16649
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/user-mission-overrides/{user_id}",
+    "file": "php/lib/routes.php",
+    "line": 16660
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/user-mission-overrides/{user_id}",
+    "file": "php/lib/routes.php",
+    "line": 16680
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/score-rules",
+    "file": "php/lib/routes.php",
+    "line": 16785
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/score-rules",
+    "file": "php/lib/routes.php",
+    "line": 16786
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/role-score-coefficients",
+    "file": "php/lib/routes.php",
+    "line": 16795
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/role-score-coefficients",
+    "file": "php/lib/routes.php",
+    "line": 16796
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/line-score-coefficients",
+    "file": "php/lib/routes.php",
+    "line": 16805
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/line-score-coefficients",
+    "file": "php/lib/routes.php",
+    "line": 16810
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/score-daily",
+    "file": "php/lib/routes.php",
+    "line": 16819
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/score-daily/adjust",
+    "file": "php/lib/routes.php",
+    "line": 16831
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/score-daily/adjustments",
+    "file": "php/lib/routes.php",
+    "line": 16850
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/score/today",
+    "file": "php/lib/routes.php",
+    "line": 16859
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/role-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 16893
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/role-dashboard-summary",
+    "file": "php/lib/routes.php",
+    "line": 16946
+  },
+  {
+    "method": "GET",
+    "path": "/api/operations/my-mission",
+    "file": "php/lib/routes.php",
+    "line": 16967
+  },
+  {
+    "method": "GET",
+    "path": "/api/operations/visit-program",
+    "file": "php/lib/routes.php",
+    "line": 16978
+  },
+  {
+    "method": "GET",
+    "path": "/api/operations/my-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 16994
+  },
+  {
+    "method": "GET",
+    "path": "/api/leaderboard",
+    "file": "php/lib/routes.php",
+    "line": 17096
+  },
+  {
+    "method": "GET",
+    "path": "/api/my/badges",
+    "file": "php/lib/routes.php",
+    "line": 17101
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/badges",
+    "file": "php/lib/routes.php",
+    "line": 17105
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/city-dashboard",
+    "file": "php/lib/routes.php",
+    "line": 17112
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/cron-status",
+    "file": "php/lib/routes.php",
+    "line": 17191
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/mission-trend",
+    "file": "php/lib/routes.php",
+    "line": 17213
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/active-sessions",
+    "file": "php/lib/routes.php",
+    "line": 17267
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/active-sessions/revoke",
+    "file": "php/lib/routes.php",
+    "line": 17277
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory/balance",
+    "file": "php/lib/routes.php",
+    "line": 17361
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory/item-types",
+    "file": "php/lib/routes.php",
+    "line": 17362
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory/recipients",
+    "file": "php/lib/routes.php",
+    "line": 17363
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory/pending",
+    "file": "php/lib/routes.php",
+    "line": 17367
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory/history",
+    "file": "php/lib/routes.php",
+    "line": 17373
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/inventory/item-types",
+    "file": "php/lib/routes.php",
+    "line": 17380
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/inventory/item-types",
+    "file": "php/lib/routes.php",
+    "line": 17381
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/inventory/item-types/{id}",
+    "file": "php/lib/routes.php",
+    "line": 17387
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/inventory/assign",
+    "file": "php/lib/routes.php",
+    "line": 17395
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/inventory/ledger",
+    "file": "php/lib/routes.php",
+    "line": 17409
+  },
+  {
+    "method": "POST",
+    "path": "/api/inventory/deliver",
+    "file": "php/lib/routes.php",
+    "line": 17426
+  },
+  {
+    "method": "POST",
+    "path": "/api/inventory/confirm/{id}",
+    "file": "php/lib/routes.php",
+    "line": 17446
+  },
+  {
+    "method": "POST",
+    "path": "/api/inventory/reject/{id}",
+    "file": "php/lib/routes.php",
+    "line": 17458
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/companies",
+    "file": "php/lib/routes.php",
+    "line": 17986
+  },
+  {
+    "method": "PUT",
+    "path": "/api/school-service/companies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 17987
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/school-service/companies/{id}",
+    "file": "php/lib/routes.php",
+    "line": 17988
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/schools",
+    "file": "php/lib/routes.php",
+    "line": 17989
+  },
+  {
+    "method": "PUT",
+    "path": "/api/school-service/schools/{id}",
+    "file": "php/lib/routes.php",
+    "line": 18001
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/school-service/schools/{id}",
+    "file": "php/lib/routes.php",
+    "line": 18010
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/access",
+    "file": "php/lib/routes.php",
+    "line": 18011
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/bootstrap",
+    "file": "php/lib/routes.php",
+    "line": 18012
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/dashboard",
+    "file": "php/lib/routes.php",
+    "line": 18029
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/meta",
+    "file": "php/lib/routes.php",
+    "line": 18116
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/companies",
+    "file": "php/lib/routes.php",
+    "line": 18140
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/schools",
+    "file": "php/lib/routes.php",
+    "line": 18141
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/vehicles",
+    "file": "php/lib/routes.php",
+    "line": 18166
+  },
+  {
+    "method": "PUT",
+    "path": "/api/school-service/vehicles/{id}",
+    "file": "php/lib/routes.php",
+    "line": 18202
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/school-service/vehicles/{id}",
+    "file": "php/lib/routes.php",
+    "line": 18213
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/unauthorized-vehicles",
+    "file": "php/lib/routes.php",
+    "line": 18245
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/unauthorized-vehicles",
+    "file": "php/lib/routes.php",
+    "line": 18270
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/school-service/unauthorized-vehicles/{id}",
+    "file": "php/lib/routes.php",
+    "line": 18285
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/vehicle-lookup",
+    "file": "php/lib/routes.php",
+    "line": 18290
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/inspections",
+    "file": "php/lib/routes.php",
+    "line": 18305
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/inspections",
+    "file": "php/lib/routes.php",
+    "line": 18306
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/import",
+    "file": "php/lib/routes.php",
+    "line": 18307
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/export",
+    "file": "php/lib/routes.php",
+    "line": 18308
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/companies-page",
+    "file": "php/lib/routes.php",
+    "line": 18309
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/schools-page",
+    "file": "php/lib/routes.php",
+    "line": 18321
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/inspections-page",
+    "file": "php/lib/routes.php",
+    "line": 18333
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/inspections-plate-history",
+    "file": "php/lib/routes.php",
+    "line": 18394
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/config",
+    "file": "php/lib/routes.php",
+    "line": 18416
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/config",
+    "file": "php/lib/routes.php",
+    "line": 18417
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/school-service/config",
+    "file": "php/lib/routes.php",
+    "line": 18418
+  },
+  {
+    "method": "GET",
+    "path": "/api/school-service/permissions",
+    "file": "php/lib/routes.php",
+    "line": 18419
+  },
+  {
+    "method": "POST",
+    "path": "/api/school-service/permissions/{role_id}",
+    "file": "php/lib/routes.php",
+    "line": 18420
+  },
+  {
+    "method": "POST",
+    "path": "/api/crash-reports",
+    "file": "php/lib/routes.php",
+    "line": 18481
+  }
+]
