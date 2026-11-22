@@ -11636,7 +11636,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
 }
 function CustomFieldsFiller({ userId, profile, saveRef = null }) {
     const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
-    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null);
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null), [success, setSuccess] = useState("");
     const [attachmentPresence, setAttachmentPresence] = useState({});
     const load = async () => {
         var _a, _b;
@@ -11705,9 +11705,11 @@ function CustomFieldsFiller({ userId, profile, saveRef = null }) {
             return true;
         setBusy(true);
         setError("");
+        setSuccess("");
         try {
             await db.saveUserCustomValues(userId, changed);
             setOriginalVals({ ...vals });
+            setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد.");
             return true;
         }
         catch (e) {
@@ -11744,6 +11746,7 @@ function CustomFieldsFiller({ userId, profile, saveRef = null }) {
                                     React.createElement("p", { style: { whiteSpace: "pre-wrap" } }, String((_b = vals[field.id]) !== null && _b !== void 0 ? _b : "—")));
                     })))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)" } }, error),
+        success && React.createElement("p", { role: "status", style: { color: "var(--ok,#087f5b)" } }, success),
         !!sections.length && React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیره اطلاعات تکمیلی"));
 }
 // تنظیمات کلی حقوق (نرخ ساعت و ضرایب)
