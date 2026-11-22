@@ -115,6 +115,7 @@ jobs:
           php php/tests/seniority_test.php
           php php/tests/seniority_periods_test.php
           node php/tests/seniority_ui_test.cjs
+          node php/tests/seniority_permission_progress_test.cjs
           node php/tests/org_regions_ui_test.cjs
           php php/tests/selfie_delivery_test.php
           php php/tests/employment_period_test.php
