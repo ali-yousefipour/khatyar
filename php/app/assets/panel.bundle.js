@@ -14568,6 +14568,7 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
 function CompanyWorkReport({ year, month, onPeriodChange }) {
     var _a;
     const [archive, setArchive] = useState(null), [file, setFile] = useState(null), [preview, setPreview] = useState(null), [detail, setDetail] = useState(null), [account, setAccount] = useState(""), [busy, setBusy] = useState(""), [error, setError] = useState(""), [query, setQuery] = useState("");
+    const [bankAudit, setBankAudit] = useState(null), [bankAuditQuery, setBankAuditQuery] = useState("");
     const life = useRef({ alive: true, controller: null, locked: false });
     const fileInput = useRef(null);
     useEffect(() => { life.current.alive = true; load(); return () => { var _a; life.current.alive = false; (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort(); }; }, []);
@@ -14619,6 +14620,26 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 setBusy("");
         }
     };
+    const runBankAudit = () => action("ممیزی آفلاین اطلاعات کاربران…", async () => {
+        let offset = 0, total = 0, issues = [], counts = {}, steps = 0;
+        setBankAudit({ open: true, scanned: 0, total: 0, issues: [], counts: {}, done: false });
+        for (;;) {
+            const page = await request("/identity-audit?offset=" + offset + "&limit=150");
+            const n = Number(page.scanned) || 0;
+            total = Number(page.total) || 0;
+            issues = issues.concat(Array.isArray(page.issues) ? page.issues : []);
+            for (const [key, value] of Object.entries(page.counts || {}))
+                counts[key] = (counts[key] || 0) + Number(value || 0);
+            offset += n;
+            if (life.current.alive)
+                setBankAudit({ open: true, scanned: offset, total, issues, counts, done: !!page.done });
+            if (page.done || page.next_offset === null || ++steps > 10000)
+                break;
+            if (n === 0)
+                throw Error("ممیزی کاربران به دلیل نبود پیشرفت متوقف شد.");
+            offset = Number(page.next_offset);
+        }
+    });
     const upload = mode => action(mode === "preview" ? "بررسی فایل…" : "ذخیره در آرشیو…", async () => {
         if (!file)
             throw Error("فایل XLSX سازمان را انتخاب کنید");
@@ -14709,7 +14730,8 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
             React.createElement("label", null,
                 "\u0645\u0627\u0647",
                 React.createElement("select", { className: "input", value: month, disabled: !!busy, onChange: e => onPeriodChange(year, Number(e.target.value)) }, J_MONTHS.map((m, i) => React.createElement("option", { key: m, value: i + 1 }, m)))),
-            React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => action("دریافت آرشیو…", load) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0631\u0634\u06CC\u0648")),
+            React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => action("دریافت آرشیو…", load) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0631\u0634\u06CC\u0648"),
+            React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => { setBankAuditQuery(""); runBankAudit(); } }, "\u0628\u0631\u0631\u0633\u06CC \u0635\u062D\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC \u0648 \u0628\u0627\u0646\u06A9\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646")),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#bd2929)" } }, error),
         busy && React.createElement("p", { role: "status" }, busy),
         React.createElement("div", { style: { marginTop: 20, padding: 16, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
@@ -14769,6 +14791,37 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                     " | \u062D\u0630\u0641: ",
                     faDate(r.deleted_at)),
                 React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive(r.kind, r.id, true) }, "\u0628\u0627\u0632\u06CC\u0627\u0628\u06CC")))),
+        (bankAudit === null || bankAudit === void 0 ? void 0 : bankAudit.open) && React.createElement(Modal, { title: "\u0645\u0645\u06CC\u0632\u06CC \u0622\u0641\u0644\u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC \u0648 \u0628\u0627\u0646\u06A9\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646", onClose: () => setBankAudit(null), style: { width: "min(96vw,1200px)" } },
+            React.createElement("p", { role: "status" },
+                "\u0628\u0631\u0631\u0633\u06CC\u200C\u0634\u062F\u0647: ",
+                fa(bankAudit.scanned),
+                " \u0627\u0632 ",
+                fa(bankAudit.total),
+                " \u06A9\u0627\u0631\u0628\u0631 ",
+                bankAudit.done ? "— پایان ممیزی" : "— در حال پردازش"),
+            React.createElement("progress", { style: { width: "100%" }, max: Math.max(1, bankAudit.total), value: bankAudit.scanned, "aria-label": "\u067E\u06CC\u0634\u0631\u0641\u062A \u0648\u0627\u0642\u0639\u06CC \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646" }),
+            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBlock: 12 } }, Object.entries({ invalid_national: "کد ملی نامعتبر", duplicate_national: "کد ملی تکراری", invalid_iban: "شبای نامعتبر", bank_mismatch: "مغایرت بانک و شبا", unverified_account: "حساب نیازمند استعلام", missing_national: "کد ملی ناموجود", missing_banking: "شماره حساب ناموجود" }).map(([key, label]) => { var _a; return React.createElement("div", { key: key, style: { padding: 10, border: "1px solid var(--border,#ddd)", borderRadius: 8 } },
+                React.createElement("strong", null, fa(((_a = bankAudit.counts) === null || _a === void 0 ? void 0 : _a[key]) || 0)),
+                " ",
+                React.createElement("span", null, label)); })),
+            React.createElement("label", null,
+                "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627 \u0639\u0644\u062A \u0645\u063A\u0627\u06CC\u0631\u062A",
+                React.createElement("input", { className: "input", value: bankAuditQuery, onChange: e => setBankAuditQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0646\u062A\u06CC\u062C\u0647 \u0645\u0645\u06CC\u0632\u06CC" })),
+            React.createElement("div", { style: { overflowX: "auto", maxHeight: "55vh" } },
+                React.createElement("table", { style: { minWidth: 700, fontSize: 13 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
+                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631"),
+                            React.createElement("th", null, "\u0634\u0631\u062D \u0645\u063A\u0627\u06CC\u0631\u062A"))),
+                    React.createElement("tbody", null, bankAudit.issues.filter(r => normalize([r.name, r.personnel_code, ...(r.errors || [])].join(" ")).includes(normalize(bankAuditQuery))).map(r => React.createElement("tr", { key: r.user_id },
+                        React.createElement("td", null, r.name),
+                        React.createElement("td", null, faPlain(r.personnel_code || "—")),
+                        React.createElement("td", null, r.is_active ? "فعال" : "غیرفعال"),
+                        React.createElement("td", null, (r.errors || []).join("؛ "))))))),
+            bankAudit.done && React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0646\u0647\u0627 \u0648\u0636\u0639\u06CC\u062A \u0633\u0627\u062E\u062A\u0627\u0631\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F\u061B \u0645\u0627\u0644\u06A9\u06CC\u062A \u0648 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646 \u062D\u0633\u0627\u0628 \u0628\u0627\u0646\u06A9\u06CC \u0627\u0633\u062A\u0639\u0644\u0627\u0645 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u06A9\u0631\u062F\u0646\u062F."),
+            React.createElement("button", { type: "button", className: "btn", onClick: () => setBankAudit(null) }, "\u0628\u0633\u062A\u0646")),
         detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
             React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
             ((_a = detail.rows) === null || _a === void 0 ? void 0 : _a.some(r => r.organization_basis)) && React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u062F\u0631 \u063A\u06CC\u0628\u062A \u0642\u0627\u0628\u0644 \u067E\u0631\u062F\u0627\u062E\u062A \u0648 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0644\u062D\u0627\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0646\u0633\u062E\u0647 \u062D\u0641\u0638 \u0627\u0633\u062A."),
@@ -14779,6 +14832,18 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 detail.partial ? "ماه جاری؛ داده‌ها تا روز تولید" : "ماه پایان‌یافته",
                 " | \u0645\u0646\u0628\u0639 \u062A\u0631\u062F\u062F: ",
                 detail.attendance_source === "finalized" ? "نسخهٔ نهایی‌شده" : "تردد ثبت‌شده"),
+            detail.discrepancies && Object.entries(detail.discrepancies).map(([key, items]) => (items === null || items === void 0 ? void 0 : items.length) ? React.createElement("details", { key: key, style: { marginBlock: 8 } },
+                React.createElement("summary", { style: { cursor: "pointer", fontWeight: 600 } },
+                    ({ inactive_in_file: "کاربران غیرفعال در فایل سازمان", unmatched_in_file: "فاقد تطبیق با سامانه", worked_not_in_file: "دارای تردد اما خارج از فایل سازمان", no_attendance_in_file: "بدون تردد در ماه انتخابی" })[key] || key,
+                    " \u2014 ",
+                    fa(items.length),
+                    " \u0645\u0648\u0631\u062F"),
+                React.createElement("div", { style: { maxHeight: 240, overflowY: "auto" } }, items.map((person, i) => React.createElement("p", { key: person.user_id || i },
+                    faPlain(person.name || "—"),
+                    " | ",
+                    faPlain(person.personnel_code || "—"),
+                    " ",
+                    person.reason ? "— " + person.reason : "")))) : null),
             React.createElement("label", null,
                 "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC\u060C \u0633\u0645\u062A \u06CC\u0627 \u0645\u063A\u0627\u06CC\u0631\u062A",
                 React.createElement("input", { className: "input", value: query, onChange: e => setQuery(e.target.value) })),
