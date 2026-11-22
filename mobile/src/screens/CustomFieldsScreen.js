@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { request } from '../api';
-import { validateIban,validateAccount,normalizeIranianDigits } from '../identityBankingValidation';
+import { validateIban,validateAccount,normalizeIranianDigits,bankCodeFromName } from '../identityBankingValidation';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
@@ -80,7 +80,7 @@ function bankValidation(field,value,allFields,vals){
   if(kind==='account')return validateAccount(value);
   const bankField=allFields.find(f=>/نام\s*بانک|bank[_ -]?name|^بانک$/.test(String(f.fkey||'')+' '+String(f.label||'')));
   const selected=String(vals[bankField?.id]||'');
-  return validateIban(value,{expectedBank:selected.includes('شهر')?'061':null,allowWithoutPrefix:true});
+  return validateIban(value,{expectedBank:bankCodeFromName(selected),allowWithoutPrefix:true});
 }
 export default function CustomFieldsScreen({ navigation }) {
   const [fields, setFields] = useState(null);
