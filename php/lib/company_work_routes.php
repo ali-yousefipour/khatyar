@@ -32,6 +32,20 @@ _company_work_route('GET','/identity-audit',function($p,$b,$u){
     'next_offset'=>$offset+$scanned<$total?$offset+$scanned:null,
     'done'=>$offset+$scanned>=$total,'counts'=>$result['counts'],'issues'=>$result['issues']];
 });
+_company_work_route('GET','/identity-audit/export',function($p,$b,$u){
+  require_once __DIR__.'/IdentityBankingValidation.php';
+  $users=Db::all('SELECT id,first_name,last_name,personnel_code,national_code,is_active FROM users ORDER BY id');
+  $fields=Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY id');
+  $values=Db::all('SELECT user_id,field_id,value FROM custom_field_values');
+  $audit=IdentityBankingValidation::auditBatch($users,$fields,$values,$users);
+  $book=new XlsxWriter(['نام و نام خانوادگی','شماره پرسنلی','وضعیت کاربر','نتیجه ممیزی ساختاری']);
+  $book->setProfessionalStyle(true);
+  $book->setTextCol(1);
+  foreach($audit['issues'] as $person){
+    $book->addRow([$person['name'],$person['personnel_code'],!empty($person['is_active'])?'فعال':'غیرفعال',implode('؛ ',$person['errors'])]);
+  }
+  $book->output('identity-banking-audit.xlsx','ممیزی اطلاعات هویتی و بانکی');
+});
 _company_work_route('POST','/import',function($p,$b,$u){
   // Http::body is the JSON/urlencoded contract. PHP exposes multipart fields in $_POST.
   $form=$_POST;
