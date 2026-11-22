@@ -34,4 +34,16 @@ assert(flow.includes('migrations/20261123_user_profile_attachments.sql lib/route
 assert(flow.includes("$stage = 'personnel_attachments_schema'"),'attachment migration runs during host installation');
 assert(flow.includes("if($attachmentCreated!==1)throw new RuntimeException('Personnel attachments migration count invalid')"),'host checks attachment table DDL');
 assert(flow.includes("if((int)$attachmentTables!==1)throw new RuntimeException('Personnel attachments schema verification failed')"),'host confirms migrated table');
+function migrationStatements(source){
+  return source.replace(/^\s*--[^\r\n]*$/gm,'').split(';').map(statement=>statement.trim()).filter(Boolean);
+}
+const formStatements=migrationStatements(sql),fileStatements=migrationStatements(attachmentSql);
+assert.equal(formStatements.length,3,'all three profile CREATE statements remain intact despite semicolons in comments');
+assert.equal(fileStatements.length,1,'exactly one private attachment DDL statement');
+for(const statement of [...formStatements,...fileStatements])
+  assert(/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i.test(statement),'only create table statements are executed');
+const stripProfile=flow.indexOf("$profileSql=preg_replace("),splitProfile=flow.indexOf("foreach(explode(';',$profileSql)");
+const stripAttachment=flow.indexOf("$attachmentSql=preg_replace("),splitAttachment=flow.indexOf("foreach(explode(';',$attachmentSql)");
+assert(stripProfile>=0&&splitProfile>stripProfile,'strip personnel migration comments before split');
+assert(stripAttachment>=0&&splitAttachment>stripAttachment,'strip attachments migration comments before split');
 console.log('PASS user form deployment: protected order, checksum stage and additive schema');
