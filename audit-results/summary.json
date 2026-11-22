@@ -1,0 +1,131 @@
+{
+  "commit": "77339091cf56496579c6687b2669697dfc145cf3",
+  "files": 2438,
+  "directories": 186,
+  "by_extension": {
+    "(none)": 32,
+    ".py": 15,
+    ".php": 278,
+    ".sh": 11,
+    ".yml": 40,
+    ".xml": 27,
+    ".iml": 1,
+    ".md": 167,
+    ".example": 8,
+    ".js": 475,
+    ".html": 47,
+    ".json": 28,
+    ".png": 816,
+    ".css": 22,
+    ".svg": 6,
+    ".yaml": 4,
+    ".sql": 85,
+    ".conf": 3,
+    ".ps1": 20,
+    ".heartbeat": 2,
+    ".txt": 51,
+    ".bat": 5,
+    ".java": 19,
+    ".mp3": 29,
+    ".jpg": 18,
+    ".ttf": 7,
+    ".wav": 6,
+    ".csv": 6,
+    ".gradle": 6,
+    ".pro": 2,
+    ".kt": 2,
+    ".ts": 2,
+    ".cjs": 177,
+    ".webp": 9,
+    ".wsdl": 2,
+    ".xlsx": 2,
+    ".jsx": 6,
+    ".production": 1,
+    ".spec": 1
+  },
+  "by_section": {
+    "other": 381,
+    "backend_js": 128,
+    "generated_or_vendor": 22,
+    "test": 189,
+    "database": 16,
+    "android": 453,
+    "web_php": 422,
+    "php_backend": 61,
+    "mirrored": 766
+  },
+  "code_totals": {
+    "other": {
+      "files": 33,
+      "loc": 9165,
+      "sloc_approx": 8276,
+      "blanks": 552,
+      "comment_lines_approx": 337
+    },
+    "backend_js": {
+      "files": 33,
+      "loc": 2598,
+      "sloc_approx": 2309,
+      "blanks": 183,
+      "comment_lines_approx": 106
+    },
+    "generated_or_vendor": {
+      "files": 13,
+      "loc": 79733,
+      "sloc_approx": 78586,
+      "blanks": 127,
+      "comment_lines_approx": 1020
+    },
+    "test": {
+      "files": 189,
+      "loc": 9466,
+      "sloc_approx": 9187,
+      "blanks": 157,
+      "comment_lines_approx": 122
+    },
+    "database": {
+      "files": 16,
+      "loc": 9963,
+      "sloc_approx": 7171,
+      "blanks": 1135,
+      "comment_lines_approx": 1657
+    },
+    "android": {
+      "files": 326,
+      "loc": 34733,
+      "sloc_approx": 31786,
+      "blanks": 1910,
+      "comment_lines_approx": 1037
+    },
+    "web_php": {
+      "files": 257,
+      "loc": 37086,
+      "sloc_approx": 34344,
+      "blanks": 1242,
+      "comment_lines_approx": 1500
+    },
+    "php_backend": {
+      "files": 58,
+      "loc": 29164,
+      "sloc_approx": 26483,
+      "blanks": 858,
+      "comment_lines_approx": 1823
+    },
+    "mirrored": {
+      "files": 234,
+      "loc": 93933,
+      "sloc_approx": 87752,
+      "blanks": 3083,
+      "comment_lines_approx": 3098
+    }
+  },
+  "duplicate_group_count": 292,
+  "unique_content_count": 1513,
+  "screen_files": 64,
+  "navigation_registrations": 1,
+  "mobile_modal_occurrences": 542,
+  "wizard_candidates": 4,
+  "api_path_candidates": 1100,
+  "table_name_candidates": 235,
+  "note": "SLOC is heuristic; not cloc and not human-verified. Route strings are not registered endpoints."
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "path": "mobile/src/FirstSetupScreen.js",
+    "steps": [
+      "camera",
+      "submitting"
+    ]
+  },
+  {
+    "path": "mobile/src/PeriodicRenewScreen.js",
+    "steps": [
+      "camera",
+      "submitting"
+    ]
+  },
+  {
+    "path": "mobile/src/PresenceCheckWizard.js",
+    "steps": [
+      "done",
+      "expired",
+      "intro",
+      "selfie",
+      "submitting",
+      "vehicles"
+    ]
+  },
+  {
+    "path": "mobile/src/screens/AppLockSettingsScreen.js",
+    "steps": [
+      "create",
+      "verify-change",
+      "verify-disable"
+    ]
+  }
+]
