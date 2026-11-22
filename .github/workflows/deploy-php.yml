@@ -451,6 +451,11 @@ jobs:
                   http_response_code(500);
                   exit(\$canonical . ' checksum mismatch after host-side copy');
               }
+              // The installer runs in the same web PHP SAPI as the API. Reload
+              // protected modules even when OPcache does not check timestamps.
+              if (function_exists('opcache_invalidate')) {
+                  @opcache_invalidate(\$dst, true);
+              }
               \$result[\$canonical] = \$dstSha;
               @unlink(\$src);
           }
