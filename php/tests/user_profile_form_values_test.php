@@ -32,4 +32,6 @@ $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','typ
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
 t('Persian mobile digits normalize safely',$persian['system']['mobile']==='09123456789');
+$hiddenPlatform=$schema;$hiddenPlatform['sections'][0]['fields'][3]['android_visible']=false;
+invalid('Android-hidden field cannot be submitted',fn()=>UserProfileFormValues::plan($hiddenPlatform,['spouse_name'=>'hidden'],$stored));
 echo "User profile value tests passed\n";
