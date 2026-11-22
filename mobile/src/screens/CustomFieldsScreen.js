@@ -25,17 +25,24 @@ export function FieldInput({ field, value, onChange, onBlur }) {
   if (field.ftype === 'textarea')
     return <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} multiline value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
   if (field.ftype === 'number')
-    return <TextInput style={s.input} keyboardType="numeric" value={value || ''} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
+    return <TextInput style={s.input} keyboardType="numeric" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
+  if (['mobile','phone','national_id','account','iban','card'].includes(field.ftype))
+    return <TextInput style={s.input} keyboardType="phone-pad" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
+  if (field.ftype === 'email')
+    return <TextInput style={s.input} keyboardType="email-address" autoCapitalize="none" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} />;
+  if (field.ftype === 'calculated') return <Text style={s.roVal}>{String(value??'—')}</Text>;
+  if (['heading','description','divider'].includes(field.ftype))return <Text style={s.sectionT}>{field.description||field.label||''}</Text>;
+  if (['image','file'].includes(field.ftype))return <Text style={s.muted}>بارگذاری این نوع مدرک در نسخه فعلی برنامه پشتیبانی نمی‌شود؛ برای ثبت به مدیر سامانه مراجعه کنید.</Text>;
   if (field.ftype === 'date')
     return <JDateInput value={value} onChange={onChange} />;
-  if (field.ftype === 'checkbox')
+  if (field.ftype === 'checkbox' || field.ftype === 'boolean')
     return (
       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
         <Switch value={value === '1' || value === true} onValueChange={(v) => onChange(v ? '1' : '0')} trackColor={{ true: C.brand }} />
         <Text style={s.txt}>{value === '1' || value === true ? 'بله' : 'خیر'}</Text>
       </View>
     );
-  if (field.ftype === 'select')
+  if (field.ftype === 'select' || field.ftype === 'radio')
     return (
       <View style={s.chips}>
         {opts.map((o) => {
