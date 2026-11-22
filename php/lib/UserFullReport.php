@@ -12,7 +12,8 @@ final class UserFullReport {
   }
   private static function base(): array {
     return [
-      'id'=>'شناسه کاربری','personnel_code'=>'شماره پرسنلی','username'=>'نام کاربری',
+      'id'=>'شناسه کاربری','personnel_photo'=>'عکس پرسنلی','personnel_signature'=>'امضای پرسنلی',
+      'personnel_code'=>'شماره پرسنلی','username'=>'نام کاربری',
       'first_name'=>'نام','last_name'=>'نام خانوادگی','role_title'=>'سمت',
       'mobile'=>'تلفن همراه ثبت‌شده','employment_start_date'=>'شروع همکاری','employment_end_date'=>'پایان همکاری','rank_stars'=>'درجه',
       'phone'=>'شماره همراه','email'=>'ایمیل','national_code'=>'کد ملی',
@@ -30,6 +31,12 @@ final class UserFullReport {
   private static function schema(): array {
     $base=[];
     foreach(self::base() as $key=>$label) {
+      if($key==='personnel_photo'||$key==='personnel_signature') {
+        $source=$key==='personnel_photo'?'photo_path':'signature_data';
+        if(self::hasColumn('users',$source))
+          $base[]=['key'=>$key,'label'=>$label,'group'=>'مدارک تصویری','type'=>'embedded_image'];
+        continue;
+      }
       if ($key==='role_title'||($key==='personnel_code')||self::hasColumn('users',$key))
         $base[]=['key'=>$key,'label'=>$label,'group'=>'هویتی و سازمانی'];
     }
@@ -109,6 +116,26 @@ final class UserFullReport {
     }
     return implode("\n",$lines);
   }
+  /** Resolve images for XLSX without exposing raw base64 or private storage paths in cells. */
+  private static function imageBytes(array $u,string $key): ?string {
+    $data='';
+    if($key==='personnel_photo') {
+      if(!empty($u['photo_path'])) {
+        $full=Media::fullPath((string)$u['photo_path']);
+        if($full&&is_file($full)&&is_readable($full)&&filesize($full)<=5*1024*1024)
+          $data=(string)@file_get_contents($full);
+      }
+      if($data===''&&!empty($u['personnel_photo_b64']))$data=(string)$u['personnel_photo_b64'];
+    }elseif($key==='personnel_signature')$data=(string)($u['signature_data']??'');
+    if($data==='')return null;
+    if(str_contains($data,'base64,')) {
+      $data=(string)(base64_decode(substr($data,strpos($data,'base64,')+7),true)?:'');
+    }
+    if($data===''||strlen($data)>5*1024*1024)return null;
+    $info=@getimagesizefromstring($data);
+    if(!$info||!in_array($info['mime']??'', ['image/jpeg','image/png'],true))return null;
+    return $data;
+  }
   public static function run(array $body): void {
     $fields=self::schema();
     if($_SERVER['REQUEST_METHOD']==='GET') {
@@ -133,10 +160,17 @@ final class UserFullReport {
     $userKeys=array_filter(array_unique(array_merge($columns,[$sort],$extraSortKeys)),static fn($k)=>strpos($k,'custom:')!==0);
     $select=['u.id','r.title AS role_title'];
     foreach($userKeys as $key) {
-      if(in_array($key,['id','role_title','personnel_code'],true))continue;
+      if(in_array($key,['id','role_title','personnel_code','personnel_photo','personnel_signature'],true))continue;
       $select[]='u.`'.$key.'`';
     }
     if(self::hasColumn('users','personnel_code'))$select[]='u.personnel_code';
+    $imageKeys=array_values(array_intersect(array_merge($columns,[$sort],$extraSortKeys),['personnel_photo','personnel_signature']));
+    if(in_array('personnel_photo',$imageKeys,true)) {
+      $select[]='u.photo_path';
+      // Avoid retrieving obsolete base64 when the canonical image file exists.
+      if(self::hasColumn('users','photo'))$select[]="CASE WHEN u.photo_path IS NULL OR u.photo_path='' THEN u.photo ELSE NULL END AS personnel_photo_b64";
+    }
+    if(in_array('personnel_signature',$imageKeys,true))$select[]='u.signature_data';
     // Filters are server-validated and parameterized; never interpolate request values.
     $conditions=[];$params=[];
     $active=(string)($body['active']??'all');
@@ -188,6 +222,8 @@ final class UserFullReport {
     }
     $getter=static function(array $u,string $key)use(&$values,$personnelIds) {
       if(strpos($key,'custom:')===0)return $values[(int)$u['id']][(int)substr($key,7)]??'';
+      if($key==='personnel_photo')return !empty($u['photo_path'])||!empty($u['personnel_photo_b64'])?'ثبت شده':'';
+      if($key==='personnel_signature')return !empty($u['signature_data'])?'ثبت شده':'';
       if($key==='personnel_code') {
         $value=trim((string)($u['personnel_code']??''));
         if($value==='')foreach($personnelIds as $fid) {
@@ -254,7 +290,12 @@ final class UserFullReport {
         if(preg_match('/^[=+@\\-]/u',$value))$value="'".$value;
         $row[]=$value;
       }
-      $writer->addRow($row);
+      $rowIdx=$writer->addRow($row);
+      foreach($columns as $columnIdx=>$key){
+        if(($lookup[$key]['type']??'')!=='embedded_image')continue;
+        $bytes=self::imageBytes($u,$key);
+        if($bytes)$writer->setImage($rowIdx,$columnIdx,$bytes,$key==='personnel_signature'?110:90);
+      }
     }
     $writer->output('users_full.xlsx','کاربران');
     exit;
