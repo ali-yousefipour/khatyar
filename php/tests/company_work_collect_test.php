@@ -28,7 +28,7 @@ function yes($label,$value){if(!$value)throw new RuntimeException('FAIL '.$label
 // exposing SQL details or being misreported as a corrupted organization file.
 $GLOBALS['simulate_rotation_outage']=true;
 try { CompanyWork::collect(['id'=>8,'jy'=>1405,'jm'=>7,'rows_json'=>'[]'],5); throw new LogicException('expected rotation failure'); }
-catch(PayrollError $e){yes('rotation failure classified as retryable 503 with specific stage',$e->getCode()===503&&str_contains($e->getMessage(),'چرخش شیفت')&&!str_contains($e->getMessage(),'synthetic')); }
+catch(PayrollError $e){yes('rotation failure classified as retryable 503 with specific stage',$e->getCode()===503&&str_contains($e->getMessage(),'چرخش شیفت')&&!str_contains($e->getMessage(),'synthetic')&&preg_match('/کد پیگیری: [a-f0-9]{12}/',$e->getMessage())===1); }
 $GLOBALS['simulate_rotation_outage']=false;
 Db::$users=[['id'=>1,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005','national_code'=>'0012345678','username'=>'0012345678','marital_status'=>'متاهل','children_count'=>2,'employment_start_date'=>'1405/07/15','employment_end_date'=>null]];
 Db::$requests=[['type'=>'annual','unit'=>'daily','from_jdate'=>'1405/07/15','to_jdate'=>'1405/07/17'],['type'=>'annual','unit'=>'hourly','the_date'=>'1405/07/18','from_time'=>'08:00','to_time'=>'15:33'],['type'=>'sick','unit'=>'daily','from_jdate'=>'1405/07/22','to_jdate'=>'1405/07/24']];
