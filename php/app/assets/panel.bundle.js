@@ -3783,7 +3783,17 @@ function Zones() {
 function OrgChart() {
     const [data, setData] = useState({ users: [], edges: [], default_edges: [], zones: [] });
     const [mode, setMode] = useState("regional");
-    const [zoneFilter, setZoneFilter] = useState(() => { const selected = sessionStorage.getItem("kh-org-chart-focus-zone") || ""; sessionStorage.removeItem("kh-org-chart-focus-zone"); return selected; });
+    const [zoneFilter, setZoneFilter] = useState(() => { try {
+        const storage = window.sessionStorage;
+        if (!storage)
+            return "";
+        const selected = storage.getItem("kh-org-chart-focus-zone") || "";
+        storage.removeItem("kh-org-chart-focus-zone");
+        return selected;
+    }
+    catch (_) {
+        return "";
+    } });
     const [error, setError] = useState("");
     const [expanded, setExpanded] = useState(() => new Set());
     const [zoom, setZoom] = useState(1);
