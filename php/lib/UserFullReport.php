@@ -227,7 +227,7 @@ final class UserFullReport {
         Http::error('تاریخ شمسی فیلتر گزارش معتبر نیست',422);
       [$column,$operator]=$definition;
       if(!self::hasColumn('users',$column))Http::error('فیلتر تاریخ همکاری در پایگاه داده موجود نیست',503);
-      $conditions[]="REPLACE(u.\`$column\`,'/','-') $operator ?";
+      $conditions[]="REPLACE(u.$column,'/','-') $operator ?";
       $params[]=$normalized;
     }
     foreach(['employment_start','employment_end'] as $prefix){
