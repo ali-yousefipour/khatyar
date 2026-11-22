@@ -11070,32 +11070,27 @@ route('GET', '/api/admin/stats', function($p,$b,$u){
 // مقام‌های بالاسری یک کاربر (برای فرم ویرایش)
 
 
-// Read-only, resumable identity audit. Values are not returned to the client.
+// Read-only paginated audit; all validation happens locally in PHP.
 route('GET','/api/admin/identity-banking/audit',function($p,$b,$u){
   require_once __DIR__.'/IdentityBankingValidation.php';
   $after=max(0,(int)($_GET['after_id']??0));
   $limit=max(1,min(200,(int)($_GET['limit']??100)));
-  $users=Db::all("SELECT id,national_code,is_active FROM users WHERE id>? ORDER BY id LIMIT $limit",[$after]);
-  $ids=Db::all("SELECT id,national_code FROM users WHERE national_code IS NOT NULL AND national_code<>''");
-  $duplicate=IdentityBankingValidation::duplicateNationalIds($ids);
-  $issues=[];$last=$after;$valid=0;$missing=0;$invalid=0;$duplicates=0;
-  foreach($users as $person){
-    $uid=(int)$person['id'];$last=$uid;
-    $check=IdentityBankingValidation::nationalId($person['national_code']??'');
-    if($check['status']==='missing_information')$missing++;
-    elseif(!$check['valid'])$invalid++;
-    else $valid++;
-    if(isset($duplicate[$uid]))$duplicates++;
-    if(!$check['valid']||isset($duplicate[$uid]))
-      $issues[]=['user_id'=>$uid,'is_active'=>(int)($person['is_active']??0),
-        'status'=>$check['status'],'errors'=>array_merge($check['errors'],isset($duplicate[$uid])?[$duplicate[$uid]]:[])];
+  $users=Db::all("SELECT id,first_name,last_name,personnel_code,national_code,is_active FROM users WHERE id>? ORDER BY id LIMIT $limit",[$after]);
+  $all=Db::all("SELECT id,national_code FROM users WHERE national_code IS NOT NULL AND national_code<>''");
+  $fields=Db::all("SELECT id,fkey,label FROM custom_fields WHERE is_active=1");
+  $userIds=array_map('intval',array_column($users,'id'));
+  $values=[];
+  if($userIds){
+    $marks=implode(',',array_fill(0,count($userIds),'?'));
+    $values=Db::all("SELECT user_id,field_id,value FROM custom_field_values WHERE user_id IN ($marks)",$userIds);
   }
+  $result=IdentityBankingValidation::auditBatch($users,$fields,$values,$all);
+  $last=$userIds?max($userIds):$after;
   $total=(int)(Db::one("SELECT COUNT(*) n FROM users")['n']??0);
   $processed=(int)(Db::one("SELECT COUNT(*) n FROM users WHERE id<=?",[$last])['n']??0);
   return ['processed'=>$processed,'total'=>$total,'percent'=>$total?round(100*$processed/$total,2):100,
     'next_cursor'=>count($users)===$limit?$last:null,'finished'=>count($users)<$limit,
-    'counts'=>['valid'=>$valid,'missing'=>$missing,'invalid'=>$invalid,'duplicate'=>$duplicates],
-    'issues'=>$issues,'verificationLevel'=>'offline_structural'];
+    'counts'=>$result['counts'],'issues'=>$result['issues'],'verificationLevel'=>'offline_structural'];
 },false,ADMIN);
 route('GET', '/api/admin/users', function($p,$b,$u){
   $conds=[]; $pr=[];
