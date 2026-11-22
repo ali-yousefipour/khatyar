@@ -36,7 +36,7 @@ export function profileRuleMatches(rule,values){
     case 'in':
     case 'not_in':{
       if(!Array.isArray(wanted))return false;
-      const options=wanted.map(String),selected=Array.isArray(actual)?actual.map(String):(isEmpty(actual)?[]:[String(actual)]);
+      const options=wanted.map(String),selected=Array.isArray(actual)?actual.map(String):(isEmpty(actual)?[]:String(actual).split('|'));
       const found=selected.some(option=>options.includes(option));
       return rule.op==='in'?found:!found;
     }
