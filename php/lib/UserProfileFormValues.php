@@ -55,7 +55,7 @@ final class UserProfileFormValues {
     return $result;
   }
   private static function checkCard(string $value): array {
-    $value=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+    $value=str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
     if(!preg_match('/^\\d{16}$/D',$value))return ['valid'=>false];
     $sum=0;
     foreach(str_split($value) as $i=>$digit){
@@ -86,7 +86,7 @@ final class UserProfileFormValues {
     if(isset($field['max_length'])&&mb_strlen($value)>(int)$field['max_length'])self::fail('طول مقدار از حد مجاز بیشتر است');
     if(isset($field['min_length'])&&mb_strlen($value)<(int)$field['min_length'])self::fail('مقدار کوتاه‌تر از حد مجاز است');
     if($type==='number'||$type==='calculated'){
-      $normalized=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+      $normalized=str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
       if(!is_numeric($normalized))self::fail('مقدار عددی معتبر نیست');
       $num=(float)$normalized;
       if(isset($field['min'])&&$num<(float)$field['min'])self::fail('مقدار کمتر از حد مجاز است');
@@ -95,7 +95,7 @@ final class UserProfileFormValues {
     }
     if($type==='email'&&!filter_var($value,FILTER_VALIDATE_EMAIL))self::fail('نشانی ایمیل نامعتبر است');
     if($type==='mobile'){
-      $v=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+      $v=str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹','٠','١','٢','٣','٤','٥','٦','٧','٨','٩'],['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'],$value);
       if(!preg_match('/^09\\d{9}$/D',$v))self::fail('شماره همراه ایران نامعتبر است');
       return $v;
     }
