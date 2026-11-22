@@ -4,7 +4,16 @@
  * Only explicitly approved fields may leave the database.
  */
 final class UserFullReport {
+  private static ?array $userColumns=null;
   private static function hasColumn(string $table,string $column): bool {
+    if($table==='users'){
+      if(self::$userColumns===null){
+        $rows=Db::all("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users'");
+        self::$userColumns=array_fill_keys(array_map(
+          static fn($row)=>strtolower((string)($row['COLUMN_NAME']??$row['column_name']??'')),$rows),true);
+      }
+      return isset(self::$userColumns[strtolower($column)]);
+    }
     return (bool)Db::one("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1",[$table,$column]);
   }
   private static function hasTable(string $table): bool {
