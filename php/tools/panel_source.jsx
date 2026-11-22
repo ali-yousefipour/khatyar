@@ -6858,7 +6858,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
       </section>)}
     {error&&<p role="alert" style={{color:"var(--danger,#b42318)"}}>{error}</p>}
     {success&&<p role="status" style={{color:"var(--ok,#087f5b)"}}>{success}</p>}
-    {!!sections.length&&<button className="btn p" disabled={busy} onClick={save}>{busy?"در حال ذخیره…":"ذخیره اطلاعات تکمیلی"}</button>}
+    {!!sections.length&&<p className="muted" style={{fontSize:12,marginTop:12}}>اطلاعات هویتی و فیلدهای تکمیلی با دکمه «ذخیره تغییرات» پایین همین پنجره، به‌صورت یکپارچه ثبت می‌شوند.</p>}
   </div>;
 }
 
