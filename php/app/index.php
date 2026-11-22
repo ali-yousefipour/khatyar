@@ -189,7 +189,7 @@ route('POST', '/api/admin/zones/{id}/sync-chart', static function($params,$body,
   require_once dirname(__DIR__).'/lib/ZoneChartSync.php';
   $raw=(string)($params['id']??'');
   if(!ctype_digit($raw)||(int)$raw<1)Http::error('شناسه منطقه نامعتبر است',422);
-  return ZoneChartSync::snapshot((int)$raw);
+  return ZoneChartSync::synchronize((int)$raw);
 }, false, 3);
 
 
