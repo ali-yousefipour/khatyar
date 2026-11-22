@@ -247,7 +247,7 @@ export default function CustomFieldsScreen({ navigation }) {
       profileCanEdit(f.profile_definition||f,profile)&&!String(vals[f.id]??'').trim();});
     if (missing.length) { Alert.alert('تکمیل الزامی', `این موارد الزامی‌اند: ${missing.map((m) => m.label).join('، ')}`); return; }
     for(const field of fields||[]){
-      if(!field.user_editable||!profileCanEdit(field.profile_definition||field,profile)||!profileFieldState(field.profile_definition||field,{...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))}).visible)continue;
+      if(!field.user_editable||!profileCanEdit(field.profile_definition||field,profile)||!profileFieldState(field.profile_definition||field,merged).visible)continue;
       const check=bankValidation(field,vals[field.id],fields,vals);
       if(check&&!check.valid){
         setTouched(current=>({...current,[field.id]:true}));
@@ -260,7 +260,7 @@ export default function CustomFieldsScreen({ navigation }) {
       const payload = {};
       (fields || []).filter((f) => {
         const state=profileFieldState(f.profile_definition||f,merged);
-        return f.user_editable && state.visible && state.enabled && !state.readonly &&
+        return !['image','file'].includes(f.ftype) && f.user_editable && state.visible && state.enabled && !state.readonly &&
           profileCanEdit(f.profile_definition||f,profile) &&
           String(vals[f.id]??'')!==String(originalVals[f.id]??'');
       }).forEach((f) => { payload[f.id] = vals[f.id]??''; });
@@ -297,7 +297,13 @@ export default function CustomFieldsScreen({ navigation }) {
         {visible.map((f) => (
           <View key={f.id} style={s.roRow}>
             <Text style={s.label}>{f.label}</Text>
-            <Text style={s.roVal}>{showVal(f)}</Text>
+            {['image','file'].includes(f.ftype)?
+              <PrivateProfileAttachment field={f} readOnly
+                onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
+              {['image','file'].includes(f.ftype)?
+                <PrivateProfileAttachment field={f} readOnly
+                  onStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))}/>:
+                <Text style={s.roVal}>{showVal(f)}</Text>}}
           </View>
         ))}
         {!editingAllowed&&<Text style={s.muted}>ویرایش اطلاعات تکمیلی توسط مدیر غیرفعال شده است.</Text>}
@@ -317,7 +323,8 @@ export default function CustomFieldsScreen({ navigation }) {
       {editable.map((f) => (
         <View key={f.id} style={s.fieldWrap}>
           <Text style={s.label}>{f.label}{profileFieldState(f.profile_definition||f,values).required ? ' *' : ''}</Text>
-          <FieldInput field={f} value={vals[f.id]} onChange={(v) => {setTouched(current=>({...current,[f.id]:false}));setVals({ ...vals, [f.id]: bankingFieldKind(f)?normalizeIranianDigits(v):v });}} onBlur={()=>setTouched(current=>({...current,[f.id]:true}))} />
+          <FieldInput field={f} value={vals[f.id]} onChange={(v) => {setTouched(current=>({...current,[f.id]:false}));setVals({ ...vals, [f.id]: bankingFieldKind(f)?normalizeIranianDigits(v):v });}} onBlur={()=>setTouched(current=>({...current,[f.id]:true}))}
+            onAttachmentStatus={(id,exists)=>setAttachmentPresence(current=>({...current,[id]:exists}))} />
           {!!touched[f.id] && !!bankValidation(f,vals[f.id],fields,vals) && <Text accessibilityRole="text" style={{fontFamily:FONT.regular,color:bankValidation(f,vals[f.id],fields,vals).valid?C.muted:'#b91c1c',fontSize:12,lineHeight:21,textAlign:'right',marginTop:5}}>{bankValidation(f,vals[f.id],fields,vals).valid?'✓ '+(bankingFieldKind(f)==='iban'?'ساختار شبا معتبر است؛ مالکیت حساب تأیید نشده است.':'شماره حساب به استعلام بانکی نیاز دارد.'):bankValidation(f,vals[f.id],fields,vals).errors[0]}</Text>}
         </View>
       ))}
