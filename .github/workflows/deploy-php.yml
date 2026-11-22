@@ -870,7 +870,14 @@ jobs:
           response="$(curl --silent --show-error --max-time 45 --retry 2 \
             -w '\n%{http_code}' -X POST --data-urlencode "token=${token}" \
             "https://khat-yar.ir/assets/${installer}")"
-          http_status="${response##* -q '"employment_columns":2'
+          http_status="${response##*$'\n'}"
+          response="${response%$'\n'*}"
+          echo "${response}"
+          if [ "${http_status}" != "200" ]; then
+            echo "ERROR: production schema migration returned HTTP ${http_status}" >&2
+            exit 1
+          fi
+          echo "${response}" | grep -q '"employment_columns":2'
           echo "${response}" | grep -q '"school_complaints_schema":true'
           echo "${response}" | grep -q '"discipline_cache_schema":true'
           echo "${response}" | grep -q '"discipline_cache_reader":true'
