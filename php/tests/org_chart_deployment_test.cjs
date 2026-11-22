@@ -25,4 +25,14 @@ assert.ok(!frontController.includes('require_once "$ROOT/lib/EmploymentAttendanc
 assert.ok(frontController.indexOf("$attendanceRoute['fn']=static function") < frontController.indexOf("require_once dirname(__DIR__).'/lib/EmploymentAttendance.php';"));
 assert.ok(workflow.includes('hash_equals(\\$token'));
 assert.ok(workflow.includes('hash_equals(\\$srcSha, \\$dstSha)'));
+const chartSync=fs.readFileSync(path.join(__dirname,'../lib/ZoneChartSync.php'),'utf8');
+const chartSyncUI=fs.readFileSync(path.join(__dirname,'../app/assets/zone-chart-sync.js'),'utf8');
+const panel=fs.readFileSync(path.join(__dirname,'../app/panel.html'),'utf8');
+assert.match(chartSync,/OrgChart::defaultEdges\(/,'zone synchronization uses live regional edges');
+assert.match(chartSyncUI,/:scope > h4 > span:first-child/,'region action must select actual region name, not all action buttons');
+assert.match(panel,/zone-chart-sync\.js\?v=/,'production panel must load region sync control');
+assert.ok(workflow.includes("'ZoneChartSync.php' => 'ZoneChartSync.php'"),'protected PHP installer includes zone sync');
+assert.ok(workflow.includes('for name in Db.php Jwt.php Http.php KhatyarFormsSchema.php WorkContracts.php RegionalTeam.php OrgChart.php ZoneChartSync.php'),'zone sync host install checksum verified');
+assert.ok(workflow.includes('lib/OrgChart.php lib/ZoneChartSync.php lib/Push.php'),'zone sync included in forced reconciliation');
+
 console.log('PASS OrgChart deployment: protected FTP paths, staged PHP installer, dependency before routes, token check and checksum verification');
