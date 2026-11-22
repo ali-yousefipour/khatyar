@@ -20,14 +20,14 @@ final class UserProfileRules {
   private static function number($value): ?float {
     if(!is_scalar($value)||is_bool($value))return null;
     $text=self::asciiDigits(trim((string)$value));
-    if(!preg_match('/^-?\\d+(?:\\.\\d+)?$/D',$text))return null;
+    if(!preg_match('/^-?\d+(?:\.\d+)?$/D',$text))return null;
     $number=(float)$text;
     return is_finite($number)?$number:null;
   }
   private static function jalali($value): ?string {
     if(!is_string($value))return null;
     $text=str_replace('/','-',self::asciiDigits($value));
-    if(!preg_match('/^(1[34]\\d{2})-(\\d{2})-(\\d{2})$/D',$text,$m))return null;
+    if(!preg_match('/^(1[34]\d{2})-(\d{2})-(\d{2})$/D',$text,$m))return null;
     $month=(int)$m[2];$day=(int)$m[3];
     if($month<1||$month>12||$day<1||$day>($month<=6?31:30))return null;
     return $text;
