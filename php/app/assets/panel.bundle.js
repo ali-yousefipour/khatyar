@@ -14696,8 +14696,24 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
     const [archive, setArchive] = useState(null), [file, setFile] = useState(null), [preview, setPreview] = useState(null), [detail, setDetail] = useState(null), [account, setAccount] = useState(""), [busy, setBusy] = useState(""), [error, setError] = useState(""), [query, setQuery] = useState("");
     const [bankAudit, setBankAudit] = useState(null), [bankAuditQuery, setBankAuditQuery] = useState("");
     const life = useRef({ alive: true, controller: null, locked: false });
+    const companyProgress = useRef(null);
     const fileInput = useRef(null);
-    useEffect(() => { life.current.alive = true; load(); return () => { var _a; life.current.alive = false; (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort(); }; }, []);
+    useEffect(() => {
+        life.current.alive = true;
+        load();
+        return () => {
+            var _a, _b;
+            life.current.alive = false;
+            (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort();
+            const progress = companyProgress.current;
+            if (progress) {
+                progress.active = false;
+                clearInterval(progress.timer);
+                (_b = progress.overlay) === null || _b === void 0 ? void 0 : _b.end(progress.id);
+                companyProgress.current = null;
+            }
+        };
+    }, []);
     const request = async (path, options = {}) => {
         const controller = new AbortController();
         life.current.controller = controller;
@@ -14800,12 +14816,66 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         setQuery("");
     } });
     const generate = id => action("محاسبه و ساخت فایل شرکت…", async () => {
-        const data = await request("/sources/" + id + "/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_field_id: Number(account) }) });
-        if (!life.current.alive)
-            return;
-        setDetail({ ...data.snapshot, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
-        setQuery("");
-        await load();
+        const overlay = typeof window !== "undefined" ? window.KhatyarLongOperation : null;
+        const progressId = (() => {
+            try {
+                const bytes = new Uint8Array(16);
+                window.crypto.getRandomValues(bytes);
+                return Array.from(bytes, v => v.toString(16).padStart(2, "0")).join("");
+            }
+            catch (_a) {
+                return "";
+            }
+        })();
+        const handle = overlay === null || overlay === void 0 ? void 0 : overlay.begin("محاسبه و ساخت فایل نهایی شرکت", {
+            stage: "بررسی فایل تأییدشده سازمان و آماده‌سازی پردازش…", percent: undefined, delay: 0
+        });
+        const tracking = { overlay, id: handle, active: true, timer: null, percent: 0 };
+        companyProgress.current = tracking;
+        const poll = async () => {
+            if (!tracking.active || !progressId)
+                return;
+            try {
+                const response = await fetch(API_BASE + "/admin/shift-report/progress?progress_id=" + progressId, { headers: tok(), cache: "no-store" });
+                if (!response.ok)
+                    throw Error("progress unavailable");
+                const status = await response.json();
+                if (!tracking.active || companyProgress.current !== tracking)
+                    return;
+                const next = Math.min(99, Number(status.percent) || 0);
+                if (next >= tracking.percent) {
+                    tracking.percent = next;
+                    overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { percent: next || undefined, stage: status.stage || "در حال پردازش اطلاعات…",
+                        ...((status.total != null && Number(status.total) > 0) ? { stage: (status.stage || "در حال پردازش اطلاعات…") + " — " + faPlain(status.done || 0) + " از " + faPlain(status.total) + " نفر" } : {}) });
+                }
+            }
+            catch (_a) {
+                // Keep the operation running; a failed poll cannot cancel generation.
+                if (tracking.active)
+                    overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { stage: "ارتباط با وضعیت مراحل برقرار نیست؛ ساخت فایل ادامه دارد…" });
+            }
+        };
+        if (progressId && handle != null)
+            tracking.timer = setInterval(poll, 1500);
+        else
+            overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { stage: "در حال ساخت فایل؛ درصد دقیق در دسترس نیست" });
+        try {
+            const data = await request("/sources/" + id + "/generate" + (progressId ? "?progress_id=" + progressId : ""), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_field_id: Number(account) }) });
+            if (!life.current.alive)
+                return;
+            overlay === null || overlay === void 0 ? void 0 : overlay.update(handle, { percent: 100, stage: data.generated ? "فایل شرکت با موفقیت در آرشیو ثبت شد" : "محاسبه پایان یافت؛ مغایرت‌ها را بررسی کنید" });
+            setDetail({ ...data.snapshot, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
+            setQuery("");
+            await load();
+        }
+        finally {
+            tracking.active = false;
+            clearInterval(tracking.timer);
+            if (companyProgress.current === tracking)
+                companyProgress.current = null;
+            if (handle != null)
+                overlay === null || overlay === void 0 ? void 0 : overlay.end(handle);
+        }
     });
     const download = (kind, id) => action("دریافت فایل…", async () => {
         const controller = new AbortController();
