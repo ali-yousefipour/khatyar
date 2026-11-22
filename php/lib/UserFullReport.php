@@ -315,9 +315,15 @@ final class UserFullReport {
       foreach($levels as $level){
         $key=$level['key'];$direction=$level['direction'];
         $av=(string)$getter($a,$key);$bv=(string)$getter($b,$key);
-        $cmp=is_numeric($av)&&is_numeric($bv)
-          ? (float)$av<=>(float)$bv
-          : ($collator?$collator->compare($av,$bv):strnatcasecmp($av,$bv));
+        // Normalize Jalali storage variants before date ordering.
+        if(in_array($key,['birth_date','employment_start_date','employment_end_date','seniority_start'],true)){
+          $ad=IranCalendar::normalize($av);$bd=IranCalendar::normalize($bv);
+          $cmp=$ad&&$bd?strcmp($ad,$bd):strcmp($av,$bv);
+        }else{
+          $cmp=is_numeric($av)&&is_numeric($bv)
+            ? (float)$av<=>(float)$bv
+            : ($collator?$collator->compare($av,$bv):strnatcasecmp($av,$bv));
+        }
         if($cmp!==0)return $direction==='desc'?-$cmp:$cmp;
       }
       return (int)$a['id']<=>(int)$b['id'];
@@ -338,6 +344,7 @@ final class UserFullReport {
       try{self::audit($actorId,'users_full_report_preview',[
         'columns'=>$columns,'sorts'=>$levels,'active'=>$active,
         'role_id'=>$body['role_id']??null,'zone_id'=>$body['zone_id']??null,
+        'employment_dates'=>array_intersect_key($body,array_flip(['employment_start_from','employment_start_to','employment_end_from','employment_end_to'])),
         'row_count'=>count($users)
       ]);}catch(Throwable $error){error_log('Users report preview audit failed: '.get_class($error));Http::error('ثبت رویداد پیش‌نمایش گزارش ناموفق بود',503);}
       header('Content-Type: application/json; charset=utf-8');
@@ -382,6 +389,7 @@ final class UserFullReport {
       self::audit($actorId,'users_full_report_generated',[
         'columns'=>$columns,'sorts'=>$levels,'active'=>$active,
         'role_id'=>$body['role_id']??null,'zone_id'=>$body['zone_id']??null,
+        'employment_dates'=>array_intersect_key($body,array_flip(['employment_start_from','employment_start_to','employment_end_from','employment_end_to'])),
         'row_count'=>count($users),'column_count'=>count($columns)
       ]);
     }catch(Throwable $error){
