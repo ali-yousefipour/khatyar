@@ -5113,7 +5113,7 @@ function UserProfileFormDesigner(){
               <label>نوع فیلد<input className="input" readOnly value={current.type||""}/></label>
               <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>
               <div style={{display:"grid",gap:4,marginTop:8}}>
-                {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:k==="visible"||k==="enabled"} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
+                {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:["visible","enabled","android_visible","web_visible","report_visible"].includes(k)} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
               </div>
               <label>سطح حساسیت اطلاعات
                 <select className="input" value={current.sensitivity||"normal"} onChange={e=>editField("sensitivity",e.target.value)}>
