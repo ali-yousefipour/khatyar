@@ -336,8 +336,6 @@ jobs:
             set ftp:ssl-protect-data true;
             set ssl:ca-file ${FTP_CERT};
             set ssl:verify-certificate yes;
-              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
-              set ssl:check-hostname no;
             set ssl:check-hostname no;
             set net:timeout 15;
             set net:max-retries 1;
