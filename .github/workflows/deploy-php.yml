@@ -765,9 +765,11 @@ jobs:
               if(!is_file($profileMigration))throw new RuntimeException('Personnel profile migration missing');
               $profileSql=file_get_contents($profileMigration);
               if($profileSql===false)throw new RuntimeException('Personnel profile migration unreadable');
+              // Remove SQL comments before splitting: a semicolon inside a
+              // comment must never become an executable SQL fragment.
+              $profileSql=preg_replace('/^\s*--[^\r\n]*$/m','',$profileSql);
               $created=0;
               foreach(explode(';',$profileSql) as $statement){
-                  $statement=preg_replace('/^\s*--[^\n]*$/m','',$statement);
                   if(!preg_match('/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i',$statement))continue;
                   if(preg_match('/\b(?:DROP|TRUNCATE|DELETE|ALTER)\b/i',$statement))
                       throw new RuntimeException('Personnel migration contains forbidden mutation');
@@ -786,9 +788,9 @@ jobs:
               if(!is_file($attachmentMigration))throw new RuntimeException('Personnel attachments migration missing');
               $attachmentSql=file_get_contents($attachmentMigration);
               if($attachmentSql===false)throw new RuntimeException('Personnel attachments migration unreadable');
+              $attachmentSql=preg_replace('/^\s*--[^\r\n]*$/m','',$attachmentSql);
               $attachmentCreated=0;
               foreach(explode(';',$attachmentSql) as $statement){
-                  $statement=preg_replace('/^\s*--[^\n]*$/m','',$statement);
                   if(!preg_match('/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i',$statement))continue;
                   if(preg_match('/\b(?:DROP|TRUNCATE|DELETE|ALTER)\b/i',$statement))
                       throw new RuntimeException('Personnel attachments migration contains forbidden mutation');
