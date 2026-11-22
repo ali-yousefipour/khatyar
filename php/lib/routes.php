@@ -4320,6 +4320,9 @@ route('GET', '/api/admin/seniority/period-status', function($p,$b,$u){
 route('GET', '/api/admin/seniority/period-history', function($p,$b,$u){
   return SeniorityPeriods::history((int)($_GET['limit']??100),(int)($_GET['offset']??0));
 }, false, ADMIN);
+route('POST', '/api/admin/seniority/period-history-export', function($p,$b,$u){
+  SeniorityPeriods::exportHistory((string)($b['period']??''))->output('seniority-period-history.xlsx','تاریخچه سنوات');
+}, false, ADMIN);
 route('POST', '/api/admin/seniority/period-run', function($p,$b,$u){
   return SeniorityPeriods::run((string)($b['period']??''),$b['user_ids']??null,(int)$u['id']);
 }, false, ADMIN);
