@@ -7385,7 +7385,7 @@ route('POST', '/api/my/device-info', function($p,$b,$u){
 // bypassing a field disabled from reports through an older direct endpoint.
 route('GET', '/api/admin/users/export', function($p,$b,$u){
   require_once __DIR__.'/UserFullReport.php';
-  UserFullReport::run([],true);
+  UserFullReport::run([],true,(int)$u['id']);
 }, false, ADMIN);
 
 route('GET', '/api/auth/me', function($p,$b,$u){
