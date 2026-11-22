@@ -11514,6 +11514,7 @@ function adminProfileFieldState(field, values) {
 function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStatus }) {
     const [status, setStatus] = useState(null), [selected, setSelected] = useState(null);
     const [busy, setBusy] = useState(false), [error, setError] = useState("");
+    const uploadLock = useRef(false);
     const path = "/admin/users/" + userId + "/profile-attachment/" + field.id;
     useEffect(() => {
         let active = true;
@@ -11529,12 +11530,13 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
         return () => { active = false; };
     }, [userId, field.id]);
     const upload = async () => {
-        if (busy || !selected)
+        if (busy || uploadLock.current || !selected)
             return;
         if (selected.size > 8388608) {
             setError("حداکثر حجم فایل ۸ مگابایت است.");
             return;
         }
+        uploadLock.current = true;
         setBusy(true);
         setError("");
         try {
@@ -11544,15 +11546,23 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
             const result = await _readJsonResponse(response);
             if (!response.ok || !(result === null || result === void 0 ? void 0 : result.ok))
                 throw new Error((result === null || result === void 0 ? void 0 : result.error) || (result === null || result === void 0 ? void 0 : result.message) || "ثبت مدرک در سرور تأیید نشد");
-            const updated = await GET(path + "/status", { ttl: 0 });
-            setStatus(updated);
-            onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, !!(updated === null || updated === void 0 ? void 0 : updated.exists));
+            setStatus({ exists: true, name: result.name || selected.name || "مدرک خصوصی" });
+            onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, true);
             setSelected(null);
+            try {
+                const updated = await GET(path + "/status", { ttl: 0 });
+                setStatus(updated);
+                onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, !!(updated === null || updated === void 0 ? void 0 : updated.exists));
+            }
+            catch (_) {
+                setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست.");
+            }
         }
         catch (e) {
             setError(e.message || "ارسال مدرک ناموفق بود");
         }
         finally {
+            uploadLock.current = false;
             setBusy(false);
         }
     };
