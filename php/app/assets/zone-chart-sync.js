@@ -21,11 +21,14 @@ async function loadZones(){
  finally{loading=false;}
 }
 function matchZone(card){
- const headings=Array.from(card.querySelectorAll('h2,h3,h4,h5,strong'));
- const candidates=headings.map(h=>normalize(h.textContent)).filter(Boolean);
- const exact=zones.filter(z=>candidates.includes(normalize(z.name)));
+ // The real Zones component renders <h4><span>{zone.name}</span><span>action buttons</span></h4>.
+ // Reading h4.textContent also includes button labels and never matches the zone.
+ const title=card.querySelector(':scope > h4 > span:first-child');
+ const name=normalize(title?.textContent);
+ if(!name)return null;
+ const exact=zones.filter(z=>normalize(z.name)===name);
  if(exact.length===1)return exact[0];
- // Avoid guessing a region when the same name appears in several subregions.
+ // Never attach the control to the wrong zone if names are duplicated.
  return null;
 }
 function message(card,content,isError){
