@@ -40,6 +40,8 @@ final class UserProfileRules {
     return $value;
   }
   public static function dependencies(array $rule): array {
+    if(array_key_exists('all',$rule)&&array_key_exists('any',$rule))
+      self::fail('ترکیب هم‌زمان AND و OR در یک گروه مجاز نیست');
     if(isset($rule['all'])||isset($rule['any'])){
       $key=isset($rule['all'])?'all':'any';
       if(!is_array($rule[$key])||!array_is_list($rule[$key])||count($rule[$key])===0)self::fail('گروه شرطی خالی است');
@@ -120,8 +122,12 @@ final class UserProfileRules {
       case 'false':return $actual===false||$actual===0||$actual==='0'||$empty;
       case 'eq':return !$empty&&(string)$actual===(string)$desired;
       case 'neq':return $empty||(string)$actual!==(string)$desired;
-      case 'in':return in_array((string)$actual,array_map('strval',$desired),true);
-      case 'not_in':return !in_array((string)$actual,array_map('strval',$desired),true);
+      case 'in':
+      case 'not_in':
+        $options=array_map('strval',$desired);
+        $selected=is_array($actual)?array_map('strval',$actual):($empty?[]:[(string)$actual]);
+        $match=count(array_intersect($selected,$options))>0;
+        return $rule['op']==='in'?$match:!$match;
       case 'contains':return is_array($actual)?in_array($desired,$actual,true):is_scalar($actual)&&str_contains((string)$actual,(string)$desired);
       case 'not_contains':return is_array($actual)?!in_array($desired,$actual,true):!is_scalar($actual)||!str_contains((string)$actual,(string)$desired);
       case 'gt':case 'gte':case 'lt':case 'lte':
