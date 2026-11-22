@@ -22,7 +22,7 @@ final class UserProfileForms {
       ['key'=>'last_name','label'=>'نام خانوادگی','type'=>'text','required'=>true],
       ['key'=>'national_code','label'=>'کد ملی','type'=>'national_id'],
       ['key'=>'birth_date','label'=>'تاریخ تولد','type'=>'date'],
-      ['key'=>'marital_status','label'=>'وضعیت تأهل','type'=>'select','options'=>['مجرد','متاهل']],
+      ['key'=>'marital_status','label'=>'وضعیت تأهل','type'=>'select','options'=>['مجرد','متاهل','متأهل']],
       ['key'=>'children_count','label'=>'تعداد فرزند','type'=>'number'],
       ['key'=>'mobile','label'=>'تلفن همراه','type'=>'mobile'],
       ['key'=>'email','label'=>'ایمیل','type'=>'email'],
