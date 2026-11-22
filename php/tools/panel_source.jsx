@@ -6577,8 +6577,10 @@ function CustomFieldInput({field,value,onChange}){
   if(field.ftype==="repeater"){
     let config={};
     try{config=JSON.parse(field.options||"{}")||{};}catch(_){}
-    const columns=Array.isArray(config.columns)?config.columns:[];
-    const maxRows=Math.min(20,Math.max(1,Number(config.max_rows)||12));
+    const published=field.profile_definition||{};
+    const columns=Array.isArray(published.columns)?published.columns:
+      (Array.isArray(config.columns)?config.columns:[]);
+    const maxRows=Math.min(20,Math.max(1,Number(published.max_rows??config.max_rows)||12));
     let rows=[];
     try{const parsed=JSON.parse(String(value||"[]"));if(Array.isArray(parsed))rows=parsed;}catch(_){}
     const update=updated=>onChange(JSON.stringify(updated));
