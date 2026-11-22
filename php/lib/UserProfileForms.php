@@ -1,0 +1,125 @@
+<?php
+require_once __DIR__.'/UserProfileRules.php';
+/**
+ * Published personnel-form schemas are immutable. The legacy users and
+ * custom_fields/custom_field_values tables remain the authoritative data store.
+ */
+final class UserProfileForms {
+  private const KEY='personnel_profile';
+  private const SYSTEM_FIELDS=['first_name','last_name','email','mobile','address','national_code',
+    'marital_status','children_count','birth_date','personnel_code','employment_start_date',
+    'employment_end_date','zone_id','role_id','rank_stars'];
+  private static function json(array $value): string {
+    return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+  }
+  public static function available(): bool {
+    $row=Db::one("SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='user_form_definitions'");
+    return (int)($row['n']??0)===1;
+  }
+  public static function initialSchema(): array {
+    $system=[
+      ['key'=>'first_name','label'=>'نام','type'=>'text','required'=>true],
+      ['key'=>'last_name','label'=>'نام خانوادگی','type'=>'text','required'=>true],
+      ['key'=>'national_code','label'=>'کد ملی','type'=>'national_id'],
+      ['key'=>'birth_date','label'=>'تاریخ تولد','type'=>'date'],
+      ['key'=>'marital_status','label'=>'وضعیت تأهل','type'=>'select','options'=>['مجرد','متاهل']],
+      ['key'=>'children_count','label'=>'تعداد فرزند','type'=>'number'],
+      ['key'=>'mobile','label'=>'تلفن همراه','type'=>'mobile'],
+      ['key'=>'email','label'=>'ایمیل','type'=>'email'],
+      ['key'=>'address','label'=>'نشانی','type'=>'textarea'],
+      ['key'=>'personnel_code','label'=>'شماره پرسنلی','type'=>'text'],
+      ['key'=>'employment_start_date','label'=>'شروع همکاری','type'=>'date'],
+      ['key'=>'employment_end_date','label'=>'پایان همکاری','type'=>'date'],
+      ['key'=>'role_id','label'=>'سمت سازمانی','type'=>'number'],
+      ['key'=>'zone_id','label'=>'منطقه','type'=>'number'],
+      ['key'=>'rank_stars','label'=>'درجه','type'=>'number']
+    ];
+    foreach($system as &$field){
+      $field['binding']='system';
+      $field['readonly']=!in_array($field['key'],
+        ['email','mobile','address','national_code','marital_status','children_count','birth_date'],true);
+    }unset($field);
+    $custom=[];
+    foreach(Db::all("SELECT id,label,fkey,ftype,options,required,user_editable FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id") as $row){
+      $type=(string)($row['ftype']??'text');
+      if(!in_array($type,UserProfileRules::FIELD_TYPES,true))$type='text';
+      $custom[]=['key'=>'cf_'.(int)$row['id'],'label'=>(string)$row['label'],
+        'type'=>$type,'binding'=>'custom','custom_field_id'=>(int)$row['id'],
+        'required'=>(bool)$row['required'],'readonly'=>!(bool)$row['user_editable'],
+        'options'=>array_values(array_filter(explode('|',(string)($row['options']??'')),static fn($v)=>$v!==''))];
+    }
+    return ['schema_version'=>1,'form_key'=>self::KEY,'sections'=>[
+      ['key'=>'identity','title'=>'اطلاعات هویتی و فردی','fields'=>array_slice($system,0,6)],
+      ['key'=>'contact','title'=>'اطلاعات تماس و نشانی','fields'=>array_slice($system,6,3)],
+      ['key'=>'employment','title'=>'اطلاعات استخدامی و سازمانی','fields'=>array_slice($system,9)],
+      ['key'=>'additional','title'=>'اطلاعات تکمیلی پرسنل','fields'=>$custom]
+    ]];
+  }
+  public static function validate(array $schema): void {
+    UserProfileRules::validate($schema);
+    $keys=[];$customIds=[];
+    foreach($schema['sections'] as $section)foreach($section['fields'] as $field){
+      $key=$field['key'];$binding=$field['binding']??null;
+      if($binding==='system' && (!in_array($key,self::SYSTEM_FIELDS,true)||isset($field['custom_field_id'])))
+        throw new InvalidArgumentException('اتصال به فیلد سیستمی غیرمجاز است');
+      if($binding==='custom'){
+        $id=$field['custom_field_id']??null;
+        if(!is_int($id)||$id<1||$key!=='cf_'.$id||isset($customIds[$id]))
+          throw new InvalidArgumentException('اتصال فیلد سفارشی نامعتبر یا تکراری است');
+        $customIds[$id]=true;
+      }elseif($binding!=='system'&&$binding!=='display')
+        throw new InvalidArgumentException('فیلد باید به یک منبع مجاز متصل باشد');
+      $keys[$key]=true;
+    }
+  }
+  public static function published(): array {
+    if(!self::available())return ['version'=>0,'schema'=>self::initialSchema(),'source'=>'legacy_fallback'];
+    $row=Db::one("SELECT v.version,v.schema_json FROM user_form_definitions f JOIN user_form_versions v ON v.form_id=f.id AND v.version=f.published_version WHERE f.form_key=?", [self::KEY]);
+    if(!$row)return ['version'=>0,'schema'=>self::initialSchema(),'source'=>'legacy_fallback'];
+    return ['version'=>(int)$row['version'],'schema'=>json_decode((string)$row['schema_json'],true,512,JSON_THROW_ON_ERROR),'source'=>'published'];
+  }
+  private static function definition(): ?array {
+    return Db::one("SELECT id,draft_json,published_version,revision FROM user_form_definitions WHERE form_key=?", [self::KEY]);
+  }
+  public static function draft(): array {
+    if(!self::available())throw new RuntimeException('مهاجرت جداول فرم‌ساز پرسنلی هنوز اجرا نشده است');
+    $row=self::definition();
+    return ['revision'=>(int)($row['revision']??0),'published_version'=>(int)($row['published_version']??0),
+      'schema'=>!empty($row['draft_json'])?json_decode($row['draft_json'],true,512,JSON_THROW_ON_ERROR):self::published()['schema']];
+  }
+  public static function saveDraft(array $schema,int $revision,int $actor): array {
+    self::validate($schema);
+    if(!self::available())throw new RuntimeException('مهاجرت فرم‌ساز اجرا نشده است');
+    $data=self::json($schema);
+    $row=self::definition();
+    if(!$row){
+      if($revision!==0)throw new DomainException('نسخه ویرایش‌شده قدیمی است');
+      Db::insert("INSERT INTO user_form_definitions(form_key,title,draft_json,revision,updated_by) VALUES(?,?,?,1,?)",[self::KEY,'اطلاعات جامع پرسنلی',$data,$actor]);
+      $id=Db::one("SELECT id FROM user_form_definitions WHERE form_key=?",[self::KEY])['id'];
+      $next=1;
+    }else{
+      if((int)$row['revision']!==$revision)throw new DomainException('فرم توسط مدیر دیگری ویرایش شده است؛ مجدداً بارگذاری کنید');
+      $affected=Db::exec("UPDATE user_form_definitions SET draft_json=?,revision=revision+1,updated_by=? WHERE id=? AND revision=?",[$data,$actor,(int)$row['id'],$revision]);
+      if($affected!==1)throw new DomainException('فرم هم‌زمان تغییر یافته است');
+      $id=$row['id'];$next=$revision+1;
+    }
+    Db::run("INSERT INTO user_form_audit_logs(form_id,actor_id,action,metadata_json) VALUES(?,?,?,?)",[(int)$id,$actor,'save_draft','{}']);
+    return ['ok'=>true,'revision'=>$next];
+  }
+  public static function publish(int $revision,int $actor): array {
+    if(!self::available())throw new RuntimeException('مهاجرت فرم‌ساز اجرا نشده است');
+    $pdo=Db::pdo();$pdo->beginTransaction();
+    try{
+      $row=Db::one("SELECT id,revision,published_version,draft_json FROM user_form_definitions WHERE form_key=? FOR UPDATE",[self::KEY]);
+      if(!$row||(int)$row['revision']!==$revision||empty($row['draft_json']))throw new DomainException('نسخه پیش‌نویس معتبر یا به‌روز نیست');
+      $schema=json_decode($row['draft_json'],true,512,JSON_THROW_ON_ERROR);
+      self::validate($schema);
+      $version=(int)($row['published_version']??0)+1;
+      Db::insert("INSERT INTO user_form_versions(form_id,version,schema_json,published_by) VALUES(?,?,?,?)",[(int)$row['id'],$version,self::json($schema),$actor]);
+      Db::run("UPDATE user_form_definitions SET published_version=? WHERE id=?",[$version,(int)$row['id']]);
+      Db::run("INSERT INTO user_form_audit_logs(form_id,actor_id,action,version,metadata_json) VALUES(?,?,?,?,?)",[(int)$row['id'],$actor,'publish',$version,'{}']);
+      $pdo->commit();
+      return ['ok'=>true,'version'=>$version];
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+  }
+}
