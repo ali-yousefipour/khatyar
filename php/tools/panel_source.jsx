@@ -1818,7 +1818,7 @@ function Users(){
       const nationalCheck=offlineNationalIdWeb(u.national_code);
       if(!nationalCheck.valid){alert(nationalCheck.message);return;}
       u={...u,national_code:nationalCheck.value};
-    }if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;}setSavingUser(true);try{await db.updateUser(u.id,{employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
+    }if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;}setSavingUser(true);try{const customChanges=customSaveRef.current?await customSaveRef.current('payload'):{};if(customChanges===false)throw new Error('فیلدهای تکمیلی هنوز آماده نیستند');await db.updateUser(u.id,{custom_values:customChanges,employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
     // The API must return the committed values, not just acknowledge the PUT.
     const persisted=await GET('/admin/users/'+u.id+'/employment-period');
     const normalizeDate=v=>String(v||'').trim().replaceAll('/','-');
@@ -1827,7 +1827,6 @@ function Users(){
       setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:persisted.employment_start_date||'',employment_end_date:persisted.employment_end_date||''}:current);
       return;
     }
-    if(customSaveRef.current){const customSaved=await customSaveRef.current();if(customSaved===false)throw new Error("ذخیره اطلاعات تکمیلی انجام نشد؛ مقادیر اصلاح‌شده در فرم حفظ شدند.");}
     if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); await reload(); }catch(error){alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}finally{setSavingUser(false);} };
   const add=async u=>{ const r=await db.createUser(u); setAdding(false); reload(); if(r&&r.sms_sent) alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
   const auditAllUsers=async()=>{
@@ -6815,7 +6814,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
     groups.find(group=>group.title===title).fields.push(field);
     return groups;
   },[]);
-  const save=async()=>{
+  const save=async(mode='save')=>{
     if(busy||fields===null)return false;
     const changed={};
     for(const field of visible){
@@ -6824,6 +6823,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null}){
       const id=field.id,value=vals[id];
       if(String(value??"")!==String(originalVals[id]??""))changed[id]=value??"";
     }
+    if(mode==='payload')return changed;
     if(!Object.keys(changed).length)return true;
     setBusy(true);setError("");setSuccess("");
     try{
