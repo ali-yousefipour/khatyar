@@ -21,6 +21,11 @@
   const fileExtensions = /\.(?:xlsx?|csv|pdf)(?:$|\?)/i;
   // Dashboard cards and their tabs must not appear frozen while API data is pending.
   const dashboardData = /\/api\/admin\/(?:dashboard(?:[-\/]|$)|stats(?:\/|$)|top-workers(?:\/|$)|live-staff-dashboard(?:\/|$)|personnel-distribution(?:\/|$)|mission-dashboard(?:\/|$)|city-dashboard(?:\/|$))/i;
+  // The live-map view has continuous polling (locations, users, settings and fences).
+  // Suppress EVERY blocking global loader while that view is mounted, including
+  // explicitly-started loaders and requests that predate its first map refresh.
+  const liveMapVisible = () => !!(typeof doc.querySelector === 'function' &&
+    doc.querySelector('.live-map-tabs'));
   const normalize = (input) => {
     try {
       const raw = typeof input === 'string' ? input : input && input.url;
@@ -31,6 +36,7 @@
   function classify(input, init) {
     const url = normalize(input);
     if (!url || !url.pathname.startsWith('/api/')) return null;
+    if (liveMapVisible()) return null;
     const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
     if (excluded.test(url.pathname) || liveMapPolling.test(url.pathname)) return null;
     const report = reports.test(url.pathname) || fileExtensions.test(url.pathname);
@@ -63,7 +69,7 @@
   function paint() {
     const el = ensureHost();
     if (!el) return;
-    if (workDialogActive() || doc.visibilityState === 'hidden') {
+    if (liveMapVisible() || workDialogActive() || doc.visibilityState === 'hidden') {
       el.hidden = true;
       return;
     }
@@ -185,6 +191,14 @@
       try { return originalSend.apply(this, arguments); }
       catch (error) { end(id); throw error; }
     };
+  }
+  // Navigation may mount the map after a previous dashboard request has started.
+  // Repaint on view changes to close that old loader immediately. Observe only
+  // the React root so our own overlay updates cannot create observer loops.
+  const root = doc.getElementById('root');
+  if (root && typeof win.MutationObserver === 'function') {
+    const navObserver = new win.MutationObserver(() => paint());
+    navObserver.observe(root, { childList: true, subtree: true });
   }
   doc.addEventListener('visibilitychange', paint);
   const style = doc.createElement('style');
