@@ -52,6 +52,19 @@ const roleLabel=el('label',{text:'سمت سازمانی'},filterArea),role=el('s
 const zoneLabel=el('label',{text:'منطقه'},filterArea),zone=el('select',{},zoneLabel);
 el('option',{value:'',text:'تمام سمت‌ها'},role);
 el('option',{value:'',text:'تمام مناطق'},zone);
+const presetArea=el('div',{class:'kh-ur-controls'},box);
+const presetLabel=el('label',{text:'قالب ذخیره‌شده'},presetArea),presetSelect=el('select',{},presetLabel);
+el('option',{value:'',text:'قالب جدید / تنظیمات فعلی'},presetSelect);
+const presetNameLabel=el('label',{text:'نام قالب'},presetArea);
+const presetName=el('input',{type:'text',maxlength:'120',placeholder:'مثلاً گزارش جامع ماهانه'},presetNameLabel);
+const visibilityLabel=el('label',{text:'دسترسی قالب'},presetArea),visibility=el('select',{},visibilityLabel);
+el('option',{value:'private',text:'شخصی'},visibility);
+el('option',{value:'shared',text:'عمومی مدیران'},visibility);
+const presetActions=el('div',{class:'kh-ur-actions'},box);
+const loadPreset=el('button',{type:'button',text:'بارگذاری قالب'},presetActions);
+const saveServerPreset=el('button',{type:'button',text:'ذخیره / بروزرسانی قالب'},presetActions);
+const copyPreset=el('button',{type:'button',text:'ایجاد کپی'},presetActions);
+const deletePreset=el('button',{type:'button',text:'حذف قالب'},presetActions);
 const status=el('p',{role:'status','aria-live':'polite'},box);
 const foot=el('div',{class:'kh-ur-actions'},box);
 const preview=el('button',{type:'button',text:'پیش‌نمایش داده‌ها'},foot);
@@ -137,6 +150,51 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    active:active.value,role_id:role.value||'',zone_id:zone.value||''
  });
  savePreset.onclick=()=>{localStorage.setItem(storageKey,JSON.stringify(payload()));status.textContent='تنظیمات ستون‌ها در این مرورگر ذخیره شد.';};
+ let serverPresets=[];
+ const serverUrl='/api/admin/users/full-report-presets';
+ const refreshPresets=async(selectedId='')=>{
+   const res=await request(serverUrl),data=await res.json();
+   serverPresets=Array.isArray(data.presets)?data.presets:[];
+   presetSelect.replaceChildren(el('option',{value:'',text:'قالب جدید / تنظیمات فعلی'}));
+   for(const item of serverPresets)el('option',{value:item.id,text:item.name+(item.visibility==='shared'?' (عمومی)':' (شخصی)')},presetSelect);
+   presetSelect.value=String(selectedId||'');
+ };
+ const selectedPreset=()=>serverPresets.find(p=>String(p.id)===String(presetSelect.value));
+ const applyServerPreset=(record)=>{
+   if(!record?.settings)return;
+   const settings=record.settings,selected=Array.isArray(settings.columns)?settings.columns:[];
+   checks.sort((a,b)=>{
+     const x=selected.indexOf(a.value),y=selected.indexOf(b.value);
+     return (x<0?9999:x)-(y<0?9999:y);
+   });
+   for(const checkbox of checks){checkbox.checked=selected.includes(checkbox.value);fields.appendChild(checkbox.parentElement);}
+   if([...sort.options].some(o=>o.value===settings.sort))sort.value=settings.sort;
+   dir.value=settings.direction==='desc'?'desc':'asc';
+   second.value=settings.sorts?.[1]?.key||'';third.value=settings.sorts?.[2]?.key||'';
+   secondDir.value=settings.sorts?.[1]?.direction==='desc'?'desc':'asc';
+   thirdDir.value=settings.sorts?.[2]?.direction==='desc'?'desc':'asc';
+   active.value=['all','1','0'].includes(settings.active)?settings.active:'all';
+   role.value=String(settings.role_id||'');zone.value=String(settings.zone_id||'');
+   presetName.value=record.name;visibility.value=record.visibility==='shared'?'shared':'private';
+   updateCount();
+ };
+ loadPreset.onclick=()=>{const record=selectedPreset();if(!record){status.textContent='ابتدا یک قالب را انتخاب کنید.';return;}applyServerPreset(record);status.textContent='قالب بارگذاری شد.';};
+ saveServerPreset.onclick=async()=>{try{
+   const name=presetName.value.trim();if(!name)throw Error('نام قالب را وارد کنید.');
+   const body={id:Number(presetSelect.value)||0,name,visibility:visibility.value,settings:payload()};
+   const res=await request(serverUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+   const saved=await res.json();await refreshPresets(saved.id);
+   status.textContent='قالب در سامانه ذخیره شد.';
+ }catch(err){status.textContent=err.message;}};
+ copyPreset.onclick=()=>{const selected=selectedPreset();if(selected){presetName.value=selected.name+' - کپی';applyServerPreset(selected);presetName.value=selected.name+' - کپی';}
+   presetSelect.value='';status.textContent='نام کپی را بررسی و ذخیره کنید.';};
+ deletePreset.onclick=async()=>{try{
+   const record=selectedPreset();if(!record)throw Error('قالبی انتخاب نشده است.');
+   if(!confirm('قالب «'+record.name+'» حذف شود؟'))return;
+   await request(serverUrl+'/'+encodeURIComponent(record.id),{method:'DELETE'});
+   await refreshPresets();presetName.value='';status.textContent='قالب حذف شد.';
+ }catch(err){status.textContent=err.message;}};
+ refreshPresets().catch(err=>{status.textContent='بارگذاری قالب‌های ذخیره‌شده ممکن نشد: '+err.message;});
  reset.onclick=()=>{localStorage.removeItem(storageKey);checks.forEach(c=>c.checked=true);sort.value=columns.some(c=>c.key==='id')?'id':columns[0].key;dir.value='asc';second.value='';third.value='';active.value='all';role.value='';zone.value='';updateCount();status.textContent='تمام ستون‌ها فعال شدند؛ برای بازگرداندن ترتیب اولیه، گزارش را دوباره باز کنید.';};
  preview.onclick=async()=>{try{
    preview.disabled=true;previewArea.replaceChildren();status.textContent='در حال آماده‌سازی پیش‌نمایش…';
