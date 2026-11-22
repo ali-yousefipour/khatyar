@@ -308,6 +308,8 @@ final class UserFullReport {
     foreach($users as $u) {
       $row=[];foreach($columns as $key){
         $value=(string)$getter($u,$key);
+        // An embedded image owns its cell; the status label is only for previews.
+        if(($lookup[$key]['type']??'')==='embedded_image')$value='';
         if(($lookup[$key]['type']??'')==='repeater')
           $value=self::formatRepeatRows($value,(array)($lookup[$key]['columns']??[]));
         // Prevent spreadsheet formula injection in user-controlled text.
