@@ -11,6 +11,27 @@ _company_work_route('GET','',function($p,$b,$u){
   [$y,$m]=Payroll::period((int)($_GET['year']??0),(int)($_GET['month']??0));
   return ['sources'=>Db::all('SELECT a.id,a.jy,a.jm,a.file_name,a.created_at,d.deleted_at FROM company_work_sources a LEFT JOIN company_work_deleted d ON d.kind=\'sources\' AND d.archive_id=a.id WHERE a.jy=? AND a.jm=? ORDER BY a.id DESC',[$y,$m]),'files'=>Db::all('SELECT a.id,a.source_id,a.jy,a.jm,a.created_at,d.deleted_at FROM company_work_files a LEFT JOIN company_work_deleted d ON d.kind=\'files\' AND d.archive_id=a.id WHERE a.jy=? AND a.jm=? ORDER BY a.id DESC',[$y,$m]),'account_fields'=>Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id')];
 });
+// Read-only, paged audit. Includes inactive users and retains no banking data in logs.
+_company_work_route('GET','/identity-audit',function($p,$b,$u){
+  require_once __DIR__.'/IdentityBankingValidation.php';
+  $limit=max(1,min(200,(int)($_GET['limit']??100)));
+  $offset=max(0,(int)($_GET['offset']??0));
+  $all=Db::all('SELECT id,national_code FROM users ORDER BY id');
+  $total=count($all);
+  $users=Db::all('SELECT id,first_name,last_name,personnel_code,national_code,is_active FROM users ORDER BY id LIMIT '.$limit.' OFFSET '.$offset);
+  $fields=Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY id');
+  $ids=array_values(array_unique(array_map('intval',array_column($users,'id'))));
+  $values=[];
+  if($ids){
+    $placeholders=implode(',',array_fill(0,count($ids),'?'));
+    $values=Db::all("SELECT user_id,field_id,value FROM custom_field_values WHERE user_id IN ($placeholders)",$ids);
+  }
+  $result=IdentityBankingValidation::auditBatch($users,$fields,$values,$all);
+  $scanned=count($users);
+  return ['offset'=>$offset,'limit'=>$limit,'scanned'=>$scanned,'total'=>$total,
+    'next_offset'=>$offset+$scanned<$total?$offset+$scanned:null,
+    'done'=>$offset+$scanned>=$total,'counts'=>$result['counts'],'issues'=>$result['issues']];
+});
 _company_work_route('POST','/import',function($p,$b,$u){
   // Http::body is the JSON/urlencoded contract. PHP exposes multipart fields in $_POST.
   $form=$_POST;
