@@ -3219,7 +3219,7 @@ function Users() {
         return 2; if (r.includes("ناظر خط") || r.includes("اپراتور"))
         return 1; return 0; };
     const starsForUser = (u) => { const n = (u.rank_stars !== null && u.rank_stars !== undefined && u.rank_stars !== "") ? Math.max(0, Math.min(5, +u.rank_stars || 0)) : defaultStars(u.role_title || rt(u.role_id)); return n ? "★".repeat(n) : "—"; };
-    const save = async (u) => {
+    const save = async (u, closeAfter = true) => {
         if (savingUser)
             return;
         if (String(u.national_code || "").trim()) {
@@ -3251,11 +3251,22 @@ function Users() {
             if (pw) {
                 await db.resetPassword(u.id, pw);
             }
-            setEdit(null);
+            if (customSaveRef.current)
+                await customSaveRef.current('committed');
+            editBaselineRef.current = { ...u };
+            setCustomDirty(false);
+            setSaveMessage("اطلاعات کاربر با موفقیت ذخیره شد.");
             setPw("");
+            if (closeAfter) {
+                editBaselineRef.current = null;
+                setEdit(null);
+            }
+            else
+                setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, ...u } : current);
             await reload();
         }
         catch (error) {
+            setSaveMessage("");
             alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: ' + (error.message || error));
         }
         finally {
@@ -3461,7 +3472,8 @@ function Users() {
                     React.createElement("span", { className: "badge " + (u.is_active ? "b-ok" : "b-no") }, u.is_active ? "فعال" : "غیرفعال")),
                 React.createElement("td", null,
                     React.createElement("div", { className: "row users-row-actions", style: { gap: 6, flexWrap: "wrap" } },
-                        React.createElement("button", { className: "btn g", onClick: () => { setEditTab("profile"); const newDraft = { ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }; editBaselineRef.current = newDraft; setCustomDirty(false); setSaveMessage(""); setEdit(newDraft); setPw(""); GET('/admin/users/' + u.id + '/employment-period').then(period => { setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' } : current); }).catch(error => { alert('دریافت تاریخ همکاری از سرور ناموفق بود: ' + (error.message || error)); }); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                        React.createElement("button", { className: "btn g", onClick: () => { setEditTab("profile"); const newDraft = { ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }; editBaselineRef.current = newDraft; setCustomDirty(false); setSaveMessage(""); setEdit(newDraft); setPw(""); GET('/admin/users/' + u.id + '/employment-period').then(period => { if (editBaselineRef.current && Number(editBaselineRef.current.id) === Number(u.id))
+                                editBaselineRef.current = { ...editBaselineRef.current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' }; setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' } : current); }).catch(error => { alert('دریافت تاریخ همکاری از سرور ناموفق بود: ' + (error.message || error)); }); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                         React.createElement("button", { className: "btn g", onClick: () => setLineModal(u) }, "\u062E\u0637\u0648\u0637"),
                         React.createElement("button", { className: "btn g users-danger-action", onClick: () => delUser(u) }, "\u062D\u0630\u0641"))))))),
         !users.length && !usersLoading && !usersError && React.createElement("div", { className: "users-empty-state", role: "status" },
@@ -3623,7 +3635,7 @@ function Users() {
                     React.createElement("div", { style: { display: editTab === "financial" ? "block" : "none" } },
                         React.createElement(PayrollEditor, { userId: edit.id, userName: `${edit.first_name || ""} ${edit.last_name || ""}`.trim() })),
                     React.createElement("div", { style: { display: editTab === "custom" ? "block" : "none" } },
-                        React.createElement(CustomFieldsFiller, { key: edit.id, userId: edit.id, profile: edit, saveRef: customSaveRef }))),
+                        React.createElement(CustomFieldsFiller, { key: edit.id, userId: edit.id, profile: edit, saveRef: customSaveRef, onDirtyChange: setCustomDirty }))),
                 editTab === "access" && React.createElement(React.Fragment, null,
                     React.createElement("label", null, "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 (\u062E\u0627\u0644\u06CC = \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631)"),
                     React.createElement("input", { className: "input", type: "password", autoComplete: "new-password", value: pw, placeholder: "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F", onChange: e => setPw(e.target.value) }),
@@ -3668,6 +3680,7 @@ function Users() {
             React.createElement("div", { className: "users-edit-footer" },
                 React.createElement("span", { className: "muted", role: "status" }, savingUser ? "در حال ذخیره اطلاعات کاربر…" : editDirty ? "تغییرات ذخیره‌نشده وجود دارد." : saveMessage || "اطلاعات اصلی و تکمیلی به‌صورت یکپارچه ذخیره می‌شوند."),
                 React.createElement("button", { className: "btn g", type: "button", disabled: savingUser, onClick: closeUserEditor }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+                React.createElement("button", { className: "btn g", type: "button", disabled: savingUser || !editDirty, onClick: () => save(edit, false) }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A"),
                 React.createElement("button", { className: "btn p", type: "button", disabled: savingUser, onClick: () => save(edit) }, savingUser ? "در حال ذخیره…" : "ذخیره و بستن"))),
         identityAudit && React.createElement(Modal, { title: "\u0645\u0645\u06CC\u0632\u06CC \u0633\u0627\u062E\u062A\u0627\u0631\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0641\u0639\u0627\u0644 \u0648 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644", onClose: () => setIdentityAudit(null), style: { width: "min(96vw,1100px)" } },
             React.createElement("p", { role: "status" },
@@ -11657,7 +11670,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
             React.createElement("button", { type: "button", className: "btn p", disabled: busy || !selected, onClick: upload }, busy ? "در حال ارسال مدرک…" : "بارگذاری مدرک خصوصی")),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)", margin: 0 } }, error));
 }
-function CustomFieldsFiller({ userId, profile, saveRef = null }) {
+function CustomFieldsFiller({ userId, profile, saveRef = null, onDirtyChange = null }) {
     const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
     const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null), [success, setSuccess] = useState("");
     const [attachmentPresence, setAttachmentPresence] = useState({});
@@ -11703,6 +11716,18 @@ function CustomFieldsFiller({ userId, profile, saveRef = null }) {
     const values = { ...(profile || {}), ...Object.fromEntries(Object.entries(vals).map(([id, value]) => ["cf_" + id, value])),
         ...Object.fromEntries(Object.entries(attachmentPresence).map(([id, exists]) => ["cf_" + id, exists ? "1" : null])) };
     const fieldState = field => adminProfileFieldState(field.profile_definition || field, values);
+    useEffect(() => {
+        if (!onDirtyChange)
+            return;
+        const dirty = (fields || []).some(field => {
+            var _a, _b;
+            const state = adminProfileFieldState(field.profile_definition || field, values);
+            return state.visible && state.enabled && !state.readonly &&
+                !["image", "file"].includes(field.ftype) &&
+                String((_a = vals[field.id]) !== null && _a !== void 0 ? _a : "") !== String((_b = originalVals[field.id]) !== null && _b !== void 0 ? _b : "");
+        });
+        onDirtyChange(dirty);
+    }, [fields, vals, originalVals, profile, onDirtyChange]);
     const visible = (fields || []).filter(field => fieldState(field).visible);
     const sections = visible.reduce((groups, field) => {
         const title = field.group || "اطلاعات تکمیلی";
@@ -11715,6 +11740,10 @@ function CustomFieldsFiller({ userId, profile, saveRef = null }) {
         var _a;
         if (busy || fields === null)
             return false;
+        if (mode === 'committed') {
+            setOriginalVals({ ...vals });
+            return true;
+        }
         const changed = {};
         for (const field of visible) {
             const state = fieldState(field);
