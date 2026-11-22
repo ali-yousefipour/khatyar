@@ -446,6 +446,17 @@ foreach ($routes as $r) {
     if ($r['minLevel'] <= 3) { if (empty($user['is_admin'])) Http::error('دسترسی مدیریتی لازم است', 403); } elseif ((int)$user['level'] > $r['minLevel']) Http::error('سطح دسترسی کافی نیست', 403);
     }
   }
+  // Seniority is a privileged HR ledger. Enforce the same explicit role-permissions
+  // registry used by the web panel even if an API is called directly.
+  if(strpos($path,'/api/admin/seniority')===0) {
+    if (!$user || empty($user['is_admin'])) Http::error('دسترسی مدیریتی سنوات مجاز نیست',403);
+    $permissionRow=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
+    $permissionConfig=$permissionRow?json_decode((string)$permissionRow['value'],true):null;
+    $roleId=(string)($user['role_id']??'');
+    if(is_array($permissionConfig) && array_key_exists($roleId,$permissionConfig)
+        && !in_array('seniority',is_array($permissionConfig[$roleId])?$permissionConfig[$roleId]:[],true))
+      Http::error('مجوز دسترسی به سنوات برای سمت شما فعال نیست',403);
+  }
   if(strpos($path,'/api/admin/work-contracts')===0) {
     // The same role_perms key used by the web sidebar is enforced on API.
     $permRow=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
