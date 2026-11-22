@@ -43,6 +43,17 @@ final class UserProfileFormValues {
     }
     return $result;
   }
+  private static function checkCard(string $value): array {
+    $value=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+    if(!preg_match('/^\\d{16}$/D',$value))return ['valid'=>false];
+    $sum=0;
+    foreach(str_split($value) as $i=>$digit){
+      $num=(int)$digit;
+      if($i%2===0){$num*=2;if($num>9)$num-=9;}
+      $sum+=$num;
+    }
+    return ['valid'=>$sum%10===0,'normalized'=>$value];
+  }
   private static function validateValue(array $field,$value): mixed {
     $type=$field['type']??'text';
     if($value===null||$value==='')return null;
@@ -81,7 +92,7 @@ final class UserProfileFormValues {
       self::fail('گزینه انتخابی معتبر نیست');
     if($type==='national_id'){
       require_once __DIR__.'/IdentityBankingValidation.php';
-      $check=IdentityBankingValidation::nationalCode($value);
+      $check=IdentityBankingValidation::nationalId($value);
       if(empty($check['valid']))self::fail('کد ملی از نظر ساختار نامعتبر است');
       return $check['normalized']??$value;
     }
@@ -90,7 +101,7 @@ final class UserProfileFormValues {
       $check=match($type){
         'iban'=>IdentityBankingValidation::iban($value),
         'account'=>IdentityBankingValidation::account($value),
-        default=>IdentityBankingValidation::card($value)
+        default=>self::checkCard($value)
       };
       if(empty($check['valid']))self::fail('اطلاعات بانکی از نظر ساختار معتبر نیست');
       return $check['normalized']??$value;
