@@ -1656,16 +1656,34 @@ function PersonnelSeniority(){
   const [filters,setFilters]=useState({q:'',role:'',zone:'',active:'1',initialized:''});
   const [editing,setEditing]=useState(null),[days,setDays]=useState(''),[reason,setReason]=useState(''),[baseline,setBaseline]=useState('1405-06-31');
   const [busy,setBusy]=useState(false),[progress,setProgress]=useState(''),[results,setResults]=useState(null),[history,setHistory]=useState(null);
+  const [selectedPeriod,setSelectedPeriod]=useState('');
+  const [periodStatus,setPeriodStatus]=useState(null);
+  const [periodHistory,setPeriodHistory]=useState(null);
+  const [periodConfirm,setPeriodConfirm]=useState(false);
+  const [periodResult,setPeriodResult]=useState(null);
   const mutation=useRef(false),generation=useRef(0);
   const load=async()=>{
     const current=++generation.current;setLoading(true);setError('');
-    try{const next=await GET('/admin/seniority');if(!Array.isArray(next?.rows))throw new Error('فهرست سنوات معتبر نیست.');if(generation.current===current)setData(next);}
+    try{const next=await GET('/admin/seniority');if(!Array.isArray(next?.rows))throw new Error('فهرست سنوات معتبر نیست.');if(generation.current===current){setData(next);setSelectedPeriod(previous=>previous||next.period);}}
     catch(failure){if(generation.current===current)setError(failure.message||'دریافت سنوات ناموفق بود.');}
     finally{if(generation.current===current)setLoading(false);}
   };
   useEffect(()=>{load();return()=>{generation.current++;};},[]);
   const rows=useMemo(()=>seniorityFilter(data?.rows||[],filters),[data,filters]);
   const pager=usePager(rows,25);
+  useEffect(()=>{
+    if(!selectedPeriod)return;
+    let live=true;setPeriodStatus(null);
+    GET('/admin/seniority/period-status?period='+encodeURIComponent(selectedPeriod))
+      .then(value=>{if(live)setPeriodStatus(value);})
+      .catch(failure=>{if(live)setError(failure.message||'وضعیت دوره دریافت نشد.');});
+    return()=>{live=false;};
+  },[selectedPeriod,data]);
+  const currentYear=Number((data?.period||'1405-01').slice(0,4));
+  const years=Array.from({length:9},(_,i)=>currentYear-4+i);
+  const monthNames=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+  const chosenType=selectedPeriod>(data?.period||'')?'پیش‌بینی':'قطعی';
+  const chosenState=periodStatus?.status==='calculated'?'محاسبه‌شده':periodStatus?.status==='forecast'?'پیش‌بینی‌شده':periodStatus?.status==='partial'?'محاسبه ناقص':periodStatus?.status==='failed'?'ناموفق':periodStatus?.status==='running'?'در حال پردازش':'محاسبه‌نشده';
   const roles=Array.from(new Map((data?.rows||[]).filter(row=>row.role_id).map(row=>[String(row.role_id),row.role_title])).entries());
   const zones=Array.from(new Map((data?.rows||[]).filter(row=>row.zone_id).map(row=>[String(row.zone_id),row.zone_name])).entries());
   const totals=rows.reduce((sum,row)=>({days:sum.days+(Number(row.seniority_days)||0),initialized:sum.initialized+(row.initialized?1:0)}),{days:0,initialized:0});
@@ -1680,13 +1698,25 @@ function PersonnelSeniority(){
     finally{mutation.current=false;setBusy(false);}
   };
   const recalculate=async()=>{
-    if(mutation.current||!data)return;
+    if(mutation.current||!data||!selectedPeriod||!periodStatus)return;
     const targets=rows.filter(row=>row.initialized&&Number(row.is_active)===1);
-    if(!targets.length)return alert('در فهرست فعلی نیروی فعالِ دارای سنوات مبنا وجود ندارد.');
-    if(!confirm('سنوات '+fa(targets.length)+' نفر از نیروهای فعالِ نمایش‌داده‌شده تا پایان '+faPlain(data.period)+' محاسبه شود؟ سهم قبلی همین ماه جایگزین می‌شود، نه اینکه دوباره جمع شود.'))return;
-    mutation.current=true;setBusy(true);setResults(null);
-    try{setResults(await seniorityBatchUpdate(targets,data.period,(id,period)=>SEND('POST','/admin/seniority/'+id+'/recalculate',{period}),(done,total)=>setProgress('بررسی '+fa(done)+' از '+fa(total))));await load();}
-    finally{setProgress('');mutation.current=false;setBusy(false);}
+    if(!targets.length)return alert('نیروی فعال دارای مبنا در فهرست انتخابی وجود ندارد.');
+    setPeriodConfirm(true);
+  };
+  const performPeriodRun=async()=>{
+    if(mutation.current||!selectedPeriod)return;
+    const targets=rows.filter(row=>row.initialized&&Number(row.is_active)===1);
+    setPeriodConfirm(false);mutation.current=true;setBusy(true);setProgress('در حال محاسبه در سرور؛ تعداد تکمیل‌شده پس از دریافت پاسخ مشخص می‌شود.');setPeriodResult(null);
+    try {
+      const result=await SEND('POST','/admin/seniority/period-run',{period:selectedPeriod,user_ids:targets.map(row=>row.id)});
+      setPeriodResult(result);
+      await load();
+    } catch(failure){setError(failure.message||'به‌روزرسانی سنوات ناموفق بود.');}
+    finally {setProgress('');mutation.current=false;setBusy(false);}
+  };
+  const loadPeriodHistory=async()=>{
+    try {const result=await GET('/admin/seniority/period-history?limit=100');setPeriodHistory(result.rows||[]);}
+    catch(failure){alert(failure.message||'تاریخچه به‌روزرسانی دریافت نشد.');}
   };
   const showHistory=async row=>{
     if(mutation.current)return;
@@ -1701,7 +1731,14 @@ function PersonnelSeniority(){
     printLetterhead('سنوات نیروها — '+faPlain(data.period),body,{subtitle:'واحد: روز؛ سهم ماه جاری تا پایان ماه و به‌صورت علی‌الحساب است.'});
   };
   return <div className="panel admin-workspace-page" data-testid="personnel-seniority">
-    <div className="row" style={{justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div><h3>سنوات نیروها</h3><p style={{color:'var(--muted)',lineHeight:2}}>میزان سنوات شخص بر اساس تعداد روز؛ مبنای اکسل تا پایان شهریور ۱۴۰۵.</p></div><div className="row" style={{gap:8,flexWrap:'wrap'}}><button className="btn g" disabled={loading||busy} onClick={load}>بازخوانی</button><button className="btn g" disabled={!rows.length||busy} onClick={exportReport}>خروجی اکسل</button><button className="btn g" disabled={!rows.length||busy} onClick={printReport}>چاپ گزارش</button><button className="btn p" disabled={!data||busy||loading} onClick={recalculate}>{busy&&progress?progress:'به‌روزرسانی تا انتهای ماه'}</button></div></div>
+    <div className="row" style={{justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div><h3>سنوات نیروها</h3><p style={{color:'var(--muted)',lineHeight:2}}>میزان سنوات شخص بر اساس تعداد روز؛ مبنای اکسل تا پایان شهریور ۱۴۰۵.</p></div><div className="row" style={{gap:8,flexWrap:'wrap'}}><button className="btn g" disabled={loading||busy} onClick={load}>بازخوانی</button><button className="btn g" disabled={!rows.length||busy} onClick={exportReport}>خروجی اکسل</button><button className="btn g" disabled={!rows.length||busy} onClick={printReport}>چاپ گزارش</button><button className="btn g" disabled={busy} onClick={loadPeriodHistory}>تاریخچه به‌روزرسانی سنوات</button><button className="btn p" disabled={!data||busy||loading||!periodStatus} onClick={recalculate}>به‌روزرسانی سنوات تا پایان ماه انتخابی</button></div></div>
+    <div className="row" style={{gap:12,flexWrap:'wrap',alignItems:'end',margin:'14px 0'}}>
+      <label className="label">سال محاسبه سنوات<select className="input" value={selectedPeriod.slice(0,4)} onChange={event=>setSelectedPeriod(event.target.value+'-'+(selectedPeriod.slice(5)||'01'))}>{years.map(year=><option key={year} value={year}>{fa(year)}</option>)}</select></label>
+      <label className="label">انتخاب ماه محاسبه سنوات<select className="input" value={selectedPeriod.slice(5)} onChange={event=>setSelectedPeriod(selectedPeriod.slice(0,4)+'-'+event.target.value)}>{monthNames.map((name,index)=><option key={name} value={String(index+1).padStart(2,'0')}>{name}</option>)}</select></label>
+      <div role="status" style={{lineHeight:2}}>نوع: <b>{chosenType}</b> · وضعیت: <b>{periodStatus?chosenState:'در حال دریافت…'}</b><div>پایان دوره: {faPlain(selectedPeriod)} / {fa(Number(selectedPeriod.slice(5))<=6?31:Number(selectedPeriod.slice(5))<=11?30:'پایان اسفند')}</div></div>
+    </div>
+    {busy&&progress&&<div role="status" aria-live="polite" style={{padding:12,border:'1px solid var(--line)',borderRadius:12}}>{progress}</div>}
+    {periodResult&&<div role="status" style={{padding:12,lineHeight:2}}>نتیجه عملیات {faPlain(periodResult.period)}: {fa(periodResult.processed)} پردازش، {fa(periodResult.skipped)} بدون تغییر، {fa(periodResult.failed)} خطا · {periodResult.type==='forecast'?'پیش‌بینی':'قطعی'}</div>}
     <div role="note" style={{background:'#edf8f4',border:'1px solid var(--line)',borderRadius:14,padding:14,lineHeight:2,margin:'16px 0'}}>ماه جاری: <b>{faPlain(data?.period||'—')}</b> · تعداد روزهای ماه: {fa(data?.month_days||'—')}<br/>محاسبه: تمام روزهای ماه منهای غیبتِ روزهای پایان‌یافته، مطابق گزارش تردد. جمعه، تعطیلی و مرخصیِ تأییدشده غیبت محسوب نمی‌شوند. روزهای آینده علی‌الحساب منظور می‌شوند و با اصلاح تردد، سهم همین ماه اصلاح خواهد شد؛ ماه‌های قبل دوباره افزوده نمی‌شوند. نیروهای بدون مبنا و غیرفعال خودکار محاسبه نمی‌شوند.</div>
     {error&&<div role="alert" style={{color:'var(--danger)',padding:12}}>{error} <button className="btn g" disabled={loading||busy} onClick={load}>تلاش مجدد</button></div>}
     <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:16}}><input className="input" style={{maxWidth:320}} aria-label="جستجوی پرسنل" placeholder="نام، کد ملی یا شماره پرسنلی" value={filters.q} onChange={event=>setFilters({...filters,q:event.target.value})}/><select className="input" style={{maxWidth:180}} aria-label="فیلتر سمت" value={filters.role} onChange={event=>setFilters({...filters,role:event.target.value})}><option value="">همه سمت‌ها</option>{roles.map(([id,title])=><option key={id} value={id}>{title}</option>)}</select><select className="input" style={{maxWidth:180}} aria-label="فیلتر منطقه" value={filters.zone} onChange={event=>setFilters({...filters,zone:event.target.value})}><option value="">همه مناطق</option>{zones.map(([id,title])=><option key={id} value={id}>{title}</option>)}</select><select className="input" style={{maxWidth:180}} aria-label="وضعیت نیرو" value={filters.active} onChange={event=>setFilters({...filters,active:event.target.value})}><option value="">فعال و غیرفعال</option><option value="1">فعال</option><option value="0">غیرفعال</option></select><select className="input" style={{maxWidth:180}} aria-label="وضعیت سنوات" value={filters.initialized} onChange={event=>setFilters({...filters,initialized:event.target.value})}><option value="">همه وضعیت‌ها</option><option value="1">مبنای ثبت‌شده</option><option value="0">نیازمند ثبت مبنا</option></select></div>
@@ -1709,6 +1746,8 @@ function PersonnelSeniority(){
     {loading&&<p role="status">در حال دریافت اطلاعات…</p>}
     <div style={{overflowX:'auto',border:'1px solid var(--line)',borderRadius:14}}><table className="tbl" style={{minWidth:1100,width:'100%'}}><thead><tr>{['نام و نام خانوادگی','شماره پرسنلی','سمت / منطقه','مبنا (روز)','تا تاریخ','اصلاح دستی','جمع ماه‌ها','سهم ماه جاری','غیبت ماه جاری','میزان سنوات شخص (روز)','عملیات'].map(title=><th key={title}>{title}</th>)}</tr></thead><tbody>{pager.slice.map(row=><tr key={row.id}><td>{row.first_name} {row.last_name}<small style={{display:'block',color:'var(--muted)'}}>{row.national_code||row.username}</small></td><td>{faPlain(row.personnel_code||'—')}</td><td>{row.role_title||'—'}<small style={{display:'block'}}>{row.zone_name||'—'}</small></td><td>{fa(row.base_days??'—')}</td><td>{faPlain(row.base_through_jdate||'—')}</td><td>{fa(row.adjustment_days??'—')}</td><td>{fa(row.monthly_days)}</td><td title={'بررسی تا '+(row.checked_through_jdate||'—')}>{row.current_month_updated_at?fa(row.current_month_days):'محاسبه نشده'}</td><td title={(row.absence_dates||[]).join('، ')}>{fa(row.current_month_absent??'—')}</td><td><b style={{color:row.initialized?'var(--brand)':'var(--danger)'}}>{row.initialized?fa(row.seniority_days):'نیازمند مبنا'}</b></td><td><div className="row" style={{gap:6,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openEdit(row)}>{row.initialized?'ویرایش':'ثبت مبنا'}</button><button className="btn g" disabled={busy||!row.initialized} onClick={()=>showHistory(row)}>تاریخچه</button></div></td></tr>)}{!loading&&!rows.length&&<tr><td colSpan={11} style={{padding:28,textAlign:'center'}}>پرسنلی با این فیلتر یافت نشد.</td></tr>}</tbody></table></div>{pager.Pager()}
     {results&&<div role="status" style={{padding:14,lineHeight:2}}><b>نتیجه به‌روزرسانی: {fa(results.filter(result=>result.ok).length)} موفق، {fa(results.filter(result=>!result.ok).length)} ناموفق؛ تغییر خالص {fa(results.filter(result=>result.ok).reduce((sum,result)=>sum+Number(result.delta_days||0),0))} روز.</b>{results.filter(result=>!result.ok).map(result=><div key={result.id} style={{color:'var(--danger)'}}>{result.name}: {result.error}</div>)}</div>}
+    {periodConfirm&&<Modal title="تأیید محاسبه سنوات" onClose={()=>setPeriodConfirm(false)}><div style={{lineHeight:2}}><p>ماه انتخابی: <b>{faPlain(selectedPeriod)}</b> · نوع محاسبه: <b>{chosenType}</b></p><p>نیروهای واجد شرایط در فهرست: <b>{fa(rows.filter(row=>row.initialized&&Number(row.is_active)===1).length)} نفر</b></p><p>رکوردهای قطعی موجود هر شخص و دوره دوباره ثبت یا بازنویسی نمی‌شوند. پیش‌بینی‌ها نیز وارد سنوات قطعی نخواهند شد.</p>{periodStatus?.final_count>0&&<p style={{color:'var(--danger)'}}>برای این ماه {fa(periodStatus.final_count)} رکورد قطعی موجود است و پردازش مجدد آن‌ها انجام نمی‌شود.</p>}<div className="row" style={{gap:8}}><button className="btn p" onClick={performPeriodRun}>تأیید و اجرا</button><button className="btn g" onClick={()=>setPeriodConfirm(false)}>انصراف</button></div></div></Modal>}
+    {periodHistory&&<Modal title="تاریخچه به‌روزرسانی سنوات" onClose={()=>setPeriodHistory(null)}><div style={{maxHeight:'65vh',overflow:'auto'}}><table className="tbl"><thead><tr>{['ماه','نوع','تاریخ اجرا','اجراکننده','پردازش‌شده','بدون تغییر','خطا','وضعیت'].map(title=><th key={title}>{title}</th>)}</tr></thead><tbody>{periodHistory.map(run=><tr key={run.id}><td>{faPlain(run.period)}</td><td>{run.run_type==='forecast'?'پیش‌بینی':'قطعی'}</td><td>{run.started_at}</td><td>{run.actor_name||'—'}</td><td>{fa(run.processed_count)}</td><td>{fa(run.skipped_count)}</td><td>{fa(run.failed_count)}</td><td>{run.status}</td></tr>)}{!periodHistory.length&&<tr><td colSpan={8}>هنوز عملیاتی ثبت نشده است.</td></tr>}</tbody></table></div></Modal>}
     {editing&&<Modal title={'سنوات '+editing.first_name+' '+editing.last_name} onClose={()=>!busy&&setEditing(null)}><form onSubmit={event=>{event.preventDefault();save();}}><label className="label" style={{display:'block',marginTop:14}}>میزان سنوات شخص (روز)<input className="input" style={{display:'block',marginTop:6}} aria-label="میزان سنوات شخص بر اساس تعداد روز" inputMode="numeric" value={days} onChange={event=>setDays(event.target.value)} required disabled={busy}/></label>{!editing.initialized?<label className="label" style={{display:'block',marginTop:14}}>سنوات تا پایان این تاریخ (شمسی)<input className="input" style={{display:'block',marginTop:6}} aria-label="تاریخ مبنای سنوات" dir="ltr" placeholder="1405-06-31" value={baseline} onChange={event=>setBaseline(event.target.value)} required disabled={busy}/></label>:<p style={{lineHeight:2}}>مبنای اکسل و سهم ماه‌ها حفظ می‌شود؛ اختلاف عدد واردشده به‌عنوان اصلاح دستی ثبت خواهد شد.</p>}<label className="label" style={{display:'block',marginTop:14}}>دلیل ثبت یا اصلاح<textarea className="input" rows={3} style={{display:'block',marginTop:6,resize:'vertical'}} aria-label="دلیل اصلاح سنوات" value={reason} onChange={event=>setReason(event.target.value)} maxLength={500} required disabled={busy}/></label><div className="row" style={{gap:8,marginTop:14}}><button type="submit" className="btn p" disabled={busy}>{busy?'در حال ذخیره…':'ذخیره سنوات'}</button><button type="button" className="btn g" disabled={busy} onClick={()=>setEditing(null)}>انصراف</button></div></form></Modal>}
     {history&&<Modal title={'تاریخچه سنوات '+history.person.first_name+' '+history.person.last_name} onClose={()=>setHistory(null)}><div style={{maxHeight:'65vh',overflow:'auto'}}>{history.rows.length?history.rows.map(event=><div key={event.id} style={{padding:12,borderBottom:'1px solid var(--line)',lineHeight:2}}><b>{event.kind==='recalculate'?'محاسبه ماهانه':event.kind==='import'?'ورود اکسل':event.kind==='initialize'?'ثبت مبنا':'اصلاح دستی'} {faPlain(event.period||'')}</b><div>{fa(event.total_before)} ← {fa(event.total_after)} روز · اختلاف {fa(event.delta_days)}</div><div>{event.reason}</div><small>{event.actor_name||'ورود از SQL'} · {event.created_at}</small></div>):<p>تاریخچه‌ای ثبت نشده است.</p>}</div></Modal>}
   </div>;
