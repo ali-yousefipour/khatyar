@@ -1753,7 +1753,7 @@ function _save_custom_values($uid, $values, $onlyEditable){
 
 route('GET', '/api/my/custom-fields', function($p,$b,$u){
   $editAllowed=_req_setting('allow_android_profile_edit',true) === true;
-  $fields = Db::all("SELECT id,label,fkey,ftype,options,required,user_editable FROM custom_fields WHERE is_active=1 AND user_editable=1 ORDER BY sort_order, id");
+  $fields = Db::all("SELECT id,label,fkey,ftype,options,required,user_editable FROM custom_fields WHERE is_active=1 ORDER BY sort_order, id");
   $vals = Db::all("SELECT field_id, value FROM custom_field_values WHERE user_id=?", [$u['id']]);
   $map = []; foreach ($vals as $v) $map[$v['field_id']] = $v['value'];
   foreach ($fields as &$f) { $f['value'] = $map[$f['id']] ?? null; $f['user_editable'] = $editAllowed && !empty($f['user_editable']); }
