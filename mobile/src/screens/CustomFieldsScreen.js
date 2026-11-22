@@ -179,7 +179,7 @@ export default function CustomFieldsScreen({ navigation }) {
 
   const values={...profile,...Object.fromEntries(Object.entries(vals).map(([id,v])=>['cf_'+id,v]))};
   const visible=fields.filter(f=>profileFieldState(f.profile_definition||f,values).visible);
-  const editable = visible.filter((f) => editingAllowed && f.user_editable && profileCanEdit(f.profile_definition||f,profile) && !profileFieldState(f.profile_definition||f,values).readonly);
+  const editable = visible.filter((f) => editingAllowed && f.user_editable && profileCanEdit(f.profile_definition||f,profile) && profileFieldState(f.profile_definition||f,values).enabled && !profileFieldState(f.profile_definition||f,values).readonly);
   const readonly = visible.filter((f) => !editingAllowed || !f.user_editable || !profileCanEdit(f.profile_definition||f,profile) || profileFieldState(f.profile_definition||f,values).readonly);
   const showVal = (f) => (f.ftype === 'checkbox') ? (vals[f.id] === '1' || vals[f.id] === true ? 'بله' : 'خیر') : ((String(vals[f.id] || '')).replace(/\|/g, '، ') || '—');
 
