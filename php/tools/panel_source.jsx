@@ -5113,8 +5113,23 @@ function UserProfileFormDesigner(){
               <label>نوع فیلد<input className="input" readOnly value={current.type||""}/></label>
               <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>
               <div style={{display:"grid",gap:4,marginTop:8}}>
-                {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:k==="visible"||k==="enabled"} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
+                {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:k==="visible"||k==="enabled"} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
               </div>
+              <label>سطح حساسیت اطلاعات
+                <select className="input" value={current.sensitivity||"normal"} onChange={e=>editField("sensitivity",e.target.value)}>
+                  <option value="normal">عادی</option><option value="personal">شخصی</option>
+                  <option value="sensitive">حساس (مانند حساب و شبا)</option>
+                </select>
+              </label>
+              <h4 style={{marginTop:12}}>مجوزهای ویرایش اختصاصی</h4>
+              <p className="muted">شناسه‌های عددی را با ویرگول جدا کنید. لیست منع همواره بر اجازه اولویت دارد.</p>
+              {[
+                ["edit_roles","نقش‌های مجاز"],["deny_roles","نقش‌های غیرمجاز"],
+                ["edit_users","کاربران مجاز"],["deny_users","کاربران غیرمجاز"]
+              ].map(([key,label])=><label key={key}>{label}
+                <input className="input" dir="ltr" value={(current[key]||[]).join(",")}
+                  onChange={e=>{const ids=e.target.value.split(",").map(v=>Number(v.trim())).filter(Number.isSafeInteger).filter(v=>v>0);editField(key,[...new Set(ids)]);}}/>
+              </label>)}
               <h4 style={{marginTop:15}}>قوانین شرطی</h4>
               <button className="btn g" onClick={appendRule}>افزودن قانون</button>
               {(current.rules||[]).map((rule,ri)=>{
