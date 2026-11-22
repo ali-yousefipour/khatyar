@@ -59,6 +59,19 @@ jobs:
           ref: 35ef8597efcbaffb5876bd28caa785c4bdf38ac2
           path: current-main
           persist-credentials: false
+      - name: Audit pinned current main source independently
+        run: |
+          cd current-main
+          python3 ../audit/khatyar_inventory.py
+          python3 ../audit/advanced_inventory.py
+          python3 ../audit/independent_loc.py
+          python3 ../audit/ui_catalog.py
+      - name: Upload current main audit datasets
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-current-main-audit-data
+          path: current-main/audit-results/
+          retention-days: 7
       - name: Upload original app logo
         uses: actions/upload-artifact@v4
         with:
