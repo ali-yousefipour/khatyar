@@ -571,6 +571,64 @@ class CompanyWork {
       $zip->addFromString('xl/workbook.xml',$book->saveXML());
     }finally{$zip->close();}
   }
+  /** Preserve the XLSX template and add native Excel notes to column N. */
+  static function addChildAllowanceComments($file,$snapshot){
+    $notes=[];
+    foreach($snapshot['rows']??[] as $i=>$r)if(!empty($r['child_allowance_warning']))$notes[$i+4]=$r['child_allowance_warning'];
+    if(!$notes)return;
+    $z=new ZipArchive();
+    if($z->open($file)!==true)throw new RuntimeException('بازکردن فایل برای درج کامنت ممکن نیست');
+    try{
+      if($z->locateName('xl/commentsCompanyWork.xml')!==false || $z->locateName('xl/drawings/companyWorkNotes.vml')!==false)
+        throw new RuntimeException('نام فایل کامنت از قبل در قالب استفاده شده است');
+      $ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+      $pns='http://schemas.openxmlformats.org/package/2006/relationships';
+      $rns='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+      $sheet=self::xml($z->getFromName('xl/worksheets/sheet1.xml'));
+      $xp=self::xpath($sheet);
+      if($xp->query('//s:legacyDrawing')->length)throw new RuntimeException('قالب دارای یادداشت قبلی است؛ بازنویسی خودکار مجاز نیست');
+      $relPath='xl/worksheets/_rels/sheet1.xml.rels';
+      $raw=$z->getFromName($relPath);
+      $rels=$raw===false?new DOMDocument('1.0','UTF-8'):self::xml($raw);
+      if($raw===false)$rels->appendChild($rels->createElementNS($pns,'Relationships'));
+      $used=[];foreach($rels->getElementsByTagName('Relationship') as $rel)$used[$rel->getAttribute('Id')]=true;
+      $next=1;while(isset($used['rId'.$next]))$next++;$commentId='rId'.$next++;
+      while(isset($used['rId'.$next]))$next++;$drawingId='rId'.$next;
+      foreach([[$commentId,'comments','../commentsCompanyWork.xml'],[$drawingId,'vmlDrawing','../drawings/companyWorkNotes.vml']] as $item){
+        $rel=$rels->createElementNS($pns,'Relationship');
+        $rel->setAttribute('Id',$item[0]);$rel->setAttribute('Type',$rns.'/'.$item[1]);$rel->setAttribute('Target',$item[2]);
+        $rels->documentElement->appendChild($rel);
+      }
+      $legacy=$sheet->createElementNS($ns,'legacyDrawing');$legacy->setAttributeNS($rns,'r:id',$drawingId);
+      $extension=$xp->query('//s:extLst')->item(0);
+      if($extension)$sheet->documentElement->insertBefore($legacy,$extension);
+      else $sheet->documentElement->appendChild($legacy);
+      $doc=new DOMDocument('1.0','UTF-8');
+      $root=$doc->createElementNS($ns,'comments');$doc->appendChild($root);
+      $authors=$doc->createElementNS($ns,'authors');$author=$doc->createElementNS($ns,'author');
+      $author->appendChild($doc->createTextNode('خطیار'));$authors->appendChild($author);$root->appendChild($authors);
+      $list=$doc->createElementNS($ns,'commentList');$root->appendChild($list);
+      $vml='<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>';
+      $shape=1025;
+      foreach($notes as $line=>$message){
+        $entry=$doc->createElementNS($ns,'comment');$entry->setAttribute('ref','N'.$line);$entry->setAttribute('authorId','0');
+        $text=$doc->createElementNS($ns,'text');$t=$doc->createElementNS($ns,'t');$t->appendChild($doc->createTextNode($message));
+        $text->appendChild($t);$entry->appendChild($text);$list->appendChild($entry);
+        $r=$line-1;
+        $vml.='<v:shape id="_x0000_s'.$shape++.'" type="#_x0000_t202" style="position:absolute;visibility:hidden"><v:textbox><div/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>13, 15, '.$r.', 2, 17, 15, '.($r+4).', 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>'.$r.'</x:Row><x:Column>13</x:Column></x:ClientData></v:shape>';
+      }
+      $vml.='</xml>';
+      $ct=self::xml($z->getFromName('[Content_Types].xml'));$ctns='http://schemas.openxmlformats.org/package/2006/content-types';
+      $override=$ct->createElementNS($ctns,'Override');
+      $override->setAttribute('PartName','/xl/commentsCompanyWork.xml');
+      $override->setAttribute('ContentType','application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml');
+      $ct->documentElement->appendChild($override);
+      $hasVml=false;foreach($ct->getElementsByTagName('Default') as $d)if($d->getAttribute('Extension')==='vml')$hasVml=true;
+      if(!$hasVml){$d=$ct->createElementNS($ctns,'Default');$d->setAttribute('Extension','vml');$d->setAttribute('ContentType','application/vnd.openxmlformats-officedocument.vmlDrawing');$ct->documentElement->appendChild($d);}
+      foreach(['xl/worksheets/sheet1.xml'=>$sheet->saveXML(),$relPath=>$rels->saveXML(),'xl/commentsCompanyWork.xml'=>$doc->saveXML(),'xl/drawings/companyWorkNotes.vml'=>$vml,'[Content_Types].xml'=>$ct->saveXML()] as $name=>$contents)
+        if(!$z->addFromString($name,$contents))throw new RuntimeException('ثبت کامنت‌های اکسل ناموفق بود');
+    }finally{$z->close();}
+  }
   static function generate($source,$accountField,$actor){
     // Keep a stage-specific, non-sensitive diagnostic in PHP logs. Never report
     // a successful archive when its actual XLSX or database insert has failed.
@@ -591,6 +649,7 @@ class CompanyWork {
         self::fail('پوشه آرشیو خصوصی فایل شرکت قابل نوشتن نیست. کد پیگیری: '.$reference,503);
       $stage='xlsx';
       self::write($snapshot,$target);
+      self::addChildAllowanceComments($target,$snapshot);
       @chmod($target,0600);
       if(!is_file($target)||filesize($target)<100)
         self::fail('ساخت یا ذخیره فایل اکسل کامل نشد. کد پیگیری: '.$reference,503);
