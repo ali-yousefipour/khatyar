@@ -45,10 +45,25 @@ final class UserProfileForms {
     foreach(Db::all("SELECT id,label,fkey,ftype,options,required,user_editable FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id") as $row){
       $type=(string)($row['ftype']??'text');
       if(!in_array($type,UserProfileRules::FIELD_TYPES,true))$type='text';
-      $custom[]=['key'=>'cf_'.(int)$row['id'],'label'=>(string)$row['label'],
+      $field=['key'=>'cf_'.(int)$row['id'],'label'=>(string)$row['label'],
         'type'=>$type,'binding'=>'custom','custom_field_id'=>(int)$row['id'],
-        'required'=>(bool)$row['required'],'readonly'=>!(bool)$row['user_editable'],
-        'options'=>array_values(array_filter(explode('|',(string)($row['options']??'')),static fn($v)=>$v!==''))];
+        'required'=>(bool)$row['required'],'readonly'=>!(bool)$row['user_editable']];
+      if($type==='repeater'){
+        $config=json_decode((string)($row['options']??''),true);
+        if(is_array($config)){
+          $field['columns']=$config['columns']??[];
+          $field['min_rows']=$config['min_rows']??0;
+          $field['max_rows']=$config['max_rows']??12;
+        }else{
+          // A malformed legacy definition stays visible but cannot be edited.
+          $field['readonly']=true;
+          $field['columns']=[['key'=>'child_name','label'=>'نام فرزند','type'=>'text']];
+          $field['max_rows']=12;
+        }
+      }else{
+        $field['options']=array_values(array_filter(explode('|',(string)($row['options']??'')),static fn($v)=>$v!==''));
+      }
+      $custom[]=$field;
     }
     return ['schema_version'=>1,'form_key'=>self::KEY,'sections'=>[
       ['key'=>'identity','title'=>'اطلاعات هویتی و فردی','fields'=>array_slice($system,0,6)],
