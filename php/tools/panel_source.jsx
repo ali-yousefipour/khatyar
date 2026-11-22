@@ -1926,47 +1926,72 @@ function Users(){
     {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
       <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
         <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
+        <button role="tab" aria-selected={editTab==="identity"} className={"btn "+(editTab==="identity"?"p":"g")} onClick={()=>setEditTab("identity")}>اطلاعات هویتی</button>
+        <button role="tab" aria-selected={editTab==="contact"} className={"btn "+(editTab==="contact"?"p":"g")} onClick={()=>setEditTab("contact")}>تماس و نشانی</button>
+        <button role="tab" aria-selected={editTab==="organization"} className={"btn "+(editTab==="organization"?"p":"g")} onClick={()=>setEditTab("organization")}>اطلاعات سازمانی</button>
+        <button role="tab" aria-selected={editTab==="employment"} className={"btn "+(editTab==="employment"?"p":"g")} onClick={()=>setEditTab("employment")}>اطلاعات استخدامی</button>
+        <button role="tab" aria-selected={editTab==="family"} className={"btn "+(editTab==="family"?"p":"g")} onClick={()=>setEditTab("family")}>اطلاعات خانوادگی</button>
         <button role="tab" aria-selected={editTab==="financial"} className={"btn "+(editTab==="financial"?"p":"g")} onClick={()=>setEditTab("financial")}>حقوق و اطلاعات مالی</button>
         <button role="tab" aria-selected={editTab==="custom"} className={"btn "+(editTab==="custom"?"p":"g")} onClick={()=>setEditTab("custom")}>اطلاعات تکمیلی و سفارشی</button>
         <button role="tab" aria-selected={editTab==="access"} className={"btn "+(editTab==="access"?"p":"g")} onClick={()=>setEditTab("access")}>تنظیمات حساب و دسترسی</button>
       </div>
       {<div>
+
       <div style={{display:editTab==="profile"?"block":"none"}}>
-      <div className="row" style={{gap:10,alignItems:"center"}}>
-        {edit.photo?<img src={edit.photo} style={{width:60,height:60,borderRadius:12,objectFit:"cover"}}/>:<span className="pf2" style={{width:60,height:60,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
-        <label className="btn g" style={{cursor:"pointer"}}>تغییر عکس<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label></div>
-      <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>
-        <label className="label">امضای پرسنلی</label>
-        <div className="row" style={{gap:10,alignItems:"center",marginTop:4}}>
-          {edit.signature_data?<img src={edit.signature_data} style={{width:120,height:60,borderRadius:8,objectFit:"contain",background:"#fff",border:"1px solid var(--line)"}}/>:<span className="muted" style={{fontSize:12}}>کاربر هنوز امضایی در برنامه ثبت نکرده است.</span>}
-          <label className="btn g" style={{cursor:"pointer"}}>{edit.signature_data?"تغییر امضا":"افزودن امضا"}<input type="file" accept="image/*" hidden onChange={e=>pickSignature(edit,e.target.files[0])}/></label>
-          {edit.signature_data&&<button type="button" className="btn g" style={{color:"var(--danger)"}} onClick={()=>clearSignature(edit)}>حذف امضا</button>}
+        <div className="row" style={{gap:12,alignItems:"center",marginBottom:16}}>
+          {edit.photo?<img src={edit.photo} alt="تصویر پرسنلی" style={{width:66,height:66,borderRadius:14,objectFit:"cover"}}/>:<span className="pf2" style={{width:66,height:66,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
+          <div style={{flex:1}}><strong>{edit.first_name||""} {edit.last_name||""}</strong><div className="muted" style={{fontSize:12}}>{edit.username||"—"} · {edit.personnel_code||"کد پرسنلی ثبت نشده"}</div></div>
+          <label className="btn g" style={{cursor:"pointer"}}>تغییر تصویر<input type="file" accept="image/*" hidden onChange={e=>pickPhoto(edit,e.target.files[0])}/></label>
         </div>
-        <p className="muted" style={{fontSize:11,marginTop:4}}>این امضا همان تصویری است که کاربر داخل برنامه (بخش حساب کاربری) رسم و ذخیره می‌کند و در چاپ گزارش‌ها درج می‌شود؛ مدیر نیز می‌تواند در صورت نیاز آن را از همین‌جا تغییر یا حذف کند.</p>
+        <div className="row" style={{gap:10,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:180}}><label>نام</label><input className="input" value={edit.first_name||""} onChange={e=>setEdit({...edit,first_name:e.target.value})}/></div>
+          <div style={{flex:1,minWidth:180}}><label>نام خانوادگی</label><input className="input" value={edit.last_name||""} onChange={e=>setEdit({...edit,last_name:e.target.value})}/></div>
+        </div>
+        <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--line)"}}>
+          <label className="label">امضای پرسنلی</label>
+          <div className="row" style={{gap:10,alignItems:"center",flexWrap:"wrap",marginTop:6}}>
+            {edit.signature_data?<img src={edit.signature_data} alt="امضای پرسنلی" style={{width:120,height:60,borderRadius:8,objectFit:"contain",background:"#fff",border:"1px solid var(--line)"}}/>:<span className="muted">امضایی ثبت نشده است.</span>}
+            <label className="btn g" style={{cursor:"pointer"}}>{edit.signature_data?"تغییر امضا":"افزودن امضا"}<input type="file" accept="image/*" hidden onChange={e=>pickSignature(edit,e.target.files[0])}/></label>
+            {edit.signature_data&&<button type="button" className="btn g" style={{color:"var(--danger)"}} onClick={()=>clearSignature(edit)}>حذف امضا</button>}
+          </div>
+          <p className="muted" style={{fontSize:11.5}}>امضای ثبت‌شده در گزارش‌ها و چاپ‌های مرتبط با کاربر استفاده می‌شود.</p>
+        </div>
       </div>
-      <div className="row" style={{marginTop:10}}><div><label>نام</label><input className="input" value={edit.first_name||""} onChange={e=>setEdit({...edit,first_name:e.target.value})}/></div>
-        <div><label>نام خانوادگی</label><input className="input" value={edit.last_name||""} onChange={e=>setEdit({...edit,last_name:e.target.value})}/></div></div>
-      <label>ایمیل</label><input className="input" dir="ltr" value={edit.email||""} onChange={e=>setEdit({...edit,email:e.target.value})}/>
-      <label>سمت</label><select className="input" value={edit.role_id||""} onChange={e=>setEdit({...edit,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
-      <label>منطقه</label><select className="input" value={edit.zone_id||""} onChange={e=>setEdit({...edit,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
-      <div className="row" style={{marginTop:10,flexWrap:"wrap",gap:10}}>
-        <div style={{flex:1,minWidth:140}}><label>تلفن همراه</label><input className="input" dir="ltr" value={edit.phone||""} onChange={e=>setEdit({...edit,phone:e.target.value})}/></div>
-        <div style={{flex:1,minWidth:140}}><label>کد ملی</label><input className="input" dir="ltr" maxLength="32" value={edit.national_code||""} onChange={e=>setEdit({...edit,national_code:e.target.value})}/>{edit.national_code&&<small role="status" style={{color:offlineNationalIdWeb(edit.national_code).valid?"var(--ok,#087f5b)":"var(--danger,#bd2929)"}}>{offlineNationalIdWeb(edit.national_code).message}</small>}</div>
-        <div style={{flex:1,minWidth:140}}><label>کد پرسنلی</label><input className="input" dir="ltr" value={edit.personnel_code||""} onChange={e=>setEdit({...edit,personnel_code:e.target.value})}/></div>
+      <div style={{display:editTab==="identity"?"block":"none"}}>
+        <div className="row" style={{gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:180}}><label>کد ملی</label><input className="input" dir="ltr" maxLength="32" value={edit.national_code||""} onChange={e=>setEdit({...edit,national_code:e.target.value})}/>{edit.national_code&&<small role="status" style={{color:offlineNationalIdWeb(edit.national_code).valid?"var(--ok,#087f5b)":"var(--danger,#bd2929)"}}>{offlineNationalIdWeb(edit.national_code).message}</small>}</div>
+          <div style={{flex:1,minWidth:180}}><label>کد پرسنلی</label><input className="input" dir="ltr" value={edit.personnel_code||""} onChange={e=>setEdit({...edit,personnel_code:e.target.value})}/></div>
+          <div style={{flex:1,minWidth:180}}><label>تاریخ تولد</label><JDate yearFrom={1320} yearTo={todayJ()[0]} value={edit.birth_iso||(edit.birth_date?isoFromJ(...String(edit.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):"")} onChange={v=>{let bd="";if(v){const [y,m,d]=v.split("-").map(Number);const [jy,jm,jd]=gregToJalali(y,m,d);bd=jy+"-"+String(jm).padStart(2,"0")+"-"+String(jd).padStart(2,"0");}setEdit({...edit,birth_iso:v,birth_date:bd});}}/>{edit.birth_date&&<span className="muted" style={{fontSize:11}}>{String(edit.birth_date).replace(/-/g,"/")}</span>}</div>
+        </div>
       </div>
-      <div className="row" style={{marginTop:6,flexWrap:"wrap",gap:10}}>
-        <div style={{flex:1,minWidth:140}}><label>وضعیت تأهل</label><select className="input" value={edit.marital_status||""} onChange={e=>setEdit({...edit,marital_status:e.target.value})}>
-          <option value="">—</option><option value="مجرد">مجرد</option><option value="متاهل">متاهل</option></select></div>
-        <div style={{flex:1,minWidth:140}}><label>تعداد فرزند</label><input className="input" type="number" min="0" value={edit.children_count??""} onChange={e=>setEdit({...edit,children_count:e.target.value===""?null:+e.target.value})}/></div>
-        <div style={{flex:1,minWidth:180}}><label>تاریخ شروع به کار</label><JDate jalali yearFrom={1350} yearTo={todayJ()[0]+2} value={edit.employment_start_date||""} onChange={v=>setEdit({...edit,employment_start_date:v})}/></div>
-        <div style={{flex:1,minWidth:180}}><label>تاریخ اتمام همکاری (اختیاری)</label><JDate jalali yearFrom={1350} yearTo={todayJ()[0]+5} value={edit.employment_end_date||""} onChange={v=>setEdit({...edit,employment_end_date:v})}/><button type="button" className="btn g" onClick={()=>setEdit({...edit,employment_end_date:""})}>حذف تاریخ اتمام</button></div>
-        <div style={{flex:1,minWidth:170}}><label>تعداد روز سنوات</label><input className="input" type="text" readOnly aria-label="تعداد روز سنوات (فقط نمایش)" value={edit.seniority_loading?"در حال دریافت…":edit.seniority_days==null?"ثبت نشده":fa(edit.seniority_days)} style={{background:"var(--surface,#f2f5f7)",cursor:"default",fontWeight:700}}/><small className="muted">اطلاعات از آخرین وضعیت ثبت‌شده در مدیریت سنوات دریافت می‌شود و در این بخش قابل ویرایش نیست.</small></div>
-        <div style={{flex:1,minWidth:170}}><label>تاریخ تولد</label><JDate yearFrom={1320} yearTo={todayJ()[0]} value={edit.birth_iso||(edit.birth_date?isoFromJ(...String(edit.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):"")} onChange={v=>{ let bd=""; if(v){ const [y,m,d]=v.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); bd=`${jy}-${String(jm).padStart(2,"0")}-${String(jd).padStart(2,"0")}`; } setEdit({...edit,birth_iso:v,birth_date:bd}); }}/>{edit.birth_date&&<span className="muted" style={{fontSize:11}}>{String(edit.birth_date).replace(/-/g,"/")}</span>}</div>
+      <div style={{display:editTab==="contact"?"block":"none"}}>
+        <div className="row" style={{gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:190}}><label>تلفن همراه</label><input className="input" dir="ltr" value={edit.phone||""} onChange={e=>setEdit({...edit,phone:e.target.value})}/></div>
+          <div style={{flex:1,minWidth:190}}><label>ایمیل</label><input className="input" dir="ltr" value={edit.email||""} onChange={e=>setEdit({...edit,email:e.target.value})}/></div>
+        </div>
+        <label>آدرس محل سکونت</label><textarea className="input" rows="3" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
       </div>
-      <div style={{flex:1,minWidth:170}}><label>تعداد ستاره درجه</label><input className="input" type="number" min="0" max="5" value={edit.rank_stars??""} placeholder="خالی = پیش‌فرض سمت" onChange={e=>setEdit({...edit,rank_stars:e.target.value===""?null:Math.max(0,Math.min(5,+e.target.value||0))})}/><span className="muted" style={{fontSize:11}}>پیش‌فرض: ناظر/اپراتور ۱، بازرس ۲، سربازرس ۴</span></div>
-      <LeaveBalance userId={edit.id}/>
-      {(edit.device_model||edit.android_version)&&<div className="muted" style={{fontSize:11.5,marginTop:8}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخهٔ برنامه: {edit.app_version||"—"}</div>}
-      <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
+      <div style={{display:editTab==="organization"?"block":"none"}}>
+        <div className="row" style={{gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:180}}><label>سمت</label><select className="input" value={edit.role_id||""} onChange={e=>setEdit({...edit,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select></div>
+          <div style={{flex:1,minWidth:180}}><label>منطقه</label><select className="input" value={edit.zone_id||""} onChange={e=>setEdit({...edit,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
+          <div style={{flex:1,minWidth:160}}><label>تعداد ستاره درجه</label><input className="input" type="number" min="0" max="5" value={edit.rank_stars??""} placeholder="خالی = پیش‌فرض سمت" onChange={e=>setEdit({...edit,rank_stars:e.target.value===""?null:Math.max(0,Math.min(5,+e.target.value||0))})}/><small className="muted">پیش‌فرض: ناظر/اپراتور ۱، بازرس ۲، سربازرس ۴</small></div>
+        </div>
+        {(edit.device_model||edit.android_version)&&<p className="muted" style={{fontSize:12}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخه برنامه: {edit.app_version||"—"}</p>}
+      </div>
+      <div style={{display:editTab==="employment"?"block":"none"}}>
+        <div className="row" style={{gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:190}}><label>تاریخ شروع به کار</label><JDate jalali yearFrom={1350} yearTo={todayJ()[0]+2} value={edit.employment_start_date||""} onChange={v=>setEdit({...edit,employment_start_date:v})}/></div>
+          <div style={{flex:1,minWidth:190}}><label>تاریخ اتمام همکاری (اختیاری)</label><JDate jalali yearFrom={1350} yearTo={todayJ()[0]+5} value={edit.employment_end_date||""} onChange={v=>setEdit({...edit,employment_end_date:v})}/><button type="button" className="btn g" onClick={()=>setEdit({...edit,employment_end_date:""})}>حذف تاریخ اتمام</button></div>
+          <div style={{flex:1,minWidth:170}}><label>تعداد روز سنوات</label><input className="input" type="text" readOnly aria-label="تعداد روز سنوات (فقط نمایش)" value={edit.seniority_loading?"در حال دریافت…":edit.seniority_days==null?"ثبت نشده":fa(edit.seniority_days)} style={{background:"var(--surface,#f2f5f7)",cursor:"default",fontWeight:700}}/><small className="muted">اطلاعات از مدیریت سنوات دریافت می‌شود.</small></div>
+        </div>
+        <LeaveBalance userId={edit.id}/>
+      </div>
+      <div style={{display:editTab==="family"?"block":"none"}}>
+        <div className="row" style={{gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:180}}><label>وضعیت تأهل</label><select className="input" value={edit.marital_status||""} onChange={e=>setEdit({...edit,marital_status:e.target.value})}><option value="">—</option><option value="مجرد">مجرد</option><option value="متاهل">متاهل</option></select></div>
+          <div style={{flex:1,minWidth:180}}><label>تعداد فرزند</label><input className="input" type="number" min="0" value={edit.children_count??""} onChange={e=>setEdit({...edit,children_count:e.target.value===""?null:+e.target.value})}/></div>
+        </div>
       </div>
       <div style={{display:editTab==="financial"?"block":"none"}}>
         <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
