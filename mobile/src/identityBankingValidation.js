@@ -52,3 +52,46 @@ export function validateAccount(raw) {
     'تبدیل و تطبیق شماره حساب داخلی با شبا بدون الگوریتم رسمی بانک قابل تأیید نیست.'
   ],{normalized:s.replace(/[ .-]/g,'')});
 }
+
+/**
+ * Mirrors the PHP new/edited user policy. No network calls or plaintext logging.
+ * knownUsers may be empty offline; server must re-check duplicates on sync.
+ */
+export function validateUserInput(input = {}, {knownUsers = [], editingId = null} = {}) {
+  const checks = {}, errors = [], warnings = [];
+  if (Object.prototype.hasOwnProperty.call(input, 'national_code')) {
+    const national = validateNationalId(input.national_code);
+    checks.national_code = national;
+    if (!national.valid && national.status !== 'missing_information') errors.push(...national.errors);
+    if (national.valid) {
+      const digits = normalizeIranianDigits(input.national_code);
+      if (knownUsers.some(person => (editingId === null || Number(person.id) !== Number(editingId)) &&
+          normalizeIranianDigits(person.national_code ?? '') === digits)) {
+        errors.push('این کد ملی قبلاً برای کاربر دیگری ثبت شده است.');
+      }
+    }
+  }
+  const bankCode = input.bank_code ?? null;
+  if (bankCode !== null && !/^[0-9]{3}$/.test(String(bankCode))) {
+    errors.push('شناسه بانک انتخاب‌شده نامعتبر است.');
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'iban') && String(input.iban ?? '').trim()) {
+    const iban = validateIban(input.iban, {
+      expectedBank: typeof bankCode === 'string' && /^[0-9]{3}$/.test(bankCode) ? bankCode : null,
+      allowWithoutPrefix: true
+    });
+    checks.iban = iban;
+    if (!iban.valid && iban.status !== 'offline_unverifiable') errors.push(...iban.errors);
+    warnings.push(...iban.warnings);
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'account') && String(input.account ?? '').trim()) {
+    const account = validateAccount(input.account);
+    checks.account = account;
+    if (!account.valid) errors.push(...account.errors);
+    warnings.push(...account.warnings);
+  }
+  return {valid: errors.length === 0, status: errors.length ? 'invalid' :
+    (warnings.length ? 'offline_unverifiable' : 'structurally_valid'),
+    checks, errors: [...new Set(errors)], warnings: [...new Set(warnings)],
+    verificationLevel:'offline_structural'};
+}
