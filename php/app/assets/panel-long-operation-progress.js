@@ -14,6 +14,9 @@
   let host = null;
 
   const excluded = /\/(?:health|auth\/me|session\/(?:renew|me)|radio|presence\/live|notifications?|ping|heartbeat)(?:\/|$)/i;
+  // Live map is updated every few seconds; its polling must never open the
+  // blocking, global progress dialog. Keep report/download loaders unchanged.
+  const liveMapPolling = /^\/api\/(?:admin\/)?(?:live(?:[-\/](?:map|locations?|positions?|staff))?|live-map(?:[-\/].*)?|map(?:[-\/](?:live|locations?|positions?|staff))?|(?:staff[-\/])?locations?|(?:staff[-\/])?positions?)(?:\/|$)/i;
   const reports = /(?:export|download|report|excel|xlsx|csv|pdf|print|backup|statement|صورت.?وضعیت|گزارش)/i;
   const fileExtensions = /\.(?:xlsx?|csv|pdf)(?:$|\?)/i;
   // Dashboard cards and their tabs must not appear frozen while API data is pending.
@@ -29,7 +32,7 @@
     const url = normalize(input);
     if (!url || !url.pathname.startsWith('/api/')) return null;
     const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-    if (excluded.test(url.pathname)) return null;
+    if (excluded.test(url.pathname) || liveMapPolling.test(url.pathname)) return null;
     const report = reports.test(url.pathname) || fileExtensions.test(url.pathname);
     if (method !== 'GET' && !(method === 'POST' && report)) return null;
     const dashboard = method === 'GET' && dashboardData.test(url.pathname);
