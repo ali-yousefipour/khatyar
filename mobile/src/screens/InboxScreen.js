@@ -244,11 +244,6 @@ export function InboxReportsScreen({ navigation }) {
           </ScrollView>
         </View>}
       </View>}
-      <View style={s.statusFilterWrap}>
-          <TouchableOpacity style={[s.chip, !sender && s.chipOn]} onPress={() => setSender(null)}><Text style={[s.chipTxt, !sender && { color: '#fff' }]}>همه فرستندگان</Text></TouchableOpacity>
-          {senders.map((sd) => <TouchableOpacity key={sd.id} style={[s.chip, sender === sd.id && s.chipOn]} onPress={() => setSender(sd.id)}><Text style={[s.chipTxt, sender === sd.id && { color: '#fff' }]}>{sd.name}</Text></TouchableOpacity>)}
-        </View>
-      )}
       <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
