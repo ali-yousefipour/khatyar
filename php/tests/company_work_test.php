@@ -48,6 +48,7 @@ try{
   // blank, and annotates both name cells with native Excel comments.
   $unmatched=['source_row'=>6,'first_name'=>'بدون','last_name'=>'تطبیق','personnel_code'=>'0099',
     'role'=>'ناظر','errors'=>['شماره پرسنلی یافت نشد یا یکتا نیست'],'validation_warnings'=>[]];
+  $r['child_allowance_warning']='سابقه بیمه حق اولاد نیازمند بررسی است';
   $problem=['rows'=>[$r,$unmatched],'year'=>1405,'month'=>7,'has_errors'=>true,
     'discrepancies'=>['no_attendance_in_file'=>[]]];
   CompanyWork::write($problem,$tmp);
