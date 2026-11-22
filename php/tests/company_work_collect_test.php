@@ -39,6 +39,10 @@ yes('combined company inputs are complete',!$out['has_errors']);
 yes('organization role and approved hours remain authoritative',$r['role']==='سمت اعلامی سازمان'&&$r['overtime_hours']===12.75);
 yes('bank account and national identity come from database',$r['account']==='0000123456'&&$r['national_code']==='0012345678');
 yes('seniority days, demographics and rotation joined',$r['seniority_days']===730&&$r['children']===2&&$r['morning']===10.5);
+yes('marital status is coded numerically for XLSX',$r['marital_code']===1);
+yes('plain account is explicitly unverified',($r['bank_validation']['status']??'')==='account_unverified');
+yes('invalid Shahr IBAN rejected',CompanyWork::bankAccountCheck('IR000610000000000000000000')['valid']===false);
+yes('an IBAN from another bank cannot be accepted as Shahr',CompanyWork::bankAccountCheck('IR820540102680020817909002')['valid']===false);
 yes('rotation uses the selected organization source period',$GLOBALS['rotation_period']===[1405,7]&&$out['year']===1405&&$out['month']===7);
 yes('canonical attendance called with exact Jalali period',$GLOBALS['attendance_calls'][0]===[1,'1405/07/01','1405/07/30']);
 yes('inactive personnel use existing rotation classifier',$GLOBALS['rotation_used'][0]===1);
@@ -71,6 +75,16 @@ try{
   $sheet=$z->getFromName('xl/worksheets/sheet1.xml');$z->close();
   yes('generated XLSX W4 contains Persian employment and sick leave notes',
     str_contains($sheet,'۱۴۰۵/۰۷/۱۵')&&str_contains($sheet,'استعلاجی از تاریخ')&&str_contains($sheet,'تعداد روز غیبت'));
+  Seniority::$value=719;
+  $warn=IsolatedCollectedCompanyWork::generate($source,5,1);
+  yes('low registered seniority generates a review note',$warn['generated']===true&&str_contains($warn['snapshot']['rows'][0]['child_allowance_warning'],'۷۲۰'));
+  $commentFile=glob($root.'/*.xlsx');
+  $latest=end($commentFile);$cz=new ZipArchive();
+  if($cz->open($latest)!==true)throw new RuntimeException('cannot open notes test XLSX');
+  $commentXml=$cz->getFromName('xl/commentsCompanyWork.xml');$cz->close();
+  yes('native child allowance Excel comment saved to N4',$commentXml!==false&&str_contains($commentXml,'N4')&&str_contains($commentXml,'۷۲۰'));
+  unlink($latest);
+  Seniority::$value=730;
   $hash=hash_file('sha256',$file);Db::$account='123456789';yes('later database edits cannot alter archived file',hash_file('sha256',$file)===$hash);
   Seniority::$value=null;$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('missing seniority blocks export instead of zero',$blocked['generated']===false&&count(glob($root.'/*.xlsx'))===1&&str_contains(implode(' ',$blocked['snapshot']['rows'][0]['errors']),'سنوات'));
   Seniority::$value=730;Db::$users[0]['last_name']='ناسازگار';$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('generation rechecks current personnel identity',$blocked['generated']===false&&count(Db::$inserted)===1);
