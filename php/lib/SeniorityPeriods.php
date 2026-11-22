@@ -52,6 +52,20 @@ final class SeniorityPeriods {
     $count=Db::one('SELECT COUNT(*) n FROM personnel_seniority_period_runs');
     return ['rows'=>$rows,'total'=>(int)($count['n']??0)];
   }
+  static function exportHistory($period='') {
+    self::schema();
+    $params=[];$where='';
+    if(trim((string)$period)!==''){$period=self::period($period);$where=' WHERE r.period=?';$params[]=$period;}
+    $rows=Db::all("SELECT r.*, CONCAT_WS(' ',u.first_name,u.last_name) actor_name
+      FROM personnel_seniority_period_runs r LEFT JOIN users u ON u.id=r.actor_id".
+      $where." ORDER BY r.id DESC LIMIT 10000",$params);
+    $writer=new XlsxWriter(['ردیف','ماه و سال','نوع محاسبه','تاریخ اجرا','اجراکننده','کاربران پردازش‌شده','بدون تغییر','ناموفق','وضعیت']);
+    $writer->setProfessionalStyle(true);
+    $writer->setReportHeading('خطیار | تاریخچه به‌روزرسانی سنوات','ماه گزارش: '.($period?:'همه دوره‌ها'),'تعداد عملیات: '.count($rows));
+    foreach ([8,16,20,24,30,22,18,16,18] as $col=>$width) $writer->setColWidth($col,$width);
+    foreach($rows as $i=>$row) $writer->addRow([$i+1,$row['period'],$row['run_type']==='forecast'?'پیش‌بینی':'قطعی',$row['started_at'],$row['actor_name']??'',(int)$row['processed_count'],(int)$row['skipped_count'],(int)$row['failed_count'],$row['status']]);
+    return $writer;
+  }
   static function run($period,$ids,$actor) {
     $period=self::period($period);
     if (!is_array($ids) || !$ids || count($ids)>10000) Http::error('فهرست پرسنل معتبر نیست.',422);
