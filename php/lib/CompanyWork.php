@@ -710,7 +710,7 @@ class CompanyWork {
         $text=$doc->createElementNS($ns,'text');$t=$doc->createElementNS($ns,'t');$t->appendChild($doc->createTextNode($message));
         $text->appendChild($t);$entry->appendChild($text);$list->appendChild($entry);
         $r=$line-1;
-        $vml.='<v:shape id="_x0000_s'.$shape++.'" type="#_x0000_t202" style="position:absolute;visibility:hidden"><v:textbox><div/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>13, 15, '.$r.', 2, '.($column+4).', 15, '.($r+4).', 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>'.$r.'</x:Row><x:Column>'.$column.'</x:Column></x:ClientData></v:shape>';
+        $vml.='<v:shape id="_x0000_s'.$shape++.'" type="#_x0000_t202" style="position:absolute;visibility:hidden"><v:textbox><div/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:Anchor>'.$column.', 15, '.$r.', 2, '.($column+4).', 15, '.($r+4).', 4</x:Anchor><x:AutoFill>False</x:AutoFill><x:Row>'.$r.'</x:Row><x:Column>'.$column.'</x:Column></x:ClientData></v:shape>';
       }
       $vml.='</xml>';
       $ct=self::xml($z->getFromName('[Content_Types].xml'));$ctns='http://schemas.openxmlformats.org/package/2006/content-types';
