@@ -1655,7 +1655,7 @@ route('POST', '/api/admin/custom-fields', function($p,$b,$u){
   $fkey = trim($b['fkey'] ?? '');
   if ($fkey==='') $fkey = 'f_'.substr(md5($label.microtime()),0,10);
   $fkey = preg_replace('/[^a-zA-Z0-9_]/','_', $fkey);
-  $ftype = in_array($b['ftype']??'text', ['text','number','date','checkbox','select','multiselect','textarea']) ? $b['ftype'] : 'text';
+  $ftype = in_array($b['ftype']??'text', ['text','textarea','number','date','time','mobile','phone','email','national_id','iban','account','card','checkbox','boolean','select','radio','multiselect','address']) ? $b['ftype'] : 'text';
   $exists = Db::one("SELECT id FROM custom_fields WHERE fkey=?", [$fkey]);
   if ($exists) $fkey .= '_'.rand(100,999);
   $id = Db::insert("INSERT INTO custom_fields(label,fkey,ftype,options,required,user_editable,sort_order,is_active) VALUES(?,?,?,?,?,?,?,1)",
@@ -1666,7 +1666,7 @@ route('POST', '/api/admin/custom-fields', function($p,$b,$u){
 route('PUT', '/api/admin/custom-fields/{id}', function($p,$b,$u){
   $sets=[]; $args=[];
   foreach (['label','options'] as $k) if (isset($b[$k])) { $sets[]="$k=?"; $args[]=$b[$k]; }
-  if (isset($b['ftype']) && in_array($b['ftype'],['text','number','date','checkbox','select','multiselect','textarea'])) { $sets[]="ftype=?"; $args[]=$b['ftype']; }
+  if (isset($b['ftype']) && in_array($b['ftype'],['text','textarea','number','date','time','mobile','phone','email','national_id','iban','account','card','checkbox','boolean','select','radio','multiselect','address'])) { $sets[]="ftype=?"; $args[]=$b['ftype']; }
   foreach (['required','user_editable','is_active'] as $k) if (isset($b[$k])) { $sets[]="$k=?"; $args[]=!empty($b[$k])?1:0; }
   if (isset($b['sort_order'])) { $sets[]="sort_order=?"; $args[]=(int)$b['sort_order']; }
   if (!$sets) return ['ok'=>true];
