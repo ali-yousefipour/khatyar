@@ -232,7 +232,8 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
           ftype:x.type||byId.get(Number(x.custom_field_id)).ftype,
           options:Array.isArray(x.options)?x.options.join('|'):byId.get(Number(x.custom_field_id)).options,
           profile_definition:x}));
-        const remaining=raw.filter(x=>!configured.some(y=>Number(y.custom_field_id)===Number(x.id)));
+        const remaining=raw.filter(x=>!configured.some(y=>Number(y.custom_field_id)===Number(x.id)))
+          .map(x=>form?.schema?{...x,user_editable:false,profile_definition:{readonly:true,binding:'custom',key:'cf_'+x.id}}:x);
         setExtraFields([...ordered,...remaining]);
         const values={};raw.forEach(x=>{if(x.value!=null)values[x.id]=x.value;});
         setExtraValues(values);setOriginalExtraValues(values);
