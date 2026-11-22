@@ -14,7 +14,10 @@ const mustReconcile = [
   'app/assets/dashboard-no-charts.js',
   'app/assets/work-report-default-placement-ui.js',
   'app/assets/school-complaints-admin.js',
-  'app/assets/school-complaints-admin.css'
+  'app/assets/school-complaints-admin.css',
+  'app/assets/users-full-report-config.js',
+  'app/assets/identity-banking-inputs.js',
+  'app/assets/identity-banking-audit.js'
 ];
 const start = workflow.indexOf('for rel in app/index.php');
 const end = workflow.indexOf('; do', start);
@@ -28,7 +31,10 @@ for (const asset of [
   'assets/khatyar-emerald-system.css',
   'assets/panel-long-operation-progress.js',
   'assets/dashboard-no-charts.js',
-  'assets/work-report-default-placement-ui.js'
+  'assets/work-report-default-placement-ui.js',
+  'assets/users-full-report-config.js',
+  'assets/identity-banking-inputs.js',
+  'assets/identity-banking-audit.js'
 ]) {
   assert.ok(html.includes(asset + '?v='), asset + ' must be referenced with a cache-busting version');
 }
