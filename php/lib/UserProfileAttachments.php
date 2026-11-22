@@ -35,7 +35,10 @@ final class UserProfileAttachments {
       if(!$size||($size['mime']??'')!==$mime||(int)$size[0]<1||(int)$size[1]<1
         ||(int)$size[0]>6000||(int)$size[1]>6000)self::fail('ابعاد یا ساختار تصویر معتبر نیست');
     }
-    $clean=preg_replace('/[\x00-\x1F\x7F\/\\]+/u','_',trim($filename));
+    // Strip path separators separately: a trailing backslash in a regex character
+    // class would invalidate the entire pattern and silently discard Persian names.
+    $clean=str_replace(['/', chr(92)], '_', trim($filename));
+    $clean=preg_replace('/[\x00-\x1F\x7F]+/u','_',$clean);
     if(!is_string($clean)||$clean==='')$clean='profile-document.'.self::ALLOWED[$mime];
     $clean=mb_substr($clean,0,160);
     return ['mime_type'=>$mime,'extension'=>self::ALLOWED[$mime],
