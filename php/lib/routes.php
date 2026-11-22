@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/GpsWorkIntervals.php';
 require_once __DIR__.'/Seniority.php';
+require_once __DIR__.'/SeniorityPeriods.php';
 // ============ تعریف همهٔ مسیرهای API ============
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
@@ -4312,6 +4313,15 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
 
 route('GET', '/api/admin/seniority', function($p,$b,$u){
   return Seniority::listRows();
+}, false, ADMIN);
+route('GET', '/api/admin/seniority/period-status', function($p,$b,$u){
+  return SeniorityPeriods::status((string)($_GET['period']??''));
+}, false, ADMIN);
+route('GET', '/api/admin/seniority/period-history', function($p,$b,$u){
+  return SeniorityPeriods::history((int)($_GET['limit']??100),(int)($_GET['offset']??0));
+}, false, ADMIN);
+route('POST', '/api/admin/seniority/period-run', function($p,$b,$u){
+  return SeniorityPeriods::run((string)($b['period']??''),$b['user_ids']??null,(int)$u['id']);
 }, false, ADMIN);
 route('POST', '/api/admin/seniority/export', function($p,$b,$u){
   $ids=$b['user_ids']??null;
