@@ -13,7 +13,7 @@ const jalali=value=>{
   if(typeof value!=='string')return null;
   const digits=value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
     .replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replaceAll('/','-');
-  const match=/^(1[34]\\d{2})-(\\d{2})-(\\d{2})$/.exec(digits);
+  const match=/^(1[34]\d{2})-(\d{2})-(\d{2})$/.exec(digits);
   if(!match)return null;
   const month=Number(match[2]),day=Number(match[3]);
   if(month<1||month>12||day<1||day>(month<=6?31:30))return null;
