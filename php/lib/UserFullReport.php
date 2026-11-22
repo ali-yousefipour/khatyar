@@ -149,13 +149,20 @@ final class UserFullReport {
        (int)$info[0]>2400||(int)$info[1]>2400)return null;
     return $data;
   }
-  public static function run(array $body,bool $forceExport=false): void {
+  /** Record metadata only: never store exported personnel values in audit logs. */
+  private static function audit(int $actor,string $event,array $meta): void {
+    if($actor<1)Http::error('هویت مدیر گزارش‌گیر معتبر نیست',403);
+    Db::run('INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)',
+      [$actor,$event,json_encode($meta,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+  }
+  public static function run(array $body,bool $forceExport=false,int $actorId=0): void {
     $fields=self::schema();
     if(!$forceExport&&($_SERVER['REQUEST_METHOD']??'GET')==='GET') {
       header('Content-Type: application/json; charset=utf-8');
       echo json_encode(['columns'=>$fields,'sorts'=>array_map(static fn($c)=>['key'=>$c['key'],'label'=>$c['label']],$fields)],JSON_UNESCAPED_UNICODE);
       exit;
     }
+    if($actorId<1)Http::error('گزارش بدون شناسه مدیر مجاز نیست',403);
     $lookup=array_column($fields,null,'key');
     $requested=$body['columns']??array_keys($lookup);
     if(!is_array($requested)) Http::error('ستون‌های انتخابی نامعتبر هستند',422);
@@ -295,6 +302,11 @@ final class UserFullReport {
         }
         $sample[]=$row;
       }
+      try{self::audit($actorId,'users_full_report_preview',[
+        'columns'=>$columns,'sorts'=>$levels,'active'=>$active,
+        'role_id'=>$body['role_id']??null,'zone_id'=>$body['zone_id']??null,
+        'row_count'=>count($users)
+      ]);}catch(Throwable $error){error_log('Users report preview audit failed: '.get_class($error));Http::error('ثبت رویداد پیش‌نمایش گزارش ناموفق بود',503);}
       header('Content-Type: application/json; charset=utf-8');
       echo json_encode(['count'=>count($users),'columns'=>array_map(static fn($key)=>$lookup[$key]['label'],$columns),'sample'=>$sample],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
       exit;
@@ -303,6 +315,11 @@ final class UserFullReport {
     $writer=new XlsxWriter(array_map(static fn($key)=>$lookup[$key]['label'],$columns));
     $writer->setProfessionalStyle();
     $writer->setFontName('Vazirmatn');
+    $now=new DateTimeImmutable('now',new DateTimeZone('Asia/Tehran'));
+    [$jy,$jm,$jd]=gregorian_to_jalali((int)$now->format('Y'),(int)$now->format('m'),(int)$now->format('d'));
+    $writer->setReportHeading('گزارش کامل کاربران',
+      sprintf('تاریخ تولید: %04d/%02d/%02d، ساعت %s',$jy,$jm,$jd,$now->format('H:i')),
+      'تعداد کاربران: '.count($users).' | تعداد ستون‌ها: '.count($columns));
     foreach($columns as $index=>$key) {
       $writer->setColWidth($index, in_array($key,['address','email'],true)?32:20);
       // Keep every value as text: dates, IDs and account references must preserve leading zeros.
@@ -326,7 +343,23 @@ final class UserFullReport {
         if($bytes)$writer->setImage($rowIdx,$columnIdx,$bytes,$key==='personnel_signature'?110:90);
       }
     }
-    $writer->output('users_full.xlsx','کاربران');
+    // Build the entire ZIP before declaring a successful generation audit entry.
+    $tmp=$writer->output('users_full.xlsx','کاربران',true);
+    try{
+      self::audit($actorId,'users_full_report_generated',[
+        'columns'=>$columns,'sorts'=>$levels,'active'=>$active,
+        'role_id'=>$body['role_id']??null,'zone_id'=>$body['zone_id']??null,
+        'row_count'=>count($users),'column_count'=>count($columns)
+      ]);
+    }catch(Throwable $error){
+      @unlink($tmp);
+      error_log('Users report export audit failed: '.get_class($error));
+      Http::error('ثبت رویداد گزارش الزامی است؛ دانلود انجام نشد',503);
+    }
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="users_full.xlsx"');
+    header('Content-Length: '.filesize($tmp));
+    try{readfile($tmp);}finally{@unlink($tmp);}
     exit;
   }
 }
