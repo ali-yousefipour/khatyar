@@ -49,6 +49,14 @@ $permissionSchema=['sections'=>[['key'=>'personal','fields'=>[
 $ignored=UserProfileFormValues::plan($permissionSchema,['cf_42'=>'ok'],[],true,['id'=>10,'role_id'=>9]);
 t('role-restricted required field does not block unrelated authorized edits',($ignored['custom'][42]??null)==='ok');
 invalid('role-authorized user must complete role-restricted required field',fn()=>UserProfileFormValues::plan($permissionSchema,['cf_42'=>'ok'],[],true,['id'=>10,'role_id'=>5]));
+$contactSchema=['sections'=>[['key'=>'contact','fields'=>[
+ ['key'=>'cf_47','type'=>'phone','binding'=>'custom','custom_field_id'=>47],
+ ['key'=>'cf_48','type'=>'time','binding'=>'custom','custom_field_id'=>48]
+]]]];
+$contact=UserProfileFormValues::plan($contactSchema,['cf_47'=>'۰۵۱۳۳۴۴۵۵۶۶','cf_48'=>'۱۴:۳۰'],[],true);
+t('Iranian landline and 24-hour time normalize Persian digits',$contact['custom'][47]==='05133445566'&&$contact['custom'][48]==='14:30');
+invalid('invalid landline rejected',fn()=>UserProfileFormValues::plan($contactSchema,['cf_47'=>'1234'],[],true));
+invalid('invalid hour rejected',fn()=>UserProfileFormValues::plan($contactSchema,['cf_48'=>'25:30'],[],true));
 $numeric=['sections'=>[['key'=>'values','fields'=>[['key'=>'children_count','type'=>'number','binding'=>'system'],['key'=>'mobile','type'=>'mobile','binding'=>'system']]]]];
 $persian=UserProfileFormValues::plan($numeric,['children_count'=>'۱۲','mobile'=>'۰۹۱۲۳۴۵۶۷۸۹'],[],true);
 t('Persian decimal digits normalize without corrupting UTF-8',$persian['system']['children_count']==='12');
