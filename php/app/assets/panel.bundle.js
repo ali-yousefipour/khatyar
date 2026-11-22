@@ -11430,7 +11430,8 @@ function CustomFieldsFiller({ userId }) {
             if (userId)
                 db.userCustomValues(userId).then(vs => {
                     const m = {};
-                    (vs || []).forEach(v => m[v.field_id] = v.value);
+                    (vs || []).forEach(v => { var _a; const id = Number((_a = v.field_id) !== null && _a !== void 0 ? _a : v.id); if (Number.isSafeInteger(id) && id > 0)
+                        m[id] = v.value; });
                     setVals(m);
                     setOriginalVals(m);
                 }).catch(e => setError(e.message || "دریافت اطلاعات تکمیلی ناموفق بود."));
