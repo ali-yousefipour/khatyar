@@ -261,6 +261,18 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
     return definition?profileFieldState(definition,valuesForRules):{visible:true,enabled:true,readonly:false,required:false};
   };
   const extraVisible=extraFields.filter(field=>profileFieldState(field.profile_definition||field,valuesForRules).visible);
+  const groupedExtraFields=(()=>{
+    const assigned=new Set(),groups=[];
+    for(const section of formInfo?.schema?.sections||[]){
+      const members=extraVisible.filter(field=>(section.fields||[]).some(def=>def.key==='cf_'+field.id));
+      if(!members.length)continue;
+      members.forEach(field=>assigned.add(field.id));
+      groups.push({key:section.key,title:section.title||'اطلاعات تکمیلی',fields:members});
+    }
+    const remaining=extraVisible.filter(field=>!assigned.has(field.id));
+    if(remaining.length)groups.push({key:'legacy',title:'سایر اطلاعات تکمیلی',fields:remaining});
+    return groups;
+  })();
   const systemCanEdit=key=>!profileReadOnly&&systemFieldState(key).visible&&systemFieldState(key).enabled&&!systemFieldState(key).readonly&&profileCanEdit(systemDefinitions.find(f=>f.key===key&&f.binding==="system"),p);
   const extraEditable=field=>!profileReadOnly&&!!field.user_editable&&
     profileCanEdit(field.profile_definition||field,p)&&
@@ -351,16 +363,19 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       <View style={{marginTop:18,paddingVertical:12,borderTopWidth:1,borderColor:CC.line}}>
         <Text style={s.supplementaryTitle}>اطلاعات جامع پرسنلی — فیلدهای تکمیلی</Text>
         {!!extraError&&<Text accessibilityRole="alert" style={{color:'#b91c1c',textAlign:'right',marginTop:8}}>{extraError}</Text>}
-        {extraVisible.map(field=>{
-          const state=profileFieldState(field.profile_definition||field,valuesForRules);
-          const editable=extraEditable(field)&&state.enabled;
-          return <View key={field.id} style={{marginTop:12}}>
-            <Text style={s.label}>{field.label}{state.required&&editable?' *':''}{!editable?' (فقط نمایش)':''}</Text>
-            {editable?<FieldInput field={field} value={extraValues[field.id]??''}
-              onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}/>:
-              <Text style={[s.input,s.ro]}>{String(extraValues[field.id]??'—').replace(/\\|/g,'، ')}</Text>}
-          </View>;
-        })}
+        {groupedExtraFields.map(section=><View key={section.key} style={{marginTop:14,padding:12,borderRadius:12,borderWidth:1,borderColor:CC.line}}>
+          <Text style={[s.supplementaryTitle,{fontSize:14}]}>{section.title}</Text>
+          {section.fields.map(field=>{
+            const state=profileFieldState(field.profile_definition||field,valuesForRules);
+            const editable=extraEditable(field)&&state.enabled;
+            return <View key={field.id} style={{marginTop:12}}>
+              <Text style={s.label}>{field.label}{state.required&&editable?' *':''}{!editable?' (فقط نمایش)':''}</Text>
+              {editable?<FieldInput field={field} value={extraValues[field.id]??''}
+                onChange={value=>setExtraValues(prev=>({...prev,[field.id]:value}))}/>:
+                <Text style={[s.input,s.ro]}>{String(extraValues[field.id]??'—').replace(/\\|/g,'، ')}</Text>}
+            </View>;
+          })}
+        </View>)}
         {extraVisible.length===0&&<Text style={s.muted}>فیلد تکمیلی دیگری برای نمایش وجود ندارد.</Text>}
       </View>
       {zoneOpts?.enabled && !profileReadOnly && (
