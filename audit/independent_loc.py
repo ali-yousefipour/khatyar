@@ -8,7 +8,7 @@ files.write_text('\n'.join(x['path'] for x in rows)+'\n',encoding='utf-8')
 result={'selected_files':len(rows),'classification':'section-based candidate; files considered code by extension','cloc_binary_found':bool(shutil.which('cloc')),'source_heuristic_sloc':sum(x['sloc_approx'] for x in rows),'source_physical_loc':sum(x['loc'] for x in rows)}
 if shutil.which('cloc'):
  try:
-  proc=subprocess.run(['cloc','--json','--quiet','--list-file='+str(files)],capture_output=True,text=True,timeout=130)
+  proc=subprocess.run(['cloc','--json','--quiet','--timeout','0','--list-file='+str(files)],capture_output=True,text=True,timeout=130)
   result['cloc_exit_code']=proc.returncode
   if proc.returncode==0:
    payload,remaining=json.JSONDecoder().raw_decode(proc.stdout.lstrip())
