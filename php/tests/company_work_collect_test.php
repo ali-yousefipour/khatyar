@@ -75,15 +75,17 @@ try{
   $sheet=$z->getFromName('xl/worksheets/sheet1.xml');$z->close();
   yes('generated XLSX W4 contains Persian employment and sick leave notes',
     str_contains($sheet,'۱۴۰۵/۰۷/۱۵')&&str_contains($sheet,'استعلاجی از تاریخ')&&str_contains($sheet,'تعداد روز غیبت'));
+  $priorFiles=glob($root.'/*.xlsx');
   Seniority::$value=719;
   $warn=IsolatedCollectedCompanyWork::generate($source,5,1);
   yes('low registered seniority generates a review note',$warn['generated']===true&&str_contains($warn['snapshot']['rows'][0]['child_allowance_warning'],'۷۲۰'));
-  $commentFile=glob($root.'/*.xlsx');
-  $latest=end($commentFile);$cz=new ZipArchive();
+  $newFiles=array_values(array_diff(glob($root.'/*.xlsx'),$priorFiles));
+  $latest=$newFiles[0]??null;$cz=new ZipArchive();
   if($cz->open($latest)!==true)throw new RuntimeException('cannot open notes test XLSX');
   $commentXml=$cz->getFromName('xl/commentsCompanyWork.xml');$cz->close();
   yes('native child allowance Excel comment saved to N4',$commentXml!==false&&str_contains($commentXml,'N4')&&str_contains($commentXml,'۷۲۰'));
   unlink($latest);
+  array_pop(Db::$inserted);
   Seniority::$value=730;
   $hash=hash_file('sha256',$file);Db::$account='123456789';yes('later database edits cannot alter archived file',hash_file('sha256',$file)===$hash);
   Seniority::$value=null;$blocked=IsolatedCollectedCompanyWork::generate($source,5,1);yes('missing seniority blocks export instead of zero',$blocked['generated']===false&&count(glob($root.'/*.xlsx'))===1&&str_contains(implode(' ',$blocked['snapshot']['rows'][0]['errors']),'سنوات'));
