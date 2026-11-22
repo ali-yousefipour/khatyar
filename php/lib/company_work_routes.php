@@ -4,7 +4,19 @@ function _company_work_route($method,$path,$handler){
   route($method,'/api/admin/company-work'.$path,static function($p,$b,$u)use($handler){
     _monthly_work_report_need($u);
     header('Cache-Control: private, no-store');
-    try{CompanyWork::schema();return $handler($p,$b,$u);}catch(PayrollError $e){Http::error($e->getMessage(),in_array($e->getCode(),[404,409,422,503],true)?$e->getCode():422);}
+    try{
+      CompanyWork::schema();
+      return $handler($p,$b,$u);
+    }catch(PayrollError $e){
+      Http::error($e->getMessage(),in_array($e->getCode(),[404,409,422,503],true)?$e->getCode():422);
+    }catch(Throwable $e){
+      // Fail closed with a complete JSON response even if archive lookup,
+      // schema access or final serialization fails outside generate().
+      $ref=bin2hex(random_bytes(6));
+      error_log(sprintf('company_work_route ref=%s method=%s route=%s exception=%s detail=%s',
+        $ref,$method,$path,get_class($e),str_replace(["\\r","\\n"],' ',substr($e->getMessage(),0,350))));
+      Http::error('عملیات فایل شرکت با خطای سرور مواجه شد. کد پیگیری: '.$ref,503);
+    }
   },false,ADMIN);
 }
 _company_work_route('GET','',function($p,$b,$u){
