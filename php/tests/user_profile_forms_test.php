@@ -4,7 +4,8 @@ final class Db {
     ['id'=>7,'label'=>'شماره حساب بانک شهر','fkey'=>'bank_account','ftype'=>'text','options'=>'','required'=>1,'user_editable'=>0],
     ['id'=>9,'label'=>'جنسیت','fkey'=>'gender','ftype'=>'select','options'=>'زن|مرد','required'=>0,'user_editable'=>1]
   ];
-  static function all($sql,$p=[]){if(str_contains($sql,'custom_fields'))return self::$fields;throw new RuntimeException('Unexpected DB all');}
+  static function all($sql,$p=[]){if(str_contains($sql,'SELECT id FROM custom_fields'))return array_map(static fn($f)=>['id'=>$f['id']],self::$fields);
+    if(str_contains($sql,'custom_fields'))return self::$fields;throw new RuntimeException('Unexpected DB all');}
   static function one($sql,$p=[]){if(str_contains($sql,'information_schema.tables'))return ['n'=>0];throw new RuntimeException('Unexpected DB one');}
 }
 require_once __DIR__.'/../lib/UserProfileForms.php';
