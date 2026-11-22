@@ -323,17 +323,41 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Match the proven FTPS transport used by publish-local-vendor.sh.
+          # Reject a wrong account or certificate before staging any private modules.
+          FTP_CERT="${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem"
+          timeout 20s openssl s_client -starttls ftp -connect "${FTP_HOST}:21" -servername "${FTP_HOST}" -showcerts </dev/null 2>/dev/null | openssl x509 -out "${FTP_CERT}"
+          ACTUAL_FINGERPRINT="$(openssl x509 -in "${FTP_CERT}" -noout -fingerprint -sha1 | cut -d= -f2)"
+          EXPECTED_FINGERPRINT="89:D1:FA:62:43:86:94:55:EC:ED:41:A3:7C:82:D1:6C:DF:40:07:34"
+          [ "${ACTUAL_FINGERPRINT}" = "${EXPECTED_FINGERPRINT}" ] || { echo "::error::Unexpected FTPS certificate; upload aborted"; exit 1; }
+          timeout 35s lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
+            set cmd:fail-exit yes;
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:ca-file ${FTP_CERT};
+            set ssl:verify-certificate yes;
+              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
+              set ssl:check-hostname no;
+            set ssl:check-hostname no;
+            set net:timeout 15;
+            set net:max-retries 1;
+            cls -1 /;
+            bye" >/dev/null || { echo "::error::FTPS login/listing failed; confirm FTP_USERNAME and FTP_PASSWORD secrets and account access"; exit 1; }
+          echo "Verified FTPS login and root listing."
+
           : > /tmp/lftp-upload.cmd
           {
             echo 'set cmd:fail-exit yes'
-            echo 'set ftp:ssl-force false'
-            echo 'set ftp:ssl-protect-data false'
+            echo 'set ftp:ssl-force true'
+            echo 'set ftp:ssl-protect-data true'
             echo 'set ftp:passive-mode true'
             echo 'set ftp:prefer-epsv false'
             echo 'set net:timeout 60'
             echo 'set net:max-retries 5'
             echo 'set net:reconnect-interval-base 2'
-            echo 'set ssl:verify-certificate no'
+            echo 'set ssl:verify-certificate yes'
+            echo "set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem"
+            echo 'set ssl:check-hostname no'
 
             while IFS= read -r file; do
               [ -n "${file}" ] || continue
@@ -473,13 +497,15 @@ jobs:
 
             : > /tmp/attendance-lib-stage.cmd
             {
-              echo 'set ftp:ssl-force false'
-              echo 'set ftp:ssl-protect-data false'
+              echo 'set ftp:ssl-force true'
+              echo 'set ftp:ssl-protect-data true'
               echo 'set ftp:passive-mode true'
               echo 'set ftp:prefer-epsv false'
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
-              echo 'set ssl:verify-certificate no'
+              echo 'set ssl:verify-certificate yes'
+            echo "set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem"
+            echo 'set ssl:check-hostname no'
               for name in school_complaints_routes.php school_complaint_accounts.php SchoolComplaintNotifications.php LeaveSubstituteCoverage.php school_service_sepand.php Db.php Jwt.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php ZoneChartSync.php Push.php ZoneWorkflow.php RegionalTeam.php SeniorityPeriods.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php UserProfileRules.php UserProfileForms.php UserProfileFormValues.php WorkContracts.php IdentityBankingValidation.php CompanyWork.php company_work_routes.php company-work-template.xlsx organization-template.xlsx DashboardDiscipline.php WorkReportReadScope.php OrganizationWorkPlacement.php WorkReportDefaultPlacement.php WorkReportSnapshot.php WorkReportTemplateArchive.php WorkReportTemplateParser.php WorkReportTemplateExporter.php WorkReportTemplateRepository.php work_report_template_routes.php routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php InternetWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php complaints_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/khat-yar.ir/assets/.attendance-deploy-$name"
@@ -573,13 +599,15 @@ jobs:
             mkdir -p "${verify_dir}"
 
             lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
-              set ftp:ssl-force false;
-              set ftp:ssl-protect-data false;
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
               set ftp:passive-mode true;
               set ftp:prefer-epsv false;
               set net:timeout 60;
               set net:max-retries 3;
-              set ssl:verify-certificate no;
+              set ssl:verify-certificate yes;
+              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
+              set ssl:check-hostname no;
               lcd "${verify_dir}";
               get "${remote}";
               bye
@@ -638,13 +666,15 @@ jobs:
             echo "Deleting remote: ${remote_delete}"
 
             lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
-              set ftp:ssl-force false;
-              set ftp:ssl-protect-data false;
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
               set ftp:passive-mode true;
               set ftp:prefer-epsv false;
               set net:timeout 30;
               set net:max-retries 2;
-              set ssl:verify-certificate no;
+              set ssl:verify-certificate yes;
+              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
+              set ssl:check-hostname no;
               rm "${remote_delete}";
               bye
             " || {
@@ -871,13 +901,15 @@ jobs:
           PHP
           sed -i "s/__SCHEMA_TOKEN__/${token}/g" "/tmp/${installer}"
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
-            set ftp:ssl-force false;
-            set ftp:ssl-protect-data false;
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
             set ftp:passive-mode true;
             set ftp:prefer-epsv false;
             set net:timeout 60;
             set net:max-retries 4;
-            set ssl:verify-certificate no;
+            set ssl:verify-certificate yes;
+              set ssl:ca-file ${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem;
+              set ssl:check-hostname no;
             put /tmp/${installer} -o /khat-yar.ir/assets/${installer};
             bye
           "
