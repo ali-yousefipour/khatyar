@@ -1924,7 +1924,7 @@ function Users(){
       <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
     </Modal>}
     {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
-      <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+      <div className="row" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"wrap",marginBottom:12,position:"sticky",top:0,zIndex:5,background:"var(--surface,#fff)",padding:"8px 4px",borderBottom:"1px solid var(--line)"}}>
         <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
         <button role="tab" aria-selected={editTab==="identity"} className={"btn "+(editTab==="identity"?"p":"g")} onClick={()=>setEditTab("identity")}>اطلاعات هویتی</button>
         <button role="tab" aria-selected={editTab==="contact"} className={"btn "+(editTab==="contact"?"p":"g")} onClick={()=>setEditTab("contact")}>تماس و نشانی</button>
@@ -2019,7 +2019,7 @@ function Users(){
         <button className="btn g" onClick={()=>revoke(edit.id,'android')}>حذف دستگاه اندروید</button>
         <button className="btn g" onClick={()=>revoke(edit.id,'web')}>حذف نشست وب</button></div>
       </>}
-      <button className="btn p" style={{marginTop:14}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
+      <button className="btn p" style={{marginTop:14,position:"sticky",bottom:0,zIndex:4,minHeight:44,boxShadow:"0 -4px 12px #0001"}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
     {identityAudit&&<Modal title="ممیزی ساختاری کاربران فعال و غیرفعال" onClose={()=>setIdentityAudit(null)} style={{width:"min(96vw,1100px)"}}>
       <p role="status">پیشرفت: {fa(identityAudit.scanned)} از {fa(identityAudit.total)} کاربر {identityAudit.done?"— تکمیل شد":"— در حال بررسی"}</p>
       <progress style={{width:"100%"}} max={Math.max(identityAudit.total,1)} value={identityAudit.scanned} aria-label="میزان واقعی پیشرفت ممیزی"/>
