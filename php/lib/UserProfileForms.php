@@ -71,6 +71,14 @@ final class UserProfileForms {
         throw new InvalidArgumentException('فیلد باید به یک منبع مجاز متصل باشد');
       $keys[$key]=true;
     }
+    if($customIds){
+      $ids=array_keys($customIds);
+      $marks=implode(',',array_fill(0,count($ids),'?'));
+      $known=Db::all("SELECT id FROM custom_fields WHERE id IN ($marks) AND is_active=1",$ids);
+      $actual=array_fill_keys(array_map('intval',array_column($known,'id')),true);
+      foreach($ids as $id)if(!isset($actual[$id]))
+        throw new InvalidArgumentException('فیلد سفارشی غیرفعال یا ناشناخته است: '.$id);
+    }
   }
   public static function published(): array {
     if(!self::available())return ['version'=>0,'schema'=>self::initialSchema(),'source'=>'legacy_fallback'];
