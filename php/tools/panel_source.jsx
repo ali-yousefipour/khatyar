@@ -5013,9 +5013,17 @@ function UserProfileFormDesigner(){
     if(fields.some(x=>x.key===key)){setError("این فیلد از قبل در فرم وجود دارد.");return;}
     modify(d=>{
       const last=d.sections.find(x=>x.key==="additional")||d.sections[d.sections.length-1];
-      last.fields.push({key,label:f.label,type:f.ftype||"text",binding:"custom",
-        custom_field_id:Number(f.id),options:String(f.options||"").split("|").filter(Boolean),
-        required:!!Number(f.required),readonly:!Number(f.user_editable),rules:[]});
+      const field={key,label:f.label,type:f.ftype||"text",binding:"custom",
+        custom_field_id:Number(f.id),required:!!Number(f.required),readonly:!Number(f.user_editable),rules:[]};
+      if(field.type==="repeater"){
+        const config=parseRepeater(f.options);
+        field.columns=config.columns;
+        field.min_rows=config.min_rows||0;
+        field.max_rows=config.max_rows||12;
+      }else{
+        field.options=String(f.options||"").split("|").filter(Boolean);
+      }
+      last.fields.push(field);
     });setChoice("");setSelected(key);
   };
   const removeCustomFromForm=()=>{
@@ -5230,7 +5238,8 @@ function UserProfileFormDesigner(){
                     <label key={key}>{label}<input className="input" type="number" value={current[key]??""}
                       onChange={e=>editField(key,e.target.value===""?null:Number(e.target.value))}/></label>):null}
                 </div>}
-              <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>
+              {current.type==="repeater"?<p className="muted">ستون‌های این گروه در «فیلدهای سفارشی پرسنل» تعریف می‌شوند. برای بارگذاری تغییرات، فرم را مجدداً بارگذاری کنید.</p>:
+              <label>گزینه‌های انتخاب (هر گزینه در یک خط)<textarea className="input" rows="3" value={(current.options||[]).join("\n")} onChange={e=>editField("options",e.target.value.split("\n").map(v=>v.trim()).filter(Boolean))}/></label>}
               <div style={{display:"grid",gap:4,marginTop:8}}>
                 {[["required","اجباری"],["readonly","فقط خواندنی"],["visible","نمایش در فرم"],["enabled","فعال"],["android_visible","نمایش در اندروید"],["web_visible","نمایش در وب"],["report_visible","نمایش در گزارش کامل کاربران"],["searchable","قابل جست‌وجو"],["filterable","قابل فیلتر"]].map(([k,label])=><label key={k} className="row" style={{gap:8}}><input type="checkbox" checked={current[k]!==undefined?!!current[k]:["visible","enabled","android_visible","web_visible","report_visible"].includes(k)} onChange={e=>editField(k,e.target.checked)}/>{label}</label>)}
               </div>
