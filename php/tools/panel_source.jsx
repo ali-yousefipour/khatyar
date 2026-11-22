@@ -6681,6 +6681,59 @@ function adminProfileFieldState(field,values){
   if(!state.visible||!state.enabled||state.readonly)state.required=false;
   return state;
 }
+function AdminPrivateProfileAttachment({field,userId,readOnly=false}){
+  const [status,setStatus]=useState(null),[selected,setSelected]=useState(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const path="/admin/users/"+userId+"/profile-attachment/"+field.id;
+  useEffect(()=>{
+    let active=true;
+    setStatus(null);setSelected(null);setError("");
+    GET(path+"/status").then(info=>{if(active)setStatus(info);})
+      .catch(e=>{if(active)setError(e.message||"دریافت وضعیت مدرک ناموفق بود");});
+    return()=>{active=false;};
+  },[userId,field.id]);
+  const upload=async()=>{
+    if(busy||!selected)return;
+    if(selected.size>8388608){setError("حداکثر حجم فایل ۸ مگابایت است.");return;}
+    setBusy(true);setError("");
+    try{
+      const data=new FormData();data.append("file",selected,selected.name);
+      const response=await _fetchWithAuth(API_BASE+path,{method:"POST",body:data});
+      const result=await _readJsonResponse(response);
+      if(!response.ok||!result?.ok)throw new Error(result?.error||result?.message||"ثبت مدرک در سرور تأیید نشد");
+      const updated=await GET(path+"/status",{ttl:0});
+      setStatus(updated);setSelected(null);
+    }catch(e){setError(e.message||"ارسال مدرک ناموفق بود");}
+    finally{setBusy(false);}
+  };
+  const download=async()=>{
+    setBusy(true);setError("");
+    try{
+      const response=await _fetchWithAuth(API_BASE+path,{cache:"no-store"});
+      if(!response.ok)throw new Error("دریافت مدرک مجاز نیست یا فایل وجود ندارد");
+      const blob=await response.blob(),url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download=status?.name||"مدرک-پرسنلی";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+    }catch(e){setError(e.message||"دریافت مدرک ناموفق بود");}
+    finally{setBusy(false);}
+  };
+  return <div style={{display:"grid",gap:8}}>
+    <small className="muted">{status?.exists?"مدرک محفوظ در فضای خصوصی: "+status.name:"مدرکی ثبت نشده است"}</small>
+    {status?.exists&&<button type="button" className="btn g" disabled={busy} onClick={download}>دریافت امن مدرک</button>}
+    {!readOnly&&<>
+      <input className="input" aria-label="انتخاب مدرک پرسنلی" type="file"
+        accept={field.ftype==="image"?"image/jpeg,image/png,image/webp":".pdf,image/jpeg,image/png,image/webp"}
+        disabled={busy} onChange={e=>{setError("");setSelected(e.target.files?.[0]||null);}}/>
+      <small className="muted">PDF یا تصویر معتبر، حداکثر ۸ مگابایت</small>
+      <button type="button" className="btn p" disabled={busy||!selected} onClick={upload}>
+        {busy?"در حال ارسال مدرک…":"بارگذاری مدرک خصوصی"}
+      </button>
+    </>}
+    {error&&<p role="alert" style={{color:"var(--danger,#b42318)",margin:0}}>{error}</p>}
+  </div>;
+}
+
 function CustomFieldsFiller({userId,profile}){
   const [fields,setFields]=useState(null),[vals,setVals]=useState({}),[originalVals,setOriginalVals]=useState({});
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[schema,setSchema]=useState(null);
@@ -6726,7 +6779,7 @@ function CustomFieldsFiller({userId,profile}){
     const changed={};
     for(const field of visible){
       const state=fieldState(field);
-      if(!state.enabled||state.readonly)continue;
+      if(!state.enabled||state.readonly||["image","file"].includes(field.ftype))continue;
       const id=field.id,value=vals[id];
       if(String(value??"")!==String(originalVals[id]??""))changed[id]=value??"";
     }
@@ -6751,7 +6804,9 @@ function CustomFieldsFiller({userId,profile}){
             const state=fieldState(field);
             return <div key={field.id} style={{minWidth:0}}>
               <label className="label">{field.label}{state.required?" *":""}{!state.enabled||state.readonly?" (فقط نمایش)":""}</label>
-              {state.enabled&&!state.readonly?
+              {["image","file"].includes(field.ftype)?
+                <AdminPrivateProfileAttachment key={userId+"-"+field.id} field={field} userId={userId} readOnly={!state.enabled||state.readonly}/>:
+                state.enabled&&!state.readonly?
                 <CustomFieldInput field={field} value={vals[field.id]??""} onChange={value=>setVals(current=>({...current,[field.id]:value}))}/>:
                 <p style={{whiteSpace:"pre-wrap"}}>{String(vals[field.id]??"—")}</p>}
             </div>;
