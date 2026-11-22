@@ -14,6 +14,6 @@ for(const route of ['/api/auth/me','/api/auth/login','/api/session/renew','/api/
   assert(!pathPattern.test(route),'must not bootstrap form dependencies: '+route);
 for(const route of ['/api/my/user-profile-form','/api/my/custom-fields','/api/me/profile','/api/me/complete-profile','/api/admin/user-profile-form','/api/admin/user-profile-form/versions'])
   assert(pathPattern.test(route),'personnel module must load for '+route);
-const globalCode=routes.slice(0,routes.indexOf('// Keep the optional personnel-form subsystem'));
+const globalCode=routes.slice(0,routes.indexOf('function _save_custom_values'));
 assert(!/require_once\s+__DIR__\s*\.\s*['"]\/UserProfileForm(?:s|Values)\.php/.test(globalCode),'no global personnel module includes');
 console.log('PASS profile module isolation from login and session bootstrap');
