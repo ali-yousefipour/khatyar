@@ -9,7 +9,16 @@ const number=value=>{
   if(!/^-?\d+(?:\.\d+)?$/.test(digits.trim()))return null;
   return Number(digits);
 };
-const jalali=value=>typeof value==='string'&&/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(value)?value.replaceAll('/','-'):null;
+const jalali=value=>{
+  if(typeof value!=='string')return null;
+  const digits=value.replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
+    .replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replaceAll('/','-');
+  const match=/^(1[34]\\d{2})-(\\d{2})-(\\d{2})$/.exec(digits);
+  if(!match)return null;
+  const month=Number(match[2]),day=Number(match[3]);
+  if(month<1||month>12||day<1||day>(month<=6?31:30))return null;
+  return digits;
+};
 export function profileRuleMatches(rule,values){
   if(!rule||typeof rule!=='object')return false;
   if(Array.isArray(rule.all))return rule.all.length>0&&rule.all.every(r=>profileRuleMatches(r,values));
