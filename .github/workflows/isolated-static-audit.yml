@@ -6,6 +6,7 @@ on:
     paths:
       - audit/khatyar_inventory.py
       - audit/advanced_inventory.py
+      - audit/independent_loc.py
       - .github/workflows/isolated-static-audit.yml
 permissions:
   contents: write
@@ -17,10 +18,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+      - name: Install independent LOC counter
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq cloc
       - name: Run read-only static inventory
         run: |
           python3 audit/khatyar_inventory.py
           python3 audit/advanced_inventory.py
+          python3 audit/independent_loc.py
       - name: Commit machine-readable results to isolated branch
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
