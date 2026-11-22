@@ -8802,6 +8802,27 @@ function UserProfileFormDesigner() {
         setChoice("");
         setSelected(key);
     };
+    const removeCustomFromForm = () => {
+        if (!current || current.binding !== "custom")
+            return;
+        const dependent = fields.filter(field => field.key !== current.key &&
+            (field.rules || []).some(rule => referencedRuleFields(rule.when).includes(current.key)));
+        if (dependent.length) {
+            setError("ابتدا وابستگی شرطی این فیلد را از موارد زیر بردارید: " + dependent.map(f => f.label || f.key).join("، "));
+            return;
+        }
+        if (!window.confirm("فیلد «" + current.label + "» از چیدمان فرم حذف شود؟ اطلاعات ذخیره‌شده کاربران پاک نمی‌شود."))
+            return;
+        modify(d => { for (const section of d.sections)
+            section.fields = section.fields.filter(f => f.key !== current.key); });
+        setSelected(null);
+    };
+    const removeGroup = key => modify(d => {
+        const section = d.sections.find(s => s.key === key);
+        if (!section || section.fields.length)
+            return;
+        d.sections = d.sections.filter(s => s.key !== key);
+    });
     const addGroup = () => modify(d => {
         let id = 1;
         while (d.sections.some(s => s.key === "group_" + id))
@@ -9037,7 +9058,8 @@ function UserProfileFormDesigner() {
                         React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 6, flexWrap: "wrap" } },
                             React.createElement("input", { className: "input", "aria-label": "\u0646\u0627\u0645 \u06AF\u0631\u0648\u0647", value: section.title || "", onChange: e => modify(d => d.sections[si].title = e.target.value) }),
                             React.createElement("button", { className: "btn g", onClick: () => moveGroup(si, -1), disabled: si === 0 }, "\u2191"),
-                            React.createElement("button", { className: "btn g", onClick: () => moveGroup(si, 1), disabled: si === model.sections.length - 1 }, "\u2193")),
+                            React.createElement("button", { className: "btn g", onClick: () => moveGroup(si, 1), disabled: si === model.sections.length - 1 }, "\u2193"),
+                            section.key.startsWith("group_") && section.fields.length === 0 && React.createElement("button", { className: "btn g", title: "\u062D\u0630\u0641 \u06AF\u0631\u0648\u0647 \u062E\u0627\u0644\u06CC", onClick: () => removeGroup(section.key) }, "\u062D\u0630\u0641 \u06AF\u0631\u0648\u0647 \u062E\u0627\u0644\u06CC")),
                         (section.fields || []).map((f, fi) => React.createElement("div", { key: f.key, draggable: true, onDragStart: e => { e.stopPropagation(); dragRef.current = { type: "field", section: si, index: fi }; }, onDragOver: e => { e.preventDefault(); e.stopPropagation(); }, onDrop: e => { e.stopPropagation(); e.preventDefault(); onDrop(si, fi); }, style: { display: "flex", alignItems: "center", gap: 5, marginTop: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, background: selected === f.key ? "var(--warn-soft,#fff3db)" : "transparent" } },
                             React.createElement("button", { type: "button", className: "btn g", style: { flex: 1, textAlign: "right" }, onClick: () => setSelected(f.key) },
                                 f.label || f.key,
@@ -9064,6 +9086,7 @@ function UserProfileFormDesigner() {
                                 React.createElement("code", null, current.key),
                                 " \u00B7 \u0630\u062E\u06CC\u0631\u0647\u200C\u0633\u0627\u0632\u06CC: ",
                                 current.binding),
+                            current.binding === "custom" && React.createElement("button", { className: "btn g", type: "button", onClick: removeCustomFromForm }, "\u062D\u0630\u0641 \u0641\u06CC\u0644\u062F \u0627\u0632 \u0641\u0631\u0645 (\u0628\u062F\u0648\u0646 \u062D\u0630\u0641 \u0627\u0637\u0644\u0627\u0639\u0627\u062A)"),
                             React.createElement("label", null,
                                 "\u0639\u0646\u0648\u0627\u0646 \u0641\u0627\u0631\u0633\u06CC",
                                 React.createElement("input", { className: "input", value: current.label || "", onChange: e => editField("label", e.target.value) })),
