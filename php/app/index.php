@@ -187,11 +187,11 @@ function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? 
 // Configurable full user export; the same admin permission check applies to schema and download.
 route('GET', '/api/admin/users/full-report-options', static function($params,$body,$user) {
   require_once dirname(__DIR__).'/lib/UserFullReport.php';
-  UserFullReport::run([]);
+  UserFullReport::run([],false,(int)$user['id']);
 }, false, 3);
 route('POST', '/api/admin/users/full-report-export', static function($params,$body,$user) {
   require_once dirname(__DIR__).'/lib/UserFullReport.php';
-  UserFullReport::run(is_array($body)?$body:[]);
+  UserFullReport::run(is_array($body)?$body:[],false,(int)$user['id']);
 }, false, 3);
 // Named export presets: list, save, and delete enforce ownership and shared-editor authorization.
 route('GET', '/api/admin/users/full-report-presets', static function($params,$body,$user) {
