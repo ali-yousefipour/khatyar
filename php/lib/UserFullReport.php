@@ -14,6 +14,7 @@ final class UserFullReport {
     return [
       'id'=>'شناسه کاربری','personnel_code'=>'شماره پرسنلی','username'=>'نام کاربری',
       'first_name'=>'نام','last_name'=>'نام خانوادگی','role_title'=>'سمت',
+      'mobile'=>'تلفن همراه ثبت‌شده','employment_start_date'=>'شروع همکاری','employment_end_date'=>'پایان همکاری','rank_stars'=>'درجه',
       'phone'=>'شماره همراه','email'=>'ایمیل','national_code'=>'کد ملی',
       'birth_date'=>'تاریخ تولد','marital_status'=>'وضعیت تأهل',
       'children_count'=>'تعداد فرزند','address'=>'نشانی','seniority_start'=>'شروع سنوات',
@@ -37,7 +38,39 @@ final class UserFullReport {
       $records=Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id");
       foreach($records as $f) $custom[]=['key'=>'custom:'.(int)$f['id'],'label'=>(string)$f['label'],'group'=>'فیلدهای سفارشی'];
     }
-    return array_merge($base,$custom);
+    $original=array_merge($base,$custom);
+    // Published profile definitions control column labels and order without
+    // changing existing database mappings or deleting historical values.
+    try {
+      require_once __DIR__.'/UserProfileForms.php';
+      if(!UserProfileForms::available())return $original;
+      $published=UserProfileForms::published();
+      if(($published['version']??0)<1)return $original;
+      return self::orderedByProfile($original,$published['schema']);
+    }catch(Throwable $error){
+      error_log('User full report dynamic schema unavailable class='.get_class($error));
+      return $original;
+    }
+  }
+  public static function orderedByProfile(array $original,array $form): array {
+    $lookup=array_column($original,null,'key');$ordered=[];$excluded=[];
+    foreach($form['sections']??[] as $section){
+      foreach($section['fields']??[] as $field){
+        if(!is_array($field)||!isset($field['key']))continue;
+        $key=$field['binding']==='custom'
+          ?'custom:'.(int)($field['custom_field_id']??0):(string)$field['key'];
+        if(!isset($lookup[$key]))continue;
+        if(($field['report_visible']??true)===false){$excluded[$key]=true;continue;}
+        $row=$lookup[$key];
+        $row['label']=(string)($field['label']??$row['label']);
+        $row['group']=(string)($section['title']??$row['group']);
+        $ordered[$key]=$row;
+      }
+    }
+    foreach($original as $row){
+      if(!isset($ordered[$row['key']])&&!isset($excluded[$row['key']]))$ordered[$row['key']]=$row;
+    }
+    return array_values($ordered);
   }
   public static function run(array $body): void {
     $fields=self::schema();
