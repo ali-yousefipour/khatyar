@@ -29,8 +29,10 @@ export function profileRuleMatches(rule,values){
     case 'not_empty':return !isEmpty(actual);
     case 'true':return actual===true||actual===1||actual==='1';
     case 'false':return actual===false||actual===0||actual==='0'||isEmpty(actual);
-    case 'eq':return !isEmpty(actual)&&String(actual)===String(wanted);
-    case 'neq':return isEmpty(actual)||String(actual)!==String(wanted);
+    case 'eq':return !isEmpty(actual)&&actual!==null&&wanted!==null&&
+      typeof actual!=='object'&&typeof wanted!=='object'&&String(actual)===String(wanted);
+    case 'neq':return isEmpty(actual)||actual===null||wanted===null||
+      typeof actual==='object'||typeof wanted==='object'||String(actual)!==String(wanted);
     case 'contains':return Array.isArray(actual)?actual.includes(wanted):String(actual??'').includes(String(wanted??''));
     case 'not_contains':return Array.isArray(actual)?!actual.includes(wanted):!String(actual??'').includes(String(wanted??''));
     case 'in':
