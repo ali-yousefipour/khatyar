@@ -33,4 +33,14 @@ ui={
 route_data=dict(file='php/lib/routes.php',lines=len(lines),bytes=len(rt),pattern_hits=dict(hits),samples=samples)
 for n,v in [('android_navigation_verified',screens),('backend_route_pattern_review',route_data),('web_ui_proxies',ui)]:
  (out/(n+'.json')).write_text(json.dumps(v,ensure_ascii=False,indent=2),encoding='utf-8')
+
+registered=[]
+for i,line in enumerate(lines,1):
+ for match in re.finditer(r"""(?<![\w])route\s*\(\s*['"]([A-Z]+)['"]\s*,\s*['"]([^'"]+)['"]""",line):
+  registered.append(dict(method=match.group(1),path=match.group(2),file='php/lib/routes.php',line=i))
+registered_unique={(x['method'],x['path']):x for x in registered}
+dynamic_line_count=sum(bool(re.search(r"\broute\s*\(",l)) and not re.search(r"""route\s*\(\s*['"][A-Z]+['"]\s*,\s*['"]""",l) for l in lines)
+(out/'backend_static_route_registrations.json').write_text(json.dumps(list(registered_unique.values()),ensure_ascii=False,indent=2),encoding='utf-8')
+print('REGISTERED_ROUTES='+json.dumps(dict(explicit_route_calls=len(registered),unique_method_path_pairs=len(registered_unique),dynamic_or_other_route_lines=dynamic_line_count,methods=dict(collections.Counter(x['method'] for x in registered))),ensure_ascii=False))
+
 print('ADVANCED_AUDIT='+json.dumps(dict(android_registered_screens=len(screens),route_patterns=dict(hits),web_ui=ui),ensure_ascii=False)[:12000])
