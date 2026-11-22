@@ -29,4 +29,14 @@ verifyProfileReport('repeatable children export as readable labeled rows',
   str_contains($children,'ردیف 2'));
 verifyProfileReport('malformed repeatable JSON is identified',UserFullReport::formatRepeatRows('{broken',$childCols)==='داده تکرارشونده نامعتبر');
 verifyProfileReport('empty repeatable rows render blank cell',UserFullReport::formatRepeatRows('[]',$childCols)==='');
+$documentColumns=[['key'=>'custom:20','label'=>'مدرک هویتی','type'=>'attachment','group'=>'مدارک']];
+$documentForm=['sections'=>[['key'=>'identity','title'=>'مدارک','fields'=>[
+  ['key'=>'cf_20','binding'=>'custom','custom_field_id'=>20,'type'=>'image','label'=>'تصویر مدرک','report_visible'=>true]
+]]]];
+$documentOutput=UserFullReport::orderedByProfile($documentColumns,$documentForm);
+verifyProfileReport('private document columns retain metadata-only type',
+  ($documentOutput[0]['type']??null)==='attachment');
+$documentForm['sections'][0]['fields'][0]['report_visible']=false;
+verifyProfileReport('private documents excluded when reports are disabled',
+  UserFullReport::orderedByProfile($documentColumns,$documentForm)===[]);
 echo "User full report form integration passed\n";
