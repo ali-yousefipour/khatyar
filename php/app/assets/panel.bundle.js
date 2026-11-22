@@ -11511,6 +11511,80 @@ function adminProfileFieldState(field, values) {
         state.required = false;
     return state;
 }
+function AdminPrivateProfileAttachment({ field, userId, readOnly = false }) {
+    const [status, setStatus] = useState(null), [selected, setSelected] = useState(null);
+    const [busy, setBusy] = useState(false), [error, setError] = useState("");
+    const path = "/admin/users/" + userId + "/profile-attachment/" + field.id;
+    useEffect(() => {
+        let active = true;
+        setStatus(null);
+        setSelected(null);
+        setError("");
+        GET(path + "/status").then(info => { if (active)
+            setStatus(info); })
+            .catch(e => { if (active)
+            setError(e.message || "دریافت وضعیت مدرک ناموفق بود"); });
+        return () => { active = false; };
+    }, [userId, field.id]);
+    const upload = async () => {
+        if (busy || !selected)
+            return;
+        if (selected.size > 8388608) {
+            setError("حداکثر حجم فایل ۸ مگابایت است.");
+            return;
+        }
+        setBusy(true);
+        setError("");
+        try {
+            const data = new FormData();
+            data.append("file", selected, selected.name);
+            const response = await _fetchWithAuth(API_BASE + path, { method: "POST", body: data });
+            const result = await _readJsonResponse(response);
+            if (!response.ok || !(result === null || result === void 0 ? void 0 : result.ok))
+                throw new Error((result === null || result === void 0 ? void 0 : result.error) || (result === null || result === void 0 ? void 0 : result.message) || "ثبت مدرک در سرور تأیید نشد");
+            const updated = await GET(path + "/status", { ttl: 0 });
+            setStatus(updated);
+            setSelected(null);
+        }
+        catch (e) {
+            setError(e.message || "ارسال مدرک ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const download = async () => {
+        setBusy(true);
+        setError("");
+        try {
+            const response = await _fetchWithAuth(API_BASE + path, { cache: "no-store" });
+            if (!response.ok)
+                throw new Error("دریافت مدرک مجاز نیست یا فایل وجود ندارد");
+            const blob = await response.blob(), url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = (status === null || status === void 0 ? void 0 : status.name) || "مدرک-پرسنلی";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        }
+        catch (e) {
+            setError(e.message || "دریافت مدرک ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return React.createElement("div", { style: { display: "grid", gap: 8 } },
+        React.createElement("small", { className: "muted" }, (status === null || status === void 0 ? void 0 : status.exists) ? "مدرک محفوظ در فضای خصوصی: " + status.name : "مدرکی ثبت نشده است"),
+        (status === null || status === void 0 ? void 0 : status.exists) && React.createElement("button", { type: "button", className: "btn g", disabled: busy, onClick: download }, "\u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0645\u0646 \u0645\u062F\u0631\u06A9"),
+        !readOnly && React.createElement(React.Fragment, null,
+            React.createElement("input", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u062F\u0631\u06A9 \u067E\u0631\u0633\u0646\u0644\u06CC", type: "file", accept: field.ftype === "image" ? "image/jpeg,image/png,image/webp" : ".pdf,image/jpeg,image/png,image/webp", disabled: busy, onChange: e => { var _a; setError(""); setSelected(((_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0]) || null); } }),
+            React.createElement("small", { className: "muted" }, "PDF \u06CC\u0627 \u062A\u0635\u0648\u06CC\u0631 \u0645\u0639\u062A\u0628\u0631\u060C \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F8 \u0645\u06AF\u0627\u0628\u0627\u06CC\u062A"),
+            React.createElement("button", { type: "button", className: "btn p", disabled: busy || !selected, onClick: upload }, busy ? "در حال ارسال مدرک…" : "بارگذاری مدرک خصوصی")),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)", margin: 0 } }, error));
+}
 function CustomFieldsFiller({ userId, profile }) {
     const [fields, setFields] = useState(null), [vals, setVals] = useState({}), [originalVals, setOriginalVals] = useState({});
     const [busy, setBusy] = useState(false), [error, setError] = useState(""), [schema, setSchema] = useState(null);
@@ -11570,7 +11644,7 @@ function CustomFieldsFiller({ userId, profile }) {
         const changed = {};
         for (const field of visible) {
             const state = fieldState(field);
-            if (!state.enabled || state.readonly)
+            if (!state.enabled || state.readonly || ["image", "file"].includes(field.ftype))
                 continue;
             const id = field.id, value = vals[id];
             if (String(value !== null && value !== void 0 ? value : "") !== String((_a = originalVals[id]) !== null && _a !== void 0 ? _a : ""))
@@ -11608,9 +11682,11 @@ function CustomFieldsFiller({ userId, profile }) {
                                 field.label,
                                 state.required ? " *" : "",
                                 !state.enabled || state.readonly ? " (فقط نمایش)" : ""),
-                            state.enabled && !state.readonly ?
-                                React.createElement(CustomFieldInput, { field: field, value: (_a = vals[field.id]) !== null && _a !== void 0 ? _a : "", onChange: value => setVals(current => ({ ...current, [field.id]: value })) }) :
-                                React.createElement("p", { style: { whiteSpace: "pre-wrap" } }, String((_b = vals[field.id]) !== null && _b !== void 0 ? _b : "—")));
+                            ["image", "file"].includes(field.ftype) ?
+                                React.createElement(AdminPrivateProfileAttachment, { key: userId + "-" + field.id, field: field, userId: userId, readOnly: !state.enabled || state.readonly }) :
+                                state.enabled && !state.readonly ?
+                                    React.createElement(CustomFieldInput, { field: field, value: (_a = vals[field.id]) !== null && _a !== void 0 ? _a : "", onChange: value => setVals(current => ({ ...current, [field.id]: value })) }) :
+                                    React.createElement("p", { style: { whiteSpace: "pre-wrap" } }, String((_b = vals[field.id]) !== null && _b !== void 0 ? _b : "—")));
                     })))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#b42318)" } }, error),
         !!sections.length && React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیره اطلاعات تکمیلی"));
