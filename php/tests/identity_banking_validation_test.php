@@ -24,4 +24,18 @@ $duplicates=IdentityBankingValidation::duplicateNationalIds([
  ['id'=>3,'national_code'=>'1234567891','is_active'=>1],
 ]);
 assertValidation(isset($duplicates[1],$duplicates[2])&&!isset($duplicates[3]),'duplicates include inactive users');
+$known=[
+ ['id'=>1,'national_code'=>'0012345679','is_active'=>0],
+ ['id'=>2,'national_code'=>'1234567891','is_active'=>1]
+];
+$duplicate=IdentityBankingValidation::validateUserInput(['national_code'=>'۰۰۱۲۳۴۵۶۷۹'],$known,3);
+assertValidation(!$duplicate['valid']&&in_array('این کد ملی قبلاً برای کاربر دیگری ثبت شده است.',$duplicate['errors'],true),'duplicate rejected even when existing owner inactive');
+$edited=IdentityBankingValidation::validateUserInput(['national_code'=>'0012345679'],$known,1);
+assertValidation($edited['valid'],'editing same user does not trigger false duplicate');
+$wrongBank=IdentityBankingValidation::validateUserInput(['iban'=>'IR830610000000000000000000','bank_code'=>'054'],[],null);
+assertValidation(!$wrongBank['valid']&&$wrongBank['checks']['iban']['status']==='mismatch','selected bank code mismatch blocks new form');
+$unverified=IdentityBankingValidation::validateUserInput(['account'=>'۰۰۰۰-۱۲۳۴'],[],null);
+assertValidation($unverified['valid']&&$unverified['status']==='offline_unverifiable','internal account is only structurally admitted');
+$invalid=IdentityBankingValidation::validateUserInput(['national_code'=>'0012345678'],[],null);
+assertValidation(!$invalid['valid'],'invalid national checksum blocks new form');
 echo "Offline identity and banking validation tests passed\n";
