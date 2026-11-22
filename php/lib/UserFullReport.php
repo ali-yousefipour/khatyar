@@ -136,9 +136,9 @@ final class UserFullReport {
     if(!$info||!in_array($info['mime']??'', ['image/jpeg','image/png'],true))return null;
     return $data;
   }
-  public static function run(array $body): void {
+  public static function run(array $body,bool $forceExport=false): void {
     $fields=self::schema();
-    if($_SERVER['REQUEST_METHOD']==='GET') {
+    if(!$forceExport&&($_SERVER['REQUEST_METHOD']??'GET')==='GET') {
       header('Content-Type: application/json; charset=utf-8');
       echo json_encode(['columns'=>$fields,'sorts'=>array_map(static fn($c)=>['key'=>$c['key'],'label'=>$c['label']],$fields)],JSON_UNESCAPED_UNICODE);
       exit;
