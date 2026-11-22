@@ -11355,6 +11355,7 @@ function BirthdaySettings({ v, set, save }) {
 }
 // رندر یک ورودی بر اساس نوع فیلد سفارشی (مشترک پنل)
 function CustomFieldInput({ field, value, onChange }) {
+    var _a;
     const opts = (field.options || "").split("|").filter(Boolean);
     if (field.ftype === "repeater") {
         let config = {};
@@ -11362,8 +11363,10 @@ function CustomFieldInput({ field, value, onChange }) {
             config = JSON.parse(field.options || "{}") || {};
         }
         catch (_) { }
-        const columns = Array.isArray(config.columns) ? config.columns : [];
-        const maxRows = Math.min(20, Math.max(1, Number(config.max_rows) || 12));
+        const published = field.profile_definition || {};
+        const columns = Array.isArray(published.columns) ? published.columns :
+            (Array.isArray(config.columns) ? config.columns : []);
+        const maxRows = Math.min(20, Math.max(1, Number((_a = published.max_rows) !== null && _a !== void 0 ? _a : config.max_rows) || 12));
         let rows = [];
         try {
             const parsed = JSON.parse(String(value || "[]"));
