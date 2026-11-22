@@ -6,6 +6,19 @@
  */
 final class IdentityBankingValidation {
   private const BANKS = ['061'=>'بانک شهر','012'=>'بانک ملت','017'=>'بانک ملی ایران','019'=>'بانک صادرات ایران','020'=>'بانک توسعه صادرات','015'=>'بانک سپه','014'=>'بانک مسکن','018'=>'بانک تجارت','013'=>'بانک رفاه کارگران','016'=>'بانک کشاورزی','021'=>'پست بانک ایران','022'=>'بانک توسعه تعاون','054'=>'بانک پارسیان','055'=>'بانک اقتصاد نوین','056'=>'بانک سامان','057'=>'بانک پاسارگاد','058'=>'بانک سرمایه','059'=>'بانک سینا','060'=>'بانک قرض الحسنه مهر ایران','062'=>'بانک آینده','063'=>'بانک انصار','064'=>'بانک گردشگری','065'=>'بانک حکمت ایرانیان','066'=>'بانک دی','069'=>'بانک ایران زمین','070'=>'بانک رسالت'];
+  /** Only resolve known names; an unknown label is never guessed to be a bank. */
+  public static function bankCodeFromName($raw): ?string {
+    $name=trim(str_replace(['‌','ي','ك'],['','ی','ک'],(string)$raw));
+    $name=preg_replace('/^بانک\\s*/u','',$name);
+    $name=preg_replace('/\\s+/u',' ',$name);
+    if(preg_match('/^[0-9]{3}$/D',$name))return isset(self::BANKS[$name])?$name:null;
+    foreach(self::BANKS as $code=>$label){
+      $known=trim(str_replace(['‌','ي','ك'],['','ی','ک'],$label));
+      $known=preg_replace('/^بانک\\s*/u','',$known);
+      if($name===$known)return $code;
+    }
+    return null;
+  }
   public static function digits($v): string {
     return strtr(trim((string)$v),['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']);
   }
@@ -106,7 +119,7 @@ final class IdentityBankingValidation {
       if(isset($duplicates[$id])){$counts['duplicate_national']++;$problem[]=$duplicates[$id];}
       $bank=$byUser[$id]??[];
       $bankText=trim((string)($bank['bank']??''));
-      $expect=str_contains($bankText,'شهر')?'061':null;
+      $expect=$bankText!==''?self::bankCodeFromName($bankText):null;
       if(array_key_exists('iban',$bank)&&trim($bank['iban'])!==''){
         $iban=self::iban($bank['iban'],$expect,true);
         if(!$iban['valid']){
