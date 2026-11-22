@@ -4086,7 +4086,11 @@ function CustomFieldsManager(){
     }catch(e){alert(e.message||"خطا");}
   };
   const toggle=async(fld,key)=>{ try{ await db.updCustomField(fld.id,{[key]:fld[key]?0:1}); load(); }catch(e){alert(e.message);} };
-  const del=async(fld)=>{ if(!confirm("حذف فیلد «"+fld.label+"» و همهٔ مقادیر ثبت‌شده؟"))return; try{ await db.delCustomField(fld.id); load(); }catch(e){alert(e.message);} };
+  const del=async(fld)=>{
+    if(!confirm("فیلد «"+fld.label+"» غیرفعال شود؟ اطلاعات ثبت‌شده کاربران محفوظ می‌ماند."))return;
+    try{await db.updCustomField(fld.id,{is_active:0});load();}
+    catch(e){alert(e.message||"غیرفعال‌سازی فیلد ناموفق بود.");}
+  };
   if(fields===null) return <p className="muted">در حال بارگذاری…</p>;
   const needOptions = form && (form.ftype==="select"||form.ftype==="multiselect");
   return(<div className="admin-workspace-page">
@@ -4116,7 +4120,7 @@ function CustomFieldsManager(){
         <td><input type="checkbox" checked={!!f.required} onChange={()=>toggle(f,"required")}/></td>
         <td><input type="checkbox" checked={!!f.user_editable} onChange={()=>toggle(f,"user_editable")}/></td>
         <td><input type="checkbox" checked={!!f.is_active} onChange={()=>toggle(f,"is_active")}/></td>
-        <td style={{whiteSpace:"nowrap"}}><button className="btn g" onClick={()=>setForm({...f})}>ویرایش</button> <button className="btn d" onClick={()=>del(f)}>حذف</button></td>
+        <td style={{whiteSpace:"nowrap"}}><button className="btn g" onClick={()=>setForm({...f})}>ویرایش</button> <button className="btn g" disabled={!f.is_active} onClick={()=>del(f)}>غیرفعال‌سازی امن</button></td>
       </tr>); })}
     </tbody></table>
   </div>);
