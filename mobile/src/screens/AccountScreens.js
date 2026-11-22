@@ -1,5 +1,5 @@
 import AccountFormHeader from '../components/AccountFormHeader';
-import { normalizeIranianDigits, validateNationalId } from '../identityBankingValidation';
+import { normalizeIranianDigits, validateNationalId, validateUserInput } from '../identityBankingValidation';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, PanResponder, Modal } from 'react-native';
 import * as Application from 'expo-application';
@@ -230,9 +230,10 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
   const notFoundMsg = () => Alert.alert('بازرس پیدا نشد', 'اگر بازرس شما در فهرست نیست، لطفاً با بازرس خود تماس بگیرید و با ایشان هماهنگ کنید که ابتدا منطقه و مسئول بالادستی خود را در برنامه انتخاب کند تا نامش به فهرست بازرسین این منطقه اضافه شود. سپس این صفحه را دوباره بررسی کنید.');
   async function save() {
     const national=normalizeIranianDigits(p?.national_code||'');
-    if(national && !validateNationalId(national).valid){
+    const validation=validateUserInput({national_code:national});
+    if(national && !validation.valid){
       setNationalTouched(true);
-      Alert.alert('کد ملی نامعتبر',validateNationalId(national).errors[0]);
+      Alert.alert('کد ملی نامعتبر',validation.errors[0]||'کد ملی نامعتبر است');
       return;
     }
     setBusy(true);
@@ -260,7 +261,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
       <Text style={s.label}>موبایل</Text>
       <TextInput style={s.input} value={p.mobile || ''} onChangeText={(v) => set('mobile', v)} keyboardType="phone-pad" />
       <Text style={s.label}>کد ملی</Text>
-      <TextInput style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v).replace(/[^0-9]/g,'').slice(0,10));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={10} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
+      <TextInput style={[s.input, s.nationalInput]} value={p.national_code || ''} onChangeText={(v) => {setNationalTouched(false);set('national_code', normalizeIranianDigits(v));}} onBlur={() => setNationalTouched(true)} keyboardType="number-pad" maxLength={32} placeholder="کد ملی ۱۰ رقمی" placeholderTextColor={CC.muted} />
       {nationalTouched && !!p.national_code && <Text accessibilityRole="alert" style={{color:validateNationalId(p.national_code).valid?CC.muted:'#b91c1c',textAlign:'right',marginTop:4}}>{validateNationalId(p.national_code).valid?'✓ ساختار کد ملی معتبر است؛ هویت صاحب آن تأیید نشده است.':validateNationalId(p.national_code).errors[0]}</Text>}
       <Text style={s.label}>تاریخ تولد</Text>
       <TouchableOpacity style={[s.input, s.dateInput]} onPress={() => setBirthPickerOpen(true)}>
