@@ -6,9 +6,9 @@ const file=path.join(__dirname,'../src/identityBankingValidation.js');
 const source=fs.readFileSync(file,'utf8')
   .replace(/export const /g,'const ')
   .replace(/export function /g,'function ')
-  + '\nthis.api={normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput};';
+  + '\nthis.api={normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput,bankCodeFromName};';
 const context={};vm.runInNewContext(source,context,{filename:file,timeout:1500});
-const {normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput}=context.api;
+const {normalizeIranianDigits,validateNationalId,validateIban,validateAccount,validateUserInput,bankCodeFromName}=context.api;
 function check(condition,message){if(!condition)throw new Error('FAIL '+message);console.log('PASS '+message);}
 check(normalizeIranianDigits('۰١۲')==='012','normalize Persian and Arabic digits');
 check(validateNationalId('۰۰۱۲۳۴۵۶۷۹').valid,'valid Persian national ID');
@@ -23,6 +23,9 @@ check(validateIban('830610000000000000000000',{allowWithoutPrefix:true}).valid,'
 check(validateIban('IR830610000000000000000000',{expectedBank:'054'}).status==='mismatch','wrong bank');
 check(validateIban('IR410540000000000000000002').bankName==='بانک پارسیان','bank discovery');
 check(!validateIban('IR000610000000000000000000').valid,'bad IBAN checksum');
+check(bankCodeFromName('بانک شهر')==='061','Shahr bank label is recognized');
+check(bankCodeFromName('پارسیان')==='054','Parsian bank label is recognized');
+check(bankCodeFromName('بانک ناشناخته')===null,'unknown bank label not guessed');
 check(!validateIban('IR83061').valid,'short IBAN');
 check(validateAccount('۰۰۰۰-۱۲۳۴').status==='offline_unverifiable','internal account never verified');
 check(!validateAccount('123A4').valid,'invalid account characters');
