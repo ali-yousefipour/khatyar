@@ -17,6 +17,9 @@ assertValidation(!IdentityBankingValidation::iban('IR83061000000')['valid'],'IBA
 assertValidation(IdentityBankingValidation::iban('IR410540000000000000000002')['bankName']==='بانک پارسیان','IBAN bank discovery');
 assertValidation(IdentityBankingValidation::account('۰۰۰۰-۱۲۳۴')['status']==='offline_unverifiable','account zero prefix not falsely verified');
 assertValidation(!IdentityBankingValidation::account('123A4')['valid'],'account forbidden character');
+assertValidation(IdentityBankingValidation::bankCodeFromName('بانک شهر')==='061','Shahr bank name resolves to 061');
+assertValidation(IdentityBankingValidation::bankCodeFromName('پارسیان')==='054','Parsian bank name resolves to 054');
+assertValidation(IdentityBankingValidation::bankCodeFromName('نام ناشناخته')===null,'unknown bank name not guessed');
 assertValidation(!IdentityBankingValidation::account('')['valid'],'account empty');
 $duplicates=IdentityBankingValidation::duplicateNationalIds([
  ['id'=>1,'national_code'=>'0012345679','is_active'=>1],
