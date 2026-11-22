@@ -1,0 +1,100 @@
+<?php
+require_once __DIR__.'/UserProfileRules.php';
+/** Pure, fail-closed input planner; the controller commits the plan atomically. */
+final class UserProfileFormValues {
+  private const SELF_EDIT=['email','mobile','address','national_code','marital_status','children_count','birth_date'];
+  private static function fail(string $message): never {throw new InvalidArgumentException($message);}
+  public static function plan(array $schema,array $submitted,array $stored,bool $selfEdit=true): array {
+    $fields=[];
+    foreach($schema['sections']??[] as $section)foreach($section['fields']??[] as $field) {
+      if(!empty($field['key']))$fields[$field['key']]=$field;
+    }
+    $effective=$stored;
+    foreach($submitted as $key=>$value){
+      if(!is_string($key)||!isset($fields[$key]))self::fail('فیلد اطلاعاتی ناشناخته است');
+      if(is_array($value)){
+        if(!array_is_list($value)||count($value)>50)self::fail('فرمت پاسخ چندانتخابی نامعتبر است');
+        foreach($value as $part)if(!is_string($part)||mb_strlen($part)>300)self::fail('گزینه انتخابی نامعتبر است');
+      }elseif(!is_string($value)&&!is_int($value)&&!is_float($value)&&!is_bool($value)&&$value!==null)
+        self::fail('نوع مقدار نامعتبر است');
+      $effective[$key]=$value;
+    }
+    $result=['system'=>[],'custom'=>[]];
+    foreach($fields as $key=>$field){
+      $state=UserProfileRules::state($field,$effective);
+      $has=array_key_exists($key,$submitted);
+      if($has){
+        if(!$state['visible']||!$state['enabled']||$state['readonly'])
+          self::fail('ویرایش این فیلد در وضعیت فعلی مجاز نیست: '.($field['label']??$key));
+        if(($field['binding']??null)==='system' && ($selfEdit&&!in_array($key,self::SELF_EDIT,true)))
+          self::fail('ویرایش فیلد سیستمی توسط کاربر مجاز نیست');
+        if(!in_array($field['binding']??null,['system','custom'],true))
+          self::fail('فیلد قابل ذخیره نیست');
+        if(!$selfEdit && !empty($field['admin_readonly']))self::fail('فیلد توسط مدیر قابل ویرایش نیست');
+        $value=self::validateValue($field,$submitted[$key]);
+        if(($field['binding']??null)==='system')$result['system'][$key]=$value;
+        else $result['custom'][(int)($field['custom_field_id']??0)]=$value;
+      }
+      if($selfEdit&&$state['visible']&&$state['enabled']&&$state['required']&&!$state['readonly']){
+        $value=$effective[$key]??null;
+        if($value===null||$value===''||(is_array($value)&&!count($value)))
+          self::fail('تکمیل فیلد «'.($field['label']??$key).'» الزامی است');
+      }
+    }
+    return $result;
+  }
+  private static function validateValue(array $field,$value): mixed {
+    $type=$field['type']??'text';
+    if($value===null||$value==='')return null;
+    if(is_array($value)){
+      if($type!=='multiselect')self::fail('این فیلد چندانتخابی نیست');
+      $choices=$field['options']??[];
+      foreach($value as $one)if(!in_array($one,$choices,true))self::fail('گزینه نامعتبر است');
+      return implode('|',$value);
+    }
+    if($type==='boolean'||$type==='checkbox') {
+      if(!in_array($value,[true,false,1,0,'1','0'],true))self::fail('مقدار بله یا خیر نامعتبر است');
+      return ($value===true||$value===1||$value==='1')?'1':'0';
+    }
+    if(!is_scalar($value))self::fail('نوع مقدار نامعتبر است');
+    $value=trim((string)$value);
+    if(mb_strlen($value)>5000)self::fail('مقدار ورودی بیش از حد طولانی است');
+    if(isset($field['max_length'])&&mb_strlen($value)>(int)$field['max_length'])self::fail('طول مقدار از حد مجاز بیشتر است');
+    if(isset($field['min_length'])&&mb_strlen($value)<(int)$field['min_length'])self::fail('مقدار کوتاه‌تر از حد مجاز است');
+    if($type==='number'||$type==='calculated'){
+      $normalized=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+      if(!is_numeric($normalized))self::fail('مقدار عددی معتبر نیست');
+      $num=(float)$normalized;
+      if(isset($field['min'])&&$num<(float)$field['min'])self::fail('مقدار کمتر از حد مجاز است');
+      if(isset($field['max'])&&$num>(float)$field['max'])self::fail('مقدار بیشتر از حد مجاز است');
+      return $normalized;
+    }
+    if($type==='email'&&!filter_var($value,FILTER_VALIDATE_EMAIL))self::fail('نشانی ایمیل نامعتبر است');
+    if($type==='mobile'){
+      $v=strtr($value,'۰۱۲۳۴۵۶۷۸۹','0123456789');
+      if(!preg_match('/^09\\d{9}$/D',$v))self::fail('شماره همراه ایران نامعتبر است');
+      return $v;
+    }
+    if($type==='date'&&!preg_match('/^1[34]\\d{2}[-\\/]((0[1-9])|(1[012]))[-\\/]((0[1-9])|([12]\\d)|(3[01]))$/D',$value))
+      self::fail('تاریخ شمسی نامعتبر است');
+    if(in_array($type,['select','radio'],true)&&!in_array($value,$field['options']??[],true))
+      self::fail('گزینه انتخابی معتبر نیست');
+    if($type==='national_id'){
+      require_once __DIR__.'/IdentityBankingValidation.php';
+      $check=IdentityBankingValidation::nationalCode($value);
+      if(empty($check['valid']))self::fail('کد ملی از نظر ساختار نامعتبر است');
+      return $check['normalized']??$value;
+    }
+    if($type==='iban'||$type==='account'||$type==='card'){
+      require_once __DIR__.'/IdentityBankingValidation.php';
+      $check=match($type){
+        'iban'=>IdentityBankingValidation::iban($value),
+        'account'=>IdentityBankingValidation::account($value),
+        default=>IdentityBankingValidation::card($value)
+      };
+      if(empty($check['valid']))self::fail('اطلاعات بانکی از نظر ساختار معتبر نیست');
+      return $check['normalized']??$value;
+    }
+    return $value;
+  }
+}
