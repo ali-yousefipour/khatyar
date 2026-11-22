@@ -8444,13 +8444,13 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     const text=await res.text();let data;try{data=JSON.parse(text);}catch{throw Error("پاسخ سرور کامل نیست؛ وضعیت آرشیو را دوباره بررسی کنید.");}
     if(!res.ok)throw Error(data.error||data.message||"دریافت اطلاعات ناموفق بود");return data;
   };
-  const load=async()=>{
-    try{const data=await request("?year="+year+"&month="+month);if(life.current.alive){setArchive(data);setError("");}}
+  const load=async({preserveError=false}={})=>{
+    try{const data=await request("?year="+year+"&month="+month);if(life.current.alive){setArchive(data);if(!preserveError)setError("");}}
     catch(e){if(life.current.alive&&e.name!=="AbortError")setError(e.message);}
   };
   const action=async(label,fn)=>{
     if(life.current.locked)return;life.current.locked=true;setBusy(label);setError("");
-    try{await fn();}catch(e){if(life.current.alive&&e.name!=="AbortError")setError(e.message);}
+    try{await fn();}catch(e){if(life.current.alive&&e.name!=="AbortError"){setError(e.message);if(label==="محاسبه و ساخت فایل شرکت…")setDetail(previous=>previous?{...previous,errorMessage:e.message,title:"محاسبه فایل شرکت با خطا مواجه شد"}:previous);}}
     finally{life.current.locked=false;if(life.current.alive)setBusy("");}
   };
   const runBankAudit=()=>action("ممیزی آفلاین اطلاعات کاربران…",async()=>{
@@ -8535,7 +8535,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
       }
       // Refresh the archive only after handling the generated download.
       // A slow archive listing must never prevent the file download.
-      await load();
+      await load({preserveError:true});
     }finally{
       tracking.active=false;
       clearInterval(tracking.timer);
@@ -8625,6 +8625,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
         {detail.sourceId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>{if(window.confirm("مغایرت‌های نمایش‌داده‌شده را تأیید می‌کنید؟ فایل با حفظ تمام ردیف‌ها ساخته می‌شود و شرح مشکلات در یادداشت نام و نام خانوادگی هر فرد درج خواهد شد. اعداد نامشخص خالی باقی می‌مانند.")){return generate(detail.sourceId,true);}}}>تأیید مغایرت‌ها و ساخت فایل شرکت</button>}
         <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
       </div>
+      {detail.errorMessage&&<p role="alert" style={{color:"var(--danger,#bd2929)",fontWeight:700}}>خطا: {detail.errorMessage} — نتیجه آرشیو را بررسی کنید؛ در صورت نیاز دوباره تلاش کنید.</p>}
       {detail.sourceId>0&&<p className="muted" role="alert">این گزارش دارای مغایرت است. با تأیید شما فایل تولید و آرشیو می‌شود؛ جزئیات خطاهای هر نفر در کامنت سلول نام و نام خانوادگی فایل اکسل درج خواهد شد و مقادیر نامشخص خالی می‌مانند.</p>}
       {detail.discrepancies_acknowledged&&<p className="muted">این نسخه با تأیید مغایرت‌ها تولید شده است؛ برای جزئیات خطاها کامنت نام و نام خانوادگی را در اکسل باز کنید.</p>}
       {detail.rows?.some(r=>r.organization_basis)&&<p className="muted">روزهای اداری مصوب سازمان در غیبت قابل پرداخت و چرخش شیفت این فایل لحاظ شده‌اند؛ مبنای اولیه در سابقهٔ نسخه حفظ است.</p>}{detail.account_field&&<p className="muted">منبع حساب: {detail.account_field.label} | روز مرخصی: ۴۵۳ دقیقه | {detail.partial?"ماه جاری؛ داده‌ها تا روز تولید":"ماه پایان‌یافته"} | منبع تردد: {detail.attendance_source==="finalized"?"نسخهٔ نهایی‌شده":"تردد ثبت‌شده"}</p>}
