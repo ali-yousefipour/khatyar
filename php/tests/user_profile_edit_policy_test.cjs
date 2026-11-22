@@ -51,4 +51,6 @@ assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable ch
 assert.match(panel,/const \[originalVals,setOriginalVals\]/,'admin saves only changed custom values');
 assert.match(panel,/v\.field_id\?\?v\.id/,'web personnel editor maps API custom values by field id');
 assert.match(panel,/\[userId\]\);/,'web personnel editor isolates records across user switches');
+assert.match(panel,/<CustomFieldsFiller userId=\{edit\.id\}\/>/,'unified personnel tab actually mounts integrated repeatable-field editor');
+assert.doesNotMatch(panel,/<UserCustomValues userId=\{edit\.id\}\/>/,'stale legacy custom editor is no longer mounted');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
