@@ -353,12 +353,31 @@ class CompanyWork {
     $accounts=array_column(Db::all('SELECT user_id,value FROM custom_field_values WHERE field_id=?',[(int)$accountField]),'value','user_id');
     $collectStage='seniority';
     $seniority=array_column(Seniority::listRows()['rows'],null,'id');
+    $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
+    if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
     $collectStage='rotation';
     // Rotate only for the source file's explicitly selected Jalali period.
     $rotationReport=_shift_rotation_report($year,$month);$rotation=array_column($rotationReport['rows'],null,'user_id');
     if(!function_exists('attendance_report_owned_by_entry_date'))require_once dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
-    $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
-    if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
+    // The general live report covers only currently active staff. Inactive staff
+    // in the approved organization source still need their historical punches.
+    // Fetch them together, rather than issuing an attendance query per employee.
+    if($rotationReport['source']==='live'){
+      $missingUsers=[];
+      foreach($rows as $row){
+        $id=(int)($row['user_id']??0);
+        if($id>0 && empty($row['errors']) && !isset($rotation[$id]) && isset($byId[$id]))$missingUsers[$id]=$byId[$id];
+      }
+      if($missingUsers){
+        $ids=array_keys($missingUsers);
+        $marks=implode(',',array_fill(0,count($ids),'?'));
+        $start=self::date($from);$end=self::date($to)->modify('+1 day');
+        $punches=Db::all("SELECT id attendance_id,user_id,check_in,check_out FROM staff_attendance WHERE user_id IN ($marks) AND check_in>=? AND check_in<? ORDER BY check_in,id",
+          array_merge($ids,[$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]));
+        foreach(_shift_rotation_rows(array_values($missingUsers),$punches,$start,$end) as $result)
+          $rotation[(int)$result['user_id']]=$result;
+      }
+    }
     $collectStage='approved_organization_basis';
     $officeBasis=self::activeOfficeBasis($year,$month,(int)$source['id']);$hasErrors=false;
     foreach($rows as &$r){
@@ -372,13 +391,8 @@ class CompanyWork {
       if($r['children']===null||!preg_match('/^\d+$/D',(string)$r['children']))$r['errors'][]='تعداد فرزند ثبت نشده یا نامعتبر است';
       $approvedOffice=$officeBasis['rows'][$uid]??null;$approvedOffice=!empty($approvedOffice['office_group'])&&!empty($approvedOffice['office_schedule_days'])?$approvedOffice:null;
       $rot=$rotation[$uid]??null;
-      // A person who left this month may now be inactive, but still belongs in the source file.
-      // Reuse the same rotation classifier for them; never invent missing frozen history.
-      if(!$rot && $rotationReport['source']==='live'){
-        $start=self::date($from);$end=self::date($to)->modify('+1 day');
-        $punches=Db::all('SELECT id attendance_id,user_id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in,id',[$uid,$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
-        $rot=_shift_rotation_rows([$u],$punches,$start,$end)[0]??null;
-      }
+      // The live fallback for former employees was computed in one batch above.
+      // Never fabricate rotation rows when a finalized snapshot lacks this person.
       if($approvedOffice){
         $r['recorded_rotation']=$rot;$planned=[];
         foreach($approvedOffice['days'] as $d)if(!empty($d['organization_schedule'])){$g=self::date($d['jdate'])->format('Y-m-d');$planned[]=['user_id'=>$uid,'check_in'=>$g.' 07:00:00','check_out'=>$g.' 14:33:00','method'=>'organization_approved_schedule'];}
