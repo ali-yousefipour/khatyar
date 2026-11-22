@@ -45,6 +45,28 @@ final class UserProfileAttachments {
       'file_size'=>$length,'sha256'=>hash('sha256',$bytes),'original_name'=>$clean];
   }
 
+  /**
+   * Reflect existing private uploads in conditional/required form validation.
+   * File contents and private storage paths are never exposed as field values.
+   */
+  public static function effectiveValues(int $userId,array $schema,array $values): array {
+    $ids=[];
+    foreach($schema['sections']??[] as $section)foreach($section['fields']??[] as $field){
+      if(($field['binding']??'')!=='custom'||!in_array($field['type']??'', ['image','file'],true))continue;
+      $id=(int)($field['custom_field_id']??0);
+      if($id>0)$ids[$id]=true;
+    }
+    if(!$ids)return $values;
+    if(!self::ready())throw new RuntimeException('Private attachment schema is not installed');
+    $keys=array_keys($ids);
+    $marks=implode(',',array_fill(0,count($keys),'?'));
+    $rows=Db::all("SELECT field_id FROM user_profile_attachments WHERE user_id=? AND field_id IN ($marks)",
+      array_merge([$userId],$keys));
+    $present=array_fill_keys(array_map('intval',array_column($rows,'field_id')),true);
+    foreach($keys as $id)$values['cf_'.$id]=isset($present[$id])?'1':null;
+    return $values;
+  }
+
   /** Only published, active custom file/image definitions may receive bytes. */
   public static function definition(int $fieldId,int $userId,bool $write,bool $selfEdit): array {
     if($fieldId<1||$userId<1)self::fail('شناسه اطلاعات پرسنلی نامعتبر است');
