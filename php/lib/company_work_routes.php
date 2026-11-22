@@ -4,7 +4,7 @@ function _company_work_route($method,$path,$handler){
   route($method,'/api/admin/company-work'.$path,static function($p,$b,$u)use($handler){
     _monthly_work_report_need($u);
     header('Cache-Control: private, no-store');
-    try{CompanyWork::schema();return $handler($p,$b,$u);}catch(PayrollError $e){Http::error($e->getMessage(),in_array($e->getCode(),[404,409,422],true)?$e->getCode():422);}
+    try{CompanyWork::schema();return $handler($p,$b,$u);}catch(PayrollError $e){Http::error($e->getMessage(),in_array($e->getCode(),[404,409,422,503],true)?$e->getCode():422);}
   },false,ADMIN);
 }
 _company_work_route('GET','',function($p,$b,$u){
