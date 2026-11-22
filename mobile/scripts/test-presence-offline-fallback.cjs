@@ -31,6 +31,23 @@ async function main(){
  state.error=null;state.response={status:422,body:{error:'عکس معتبر نیست'}};state.queue.clear();await assert.rejects(req(),/عکس معتبر نیست/);assert.equal(state.queue.size,0,'validation failures never queue');
  state.response={status:401,body:{error:'نشست منقضی'}};await assert.rejects(req(),/نشست منقضی/);assert.equal(state.queue.size,0,'authorization failures never queue');
  state.response={status:503,body:{error:'server busy'}};await assert.rejects(req('/my/requests'),/server busy/);assert.equal(state.queue.size,0,'other APIs keep their existing policy');
+ for(const status of [408,429,500,503]){
+   state.queue.clear();
+   state.response={status,body:{error:'temporary error'}};
+   const attendance=await req('/my/checkin');
+   assert.equal(attendance.queued,true,'attendance HTTP '+status+' is durably queued');
+   assert.equal(state.queue.get('presence_7_local_77').body.client_uuid,'presence_7_local_77','original UUID preserved');
+ }
+ for(const status of [401,403,422]){
+   state.queue.clear();
+   state.response={status,body:{error:'permanent error'}};
+   await assert.rejects(req('/my/checkout'),/permanent error/);
+   assert.equal(state.queue.size,0,'attendance HTTP '+status+' must not be queued');
+ }
+ state.queue.clear();state.error=new Error('connection reset');state.response=null;
+ assert.equal((await req('/my/checkout')).queued,true,'ambiguous checkout transport error is queued');
+ state.error=null;state.queue.clear();
+
  await assert.rejects(req('/my/presence-check',{queueIfOffline:false,forceNetwork:true}),/server busy/);assert.equal(state.queue.size,0,'sync replay never queues itself again');
  state.writeFails=true;await assert.rejects(req(),/ذخیره صف آفلاین ناموفق بود/);state.writeFails=false;assert.equal(state.queue.size,0,'failure to persist must not be acknowledged as queued');
  state.response={status:200,body:{ok:true,id:123}};r=await req();assert.equal(r.id,123);assert.equal(state.queue.size,0,'successful server receipt is not queued');
