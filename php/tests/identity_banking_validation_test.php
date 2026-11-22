@@ -56,4 +56,21 @@ assertValidation($audit['counts']['duplicate_national']===2,'batch audit reports
 assertValidation($audit['counts']['bank_mismatch']===1,'batch audit detects IBAN bank mismatch');
 assertValidation($audit['counts']['unverified_account']===1,'batch audit does not assert account ownership');
 assertValidation(count($audit['issues'])===2,'batch audit exposes mismatch rows without national numbers');
+
+assertValidation($audit['counts']['missing_banking']===1,'audit counts missing account when configured');
+$invalidAccountAudit=IdentityBankingValidation::auditBatch(
+ [['id'=>7,'first_name'=>'آزمون','last_name'=>'حساب','personnel_code'=>'0007','national_code'=>'0012345679','is_active'=>1]],
+ [['id'=>11,'fkey'=>'account_number','label'=>'شماره حساب']],
+ [['user_id'=>7,'field_id'=>11,'value'=>'12AB']],
+ [['id'=>7,'national_code'=>'0012345679']]
+);
+assertValidation($invalidAccountAudit['counts']['invalid_account']===1,'audit counts invalid internal account as a separate error');
+$missingIbanAudit=IdentityBankingValidation::auditBatch(
+ [['id'=>8,'first_name'=>'آزمون','last_name'=>'شبا','personnel_code'=>'0008','national_code'=>'0012345679','is_active'=>0]],
+ [['id'=>10,'fkey'=>'iban','label'=>'شماره شبا']],
+ [],
+ [['id'=>8,'national_code'=>'0012345679']]
+);
+assertValidation($missingIbanAudit['counts']['missing_banking']===1,'audit reports missing IBAN of inactive user');
+
 echo "Offline identity and banking validation tests passed\n";
