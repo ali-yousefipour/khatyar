@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const bootstrap=fs.readFileSync(path.join(root,'app/index.php'),'utf8');
+const routes=fs.readFileSync(path.join(root,'lib/routes.php'),'utf8');
+const source=fs.readFileSync(path.join(root,'tools/panel_source.jsx'),'utf8');
+const gate=bootstrap.indexOf("if(strpos($path,'/api/admin/seniority')===0)");
+const existing=bootstrap.indexOf("if(strpos($path,'/api/admin/work-contracts')===0)");
+assert.ok(gate>0&&gate<existing,'seniority permission gate runs before the route handler');
+const block=bootstrap.slice(gate,existing);
+for(const part of ["empty($user['is_admin'])","role_perms","in_array('seniority'","Http::error"])assert.ok(block.includes(part),'authorization includes '+part);
+for(const route of ['/api/admin/seniority/period-run','/api/admin/seniority/period-status','/api/admin/seniority/period-history'])assert.ok(routes.includes(route),'authenticated endpoint '+route);
+assert.ok(source.includes("chunkSize=8")&&source.includes('completed*100/total'),'real completed batch progress');
+assert.ok(!source.includes('Math.random()*100'),'no random progress');
+console.log('PASS seniority authorization and actual user-completion progress contract');
