@@ -39,6 +39,18 @@ checkRule('stored pipe multi-select non-membership accepts disjoint selections',
 $ambiguous=$schema;
 $ambiguous['sections'][0]['fields'][3]['rules'][0]['when']=['all'=>[['field'=>'gender','op'=>'eq','value'=>'زن']],'any'=>[['field'=>'gender','op'=>'eq','value'=>'مرد']]];
 rejectsRule('ambiguous AND and OR group rejected',$ambiguous);
+$repeatSchema=['sections'=>[['key'=>'family','fields'=>[
+  ['key'=>'children_details','type'=>'repeater','binding'=>'custom','max_rows'=>12,
+   'columns'=>[['key'=>'child_name','label'=>'نام فرزند','type'=>'text','required'=>true]]]
+]]]];
+UserProfileRules::validate($repeatSchema);
+checkRule('bounded repeatable schema validates',true);
+$badRepeat=$repeatSchema;$badRepeat['sections'][0]['fields'][0]['max_rows']=21;
+rejectsRule('repeater row count over limit rejected',$badRepeat);
+$badRepeat=$repeatSchema;$badRepeat['sections'][0]['fields'][0]['columns'][]=['key'=>'child_name','label'=>'تکرار','type'=>'text'];
+rejectsRule('repeater duplicate column keys rejected',$badRepeat);
+$badRepeat=$repeatSchema;$badRepeat['sections'][0]['fields'][0]['columns'][0]['type']='file';
+rejectsRule('nested untrusted file type rejected',$badRepeat);
 $cycle=$schema;$cycle['sections'][0]['fields'][0]['rules']=[['action'=>'show','when'=>['field'=>'spouse','op'=>'eq','value'=>'yes']]];
 rejectsRule('circular dependencies rejected',$cycle);
 $self=$schema;$self['sections'][0]['fields'][0]['rules']=[['action'=>'hide','when'=>['field'=>'gender','op'=>'eq','value'=>'female']]];
