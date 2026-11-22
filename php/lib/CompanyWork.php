@@ -102,7 +102,7 @@ class CompanyWork {
     foreach($rows as &$r)if(($seen[Payroll::identity($r['personnel_code'])??'']??0)>1){$r['errors'][]='شماره پرسنلی تکراری در فایل سازمان';$r['user_id']=null;}unset($r);
     return $rows;
   }
-  static function users(){return Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.marital_status,u.children_count,u.employment_start_date,u.employment_end_date,u.zone_id,z.name AS zone_name,r.title AS role_title FROM users u LEFT JOIN zones z ON z.id=u.zone_id LEFT JOIN roles r ON r.id=u.role_id');}
+  static function users(){return Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.marital_status,u.children_count,u.employment_start_date,u.employment_end_date,u.is_active,u.zone_id,z.name AS zone_name,r.title AS role_title FROM users u LEFT JOIN zones z ON z.id=u.zone_id LEFT JOIN roles r ON r.id=u.role_id');}
   static function schema(){
     static $ready=false;if($ready)return;
     Db::run("CREATE TABLE IF NOT EXISTS company_work_sources (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,file_name VARCHAR(255) NOT NULL,storage_key CHAR(32) NOT NULL,sha256 CHAR(64) NOT NULL,rows_json LONGTEXT NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY period_hash(jy,jm,sha256)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -347,6 +347,35 @@ class CompanyWork {
     $year=(int)$source['jy'];$month=(int)$source['jm'];$users=self::users();$byId=array_column($users,null,'id');
     $collectStage='identity_matching';
     $rows=self::matchRows(json_decode($source['rows_json'],true,512,JSON_THROW_ON_ERROR),$users);
+    $periodStart=self::date(sprintf('%04d/%02d/01',$year,$month));
+    $periodEnd=$periodStart->modify('+'.IranCalendar::monthLength($year,$month).' days');
+    $fileIds=[];
+    $discrepancies=['inactive_in_file'=>[],'unmatched_in_file'=>[],'worked_not_in_file'=>[]];
+    foreach($rows as &$r){
+      $uid=(int)($r['user_id']??0);
+      if(!$uid){
+        $discrepancies['unmatched_in_file'][]=['source_row'=>$r['source_row']??null,'name'=>trim(($r['first_name']??'').' '.($r['last_name']??'')),'personnel_code'=>$r['personnel_code']??'','reason'=>implode('؛ ',$r['errors']??[])];
+        continue;
+      }
+      $fileIds[$uid]=true;
+      $person=$byId[$uid];
+      if(!(int)($person['is_active']??0)){
+        $r['errors'][]='کاربر در سامانه غیرفعال است؛ وضعیت همکاری و کارکرد دوره بررسی شود';
+        $discrepancies['inactive_in_file'][]=['source_row'=>$r['source_row']??null,'user_id'=>$uid,'name'=>trim($person['first_name'].' '.$person['last_name']),'personnel_code'=>$person['personnel_code']];
+      }
+    }unset($r);
+    // Historical attendance is checked independently of present-day active status.
+    $worked=Db::all('SELECT DISTINCT user_id FROM staff_attendance WHERE check_in>=? AND check_in<?',
+      [$periodStart->format('Y-m-d H:i:s'),$periodEnd->format('Y-m-d H:i:s')]);
+    foreach($worked as $entry){
+      $uid=(int)($entry['user_id']??0);
+      if(!$uid||isset($fileIds[$uid]))continue;
+      $person=$byId[$uid]??null;
+      $discrepancies['worked_not_in_file'][]=['user_id'=>$uid,
+        'name'=>$person?trim($person['first_name'].' '.$person['last_name']):'کاربر فاقد پرونده',
+        'personnel_code'=>$person['personnel_code']??''];
+    }
+    $collectStage='staff_reconciliation';
     $collectStage='account_field';
     $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
     $collectStage='account_values';
@@ -387,6 +416,10 @@ class CompanyWork {
       if(!preg_match('/^\d[0-9 .-]{2,38}\d$/D',$r['account'])||strlen(preg_replace('/\D/','',$r['account']))<4||!preg_match('/[1-9]/',$r['account']))$r['errors'][]='شماره حساب معتبر در فیلد انتخاب‌شده موجود نیست';
       $r['seniority_days']=$seniority[$uid]['seniority_days']??null;if($r['seniority_days']===null)$r['errors'][]='مبنای سنوات پرسنل ثبت نشده است';
       $r['married']=Payroll::normalize($u['marital_status']??'');$r['children']=$u['children_count'];
+      $r['marital_code']=in_array($r['married'],['متاهل','متأهل'],true)?1:($r['married']==='مجرد'?0:null);
+      // Employment seniority is not proof of all prior insurance contributions.
+      $r['child_allowance_warning']=((int)$r['children']>0 && $r['seniority_days']!==null && (int)$r['seniority_days']<720)
+        ?'سابقه ثبت‌شده کمتر از ۷۲۰ روز است؛ سابقه بیمه تأمین اجتماعی پیشین و شرایط قانونی حق اولاد بررسی شود.':null;
       if(!in_array($r['married'],['مجرد','متاهل','متأهل'],true))$r['errors'][]='وضعیت تأهل ثبت نشده یا نامعتبر است';
       if($r['children']===null||!preg_match('/^\d+$/D',(string)$r['children']))$r['errors'][]='تعداد فرزند ثبت نشده یا نامعتبر است';
       $approvedOffice=$officeBasis['rows'][$uid]??null;$approvedOffice=!empty($approvedOffice['office_group'])&&!empty($approvedOffice['office_schedule_days'])?$approvedOffice:null;
@@ -413,7 +446,8 @@ class CompanyWork {
       }catch(PayrollError $e){$r['errors'][]=$e->getMessage();}
       if($r['errors'])$hasErrors=true;
     }unset($r);
-    return ['rows'=>$rows,'has_errors'=>$hasErrors,'year'=>$year,'month'=>$month,'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']],'attendance_source'=>$rotationReport['source'],'as_of'=>$today->format('Y-m-d'),'partial'=>self::date($to)>=$today,'leave_minutes_per_day'=>self::DAY_MINUTES];
+    if($discrepancies['worked_not_in_file'])$hasErrors=true;
+    return ['discrepancies'=>$discrepancies,'rows'=>$rows,'has_errors'=>$hasErrors,'year'=>$year,'month'=>$month,'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']],'attendance_source'=>$rotationReport['source'],'as_of'=>$today->format('Y-m-d'),'partial'=>self::date($to)>=$today,'leave_minutes_per_day'=>self::DAY_MINUTES];
     }catch(Throwable $e){
       // A stable diagnostic stage is useful on shared hosting where the admin
       // cannot see the raw exception. Log no employee names or identity data.
@@ -462,7 +496,7 @@ class CompanyWork {
         $values=[
           'A'=>$n-3,'B'=>$r['first_name'],'C'=>$r['last_name'],'D'=>$r['personnel_code'],'E'=>$r['national_code'],'F'=>$r['account'],'G'=>$r['role'],
           'H'=>(float)$r['days'],'I'=>(float)$r['leave_days'],'J'=>(float)$r['absence_days'],'K'=>(float)$r['sick_days'],'L'=>$r['days']-$r['absence_days']-$r['sick_days'],
-          'M'=>$r['married'],'N'=>(int)$r['children'],'O'=>(float)$r['friday_hours'],'P'=>(float)$r['holiday_hours'],'Q'=>(float)$r['night_hours'],'R'=>(float)$r['overtime_hours'],
+          'M'=>$r['marital_code'],'N'=>(int)$r['children'],'O'=>(float)$r['friday_hours'],'P'=>(float)$r['holiday_hours'],'Q'=>(float)$r['night_hours'],'R'=>(float)$r['overtime_hours'],
           'S'=>$r['seniority_days']/365,'T'=>(float)$r['morning'],'U'=>(float)$r['afternoon'],'V'=>(float)$r['night'],'W'=>(string)($r['notes']??''),'X'=>(float)$r['seniority_days']];
         foreach($values as $col=>$value){
           $cell=self::setCell($doc,$row,$col,$n,$value,$col==='L'?"H$n-J$n-K$n":($col==='S'?"X$n/365":null));
