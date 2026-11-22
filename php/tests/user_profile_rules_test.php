@@ -30,6 +30,12 @@ checkRule('reversed dates never match',!UserProfileRules::matches(['field'=>'dat
 $duplicateSection=$schema;
 $duplicateSection['sections'][]=['key'=>'personal','fields'=>[]];
 rejectsRule('duplicate group keys rejected',$duplicateSection);
+checkRule('multi-select IN matches any selected choice',UserProfileRules::matches(['field'=>'tags','op'=>'in','value'=>['الف','ج']],['tags'=>['ب','ج']]));
+checkRule('multi-select NOT IN rejects overlapping choices',!UserProfileRules::matches(['field'=>'tags','op'=>'not_in','value'=>['الف','ج']],['tags'=>['ب','ج']]));
+checkRule('multi-select NOT IN permits non-overlapping choices',UserProfileRules::matches(['field'=>'tags','op'=>'not_in','value'=>['الف']],['tags'=>['ب','ج']]));
+$ambiguous=$schema;
+$ambiguous['sections'][0]['fields'][3]['rules'][0]['when']=['all'=>[['field'=>'gender','op'=>'eq','value'=>'زن']],'any'=>[['field'=>'gender','op'=>'eq','value'=>'مرد']]];
+rejectsRule('ambiguous AND and OR group rejected',$ambiguous);
 $cycle=$schema;$cycle['sections'][0]['fields'][0]['rules']=[['action'=>'show','when'=>['field'=>'spouse','op'=>'eq','value'=>'yes']]];
 rejectsRule('circular dependencies rejected',$cycle);
 $self=$schema;$self['sections'][0]['fields'][0]['rules']=[['action'=>'hide','when'=>['field'=>'gender','op'=>'eq','value'=>'female']]];
