@@ -1703,7 +1703,23 @@ function _save_custom_values($uid, $values, $onlyEditable){
   foreach($values as $fid=>$val){
     $fid=(int)$fid;
     if(!isset($byId[$fid]) || ($onlyEditable && empty($byId[$fid]['user_editable'])))continue;
-    if(is_array($val))$val=implode('|',$val);
+    if(($byId[$fid]['ftype']??'')==='repeater'){
+      // A repeatable group is persisted as JSON in one existing custom-field value.
+      // Validate admin writes with the same bounded model as Android/self-service.
+      if(!is_string($val)&&$val!==null)Http::error('مقدار گروه تکرارشونده باید JSON معتبر باشد',422);
+      $config=json_decode((string)($byId[$fid]['options']??''),true);
+      if(!is_array($config))Http::error('تعریف گروه تکرارشونده نامعتبر است',422);
+      $field=['key'=>'cf_'.$fid,'type'=>'repeater','binding'=>'custom',
+        'columns'=>$config['columns']??[],'min_rows'=>$config['min_rows']??0,
+        'max_rows'=>$config['max_rows']??12,'required'=>(bool)$byId[$fid]['required']];
+      require_once __DIR__.'/UserProfileFormValues.php';
+      try{
+        UserProfileRules::validate(['sections'=>[['key'=>'repeat_fields','fields'=>[$field]]]]);
+        $val=UserProfileFormValues::normalizeField($field,$val);
+      }catch(InvalidArgumentException $exception){
+        Http::error($exception->getMessage(),422);
+      }
+    }elseif(is_array($val))$val=implode('|',$val);
     if(!is_scalar($val) && $val!==null)Http::error('مقدار فیلد تکمیلی نامعتبر است',422);
     $incoming[$fid]=(string)($val??'');
   }
