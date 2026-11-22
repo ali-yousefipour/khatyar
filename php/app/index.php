@@ -183,6 +183,15 @@ if (strpos($path, '/api') !== 0) {
 $routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
+// Configurable full user export; the same admin permission check applies to schema and download.
+route('GET', '/api/admin/users/full-report-options', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/UserFullReport.php';
+  UserFullReport::run([]);
+}, false, 3);
+route('POST', '/api/admin/users/full-report-export', static function($params,$body,$user) {
+  require_once dirname(__DIR__).'/lib/UserFullReport.php';
+  UserFullReport::run(is_array($body)?$body:[]);
+}, false, 3);
 // Regional chart uses live user roles and nearest eligible zone leadership.
 // Explicit refresh does not alter manual graph links or operational approvals.
 route('POST', '/api/admin/zones/{id}/sync-chart', static function($params,$body,$user) {
