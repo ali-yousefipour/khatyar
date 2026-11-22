@@ -34,6 +34,7 @@ final class UserProfileFormValues {
       $state=UserProfileRules::state($field,$effective);
       $has=array_key_exists($key,$submitted);
       if($has){
+        if($selfEdit&&($field['android_visible']??true)===false)self::fail('این فیلد در فرم اندروید قابل ویرایش نیست');
         if($selfEdit&&!self::permitted($field,$context))self::fail('مجوز ویرایش این فیلد برای نقش یا کاربر صادر نشده است');
         if(!$state['visible']||!$state['enabled']||$state['readonly'])
           self::fail('ویرایش این فیلد در وضعیت فعلی مجاز نیست: '.($field['label']??$key));
