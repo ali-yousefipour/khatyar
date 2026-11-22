@@ -39,7 +39,7 @@ export function formatProfileFieldValue(field,value){
   return String(value??'').replace(/\|/g,'، ')||'—';
 }
 
-function PrivateProfileAttachment({field,onStatus,readOnly=false}){
+export function PrivateProfileAttachment({field,onStatus,readOnly=false}){
   const [status,setStatus]=useState(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
