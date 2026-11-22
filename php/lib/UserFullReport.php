@@ -212,6 +212,30 @@ final class UserFullReport {
       if(!ctype_digit((string)$value)||(int)$value<1)Http::error('فیلتر سازمانی نامعتبر است',422);
       $conditions[]='u.`'.$filter.'`=?';$params[]=(int)$value;
     }
+    // Persian employment dates are normalized and range-checked server-side.
+    $dateRange=[
+      'employment_start_from'=>['employment_start_date','>='],
+      'employment_start_to'=>['employment_start_date','<='],
+      'employment_end_from'=>['employment_end_date','>='],
+      'employment_end_to'=>['employment_end_date','<=']
+    ];
+    foreach($dateRange as $input=>$definition){
+      $raw=trim((string)($body[$input]??''));
+      if($raw==='')continue;
+      $normalized=IranCalendar::normalize($raw);
+      if(!$normalized||!preg_match('/^1[34][0-9]{2}-/',$normalized))
+        Http::error('تاریخ شمسی فیلتر گزارش معتبر نیست',422);
+      [$column,$operator]=$definition;
+      if(!self::hasColumn('users',$column))Http::error('فیلتر تاریخ همکاری در پایگاه داده موجود نیست',503);
+      $conditions[]="REPLACE(u.\`$column\`,'/','-') $operator ?";
+      $params[]=$normalized;
+    }
+    foreach(['employment_start','employment_end'] as $prefix){
+      $from=$body[$prefix.'_from']??'';
+      $to=$body[$prefix.'_to']??'';
+      if($from!==''&&$to!==''&&IranCalendar::normalize($from)>IranCalendar::normalize($to))
+        Http::error('تاریخ شروع بازه فیلتر از پایان آن بزرگ‌تر است',422);
+    }
     $where=$conditions?' WHERE '.implode(' AND ',$conditions):'';
     $users=Db::all("SELECT ".implode(',',$select)." FROM users u LEFT JOIN roles r ON r.id=u.role_id".$where." ORDER BY u.id",$params);
     $customIds=[];
