@@ -92,6 +92,20 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    const down=el('button',{type:'button',text:'↓','aria-label':'انتقال ستون به پایین'},label);
    up.onclick=e=>{e.preventDefault();e.stopPropagation();move(-1);};
    down.onclick=e=>{e.preventDefault();e.stopPropagation();move(1);};
+   label.draggable=true;
+   label.title='برای تغییر ترتیب ستون، بکشید و رها کنید یا از کلیدهای بالا و پایین استفاده کنید';
+   label.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',column.key);e.dataTransfer.effectAllowed='move';});
+   label.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
+   label.addEventListener('drop',e=>{
+     e.preventDefault();e.stopPropagation();
+     const sourceKey=e.dataTransfer.getData('text/plain');
+     const from=checks.findIndex(x=>x.value===sourceKey),to=checks.indexOf(check);
+     if(from<0||from===to)return;
+     const moved=checks.splice(from,1)[0];checks.splice(to,0,moved);
+     if(from<to)fields.insertBefore(moved.parentElement,label.nextSibling);
+     else fields.insertBefore(moved.parentElement,label);
+     updateCount();
+   });
    for(const s of [sort,second,third])el('option',{value:column.key,text:column.label},s);
  });
  sort.value=(stored&&columns.some(c=>c.key===stored.sort))?stored.sort:(columns.some(c=>c.key==='id')?'id':columns[0].key);
