@@ -309,17 +309,26 @@ class CompanyWork {
   static function collect($source,$accountField){
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
+    $collectStage='staff_lookup'; $currentUserId=0;
+    try {
     $year=(int)$source['jy'];$month=(int)$source['jm'];$users=self::users();$byId=array_column($users,null,'id');
+    $collectStage='identity_matching';
     $rows=self::matchRows(json_decode($source['rows_json'],true,512,JSON_THROW_ON_ERROR),$users);
+    $collectStage='account_field';
     $field=Db::one('SELECT id,label FROM custom_fields WHERE id=? AND is_active=1',[(int)$accountField]);if(!$field)self::fail('فیلد شماره حساب پرسنل را انتخاب کنید');
+    $collectStage='account_values';
     $accounts=array_column(Db::all('SELECT user_id,value FROM custom_field_values WHERE field_id=?',[(int)$accountField]),'value','user_id');
-    $seniority=array_column(Seniority::listRows()['rows'],null,'id');$rotationReport=_shift_rotation_report($year,$month);$rotation=array_column($rotationReport['rows'],null,'user_id');
+    $collectStage='seniority';
+    $seniority=array_column(Seniority::listRows()['rows'],null,'id');
+    $collectStage='rotation';
+    $rotationReport=_shift_rotation_report($year,$month);$rotation=array_column($rotationReport['rows'],null,'user_id');
     if(!function_exists('attendance_report_owned_by_entry_date'))require_once dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
     $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
     if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
+    $collectStage='approved_organization_basis';
     $officeBasis=self::activeOfficeBasis($year,$month,(int)$source['id']);$hasErrors=false;
     foreach($rows as &$r){
-      if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$u=$byId[$uid];
+      if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$currentUserId=(int)$uid;$collectStage='personnel_metrics';$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
       if(!$r['national_code'])$r['errors'][]='کد ملی معتبر در اطلاعات پرسنل موجود نیست';
       if(!preg_match('/^\d[0-9 .-]{2,38}\d$/D',$r['account'])||strlen(preg_replace('/\D/','',$r['account']))<4||!preg_match('/[1-9]/',$r['account']))$r['errors'][]='شماره حساب معتبر در فیلد انتخاب‌شده موجود نیست';
@@ -343,14 +352,34 @@ class CompanyWork {
       }
       if(!$rot||!empty($rot['missing_source']))$r['errors'][]='منبع محاسبهٔ چرخش شیفت موجود نیست';
       foreach(['morning','afternoon','night'] as $k)$r[$k]=$rot[$k]??null;
+      $collectStage='attendance_daily';
       $report=attendance_report_owned_by_entry_date($uid,$from,$to);
       if($approvedOffice){$r['organization_basis']=['batch_id'=>$officeBasis['id'],'source'=>'organization_approved_schedule','office_schedule_minutes'=>$approvedOffice['office_schedule_minutes']];$r['recorded_absence_days']=self::metrics($u,$report,[],$year,$month,$today)['absence_days'];$paid=self::officePaymentReport($report,$approvedOffice);$report=$paid['report'];$r['covered_absence_days']=$paid['covered_absence_days'];}
       if(!isset($report['days'])||count($report['days'])!==IranCalendar::monthLength($year,$month))$r['errors'][]='جزئیات کامل روزهای ماه در گزارش تردد موجود نیست';
+      $collectStage='approved_leaves';
       $requests=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time FROM requests WHERE user_id=? AND status='approved' AND type IN('annual','sick')",[$uid]);
+      $collectStage='metrics';
       try{$r=array_merge($r,self::metrics($u,$report,$requests,$year,$month,$today));}catch(PayrollError $e){$r['errors'][]=$e->getMessage();}
       if($r['errors'])$hasErrors=true;
     }unset($r);
     return ['rows'=>$rows,'has_errors'=>$hasErrors,'year'=>$year,'month'=>$month,'account_field'=>['id'=>(int)$field['id'],'label'=>$field['label']],'attendance_source'=>$rotationReport['source'],'as_of'=>$today->format('Y-m-d'),'partial'=>self::date($to)>=$today,'leave_minutes_per_day'=>self::DAY_MINUTES];
+    }catch(Throwable $e){
+      // A stable diagnostic stage is useful on shared hosting where the admin
+      // cannot see the raw exception. Log no employee names or identity data.
+      error_log(sprintf('company_work_collect stage=%s source=%d period=%d/%d user_id=%d exception=%s message=%s',
+        $collectStage,(int)($source['id']??0),(int)($source['jy']??0),(int)($source['jm']??0),
+        $currentUserId,get_class($e),str_replace(["\\r","\\n"],' ',substr($e->getMessage(),0,350))));
+      if($e instanceof PayrollError)throw $e;
+      $stageNames=[
+        'staff_lookup'=>'دریافت اطلاعات پرسنل','identity_matching'=>'تطبیق اطلاعات پرسنل',
+        'account_field'=>'انتخاب فیلد شماره حساب','account_values'=>'دریافت شماره حساب‌ها',
+        'seniority'=>'محاسبه سنوات','rotation'=>'محاسبه چرخش شیفت',
+        'approved_organization_basis'=>'تطبیق کارکرد سازمان','personnel_metrics'=>'محاسبات پرسنلی',
+        'attendance_daily'=>'دریافت کارکرد روزانه','approved_leaves'=>'دریافت مرخصی‌ها',
+        'metrics'=>'محاسبه خلاصه کارکرد'
+      ];
+      self::fail('محاسبه کارکرد در بخش «'.($stageNames[$collectStage]??'اطلاعات کارکرد').'» با خطای سرور مواجه شد.',503);
+    }
   }
   static function setCell($doc,$row,$col,$number,$value,$formula=null){
     $ns=$doc->documentElement->namespaceURI;$cell=null;
