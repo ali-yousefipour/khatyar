@@ -58,6 +58,16 @@ export function profileFieldState(field,values){
   if(!state.visible||!state.enabled||state.readonly)state.required=false;
   return state;
 }
+export function profileCanEdit(field,identity){
+  const userId=Number(identity?.id)||0,roleId=Number(identity?.role_id)||0;
+  const denyUsers=Array.isArray(field?.deny_users)?field.deny_users.map(Number):[];
+  const denyRoles=Array.isArray(field?.deny_roles)?field.deny_roles.map(Number):[];
+  if(denyUsers.includes(userId)||denyRoles.includes(roleId))return false;
+  const users=Array.isArray(field?.edit_users)?field.edit_users.map(Number):[];
+  const roles=Array.isArray(field?.edit_roles)?field.edit_roles.map(Number):[];
+  if(!users.length&&!roles.length)return true;
+  return (userId>0&&users.includes(userId))||(roleId>0&&roles.includes(roleId));
+}
 export function profileSchemaCustomFields(schema){
   return (schema?.sections||[]).flatMap(s=>s.fields||[])
     .filter(f=>f?.binding==='custom'&&Number.isSafeInteger(Number(f.custom_field_id))&&Number(f.custom_field_id)>0);
