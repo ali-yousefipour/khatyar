@@ -22,8 +22,10 @@ function JDateInput({ value, onChange }) {
 
 export function FieldInput({ field, value, onChange, onBlur }) {
   const opts = (field.options || '').split('|').filter(Boolean);
-  if (field.ftype === 'textarea')
-    return <TextInput style={[s.input, { height: 80, textAlignVertical: 'top' }]} multiline value={value || ''} onChangeText={onChange} placeholderTextColor={C.muted} />;
+  if (field.ftype === 'textarea' || field.ftype === 'address')
+    return <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} multiline value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
+  if (field.ftype === 'time')
+    return <TextInput style={s.input} keyboardType="numbers-and-punctuation" placeholder="۱۴:۳۰" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
   if (field.ftype === 'number')
     return <TextInput style={s.input} keyboardType="numeric" value={String(value??'')} onChangeText={onChange} onBlur={onBlur} placeholderTextColor={C.muted} />;
   if (['mobile','phone','national_id','account','iban','card'].includes(field.ftype))
