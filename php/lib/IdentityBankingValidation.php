@@ -108,7 +108,7 @@ final class IdentityBankingValidation {
       $byUser[(int)$v['user_id']][$fieldKinds[(int)$v['field_id']]]=(string)($v['value']??'');
     $duplicates=self::duplicateNationalIds($allUsers);
     $counts=['valid'=>0,'invalid_national'=>0,'missing_national'=>0,'duplicate_national'=>0,
-      'invalid_iban'=>0,'bank_mismatch'=>0,'unverified_account'=>0,'missing_banking'=>0];
+      'invalid_iban'=>0,'bank_mismatch'=>0,'invalid_account'=>0,'unverified_account'=>0,'missing_banking'=>0];
     $issues=[];
     foreach($users as $person){
       $id=(int)$person['id'];$national=self::nationalId($person['national_code']??'');
@@ -127,12 +127,16 @@ final class IdentityBankingValidation {
           else $counts['invalid_iban']++;
           $problem=array_merge($problem,$iban['errors']);
         }
+      }elseif(in_array('iban',$fieldKinds,true)){
+        $counts['missing_banking']++;$problem[]='شماره شبا ثبت نشده است';
       }
       if(array_key_exists('account',$bank)){
         $account=self::account($bank['account']);
         if($account['status']==='missing_information'){$counts['missing_banking']++;$problem[]='شماره حساب ثبت نشده است';}
-        elseif(!$account['valid'])$problem=array_merge($problem,$account['errors']);
+        elseif(!$account['valid']){$counts['invalid_account']++;$problem=array_merge($problem,$account['errors']);}
         else {$counts['unverified_account']++;$problem[]='صحت شماره حساب داخلی به‌صورت آفلاین قابل تأیید نیست';}
+      }elseif(in_array('account',$fieldKinds,true)){
+        $counts['missing_banking']++;$problem[]='شماره حساب ثبت نشده است';
       }
       if($problem)$issues[]=['user_id'=>$id,'name'=>trim(($person['first_name']??'').' '.($person['last_name']??'')),
         'personnel_code'=>(string)($person['personnel_code']??''),
