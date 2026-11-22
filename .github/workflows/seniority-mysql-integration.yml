@@ -1,0 +1,47 @@
+name: Seniority MySQL Integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'php/lib/Seniority*.php'
+      - 'php/lib/routes.php'
+      - 'php/tests/seniority_mysql_integration_test.php'
+      - 'php/migrations/20261122_seniority_periods.sql'
+      - '.github/workflows/seniority-mysql-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testsecret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptestsecret"
+          --health-interval=5s --health-timeout=3s --health-retries=25
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP runtime and MySQL driver
+        run: |
+          set -euo pipefail
+          php -v
+          if ! php -m | grep -qi '^pdo_mysql$'; then
+            sudo apt-get update -qq
+            sudo apt-get install -y php-mysql
+          fi
+          php -m | grep -i '^pdo_mysql$'
+          php -l php/lib/SeniorityPeriods.php
+          php -l php/tests/seniority_mysql_integration_test.php
+      - name: Real InnoDB integration, disposable database only
+        env:
+          KHATYAR_SENIORITY_TEST_DB: disposable_ci_only
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_USER: root
+          MYSQL_PASSWORD: testsecret
+        run: php php/tests/seniority_mysql_integration_test.php
