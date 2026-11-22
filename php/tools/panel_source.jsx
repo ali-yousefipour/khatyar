@@ -5016,8 +5016,10 @@ function UserProfileFormDesigner(){
       const field={key,label:f.label,type:f.ftype||"text",binding:"custom",
         custom_field_id:Number(f.id),required:!!Number(f.required),readonly:!Number(f.user_editable),rules:[]};
       if(field.type==="repeater"){
-        const config=parseRepeater(f.options);
-        field.columns=config.columns;
+        let config={};
+        try{config=JSON.parse(String(f.options||"{}"))||{};}catch(_){}
+        field.columns=Array.isArray(config.columns)&&config.columns.length?
+          config.columns:[{key:"child_name",label:"نام فرزند",type:"text",required:true}];
         field.min_rows=config.min_rows||0;
         field.max_rows=config.max_rows||12;
       }else{
