@@ -53,6 +53,35 @@ jobs:
             !**/*.key
             !**/*.pem
             !**/vendor/**
+      - name: Checkout current main snapshot without secrets
+        uses: actions/checkout@v4
+        with:
+          ref: 35ef8597efcbaffb5876bd28caa785c4bdf38ac2
+          path: current-main
+          persist-credentials: false
+      - name: Upload original app logo
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-original-logo
+          path: current-main/mobile/assets/icon.png
+          retention-days: 7
+      - name: Upload current main read-only source
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-current-main-source
+          path: |
+            current-main/mobile/App.js
+            current-main/mobile/src/
+            current-main/php/lib/
+            current-main/php/tools/
+            current-main/php/app/build-version.json
+            current-main/mobile/package.json
+            current-main/php/migrations/
+            current-main/.github/workflows/
+            !**/.env
+            !**/*.pem
+            !**/*.key
+          retention-days: 7
       - name: Upload complete audit data
         uses: actions/upload-artifact@v4
         with:
