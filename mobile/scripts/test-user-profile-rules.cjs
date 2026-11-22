@@ -19,4 +19,5 @@ assert.equal(fields.length,1);assert.equal(fields[0].key,'cf_7');
 assert(canEdit({edit_roles:[5]},{id:12,role_id:5}));
 assert(!canEdit({edit_roles:[5]},{id:12,role_id:9}));
 assert(!canEdit({edit_roles:[5],deny_users:[12]},{id:12,role_id:5}));
+assert(!state({android_visible:false,rules:[{action:'show',when:{field:'gender',op:'eq',value:'زن'}}]},values).visible,'platform-hidden fields stay invisible even with show rule');
 console.log('PASS mobile personnel forms: AND/OR, gender, family, Jalali, Persian number, readonly and no eval');
