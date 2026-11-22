@@ -42,6 +42,7 @@ if [ "$verified" != true ]; then
   echo "Check hosting connectivity, FTP TLS availability, firewall and GitHub runner access. Deployment stopped without plaintext fallback." >&2
   exit 1
 fi
+rm -f "$stage/tls-error.log"
 cmd="$stage/upload.commands"
 {
   echo 'set cmd:fail-exit yes'
