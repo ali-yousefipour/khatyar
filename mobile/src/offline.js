@@ -114,11 +114,20 @@ export async function removeSynced(ids=[]){return withStorageLock(async()=>{cons
     return queue.length-remaining.length;});}
 async function updateItem(item,patch){return withStorageLock(async()=>{const queue=await pending();const i=queue.findIndex(x=>String(x.client_uuid||'')===String(item.client_uuid||''));if(i<0)return;queue[i]={...queue[i],...patch};await AsyncStorage.setItem(KEY,JSON.stringify(queue));});}
 export async function hasPendingPath(path){const queue=await pending();return queue.some(item=>String(item?.path||'')===String(path||''));}
+// Stop a batch after a transport/server outage: otherwise every queued item
+// immediately repeats the same failing request and amplifies the incident.
+function isTemporaryDeliveryFailure(error){
+  const status=Number(error?.status||0);
+  if(status===408||status===429||status>=500&&status<=599||status===401)return true;
+  if(status>=400&&status<500)return false;
+  const message=String(error?.message||error||'');
+  return /اتصال به سرور|ارتباط با سرور|زمان انتظار|زمان ارسال|Network request failed|Failed to fetch|خطای داخلی سرور|پاسخ JSON دریافت نشد|سرور موقتاً/.test(message);
+}
 export async function flush(send,{force=false}={}){if(flushPromise)return flushPromise;flushPromise=(async()=>{let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isInternetReachable:true}}if(!force&&net.isConnected===false)return 0;const queue=await pending();if(!queue.length)return 0;let synced=0;for(const item of queue){
       const owner=await readVerifiedUser().catch(()=>null);
       if(!owner?.id || !item.owner_user_id || String(item.owner_user_id)!==String(owner.id))continue;
       if(retryLocks.has(String(item.client_uuid)))continue;
-      const attempts=Number(item.attempts||0),last=Number(item.last_attempt_at||0);if(!force&&last&&Date.now()-last<Math.min(15*60*1000,Math.max(30*1000,attempts*30*1000)))continue;try{const res=await send(item);if(res?.queued)continue;await removeSynced([item.client_uuid]);synced++}catch(e){await updateItem(item,{attempts:attempts+1,last_attempt_at:Date.now(),last_error:String(e?.message||e).slice(0,500)});continue}}return synced})();try{return await flushPromise}finally{flushPromise=null}}
+      const attempts=Number(item.attempts||0),last=Number(item.last_attempt_at||0);if(!force&&last&&Date.now()-last<Math.min(15*60*1000,Math.max(30*1000,attempts*30*1000)))continue;try{const res=await send(item);if(res?.queued)continue;await removeSynced([item.client_uuid]);synced++}catch(e){await updateItem(item,{attempts:attempts+1,last_attempt_at:Date.now(),last_error:String(e?.message||e).slice(0,500)});if(isTemporaryDeliveryFailure(e))break;continue}}return synced})();try{return await flushPromise}finally{flushPromise=null}}
 
 export async function retryOne(clientUuid,send){
   const key=String(clientUuid||'');
