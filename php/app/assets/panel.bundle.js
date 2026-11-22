@@ -8885,6 +8885,37 @@ function UserProfileFormDesigner() {
             return;
         d.sections = d.sections.filter(s => s.key !== key);
     });
+    const syncRepeater = async () => {
+        if ((current === null || current === void 0 ? void 0 : current.type) !== "repeater")
+            return;
+        setBusy(true);
+        setError("");
+        try {
+            const latest = await db.customFields();
+            const source = (latest || []).find(f => Number(f.id) === Number(current.custom_field_id));
+            if (!source || source.ftype !== "repeater")
+                throw Error("گروه تکرارشونده در فیلدهای سفارشی پیدا نشد.");
+            const config = JSON.parse(source.options || "{}");
+            if (!Array.isArray(config.columns) || !config.columns.length)
+                throw Error("تعریف ستون‌های گروه تکرارشونده نامعتبر است.");
+            modify(d => {
+                const target = d.sections.flatMap(section => section.fields).find(f => f.key === selected);
+                if (!target)
+                    return;
+                target.columns = config.columns;
+                target.max_rows = Number(config.max_rows) || 12;
+                target.min_rows = Number(config.min_rows) || 0;
+            });
+            setChoices(latest);
+            setMessage("تعریف جدید ستون‌ها وارد پیش‌نویس شد. ابتدا ذخیره و سپس منتشر کنید.");
+        }
+        catch (error) {
+            setError(error.message || "همگام‌سازی گروه ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     const addGroup = () => modify(d => {
         let id = 1;
         while (d.sections.some(s => s.key === "group_" + id))
@@ -9174,7 +9205,9 @@ function UserProfileFormDesigner() {
                                             label,
                                             React.createElement("input", { className: "input", type: "number", value: (_a = current[key]) !== null && _a !== void 0 ? _a : "", onChange: e => editField(key, e.target.value === "" ? null : Number(e.target.value)) }));
                                     }) : null),
-                            current.type === "repeater" ? React.createElement("p", { className: "muted" }, "\u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u062F\u0631 \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644\u00BB \u062A\u0639\u0631\u06CC\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0628\u0631\u0627\u06CC \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A\u060C \u0641\u0631\u0645 \u0631\u0627 \u0645\u062C\u062F\u062F\u0627\u064B \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06A9\u0646\u06CC\u062F.") :
+                            current.type === "repeater" ? React.createElement("div", null,
+                                React.createElement("p", { className: "muted" }, "\u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u062F\u0631 \u00AB\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644\u00BB \u062A\u0639\u0631\u06CC\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+                                React.createElement("button", { type: "button", className: "btn g", disabled: busy, onClick: syncRepeater }, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0633\u062A\u0648\u0646\u200C\u0647\u0627 \u0627\u0632 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC")) :
                                 React.createElement("label", null,
                                     "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 (\u0647\u0631 \u06AF\u0632\u06CC\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u062E\u0637)",
                                     React.createElement("textarea", { className: "input", rows: "3", value: (current.options || []).join("\n"), onChange: e => editField("options", e.target.value.split("\n").map(v => v.trim()).filter(Boolean)) })),
