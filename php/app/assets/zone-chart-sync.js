@@ -39,11 +39,12 @@ function message(card,content,isError){
 async function synchronize(button,card,zone){
  if(button.disabled)return;
  const name=normalize(zone.name);
- if(!confirm('چارت منطقه «'+name+'» و زیرمنطقه‌های آن بر اساس سمت فعلی نیروها به‌روزرسانی شود؟\\nچارت دستی تغییر نمی‌کند.'))return;
+ if(!confirm('روابط چارت ذخیره‌شده برای نیروهای منطقه «'+name+'» و زیرمنطقه‌های آن، بر اساس مسئولان و سمت‌های فعلی جایگزین شوند؟\nروابط دستی همین نیروها بازنویسی می‌شوند؛ مناطق دیگر بدون تغییر می‌مانند.'))return;
  button.disabled=true;button.textContent='در حال همسان‌سازی…';card.setAttribute('aria-busy','true');
  try{
   const result=await api('zones/'+encodeURIComponent(zone.id)+'/sync-chart',{method:'POST',body:'{}'});
-  message(card,'چارت منطقه‌ای بازخوانی شد: '+fa(result.staff_count)+' نیرو، '+fa(result.relation_count)+' ارتباط سازمانی. برای مشاهده آخرین چارت، صفحه چارت را باز کنید.',false);
+  if(result.persisted!==true)throw new Error('سرور ذخیره‌سازی چارت را تأیید نکرد. عملیات کامل نشده است.');
+  message(card,'همسان‌سازی در چارت ذخیره شد: '+fa(result.updated_users)+' نیرو و '+fa(result.saved_relations)+' ارتباط مدیریتی. صفحه چارت سازمانی را باز کنید.',false);
   window.dispatchEvent(new CustomEvent('khatyar:regional-chart-synchronized',{detail:{zone_id:Number(zone.id),refreshed_at:result.refreshed_at}}));
  }catch(error){message(card,error.message||'همسان‌سازی چارت انجام نشد.',true);}
  finally{button.disabled=false;button.textContent='همسان‌سازی چارت';card.removeAttribute('aria-busy');}
