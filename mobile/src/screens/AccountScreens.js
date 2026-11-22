@@ -238,7 +238,7 @@ export function EditProfileScreen({ navigation, vehicleAction }) {
     }
     setBusy(true);
     try {
-      await request('/me/profile', { method: 'PUT', body: {
+      await request('/me/profile', { method: 'PUT', queueIfOffline: false, body: {
         email: p.email, mobile: p.mobile, address: p.address,
         national_code: normalizeIranianDigits(p.national_code || '') || null,
         marital_status: p.marital_status, children_count: p.children_count,
