@@ -1703,6 +1703,21 @@ function _save_custom_values($uid, $values, $onlyEditable){
     if (!isset($byId[$fid])) continue;
     if ($onlyEditable && empty($byId[$fid]['user_editable'])) continue;
     if (is_array($val)) $val = implode('|', $val);
+    require_once __DIR__.'/IdentityBankingValidation.php';
+    $key=mb_strtolower((string)($byId[$fid]['fkey']??'').' '.(string)($byId[$fid]['label']??''));
+    if(trim((string)$val)!==''){
+      if(preg_match('/شبا|\\biban\\b|\\bsheba\\b|\\bshaba\\b/iu',$key)){
+        $expected=preg_match('/بانک\\s*شهر|shahr/i',$key)?'061':null;
+        $check=IdentityBankingValidation::iban($val,$expected,true);
+        if(!$check['valid'] && $check['status']!=='offline_unverifiable')
+          Http::error($check['errors'][0]??'شماره شبا نامعتبر است',422);
+        $val=$check['normalized']??$val;
+      }elseif(preg_match('/شماره\\s*حساب|bank[_ -]?account|account[_ -]?number/i',$key)){
+        $check=IdentityBankingValidation::account($val);
+        if(!$check['valid'])Http::error($check['errors'][0],422);
+        // Do not guess a bank-specific conversion or strip account-leading zeros.
+      }
+    }
     Db::run("INSERT INTO custom_field_values(user_id,field_id,value) VALUES(?,?,?)
              ON DUPLICATE KEY UPDATE value=VALUES(value)", [$uid,$fid,$val]);
   }
@@ -11054,6 +11069,34 @@ route('GET', '/api/admin/stats', function($p,$b,$u){
 });
 // مقام‌های بالاسری یک کاربر (برای فرم ویرایش)
 
+
+// Read-only, resumable identity audit. Values are not returned to the client.
+route('GET','/api/admin/identity-banking/audit',function($p,$b,$u){
+  require_once __DIR__.'/IdentityBankingValidation.php';
+  $after=max(0,(int)($_GET['after_id']??0));
+  $limit=max(1,min(200,(int)($_GET['limit']??100)));
+  $users=Db::all("SELECT id,national_code,is_active FROM users WHERE id>? ORDER BY id LIMIT $limit",[$after]);
+  $ids=Db::all("SELECT id,national_code FROM users WHERE national_code IS NOT NULL AND national_code<>''");
+  $duplicate=IdentityBankingValidation::duplicateNationalIds($ids);
+  $issues=[];$last=$after;$valid=0;$missing=0;$invalid=0;$duplicates=0;
+  foreach($users as $person){
+    $uid=(int)$person['id'];$last=$uid;
+    $check=IdentityBankingValidation::nationalId($person['national_code']??'');
+    if($check['status']==='missing_information')$missing++;
+    elseif(!$check['valid'])$invalid++;
+    else $valid++;
+    if(isset($duplicate[$uid]))$duplicates++;
+    if(!$check['valid']||isset($duplicate[$uid]))
+      $issues[]=['user_id'=>$uid,'is_active'=>(int)($person['is_active']??0),
+        'status'=>$check['status'],'errors'=>array_merge($check['errors'],isset($duplicate[$uid])?[$duplicate[$uid]]:[])];
+  }
+  $total=(int)(Db::one("SELECT COUNT(*) n FROM users")['n']??0);
+  $processed=(int)(Db::one("SELECT COUNT(*) n FROM users WHERE id<=?",[$last])['n']??0);
+  return ['processed'=>$processed,'total'=>$total,'percent'=>$total?round(100*$processed/$total,2):100,
+    'next_cursor'=>count($users)===$limit?$last:null,'finished'=>count($users)<$limit,
+    'counts'=>['valid'=>$valid,'missing'=>$missing,'invalid'=>$invalid,'duplicate'=>$duplicates],
+    'issues'=>$issues,'verificationLevel'=>'offline_structural'];
+},false,ADMIN);
 route('GET', '/api/admin/users', function($p,$b,$u){
   $conds=[]; $pr=[];
   if (!empty($_GET['q'])) { $conds[]="(u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)"; $q='%'.$_GET['q'].'%'; array_push($pr,$q,$q,$q); }
@@ -11075,6 +11118,9 @@ route('GET', '/api/admin/users', function($p,$b,$u){
     FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY CASE WHEN u.rank_stars IS NOT NULL THEN u.rank_stars WHEN r.title LIKE '%سربازرس%' THEN 4 WHEN r.title LIKE '%بازرس%' THEN 2 WHEN r.title LIKE '%ناظر خط%' OR r.title LIKE '%اپراتور%' THEN 1 ELSE 0 END DESC, r.level DESC, r.title ASC, u.first_name ASC, u.last_name ASC, u.id ASC", $pr);
 });
 route('POST', '/api/admin/users', function($p,$b,$u){
+  if(array_key_exists('national_code',$b))
+    $b['national_code']=_identity_save_national_code($b['national_code']);
+
   $initialPassword = (string)($b['password'] ?? '');
   if (strlen($initialPassword) < 12 || in_array($initialPassword, ['123456', '12345678', '123456789', 'password123'], true))
     Http::error('رمز اولیه باید حداقل ۱۲ کاراکتر و غیرقابل حدس باشد', 422);
@@ -11115,6 +11161,9 @@ route('POST', '/api/admin/users', function($p,$b,$u){
   return ['id'=>$id, 'sms_sent'=>$smsSent];
 }, false, ADMIN);
 route('PUT', '/api/admin/users/{id}', function($p,$b,$u){
+  if(array_key_exists('national_code',$b))
+    $b['national_code']=_identity_save_national_code($b['national_code'],(int)$p['id']);
+
   // اطمینان از وجود ستون‌های فلگ جدید (یک‌بار)
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='security_exempt'")) Db::run("ALTER TABLE users ADD COLUMN security_exempt TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if (array_key_exists('security_exempt',$b)) $b['security_exempt'] = !empty($b['security_exempt']) ? 1 : 0;
@@ -12654,12 +12703,26 @@ route('GET', '/api/admin/health', function($p,$b,$u){
 
 
 /* ---------------- پروفایل کاربر، عکس، فراموشی رمز، گزارش‌های من ---------------- */
+/** Validate only newly supplied identity data; do not rewrite historical records. */
+function _identity_save_national_code($raw,$excludeUserId=0){
+  require_once __DIR__.'/IdentityBankingValidation.php';
+  $code=IdentityBankingValidation::digits($raw);
+  if($code==='')return null;
+  $result=IdentityBankingValidation::nationalId($code);
+  if(!$result['valid'])Http::error($result['errors'][0],422);
+  // Include inactive users and legacy Persian-digit representations.
+  $existing=Db::all("SELECT id,national_code FROM users WHERE national_code IS NOT NULL AND national_code<>''");
+  foreach($existing as $user){
+    if((int)$user['id']===(int)$excludeUserId)continue;
+    if(IdentityBankingValidation::digits($user['national_code'])===$code)
+      Http::error('این کد ملی قبلاً برای کاربر دیگری ثبت شده است.',409);
+  }
+  return $code;
+}
 route('PUT', '/api/me/profile', function($p,$b,$u){
   if (isset($b['email']) && $b['email']!=='' && !filter_var($b['email'], FILTER_VALIDATE_EMAIL)) Http::error('ایمیل نامعتبر است', 400);
-  if (array_key_exists('national_code', $b)) {
-    $b['national_code'] = preg_replace('/\D+/', '', (string)$b['national_code']);
-    if ($b['national_code'] !== '' && strlen($b['national_code']) !== 10) Http::error('کد ملی باید ۱۰ رقم باشد', 400);
-  }
+  if(array_key_exists('national_code',$b))
+    $b['national_code']=_identity_save_national_code($b['national_code'],(int)$u['id']);
   $allow = ['email','mobile','address','national_code','marital_status','children_count','birth_date','signature_data'];
   $sets=[]; $args=[];
   foreach ($allow as $f) { if (array_key_exists($f,$b)) { $sets[]="`$f`=?"; $args[]=$b[$f]===''?null:$b[$f]; } }
