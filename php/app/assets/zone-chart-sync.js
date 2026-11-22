@@ -45,6 +45,7 @@ async function synchronize(button,card,zone){
   const result=await api('zones/'+encodeURIComponent(zone.id)+'/sync-chart',{method:'POST',body:'{}'});
   if(result.persisted!==true)throw new Error('سرور ذخیره‌سازی چارت را تأیید نکرد. عملیات کامل نشده است.');
   message(card,'همسان‌سازی در چارت ذخیره شد: '+fa(result.updated_users)+' نیرو و '+fa(result.saved_relations)+' ارتباط مدیریتی. صفحه چارت سازمانی را باز کنید.',false);
+  sessionStorage.setItem('kh-org-chart-focus-zone',String(zone.id));
   window.dispatchEvent(new CustomEvent('khatyar:regional-chart-synchronized',{detail:{zone_id:Number(zone.id),refreshed_at:result.refreshed_at}}));
  }catch(error){message(card,error.message||'همسان‌سازی چارت انجام نشد.',true);}
  finally{button.disabled=false;button.textContent='همسان‌سازی چارت';card.removeAttribute('aria-busy');}
