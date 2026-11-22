@@ -37,6 +37,8 @@ const screen=fs.readFileSync(path.join(__dirname,'../src/screens/CustomFieldsScr
 const packageJson=require('../package.json');
 assert(packageJson.dependencies['expo-document-picker'],'private document picker is installed');
 assert.match(screen,/uploadFile\(path,\{\},'file'/,'private upload uses authorized multipart client');
+assert.match(screen,/uploadLock\.current/,'private picker is protected from concurrent uploads');
+assert.match(screen,/setStatus\(\{exists:true,name:response\.name/,'successful upload remains acknowledged if status refresh fails');
 assert.match(screen,/queueIfOffline:false/,'sensitive attachments cannot enter offline queues');
 assert.match(screen,/8388608/,'client rejects oversized documents before upload');
 assert.match(screen,/!\['file','image'\]\.includes\(f\.ftype\)/,'required documents are evaluated by secure server status rather than legacy text values');
