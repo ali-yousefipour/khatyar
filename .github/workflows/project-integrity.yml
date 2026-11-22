@@ -59,6 +59,10 @@ jobs:
           node mobile/scripts/test-updater-fileprovider.cjs
           php php/tests/active_sessions_bulk_test.php
           php php/tests/zone_context_test.php
+          php -l php/lib/ZoneChartSync.php
+          php -l php/app/index.php
+          php php/tests/zone_chart_sync_test.php
+          node --check php/app/assets/zone-chart-sync.js
           php -l php/lib/WorkContracts.php
           php php/tests/work_contracts_test.php
           php php/tests/work_contract_management_test.php
