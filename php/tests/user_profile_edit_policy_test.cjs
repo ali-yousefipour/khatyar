@@ -52,6 +52,11 @@ assert.match(custom,/JSON\.stringify\(next\)/,'Android serializes repeatable upd
 assert.match(custom,/export function formatProfileFieldValue/,'Android presents readable child records');
 assert.match(account,/formatProfileFieldValue\(field,extraValues\[field\.id\]\)/,'main profile shows readable child records');
 assert.match(routes,/UserProfileFormValues::normalizeField\(\$field,\$val\)/,'admin writes validate repeatable JSON server-side');
+assert.match(panel,/function AdminPrivateProfileAttachment/,'web admin supports private document fields');
+assert.match(panel,/data\.append\("file",selected,selected\.name\)/,'web document form sends binary multipart');
+assert.match(panel,/_fetchWithAuth\(API_BASE\+path,\{method:"POST",body:data\}\)/,'web document uploads use session-bound authentication');
+assert.match(panel,/AdminPrivateProfileAttachment key=/,'web editor mounts private attachment widget per user');
+assert.match(panel,/state\.readonly\|\|\["image","file"\]\.includes\(field\.ftype\)/,'private document fields excluded from legacy text saves');
 assert.match(panel,/function CustomFieldInput/,'web admin uses shared custom-field renderer');
 assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable child rows');
 assert.match(panel,/\[originalVals,setOriginalVals\]=useState\(\{\}\)/,'admin saves only changed custom values');
