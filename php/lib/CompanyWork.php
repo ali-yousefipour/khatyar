@@ -285,7 +285,9 @@ class CompanyWork {
     $finish=IranCalendar::normalize($user['employment_end_date']??'');
     if($begin && $begin>=$first && $begin<=$last)
       $notes[]='این فرد در تاریخ '.$human($begin).' شروع به کار نموده است';
-    if($finish && $finish>=$first && $finish<=$last)
+    // Show any already-effective termination date, but never state a future
+    // termination as completed in a report for an earlier month.
+    if($finish && $finish<=$last)
       $notes[]='این فرد در تاریخ '.$human($finish).' به همکاری خود پایان داده است';
     if((float)$absenceDays>0)
       $notes[]='تعداد روز غیبت: '.$human((string)(floor((float)$absenceDays)==(float)$absenceDays?(int)$absenceDays:(float)$absenceDays));
