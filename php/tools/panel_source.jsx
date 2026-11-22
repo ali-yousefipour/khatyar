@@ -8611,7 +8611,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
     {detail&&<Modal title={detail.title} onClose={()=>setDetail(null)} style={{width:"min(96vw,1500px)"}}>
       <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
         {detail.fileId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>download("files",detail.fileId)}>دانلود فایل شرکت (XLSX)</button>}
-        {detail.sourceId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>{if(window.confirm("مغایرت‌های نمایش‌داده‌شده را تأیید می‌کنید؟ فایل با حفظ تمام ردیف‌ها ساخته می‌شود و شرح مشکلات در یادداشت نام و نام خانوادگی هر فرد درج خواهد شد. اعداد نامشخص خالی باقی می‌مانند.")){generate(detail.sourceId,true);}}}>تأیید مغایرت‌ها و ساخت فایل شرکت</button>}
+        {detail.sourceId>0&&<button type="button" className="btn p" disabled={!!busy} onClick={()=>{if(window.confirm("مغایرت‌های نمایش‌داده‌شده را تأیید می‌کنید؟ فایل با حفظ تمام ردیف‌ها ساخته می‌شود و شرح مشکلات در یادداشت نام و نام خانوادگی هر فرد درج خواهد شد. اعداد نامشخص خالی باقی می‌مانند.")){return generate(detail.sourceId,true);}}}>تأیید مغایرت‌ها و ساخت فایل شرکت</button>}
         <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
       </div>
       {detail.sourceId>0&&<p className="muted" role="alert">این گزارش دارای مغایرت است. با تأیید شما فایل تولید و آرشیو می‌شود؛ جزئیات خطاهای هر نفر در کامنت سلول نام و نام خانوادگی فایل اکسل درج خواهد شد و مقادیر نامشخص خالی می‌مانند.</p>}
