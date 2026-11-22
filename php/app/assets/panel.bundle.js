@@ -11356,6 +11356,43 @@ function BirthdaySettings({ v, set, save }) {
 // رندر یک ورودی بر اساس نوع فیلد سفارشی (مشترک پنل)
 function CustomFieldInput({ field, value, onChange }) {
     const opts = (field.options || "").split("|").filter(Boolean);
+    if (field.ftype === "repeater") {
+        let config = {};
+        try {
+            config = JSON.parse(field.options || "{}") || {};
+        }
+        catch (_) { }
+        const columns = Array.isArray(config.columns) ? config.columns : [];
+        const maxRows = Math.min(20, Math.max(1, Number(config.max_rows) || 12));
+        let rows = [];
+        try {
+            const parsed = JSON.parse(String(value || "[]"));
+            if (Array.isArray(parsed))
+                rows = parsed;
+        }
+        catch (_) { }
+        const update = updated => onChange(JSON.stringify(updated));
+        return React.createElement("div", { style: { display: "grid", gap: 9 } },
+            rows.map((row, index) => React.createElement("div", { key: index, style: { padding: 12, border: "1px solid var(--line)", borderRadius: 12 } },
+                React.createElement("strong", null,
+                    "\u0631\u062F\u06CC\u0641 ",
+                    faPlain(index + 1)),
+                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 } }, columns.map(col => {
+                    var _a;
+                    return React.createElement("label", { key: col.key, className: "label" },
+                        col.label,
+                        col.required ? " *" : "",
+                        React.createElement(CustomFieldInput, { field: { ftype: col.type, options: (col.options || []).join("|") }, value: (_a = row === null || row === void 0 ? void 0 : row[col.key]) !== null && _a !== void 0 ? _a : "", onChange: v => update(rows.map((item, i) => i === index ? { ...item, [col.key]: v } : item)) }));
+                })),
+                React.createElement("button", { type: "button", className: "btn g", onClick: () => update(rows.filter((_, i) => i !== index)) }, "\u062D\u0630\u0641 \u0631\u062F\u06CC\u0641"))),
+            rows.length < maxRows && columns.length > 0 && React.createElement("button", { type: "button", className: "btn g", onClick: () => update([...rows, {}]) },
+                "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0631\u062F\u06CC\u0641 (",
+                faPlain(rows.length),
+                " \u0627\u0632 ",
+                faPlain(maxRows),
+                ")"),
+            !columns.length && React.createElement("p", { className: "muted" }, "\u062A\u0639\u0631\u06CC\u0641 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A."));
+    }
     if (field.ftype === "textarea")
         return React.createElement("textarea", { className: "input", rows: "2", value: value || "", onChange: e => onChange(e.target.value) });
     if (field.ftype === "number")
@@ -11380,10 +11417,48 @@ function CustomFieldInput({ field, value, onChange }) {
 function CustomFieldsFiller({ userId }) {
     const [fields, setFields] = useState(null);
     const [vals, setVals] = useState({});
+    const [originalVals, setOriginalVals] = useState({});
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
     const [open, setOpen] = useState(false);
-    const load = () => { setOpen(true); db.customFields().then(fs => { setFields(fs || []); if (userId)
-        db.userCustomValues(userId).then(vs => { const m = {}; (vs || []).forEach(v => m[v.field_id] = v.value); setVals(m); }); }); };
-    const save = async () => { await db.saveUserCustomValues(userId, vals); alert("اطلاعات تکمیلی ذخیره شد."); };
+    const load = () => {
+        setOpen(true);
+        setError("");
+        db.customFields().then(fs => {
+            setFields((fs || []).filter(f => Number(f.is_active) !== 0));
+            if (userId)
+                db.userCustomValues(userId).then(vs => {
+                    const m = {};
+                    (vs || []).forEach(v => m[v.field_id] = v.value);
+                    setVals(m);
+                    setOriginalVals(m);
+                }).catch(e => setError(e.message || "دریافت اطلاعات تکمیلی ناموفق بود."));
+        }).catch(e => { setFields([]); setError(e.message || "دریافت فهرست فیلدها ناموفق بود."); });
+    };
+    const save = async () => {
+        var _a;
+        if (busy)
+            return;
+        const changed = {};
+        for (const [id, value] of Object.entries(vals))
+            if (String(value !== null && value !== void 0 ? value : "") !== String((_a = originalVals[id]) !== null && _a !== void 0 ? _a : ""))
+                changed[id] = value;
+        if (!Object.keys(changed).length)
+            return;
+        setBusy(true);
+        setError("");
+        try {
+            await db.saveUserCustomValues(userId, changed);
+            setOriginalVals({ ...vals });
+            alert("اطلاعات تکمیلی ذخیره شد.");
+        }
+        catch (e) {
+            setError(e.message || "ذخیره اطلاعات تکمیلی ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     if (!userId)
         return null;
     return (React.createElement("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" } }, !open ? React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC (\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC)") :
@@ -11396,7 +11471,8 @@ function CustomFieldsFiller({ userId }) {
                             f.required == 1 ? " *" : "",
                             f.user_editable == 1 ? "" : " 🔒"),
                         React.createElement(CustomFieldInput, { field: f, value: vals[f.id], onChange: v => setVals({ ...vals, [f.id]: v }) }))),
-                    React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC"))));
+                    error && React.createElement("p", { role: "alert", className: "muted", style: { color: "var(--danger,#b42318)" } }, error),
+                    React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیرهٔ اطلاعات تکمیلی"))));
 }
 // تنظیمات کلی حقوق (نرخ ساعت و ضرایب)
 function PayrollSettings({ v, set, save }) {
