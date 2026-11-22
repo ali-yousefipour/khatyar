@@ -11,7 +11,8 @@ if shutil.which('cloc'):
   proc=subprocess.run(['cloc','--json','--quiet','--list-file='+str(files)],capture_output=True,text=True,timeout=130)
   result['cloc_exit_code']=proc.returncode
   if proc.returncode==0:
-   payload=json.loads(proc.stdout)
+   payload,remaining=json.JSONDecoder().raw_decode(proc.stdout.lstrip())
+   result['cloc_output_suffix']=proc.stdout.lstrip()[remaining:remaining+200]
    result['cloc_totals']=payload.get('SUM',{})
    result['cloc_by_language']={k:v for k,v in payload.items() if k not in ('SUM','header')}
   else:result['cloc_error']=proc.stderr[:500]
