@@ -49,4 +49,6 @@ assert.match(routes,/UserProfileFormValues::normalizeField\(\$field,\$val\)/,'ad
 assert.match(panel,/function CustomFieldInput/,'web admin uses shared custom-field renderer');
 assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable child rows');
 assert.match(panel,/const \[originalVals,setOriginalVals\]/,'admin saves only changed custom values');
+assert.match(panel,/v\.field_id\?\?v\.id/,'web personnel editor maps API custom values by field id');
+assert.match(panel,/\[userId\]\);/,'web personnel editor isolates records across user switches');
 console.log('PASS profile edit policy: web settings, server authorization, Android read-only rendering');
