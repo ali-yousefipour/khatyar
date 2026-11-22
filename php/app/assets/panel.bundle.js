@@ -2625,7 +2625,7 @@ function LiveMap() {
         viewTab === "main" && React.createElement(PresenceLists, null),
         viewTab === "exits" && React.createElement(StationExits, null)));
 }
-function Modal({ title, onClose, children, style }) {
+function Modal({ title, onClose, children, style, className = '' }) {
     const dialogRef = useRef(null);
     const titleId = useRef("modal-title-" + Math.random().toString(36).slice(2));
     const closeRef = useRef(onClose);
@@ -2673,7 +2673,7 @@ function Modal({ title, onClose, children, style }) {
     }, []);
     return React.createElement("div", { className: "modal-bg", onMouseDown: e => { if (e.target === e.currentTarget)
             onClose(); } },
-        React.createElement("div", { className: "modal dashboard-dialog", style: style, ref: dialogRef, role: "dialog", "aria-modal": "true", "aria-labelledby": titleId.current, tabIndex: -1 },
+        React.createElement("div", { className: "modal dashboard-dialog" + (className ? " " + className : ""), style: style, ref: dialogRef, role: "dialog", "aria-modal": "true", "aria-labelledby": titleId.current, tabIndex: -1 },
             React.createElement("div", { className: "dashboard-dialog-head" },
                 React.createElement("h3", { id: titleId.current }, title),
                 React.createElement("button", { className: "dashboard-dialog-close", type: "button", "aria-label": "\u0628\u0633\u062A\u0646 \u067E\u0646\u062C\u0631\u0647", onClick: onClose }, "\u00D7")),
@@ -3482,7 +3482,7 @@ function Users() {
                             alert(e.message || "خطا در دریافت پیوست");
                         } } }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u067E\u06CC\u0648\u0633\u062A") : null)))) : React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0646\u06CC\u0631\u0648 \u062A\u0639\u0647\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
             React.createElement("button", { className: "btn g", style: { marginTop: 14, width: "100%" }, onClick: () => setCommitmentsModal(null) }, "\u0628\u0633\u062A\u0646")),
-        edit && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", onClose: () => { setEdit(null); setPw(""); } },
+        edit && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", className: "users-edit-dialog", style: { width: "min(1100px,calc(100vw - 24px))" }, onClose: () => { setEdit(null); setPw(""); } },
             React.createElement("div", { className: "row", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", style: { gap: 8, flexWrap: "wrap", marginBottom: 12, position: "sticky", top: 0, zIndex: 5, background: "var(--surface,#fff)", padding: "8px 4px", borderBottom: "1px solid var(--line)" } },
                 React.createElement("button", { role: "tab", "aria-selected": editTab === "profile", className: "btn " + (editTab === "profile" ? "p" : "g"), onClick: () => setEditTab("profile") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062C\u0627\u0645\u0639 \u067E\u0631\u0633\u0646\u0644\u06CC"),
                 React.createElement("button", { role: "tab", "aria-selected": editTab === "identity", className: "btn " + (editTab === "identity" ? "p" : "g"), onClick: () => setEditTab("identity") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC"),
