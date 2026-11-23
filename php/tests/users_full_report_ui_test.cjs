@@ -27,6 +27,11 @@ assert.match(source,/ستون‌های انتخاب‌نشده/);
 assert.match(source,/e\.key==='Tab'/);
 assert.match(source,/lastFocus\.focus\(\)/);
 assert.match(source,/height:100dvh/);
+assert.match(source,/let exporting=false/);
+assert.match(source,/const dismiss=\(\)=>\{if\(exporting\)return;/);
+assert.match(source,/close\.disabled=true;exporting=true/);
+assert.match(source,/exporting=false;originalDismiss\(\)/);
+assert.match(source,/catch\(err\)\{exporting=false;status\.textContent=err\.message/);
 
 
 console.log('PASS configurable users report UI contract');
