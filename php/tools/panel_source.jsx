@@ -2016,7 +2016,7 @@ function Users(){
       </div>
       <div style={{display:editTab==="contact"?"block":"none"}}>
         <div className="row" style={{gap:12,flexWrap:"wrap"}}>
-          <div style={{flex:1,minWidth:190}}><label>تلفن همراه</label><input className="input" dir="ltr" value={edit.phone||""} onChange={e=>setEdit({...edit,phone:e.target.value})}/></div>
+          <div style={{flex:1,minWidth:190}}><label>تلفن همراه</label><input className="input" dir="ltr" inputMode="tel" value={faPlain(edit.phone||"")} onChange={e=>setEdit({...edit,phone:e.target.value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))})}/></div>
           <div style={{flex:1,minWidth:190}}><label>ایمیل</label><input className="input" dir="ltr" value={edit.email||""} onChange={e=>setEdit({...edit,email:e.target.value})}/></div>
         </div>
         <label>آدرس محل سکونت</label><textarea className="input" rows="3" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
@@ -2025,7 +2025,7 @@ function Users(){
         <div className="row" style={{gap:12,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:180}}><label>سمت</label><select className="input" value={edit.role_id||""} onChange={e=>setEdit({...edit,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select></div>
           <div style={{flex:1,minWidth:180}}><label>منطقه</label><select className="input" value={edit.zone_id||""} onChange={e=>setEdit({...edit,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
-          <div style={{flex:1,minWidth:160}}><label>تعداد ستاره درجه</label><input className="input" type="number" min="0" max="5" value={edit.rank_stars??""} placeholder="خالی = پیش‌فرض سمت" onChange={e=>setEdit({...edit,rank_stars:e.target.value===""?null:Math.max(0,Math.min(5,+e.target.value||0))})}/><small className="muted">پیش‌فرض: ناظر/اپراتور ۱، بازرس ۲، سربازرس ۴</small></div>
+          <div style={{flex:1,minWidth:160}}><label>تعداد ستاره درجه</label><input className="input" type="text" inputMode="numeric" value={faPlain(edit.rank_stars??"")} placeholder="خالی = پیش‌فرض سمت" onChange={e=>{const digits=onlyDigits(e.target.value);setEdit({...edit,rank_stars:digits===""?null:Math.max(0,Math.min(5,Number(digits)))})}}/><small className="muted">پیش‌فرض: ناظر/اپراتور ۱، بازرس ۲، سربازرس ۴</small></div>
         </div>
         {(edit.device_model||edit.android_version)&&<p className="muted" style={{fontSize:12}}>دستگاه: {edit.device_model||"—"} · {edit.android_version||""} · نسخه برنامه: {edit.app_version||"—"}</p>}
       </div>
@@ -2040,7 +2040,7 @@ function Users(){
       <div style={{display:editTab==="family"?"block":"none"}}>
         <div className="row" style={{gap:12,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:180}}><label>وضعیت تأهل</label><select className="input" value={edit.marital_status||""} onChange={e=>setEdit({...edit,marital_status:e.target.value})}><option value="">—</option><option value="مجرد">مجرد</option><option value="متاهل">متاهل</option></select></div>
-          <div style={{flex:1,minWidth:180}}><label>تعداد فرزند</label><input className="input" type="number" min="0" value={edit.children_count??""} onChange={e=>setEdit({...edit,children_count:e.target.value===""?null:+e.target.value})}/></div>
+          <div style={{flex:1,minWidth:180}}><label>تعداد فرزند</label><input className="input" type="text" inputMode="numeric" value={faPlain(edit.children_count??"")} onChange={e=>{const digits=onlyDigits(e.target.value);setEdit({...edit,children_count:digits===""?null:Number(digits)})}}/></div>
         </div>
       </div>
       <div style={{display:editTab==="financial"?"block":"none"}}>
