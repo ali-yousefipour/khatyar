@@ -24,7 +24,7 @@ final class UserFullReport {
       'id'=>'شناسه کاربری','personnel_photo'=>'عکس پرسنلی','personnel_signature'=>'امضای پرسنلی',
       'personnel_code'=>'شماره پرسنلی','username'=>'نام کاربری',
       'first_name'=>'نام','last_name'=>'نام خانوادگی','role_title'=>'سمت',
-      'mobile'=>'تلفن همراه ثبت‌شده','employment_start_date'=>'شروع همکاری','employment_end_date'=>'پایان همکاری','rank_stars'=>'درجه',
+      'mobile'=>'تلفن همراه ثبت‌شده','employment_end_date'=>'پایان همکاری','rank_stars'=>'درجه',
       'phone'=>'شماره همراه','email'=>'ایمیل','national_code'=>'کد ملی',
       'birth_date'=>'تاریخ تولد','marital_status'=>'وضعیت تأهل',
       'children_count'=>'تعداد فرزند','address'=>'نشانی','seniority_start'=>'شروع سنوات',
@@ -38,7 +38,7 @@ final class UserFullReport {
       'father_name'=>'نام پدر','gender'=>'جنسیت','identity_number'=>'شماره شناسنامه',
       'birth_place'=>'محل تولد','issue_place'=>'محل صدور شناسنامه',
       'education'=>'تحصیلات','degree'=>'مدرک تحصیلی','employment_date'=>'تاریخ استخدام',
-      'hire_date'=>'تاریخ شروع همکاری','postal_code'=>'کد پستی',
+      'postal_code'=>'کد پستی',
       'emergency_phone'=>'شماره تماس اضطراری'
     ];
   }
@@ -214,8 +214,8 @@ final class UserFullReport {
     }
     // Persian employment dates are normalized and range-checked server-side.
     $dateRange=[
-      'employment_start_from'=>['employment_start_date','>='],
-      'employment_start_to'=>['employment_start_date','<='],
+      'employment_start_from'=>['seniority_start','>='],
+      'employment_start_to'=>['seniority_start','<='],
       'employment_end_from'=>['employment_end_date','>='],
       'employment_end_to'=>['employment_end_date','<=']
     ];
