@@ -3386,7 +3386,7 @@ function Users() {
                     finally {
                         setExportingUsers(false);
                     } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"),
-                React.createElement("button", { className: "btn g", disabled: identityAuditBusy, onClick: auditAllUsers }, identityAuditBusy ? "در حال ممیزی…" : "بررسی صحت اطلاعات هویتی و بانکی کاربران"))),
+                React.createElement("button", { className: "btn g", disabled: identityAuditBusy, onClick: auditAllUsers }, identityAuditBusy ? "در حال ممیزی…" : "ممیزی اطلاعات هویتی و بانکی"))),
         React.createElement("div", { className: "users-overview", "aria-label": "\u062E\u0644\u0627\u0635\u0647 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC" },
             React.createElement("div", { className: "users-overview-card" },
                 React.createElement("span", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062F\u0631 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC"),
@@ -3537,16 +3537,23 @@ function Users() {
                         " \u00B7 ",
                         edit.role_title || rt(edit.role_id) || "سمت ثبت نشده")),
                 React.createElement("span", { className: "badge " + (edit.is_active ? "b-ok" : "b-no") }, edit.is_active ? "حساب فعال" : "حساب غیرفعال")),
-            React.createElement("div", { className: "row users-edit-tablist", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", style: { gap: 8, flexWrap: "nowrap", marginBottom: 12, padding: "8px 4px", borderBottom: "1px solid var(--line)" } },
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "profile", className: "btn " + (editTab === "profile" ? "p" : "g"), onClick: () => setEditTab("profile") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062C\u0627\u0645\u0639 \u067E\u0631\u0633\u0646\u0644\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "identity", className: "btn " + (editTab === "identity" ? "p" : "g"), onClick: () => setEditTab("identity") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "contact", className: "btn " + (editTab === "contact" ? "p" : "g"), onClick: () => setEditTab("contact") }, "\u062A\u0645\u0627\u0633 \u0648 \u0646\u0634\u0627\u0646\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "organization", className: "btn " + (editTab === "organization" ? "p" : "g"), onClick: () => setEditTab("organization") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0633\u0627\u0632\u0645\u0627\u0646\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "employment", className: "btn " + (editTab === "employment" ? "p" : "g"), onClick: () => setEditTab("employment") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u0633\u062A\u062E\u062F\u0627\u0645\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "family", className: "btn " + (editTab === "family" ? "p" : "g"), onClick: () => setEditTab("family") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "financial", className: "btn " + (editTab === "financial" ? "p" : "g"), onClick: () => setEditTab("financial") }, "\u062D\u0642\u0648\u0642 \u0648 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0627\u0644\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "custom", className: "btn " + (editTab === "custom" ? "p" : "g"), onClick: () => setEditTab("custom") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0648 \u0633\u0641\u0627\u0631\u0634\u06CC"),
-                React.createElement("button", { role: "tab", "aria-selected": editTab === "access", className: "btn " + (editTab === "access" ? "p" : "g"), onClick: () => setEditTab("access") }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062D\u0633\u0627\u0628 \u0648 \u062F\u0633\u062A\u0631\u0633\u06CC")),
+            React.createElement("div", { className: "users-edit-navigation", "aria-label": "\u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631" },
+                React.createElement("div", { className: "users-edit-groups", role: "group", "aria-label": "\u06AF\u0631\u0648\u0647\u200C\u0647\u0627\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A" }, [
+                    { key: "personal", label: "مشخصات فردی", first: "identity", tabs: ["profile", "identity", "contact", "family"] },
+                    { key: "work", label: "سازمانی و همکاری", first: "organization", tabs: ["organization", "employment"] },
+                    { key: "finance", label: "مالی و حقوق", first: "financial", tabs: ["financial"] },
+                    { key: "extra", label: "اطلاعات تکمیلی", first: "custom", tabs: ["custom"] },
+                    { key: "security", label: "حساب و دسترسی", first: "access", tabs: ["access"] }
+                ].map(group => React.createElement("button", { key: group.key, type: "button", className: "btn " + (group.tabs.includes(editTab) ? "p" : "g"), "aria-pressed": group.tabs.includes(editTab), onClick: () => setEditTab(group.first) }, group.label))),
+                React.createElement("label", { className: "users-edit-subnav" },
+                    "\u0632\u06CC\u0631\u200C\u0628\u062E\u0634",
+                    React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0632\u06CC\u0631\u200C\u0628\u062E\u0634 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631", value: editTab, onChange: e => setEditTab(e.target.value) }, (["profile", "identity", "contact", "family"].includes(editTab)
+                        ? [["profile", "مشخصات اصلی و تصویر"], ["identity", "هویتی"], ["contact", "تماس و نشانی"], ["family", "خانوادگی"]]
+                        : ["organization", "employment"].includes(editTab)
+                            ? [["organization", "سمت و محل خدمت"], ["employment", "همکاری و سنوات"]]
+                            : editTab === "financial" ? [["financial", "حقوق و اطلاعات مالی"]]
+                                : editTab === "custom" ? [["custom", "اطلاعات تکمیلی و سفارشی"]]
+                                    : [["access", "تنظیمات حساب و دسترسی"]]).map(([key, title]) => React.createElement("option", { key: key, value: key }, title))))),
             React.createElement("div", { className: "users-edit-body" },
                 React.createElement("div", null,
                     React.createElement("div", { style: { display: editTab === "profile" ? "block" : "none" } },
