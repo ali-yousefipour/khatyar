@@ -1,0 +1,25 @@
+name: Khatyar report source fonts export
+on:
+  push:
+    branches:
+      - audit/khatyar-static-inventory-20261123
+    paths:
+      - .github/workflows/khatyar-report-fonts-export.yml
+jobs:
+  export-fonts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original font files from repository
+        run: |
+          test -s mobile/assets/fonts/Vazirmatn-Regular.ttf
+          test -s mobile/assets/fonts/Vazirmatn-Bold.ttf
+          sha256sum mobile/assets/fonts/Vazirmatn-Regular.ttf mobile/assets/fonts/Vazirmatn-Bold.ttf
+      - name: Upload authentic project fonts
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-original-vazirmatn-fonts
+          path: mobile/assets/fonts/Vazirmatn-*.ttf
+          retention-days: 7
