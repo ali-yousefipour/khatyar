@@ -29,7 +29,7 @@ try {
         throw new RuntimeException('MIME and media extension mismatch: '.$name);
     }
     $rels=$zip->getFromName('xl/drawings/_rels/drawing1.xml.rels');
-    if(!is_string($rels)||substr_count($rels,'/image')!==2)
+    if(!is_string($rels)||preg_match_all('~<Relationship\\b[^>]*\\bTarget="\\.\\./media/image[0-9]+\\.(?:png|jpeg)"~',$rels)!==2)
       throw new RuntimeException('Missing embedded image relationships');
     echo "PASS both personnel photo and signature are valid embedded XLSX images\n";
   }finally{$zip->close();}
