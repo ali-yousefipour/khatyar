@@ -42,6 +42,8 @@ css.textContent+=`
 .kh-ur-group strong{grid-column:1/-1;font-size:13px;color:#164b38;overflow-wrap:anywhere}
 .kh-ur-group span{grid-column:1/-1;font-size:12px;color:#688276}
 .kh-ur-group button{min-width:0;padding:6px 4px;white-space:nowrap}
+.kh-ur-group [data-group-filter]{grid-column:1/-1;background:#edf8f1;border:1px solid #c6e4d0;color:#0b6249;font-weight:700}
+.kh-ur-group [data-group-filter][aria-pressed=true]{background:#087f5b;color:#fff}
 .kh-ur-workspace>.kh-ur-fields{grid-column:2;grid-row:3;max-height:330px;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;background:#fff}
 .kh-ur-fields label{position:relative;min-width:0;gap:7px;border:1px solid #e3eee8;background:#fff;min-height:46px}
 .kh-ur-fields label:has(input:checked){background:#eff9f3;border-color:#c2e1d0}
@@ -80,6 +82,7 @@ const search=el('input',{type:'search',placeholder:'جستجوی نام ستون
 const actions=el('div',{class:'kh-ur-actions'},workspace);
 const all=el('button',{type:'button',text:'انتخاب همه'},actions);
 const none=el('button',{type:'button',text:'حذف انتخاب‌ها'},actions);
+const showAllGroups=el('button',{type:'button',text:'نمایش همه گروه‌ها'},actions);
 const count=el('span',{role:'status'},actions);
 const groupPanel=el('div',{class:'kh-ur-groups'},workspace);
 const fields=el('div',{class:'kh-ur-fields'},workspace);
@@ -166,6 +169,13 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
  const canonicalOrder=columns.map(col=>col.key);
  const columnByKey=new Map(columns.map(col=>[col.key,col]));
  const checks=[],groupChecks=new Map(),groupLabels=new Map();
+ let activeGroup='';
+ const filterColumns=()=>{const query=search.value.trim().toLocaleLowerCase('fa-IR');
+   for(const check of checks){const column=columnByKey.get(check.value);const group=column?.group||'سایر';
+     check.parentElement.hidden=(!!activeGroup&&group!==activeGroup)||
+       (!!query&&!(column?.label+' '+group).toLocaleLowerCase('fa-IR').includes(query));
+   }
+ };
  const storageKey='khatyar.users.full-report.selection.v2';
  let stored=null;
  try{stored=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(_){}
@@ -208,6 +218,11 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    const card=el('div',{class:'kh-ur-group'},groupPanel);
    el('strong',{text:name},card);
    const counter=el('span',{role:'status'},card);groupLabels.set(name,counter);
+   const showGroup=el('button',{type:'button',text:'نمایش ستون‌ها'},card);
+   showGroup.onclick=()=>{activeGroup=name;filterColumns();showGroup.setAttribute('aria-pressed','true');
+     for(const button of groupPanel.querySelectorAll('[data-group-filter]'))if(button!==showGroup)button.setAttribute('aria-pressed','false');
+   };
+   showGroup.setAttribute('data-group-filter','');showGroup.setAttribute('aria-pressed','false');
    const selectGroup=el('button',{type:'button',text:'انتخاب گروه'},card);
    const clearGroup=el('button',{type:'button',text:'حذف گروه'},card);
    selectGroup.onclick=()=>{members.forEach(item=>item.checked=true);updateCount();};
@@ -243,7 +258,8 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
  function update(){updateCount();}
  all.onclick=()=>{checks.forEach(c=>c.checked=true);updateCount();};
  none.onclick=()=>{checks.forEach(c=>c.checked=false);updateCount();};
- search.oninput=()=>{const q=search.value.trim().toLocaleLowerCase('fa');checks.forEach(c=>{c.parentElement.hidden=!c.parentElement.textContent.toLocaleLowerCase('fa').includes(q);});};
+ showAllGroups.onclick=()=>{activeGroup='';filterColumns();for(const button of groupPanel.querySelectorAll('[data-group-filter]'))button.setAttribute('aria-pressed','false');};
+ search.oninput=filterColumns;
  updateCount();status.textContent='';
  const payload=()=>({
    columns:checks.filter(c=>c.checked).map(c=>c.value),
