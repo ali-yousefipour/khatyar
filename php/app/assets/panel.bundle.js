@@ -11503,7 +11503,7 @@ function CustomFieldInput({ field, value, onChange }) {
         const sel = (value || "").split("|").filter(Boolean);
         return React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } }, opts.map(o => { const on = sel.includes(o); return React.createElement("button", { key: o, type: "button", className: "chip" + (on ? " on" : ""), onClick: () => { const ns = on ? sel.filter(x => x !== o) : [...sel, o]; onChange(ns.join("|")); } }, o); }));
     }
-    return React.createElement("input", { className: "input", value: value || "", onChange: e => onChange(e.target.value) });
+    return React.createElement("input", { className: "input", value: faPlain(value || ""), onChange: e => onChange(e.target.value.replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))) });
 }
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
 /** Pure preview evaluation for the admin's published personnel form. */
