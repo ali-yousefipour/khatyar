@@ -3231,7 +3231,7 @@ function Users() {
             u = { ...u, national_code: nationalCheck.value };
         }
         if (u.employment_start_date && u.employment_end_date && String(u.employment_end_date).replaceAll('/', '-') < String(u.employment_start_date).replaceAll('/', '-')) {
-            alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');
+            alert('تاریخ اتمام همکاری نمی‌تواند قبل از شروع سنوات باشد.');
             return;
         }
         setSavingUser(true);
@@ -3239,7 +3239,7 @@ function Users() {
             const customChanges = customSaveRef.current ? await customSaveRef.current('payload') : {};
             if (customChanges === false)
                 throw new Error('فیلدهای تکمیلی هنوز آماده نیستند');
-            await db.updateUser(u.id, { custom_values: customChanges, new_password: pw || '', employment_start_date: u.employment_start_date || null, employment_end_date: u.employment_end_date || null, first_name: u.first_name, last_name: u.last_name, email: u.email, role_id: u.role_id, zone_id: u.zone_id, is_active: u.is_active, allow_android: u.allow_android ? 1 : 0, allow_web: u.allow_web ? 1 : 0, security_exempt: u.security_exempt ? 1 : 0, phone: u.phone, national_code: u.national_code, marital_status: u.marital_status, address: u.address, children_count: u.children_count, presence_required: u.presence_required ? 1 : 0, seniority_start: u.seniority_start || null, can_send_sms: u.can_send_sms ? 1 : 0, can_be_substitute: u.can_be_substitute ? 1 : 0, can_welfare: u.can_welfare ? 1 : 0, can_cultural: u.can_cultural ? 1 : 0, can_manage_temp_drivers: u.can_manage_temp_drivers ? 1 : 0, personnel_code: u.personnel_code || null, birth_date: u.birth_date || null, rank_stars: (u.rank_stars === '' || u.rank_stars == null) ? null : Math.max(0, Math.min(5, +u.rank_stars || 0)) });
+            await db.updateUser(u.id, { custom_values: customChanges, new_password: pw || '', employment_start_date: u.seniority_start || u.employment_start_date || null, employment_end_date: u.employment_end_date || null, first_name: u.first_name, last_name: u.last_name, email: u.email, role_id: u.role_id, zone_id: u.zone_id, is_active: u.is_active, allow_android: u.allow_android ? 1 : 0, allow_web: u.allow_web ? 1 : 0, security_exempt: u.security_exempt ? 1 : 0, phone: u.phone, national_code: u.national_code, marital_status: u.marital_status, address: u.address, children_count: u.children_count, presence_required: u.presence_required ? 1 : 0, seniority_start: u.seniority_start || u.employment_start_date || null, can_send_sms: u.can_send_sms ? 1 : 0, can_be_substitute: u.can_be_substitute ? 1 : 0, can_welfare: u.can_welfare ? 1 : 0, can_cultural: u.can_cultural ? 1 : 0, can_manage_temp_drivers: u.can_manage_temp_drivers ? 1 : 0, personnel_code: u.personnel_code || null, birth_date: u.birth_date || null, rank_stars: (u.rank_stars === '' || u.rank_stars == null) ? null : Math.max(0, Math.min(5, +u.rank_stars || 0)) });
             // POST has committed atomically. A subsequent verification/read failure
             // must not be mistaken for a failed save or cause the user to resubmit.
             if (customSaveRef.current)
@@ -3627,8 +3627,8 @@ function Users() {
                     React.createElement("div", { style: { display: editTab === "employment" ? "block" : "none" } },
                         React.createElement("div", { className: "row", style: { gap: 12, flexWrap: "wrap" } },
                             React.createElement("div", { style: { flex: 1, minWidth: 190 } },
-                                React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639 \u0628\u0647 \u06A9\u0627\u0631"),
-                                React.createElement(JDate, { jalali: true, yearFrom: 1350, yearTo: todayJ()[0] + 2, value: edit.employment_start_date || "", onChange: v => setEdit({ ...edit, employment_start_date: v }) })),
+                                React.createElement("label", null, "\u0634\u0631\u0648\u0639 \u0633\u0646\u0648\u0627\u062A"),
+                                React.createElement(JDate, { jalali: true, yearFrom: 1350, yearTo: todayJ()[0] + 2, value: edit.seniority_start || edit.employment_start_date || "", onChange: v => setEdit({ ...edit, seniority_start: v, employment_start_date: v }) })),
                             React.createElement("div", { style: { flex: 1, minWidth: 190 } },
                                 React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u0627\u062A\u0645\u0627\u0645 \u0647\u0645\u06A9\u0627\u0631\u06CC (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
                                 React.createElement(JDate, { jalali: true, yearFrom: 1350, yearTo: todayJ()[0] + 5, value: edit.employment_end_date || "", onChange: v => setEdit({ ...edit, employment_end_date: v }) }),
