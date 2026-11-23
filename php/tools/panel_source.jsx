@@ -6691,7 +6691,7 @@ function CustomFieldInput({field,value,onChange}){
     </div>;
   }
   if(field.ftype==="textarea") return <textarea className="input" rows="2" value={value||""} onChange={e=>onChange(e.target.value)}/>;
-  if(field.ftype==="number") return <input className="input" type="number" value={value||""} onChange={e=>onChange(e.target.value)}/>;
+  if(field.ftype==="number") return <input className="input" type="text" inputMode="decimal" dir="rtl" value={faPlain(value??"")} onChange={e=>onChange(e.target.value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/٫/g,".").replace(/٬/g,""))}/>;
   if(field.ftype==="date") return <JDate jalali value={value||""} onChange={onChange}/>;
   if(field.ftype==="checkbox") return <label className="row" style={{gap:6}}><input type="checkbox" checked={value==="1"||value===true} onChange={e=>onChange(e.target.checked?"1":"0")}/>بله</label>;
   if(field.ftype==="select") return <select className="input" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">— انتخاب —</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>;
