@@ -24,7 +24,7 @@ assert.match(source,/canonicalOrder/);
 assert.match(source,/employment_start_from/);
 assert.match(source,/employment_end_to/);
 assert.match(source,/ستون‌های انتخاب‌نشده/);
-assert.match(source,/e\.key==='Tab'/);
+assert.match(source,/e\.key!=='Tab'/);
 assert.match(source,/lastFocus\.focus\(\)/);
 assert.match(source,/height:100dvh/);
 assert.match(source,/let exporting=false/);
