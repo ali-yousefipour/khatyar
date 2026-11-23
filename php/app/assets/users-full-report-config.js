@@ -107,8 +107,8 @@ el('option',{value:'',text:'تمام سمت‌ها'},role);
 el('option',{value:'',text:'تمام مناطق'},zone);
 const dateInputs={};
 for(const [key,title] of [
- ['employment_start_from','شروع همکاری از تاریخ'],
- ['employment_start_to','شروع همکاری تا تاریخ'],
+ ['employment_start_from','شروع سنوات از تاریخ'],
+ ['employment_start_to','شروع سنوات تا تاریخ'],
  ['employment_end_from','پایان همکاری از تاریخ'],
  ['employment_end_to','پایان همکاری تا تاریخ']
 ]){
