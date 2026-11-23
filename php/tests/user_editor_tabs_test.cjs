@@ -33,6 +33,7 @@ assert.match(modal,/onChange=\{e=>setEditTab\(e.target.value\)\}/,'nested sectio
 assert.doesNotMatch(modal,/className="row users-edit-tablist"/,'old overflowing tab strip is removed');
 assert.match(source,/const label=\(\)=>selected\?faPlain/,'Jalali date labels preserve Persian digits and zero padding');
 assert.match(source,/field.ftype==="date"\) return <JDate jalali/,'custom dates are handled as Jalali values');
+assert.match(source,/field.ftype==="number"\) return <input[^\n]*inputMode="decimal"/,'custom numeric inputs support Persian displayed digits');
 assert.match(modal,/users-edit-summary/);
 assert.match(modal,/users-edit-footer/);
 assert.match(modal,/closeUserEditor/);
