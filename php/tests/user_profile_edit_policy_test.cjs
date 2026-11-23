@@ -66,7 +66,7 @@ assert.match(panel,/field\.ftype==="repeater"/,'web admin supports repeatable ch
 assert.match(panel,/\[originalVals,setOriginalVals\]=useState\(\{\}\)/,'admin saves only changed custom values');
 assert.match(panel,/row\.field_id\?\?row\.id/,'web personnel editor maps API custom values by field id');
 assert.match(panel,/\[userId\]\);/,'web personnel editor isolates records across user switches');
-assert.match(panel,/<CustomFieldsFiller key=\{edit\.id\} userId=\{edit\.id\} profile=\{edit\}\/>/,'unified personnel tab mounts published-rule-aware editor');
+assert.match(panel,/<CustomFieldsFiller key=\{edit\.id\} userId=\{edit\.id\} profile=\{edit\} saveRef=\{customSaveRef\} onDirtyChange=\{setCustomDirty\}\/>/,'unified personnel tab mounts published-rule-aware editor with coordinated save');
 assert.doesNotMatch(panel,/<UserCustomValues userId=\{edit\.id\}\/>/,'stale legacy custom editor is no longer mounted');
 assert.match(panel,/function adminProfileCondition/,'web admin evaluates published conditional rules without arbitrary execution');
 assert.match(panel,/GET\('\/my\/user-profile-form'\)/,'web admin reads published version, not pending drafts');
