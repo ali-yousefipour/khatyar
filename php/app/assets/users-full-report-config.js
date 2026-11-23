@@ -111,7 +111,14 @@ for(const [key,title] of [
 ]){
  const parent=el('label',{text:title},filterArea);
  const input=el('input',{type:'text',placeholder:'۱۴۰۵/۰۱/۰۱',dir:'ltr',maxlength:'10',inputmode:'numeric'},parent);
- input.addEventListener('blur',()=>{const ascii=input.value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[.-]/g,'/');if(/^1[34]\\d{2}\\/\\d{1,2}\\/\\d{1,2}$/.test(ascii)){const [y,m,d]=ascii.split('/');input.value=[y,m.padStart(2,'0'),d.padStart(2,'0')].join('/').replace(/\\d/g,n=>'۰۱۲۳۴۵۶۷۸۹'[+n]);}});
+ input.addEventListener('blur',()=>{
+   const ascii=input.value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776))
+     .replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[.-]/g,'/');
+   if(/^1[34]\d{2}\/\d{1,2}\/\d{1,2}$/.test(ascii)){
+     const [y,m,d]=ascii.split('/');
+     input.value=[y,m.padStart(2,'0'),d.padStart(2,'0')].join('/').replace(/\d/g,n=>'۰۱۲۳۴۵۶۷۸۹'[+n]);
+   }
+ });
  dateInputs[key]=input;
 }
 const presetArea=el('div',{class:'kh-ur-controls'},box);
