@@ -843,7 +843,7 @@ function JDate({ value, onChange, placeholder, jalali, yearFrom, yearTo, portal 
         y++;
     } if (y >= yf && y <= yt)
         setView({ y, m }); };
-    const label = () => selected ? `${fa(selected[0])}/${fa(String(selected[1]).padStart(2, '0'))}/${fa(String(selected[2]).padStart(2, '0'))}` : '';
+    const label = () => selected ? faPlain(`${selected[0]}/${String(selected[1]).padStart(2, '0')}/${String(selected[2]).padStart(2, '0')}`) : '';
     const calendar = open && React.createElement("div", { style: { position: 'absolute', zIndex: 2147483000, background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: 12, boxShadow: '0 18px 50px rgba(0,0,0,.18)', top: 'calc(100% + 7px)', right: 0, width: 330, direction: 'rtl', ...(portal ? popupStyle || { visibility: 'hidden' } : {}) } },
         React.createElement("div", { style: { display: 'grid', gridTemplateColumns: '36px 1fr 36px', gap: 6, alignItems: 'center', marginBottom: 8 } },
             React.createElement("button", { type: "button", className: "btn g", onClick: () => shift(-1) }, "\u2039"),
@@ -3581,11 +3581,11 @@ function Users() {
                         React.createElement("div", { className: "row", style: { gap: 12, flexWrap: "wrap" } },
                             React.createElement("div", { style: { flex: 1, minWidth: 180 } },
                                 React.createElement("label", null, "\u06A9\u062F \u0645\u0644\u06CC"),
-                                React.createElement("input", { className: "input", dir: "ltr", maxLength: "32", value: edit.national_code || "", onChange: e => setEdit({ ...edit, national_code: e.target.value }) }),
+                                React.createElement("input", { className: "input", dir: "ltr", maxLength: "32", value: faPlain(edit.national_code || ""), onChange: e => setEdit({ ...edit, national_code: onlyDigits(e.target.value) }) }),
                                 edit.national_code && React.createElement("small", { role: "status", style: { color: offlineNationalIdWeb(edit.national_code).valid ? "var(--ok,#087f5b)" : "var(--danger,#bd2929)" } }, offlineNationalIdWeb(edit.national_code).message)),
                             React.createElement("div", { style: { flex: 1, minWidth: 180 } },
                                 React.createElement("label", null, "\u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC"),
-                                React.createElement("input", { className: "input", dir: "ltr", value: edit.personnel_code || "", onChange: e => setEdit({ ...edit, personnel_code: e.target.value }) })),
+                                React.createElement("input", { className: "input", dir: "ltr", value: faPlain(edit.personnel_code || ""), onChange: e => setEdit({ ...edit, personnel_code: onlyDigits(e.target.value) }) })),
                             React.createElement("div", { style: { flex: 1, minWidth: 180 } },
                                 React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u062A\u0648\u0644\u062F"),
                                 React.createElement(JDate, { yearFrom: 1320, yearTo: todayJ()[0], value: edit.birth_iso || (edit.birth_date ? isoFromJ(...String(edit.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : ""), onChange: v => { let bd = ""; if (v) {
@@ -3593,7 +3593,7 @@ function Users() {
                                         const [jy, jm, jd] = gregToJalali(y, m, d);
                                         bd = jy + "-" + String(jm).padStart(2, "0") + "-" + String(jd).padStart(2, "0");
                                     } setEdit({ ...edit, birth_iso: v, birth_date: bd }); } }),
-                                edit.birth_date && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, String(edit.birth_date).replace(/-/g, "/"))))),
+                                edit.birth_date && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, faPlain(String(edit.birth_date).replace(/-/g, "/")))))),
                     React.createElement("div", { style: { display: editTab === "contact" ? "block" : "none" } },
                         React.createElement("div", { className: "row", style: { gap: 12, flexWrap: "wrap" } },
                             React.createElement("div", { style: { flex: 1, minWidth: 190 } },
