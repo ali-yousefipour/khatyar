@@ -3385,8 +3385,7 @@ function Users() {
                     }
                     finally {
                         setExportingUsers(false);
-                    } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"),
-                React.createElement("button", { className: "btn g", disabled: identityAuditBusy, onClick: auditAllUsers }, identityAuditBusy ? "در حال ممیزی…" : "ممیزی اطلاعات هویتی و بانکی"))),
+                    } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"))),
         React.createElement("div", { className: "users-overview", "aria-label": "\u062E\u0644\u0627\u0635\u0647 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC" },
             React.createElement("div", { className: "users-overview-card" },
                 React.createElement("span", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062F\u0631 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC"),
