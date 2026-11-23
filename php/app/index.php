@@ -311,6 +311,36 @@ foreach ($routes as &$employmentRoute) {
   if (!in_array($routeMethod, ['GET','PUT'], true)) continue;
   $originalHandler = $employmentRoute['fn'];
   $employmentRoute['fn'] = static function($params,$body,$user) use ($originalHandler,$routeMethod,$routePath) {
+    // Canonical write contract: seniority_start is authoritative; legacy
+    // employment_start_date remains synchronized for older Android clients
+    // and employment-window payroll calculations.
+    if ($routeMethod === 'PUT' && isset($params['id']) && is_array($body)) {
+      $hasSeniority = array_key_exists('seniority_start',$body);
+      $hasLegacy = array_key_exists('employment_start_date',$body);
+      if ($hasSeniority || $hasLegacy) {
+        $normalize = static function($value): ?string {
+          if ($value === null || trim((string)$value) === '') return null;
+          $date = strtr(trim((string)$value),[
+            '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4',
+            '۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+            '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4',
+            '٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9'
+          ]);
+          $date = str_replace('/','-',$date);
+          if (!preg_match('/^1[34][0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/',$date)) Http::error('تاریخ شروع سنوات معتبر نیست',422);
+          [$y,$m,$d]=array_map('intval',explode('-',$date));
+          if ($d>IranCalendar::monthLength($y,$m)) Http::error('روز تاریخ شروع سنوات معتبر نیست',422);
+          return $date;
+        };
+        $seniority = $hasSeniority ? $normalize($body['seniority_start']) : null;
+        $legacy = $hasLegacy ? $normalize($body['employment_start_date']) : null;
+        if ($hasSeniority && $hasLegacy && $seniority!==$legacy)
+          Http::error('تاریخ شروع سنوات و فیلد قدیمی شروع همکاری متفاوت هستند',422);
+        $canonical = $hasSeniority ? $seniority : $legacy;
+        $body['seniority_start'] = $canonical;
+        $body['employment_start_date'] = $canonical;
+      }
+    }
     $hasColumns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
     if ((int)($hasColumns['n'] ?? 0) !== 2) { if ($routeMethod === 'PUT' && is_array($body) && (array_key_exists('employment_start_date',$body)||array_key_exists('employment_end_date',$body))) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند؛ ابتدا اسکریپت مهاجرت اجرا شود',503); return $originalHandler($params,$body,$user); }
     if ($routeMethod === 'PUT' && isset($params['id']) && is_array($body)) {
