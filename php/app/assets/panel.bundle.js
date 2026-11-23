@@ -11490,7 +11490,7 @@ function CustomFieldInput({ field, value, onChange }) {
     if (field.ftype === "number")
         return React.createElement("input", { className: "input", type: "number", value: value || "", onChange: e => onChange(e.target.value) });
     if (field.ftype === "date")
-        return React.createElement(JDate, { value: value || "", onChange: onChange });
+        return React.createElement(JDate, { jalali: true, value: value || "", onChange: onChange });
     if (field.ftype === "checkbox")
         return React.createElement("label", { className: "row", style: { gap: 6 } },
             React.createElement("input", { type: "checkbox", checked: value === "1" || value === true, onChange: e => onChange(e.target.checked ? "1" : "0") }),
