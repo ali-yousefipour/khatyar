@@ -765,3 +765,19 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
   .users-edit-footer .btn { flex: 1 1 120px; }
   .users-edit-body .row { flex-wrap: wrap; }
 }
+
+
+/* USERS-EDITOR-NAVIGATION-20261123: compact category navigation with a single sub-section picker. */
+.users-edit-navigation{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px);gap:12px;align-items:center;padding:10px 0;margin-bottom:12px;border-bottom:1px solid #dcebe3;direction:rtl}
+.users-edit-groups{display:flex;flex-wrap:wrap;gap:7px;min-width:0}
+.users-edit-groups .btn{flex:1 1 auto;white-space:nowrap;font-size:12.5px;min-height:42px;border-radius:10px;padding:7px 10px}
+.users-edit-subnav{display:grid;gap:5px;min-width:0;font-size:12px;color:#436f5c;font-weight:600}
+.users-edit-subnav .input{width:100%;min-width:0;max-width:100%;font:inherit;min-height:42px}
+.users-edit-body .card-p{max-width:100%;min-width:0}
+.users-edit-body .card-p>div[style*="grid-template-columns"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important}
+.users-edit-body .card-p .input,.users-edit-body .card-p select,.users-edit-body .card-p textarea{width:100%;box-sizing:border-box;min-width:0}
+.users-edit-body .card-p h5{font-size:14px;color:#0b6249;margin:0 0 12px}
+.users-edit-body .card-p label{line-height:1.8}
+.users-edit-body [dir="ltr"]{unicode-bidi:plaintext;text-align:right}
+@media(max-width:900px){.users-edit-navigation{grid-template-columns:1fr}.users-edit-groups .btn{flex:1 1 30%}}
+@media(max-width:560px){.users-edit-groups .btn{flex:1 1 45%}.users-edit-subnav{width:100%}}
