@@ -78,6 +78,8 @@ jobs:
           php tests/delivery_queue_retry_test.php
           php -l lib/Http.php
           php -l app/index.php
+          php -l lib/routes.php
+          php tests/seniority_start_contract_test.php
           php tests/attendance_peak_load_guard_test.php
           php tests/work_report_organization_cutoff_test.php
           php -l lib/WorkReportTemplateRepository.php
