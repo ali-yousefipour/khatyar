@@ -2094,7 +2094,7 @@ function Users(){
 }
 
 function AddUser({roles,zones,onClose,onSave}){
-  const [f,setF]=useState(()=>({first_name:"",last_name:"",username:"",email:"",role_id:roles[0]?.id||9,zone_id:null,password:crypto.randomUUID().replace(/-/g,"").slice(0,16),allow_android:1,allow_web:1,birth_date:"",birth_iso:""}));
+  const [f,setF]=useState(()=>({first_name:"",last_name:"",username:"",email:"",role_id:roles[0]?.id||9,zone_id:null,password:crypto.randomUUID().replace(/-/g,"").slice(0,16),allow_android:1,allow_web:1,birth_date:"",birth_iso:"",seniority_start:""}));
   const [saving,setSaving]=useState(false);
   const submit=async()=>{
     const national=offlineNationalIdWeb(f.username);
@@ -2111,6 +2111,7 @@ function AddUser({roles,zones,onClose,onSave}){
     <label>نام کاربری (کد ملی)</label><input className="input" dir="ltr" maxLength="32" value={f.username} onChange={e=>setF({...f,username:e.target.value})}/>{f.username&&<small role="status" style={{color:offlineNationalIdWeb(f.username).valid?"var(--ok,#087f5b)":"var(--danger,#bd2929)"}}>{offlineNationalIdWeb(f.username).message}</small>}
     <label>ایمیل (اختیاری)</label><input className="input" dir="ltr" onChange={e=>setF({...f,email:e.target.value})}/>
     <div className="row" style={{gap:10,flexWrap:"wrap"}}><div style={{flex:1,minWidth:170}}><label>تاریخ تولد</label><JDate yearFrom={1320} yearTo={todayJ()[0]} value={f.birth_iso||""} onChange={v=>{ let bd=""; if(v){ const [y,m,d]=v.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); bd=`${jy}-${String(jm).padStart(2,"0")}-${String(jd).padStart(2,"0")}`; } setF({...f,birth_iso:v,birth_date:bd}); }}/>{f.birth_date&&<span className="muted" style={{fontSize:11}}>{String(f.birth_date).replace(/-/g,"/")}</span>}</div></div>
+    <label>شروع سنوات (اختیاری)</label><JDate jalali yearFrom={1350} yearTo={todayJ()[0]+2} value={f.seniority_start||""} onChange={value=>setF({...f,seniority_start:value})}/>
     <label>سمت</label><select className="input" value={f.role_id} onChange={e=>setF({...f,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
     <label>منطقه</label><select className="input" onChange={e=>setF({...f,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
     <label>رمز اولیهٔ تصادفی (حداقل ۱۲ کاراکتر)</label><div className="row" style={{gap:8}}><input className="input" dir="ltr" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/><button type="button" className="btn g" onClick={()=>setF({...f,password:crypto.randomUUID().replace(/-/g,"").slice(0,16)})}>رمز جدید</button></div>
