@@ -297,7 +297,7 @@ $routes[] = [
     if($id<=0) Http::error('شناسه کاربر معتبر نیست',422);
     $fields=Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
     if((int)($fields['n']??0)!==2) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند',503);
-    $record=Db::one('SELECT id,employment_start_date,employment_end_date FROM users WHERE id=?',[$id]);
+    $record=Db::one('SELECT id,seniority_start,COALESCE(NULLIF(seniority_start,\'\'),employment_start_date) AS employment_start_date,employment_end_date FROM users WHERE id=?',[$id]);
     if(!$record) Http::error('کاربر یافت نشد',404);
     return $record;
   }
