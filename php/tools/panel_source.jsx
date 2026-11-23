@@ -1905,7 +1905,7 @@ function Users(){
     </div>
     {usersTab==="vehicles"?<PersonnelVehicleAssets/>:<PersonnelVehicleChecklistV2/>}
   </div>);
-  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" disabled={exportingUsers} onClick={async()=>{setExportingUsers(true);try{const res=await fetch(db.usersExportUrl(),{headers:tok()});if(!res.ok)throw new Error("دریافت فایل از سرور ناموفق بود");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="اطلاعات_کامل_کاربران.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){alert(e.message||"خطا در دریافت خروجی کاربران");}finally{setExportingUsers(false);}}}>{exportingUsers?"در حال آماده‌سازی خروجی…":"⤓ خروجی کامل کاربران (Excel)"}</button><button className="btn g" disabled={identityAuditBusy} onClick={auditAllUsers}>{identityAuditBusy?"در حال ممیزی…":"بررسی صحت اطلاعات هویتی و بانکی کاربران"}</button></div></div>
+  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" disabled={exportingUsers} onClick={async()=>{setExportingUsers(true);try{const res=await fetch(db.usersExportUrl(),{headers:tok()});if(!res.ok)throw new Error("دریافت فایل از سرور ناموفق بود");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="اطلاعات_کامل_کاربران.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){alert(e.message||"خطا در دریافت خروجی کاربران");}finally{setExportingUsers(false);}}}>{exportingUsers?"در حال آماده‌سازی خروجی…":"⤓ خروجی کامل کاربران (Excel)"}</button><button className="btn g" disabled={identityAuditBusy} onClick={auditAllUsers}>{identityAuditBusy?"در حال ممیزی…":"ممیزی اطلاعات هویتی و بانکی"}</button></div></div>
     <div className="users-overview" aria-label="خلاصه نتایج فعلی"><div className="users-overview-card"><span>کاربران در نتایج فعلی</span><strong>{fa(users.length)}</strong><small>مطابق آخرین فیلتر اعمال‌شده</small></div><div className="users-overview-card"><span>کاربران فعال</span><strong>{fa(users.filter(u=>u.is_active).length)}</strong><small>در نتایج فعلی</small></div><div className="users-overview-card"><span>کاربران غیرفعال</span><strong>{fa(users.filter(u=>!u.is_active).length)}</strong><small>در نتایج فعلی</small></div></div>
     <div className="row page-switcher" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       <button className="btn p">اطلاعات کاربران</button>
@@ -1964,16 +1964,29 @@ function Users(){
         </div>
         <span className={"badge "+(edit.is_active?"b-ok":"b-no")}>{edit.is_active?"حساب فعال":"حساب غیرفعال"}</span>
       </div>
-      <div className="row users-edit-tablist" role="tablist" aria-label="بخش‌های ویرایش کاربر" style={{gap:8,flexWrap:"nowrap",marginBottom:12,padding:"8px 4px",borderBottom:"1px solid var(--line)"}}>
-        <button role="tab" aria-selected={editTab==="profile"} className={"btn "+(editTab==="profile"?"p":"g")} onClick={()=>setEditTab("profile")}>اطلاعات جامع پرسنلی</button>
-        <button role="tab" aria-selected={editTab==="identity"} className={"btn "+(editTab==="identity"?"p":"g")} onClick={()=>setEditTab("identity")}>اطلاعات هویتی</button>
-        <button role="tab" aria-selected={editTab==="contact"} className={"btn "+(editTab==="contact"?"p":"g")} onClick={()=>setEditTab("contact")}>تماس و نشانی</button>
-        <button role="tab" aria-selected={editTab==="organization"} className={"btn "+(editTab==="organization"?"p":"g")} onClick={()=>setEditTab("organization")}>اطلاعات سازمانی</button>
-        <button role="tab" aria-selected={editTab==="employment"} className={"btn "+(editTab==="employment"?"p":"g")} onClick={()=>setEditTab("employment")}>اطلاعات استخدامی</button>
-        <button role="tab" aria-selected={editTab==="family"} className={"btn "+(editTab==="family"?"p":"g")} onClick={()=>setEditTab("family")}>اطلاعات خانوادگی</button>
-        <button role="tab" aria-selected={editTab==="financial"} className={"btn "+(editTab==="financial"?"p":"g")} onClick={()=>setEditTab("financial")}>حقوق و اطلاعات مالی</button>
-        <button role="tab" aria-selected={editTab==="custom"} className={"btn "+(editTab==="custom"?"p":"g")} onClick={()=>setEditTab("custom")}>اطلاعات تکمیلی و سفارشی</button>
-        <button role="tab" aria-selected={editTab==="access"} className={"btn "+(editTab==="access"?"p":"g")} onClick={()=>setEditTab("access")}>تنظیمات حساب و دسترسی</button>
+      <div className="users-edit-navigation" aria-label="دسته‌بندی اطلاعات کاربر">
+        <div className="users-edit-groups" role="group" aria-label="گروه‌های اطلاعات">
+          {[
+            {key:"personal",label:"مشخصات فردی",first:"identity",tabs:["profile","identity","contact","family"]},
+            {key:"work",label:"سازمانی و همکاری",first:"organization",tabs:["organization","employment"]},
+            {key:"finance",label:"مالی و حقوق",first:"financial",tabs:["financial"]},
+            {key:"extra",label:"اطلاعات تکمیلی",first:"custom",tabs:["custom"]},
+            {key:"security",label:"حساب و دسترسی",first:"access",tabs:["access"]}
+          ].map(group=><button key={group.key} type="button" className={"btn "+(group.tabs.includes(editTab)?"p":"g")}
+            aria-pressed={group.tabs.includes(editTab)} onClick={()=>setEditTab(group.first)}>{group.label}</button>)}
+        </div>
+        <label className="users-edit-subnav">زیر‌بخش
+          <select className="input" aria-label="انتخاب زیر‌بخش اطلاعات کاربر" value={editTab} onChange={e=>setEditTab(e.target.value)}>
+            {( ["profile","identity","contact","family"].includes(editTab)
+              ?[["profile","مشخصات اصلی و تصویر"],["identity","هویتی"],["contact","تماس و نشانی"],["family","خانوادگی"]]
+              :["organization","employment"].includes(editTab)
+              ?[["organization","سمت و محل خدمت"],["employment","همکاری و سنوات"]]
+              :editTab==="financial"?[["financial","حقوق و اطلاعات مالی"]]
+              :editTab==="custom"?[["custom","اطلاعات تکمیلی و سفارشی"]]
+              :[["access","تنظیمات حساب و دسترسی"]]
+            ).map(([key,title])=><option key={key} value={key}>{title}</option>)}
+          </select>
+        </label>
       </div>
       <div className="users-edit-body">
       {<div>
