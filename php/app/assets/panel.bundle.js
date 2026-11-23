@@ -3736,7 +3736,7 @@ function Users() {
         lineModal && React.createElement(LineAssign, { user: lineModal, onClose: () => setLineModal(null) })));
 }
 function AddUser({ roles, zones, onClose, onSave }) {
-    const [f, setF] = useState(() => { var _a; return ({ first_name: "", last_name: "", username: "", email: "", role_id: ((_a = roles[0]) === null || _a === void 0 ? void 0 : _a.id) || 9, zone_id: null, password: crypto.randomUUID().replace(/-/g, "").slice(0, 16), allow_android: 1, allow_web: 1, birth_date: "", birth_iso: "" }); });
+    const [f, setF] = useState(() => { var _a; return ({ first_name: "", last_name: "", username: "", email: "", role_id: ((_a = roles[0]) === null || _a === void 0 ? void 0 : _a.id) || 9, zone_id: null, password: crypto.randomUUID().replace(/-/g, "").slice(0, 16), allow_android: 1, allow_web: 1, birth_date: "", birth_iso: "", seniority_start: "" }); });
     const [saving, setSaving] = useState(false);
     const submit = async () => {
         const national = offlineNationalIdWeb(f.username);
@@ -3779,6 +3779,8 @@ function AddUser({ roles, zones, onClose, onSave }) {
                         bd = `${jy}-${String(jm).padStart(2, "0")}-${String(jd).padStart(2, "0")}`;
                     } setF({ ...f, birth_iso: v, birth_date: bd }); } }),
                 f.birth_date && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, String(f.birth_date).replace(/-/g, "/")))),
+        React.createElement("label", null, "\u0634\u0631\u0648\u0639 \u0633\u0646\u0648\u0627\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
+        React.createElement(JDate, { jalali: true, yearFrom: 1350, yearTo: todayJ()[0] + 2, value: f.seniority_start || "", onChange: value => setF({ ...f, seniority_start: value }) }),
         React.createElement("label", null, "\u0633\u0645\u062A"),
         React.createElement("select", { className: "input", value: f.role_id, onChange: e => setF({ ...f, role_id: +e.target.value }) }, roles.map(r => React.createElement("option", { key: r.id, value: r.id }, r.title))),
         React.createElement("label", null, "\u0645\u0646\u0637\u0642\u0647"),
