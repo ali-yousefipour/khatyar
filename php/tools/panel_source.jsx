@@ -6697,7 +6697,7 @@ function CustomFieldInput({field,value,onChange}){
   if(field.ftype==="select") return <select className="input" value={value||""} onChange={e=>onChange(e.target.value)}><option value="">— انتخاب —</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>;
   if(field.ftype==="multiselect"){ const sel=(value||"").split("|").filter(Boolean);
     return <div className="row" style={{gap:6,flexWrap:"wrap"}}>{opts.map(o=>{ const on=sel.includes(o); return <button key={o} type="button" className={"chip"+(on?" on":"")} onClick={()=>{ const ns=on?sel.filter(x=>x!==o):[...sel,o]; onChange(ns.join("|")); }}>{o}</button>; })}</div>; }
-  return <input className="input" value={value||""} onChange={e=>onChange(e.target.value)}/>;
+  return <input className="input" value={faPlain(value||"")} onChange={e=>onChange(e.target.value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))))}/>;
 }
 
 // تکمیل مقادیر فیلدهای سفارشی برای یک کاربر (در فرم ادمین)
