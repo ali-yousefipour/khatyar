@@ -29,6 +29,43 @@ css.textContent=`
  .kh-ur-group{width:100%}
 }
 `;
+css.textContent+=`
+#kh-user-report-modal{padding:clamp(8px,2vh,20px);align-items:center}
+.kh-ur-panel{width:min(1050px,100%);max-height:calc(100dvh - 24px);padding:0;display:flex;flex-direction:column;gap:0;border:1px solid #cde1d6;overflow:auto}
+.kh-ur-panel>h2{position:sticky;top:0;background:#fff;border-bottom:1px solid #e1eee7;padding:20px 24px 12px;z-index:3;font-size:20px;color:#075b43}
+.kh-ur-panel>p{margin:0;padding:10px 24px}
+.kh-ur-workspace{display:grid;grid-template-columns:minmax(180px,230px) minmax(0,1fr);grid-template-rows:auto auto minmax(230px,1fr) auto;gap:12px;padding:16px 24px;background:#f8fbf9;border-block:1px solid #e4eee9}
+.kh-ur-workspace>input[type=search]{grid-column:1/-1;background:#fff;min-height:44px}
+.kh-ur-workspace>.kh-ur-actions{grid-column:1/-1;margin:0;align-items:center;justify-content:flex-start}
+.kh-ur-workspace>.kh-ur-groups{grid-column:1;grid-row:3;display:flex;flex-direction:column;flex-wrap:nowrap;gap:7px;margin:0;max-height:330px;overflow:auto;padding-inline-end:4px}
+.kh-ur-group{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px;background:#fff;min-width:0}
+.kh-ur-group strong{grid-column:1/-1;font-size:13px;color:#164b38;overflow-wrap:anywhere}
+.kh-ur-group span{grid-column:1/-1;font-size:12px;color:#688276}
+.kh-ur-group button{min-width:0;padding:6px 4px;white-space:nowrap}
+.kh-ur-workspace>.kh-ur-fields{grid-column:2;grid-row:3;max-height:330px;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;background:#fff}
+.kh-ur-fields label{position:relative;min-width:0;gap:7px;border:1px solid #e3eee8;background:#fff;min-height:46px}
+.kh-ur-fields label:has(input:checked){background:#eff9f3;border-color:#c2e1d0}
+.kh-ur-fields label>span{flex:1;min-width:0;line-height:1.6;font-size:12px;overflow-wrap:anywhere}
+.kh-ur-fields label>button{padding:5px 7px;flex:none}
+.kh-ur-unselected{grid-column:1/-1;margin:0;max-height:60px;overflow:auto}
+.kh-ur-panel>.kh-ur-controls{padding:4px 24px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.kh-ur-panel>.kh-ur-actions{margin:8px 24px}
+.kh-ur-panel>.kh-ur-footer{position:sticky;bottom:0;margin:0;padding:13px 24px;border-top:1px solid #d5e7dc;background:#fff;z-index:4;box-shadow:0 -6px 20px #173e2910}
+.kh-ur-footer .kh-ur-primary{min-height:44px;padding-inline:20px;font-weight:700}
+.kh-ur-panel>p[role=status],.kh-ur-panel>div[aria-live=polite]{padding-inline:24px}
+.kh-ur-panel :focus-visible{outline:2px solid #087f5b;outline-offset:2px}
+.kh-ur-panel button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:740px){
+ #kh-user-report-modal{padding:0}
+ .kh-ur-panel{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+ .kh-ur-workspace{grid-template-columns:1fr;padding:12px;gap:8px}
+ .kh-ur-workspace>.kh-ur-groups{grid-column:1;grid-row:auto;max-height:135px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .kh-ur-workspace>.kh-ur-fields{grid-column:1;grid-row:auto;grid-template-columns:1fr;max-height:35dvh}
+ .kh-ur-panel>.kh-ur-controls{grid-template-columns:1fr 1fr;padding-inline:12px}
+ .kh-ur-panel>.kh-ur-footer{padding:10px 12px}
+}
+@media(max-width:480px){.kh-ur-panel>.kh-ur-controls,.kh-ur-workspace>.kh-ur-groups{grid-template-columns:1fr}}
+`;
 document.head.appendChild(css);
 function token(){const t=localStorage.getItem('token');if(!t)throw Error('نشست معتبر نیست؛ دوباره وارد شوید.');return t;}
 async function request(url,options={}){const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+token());const res=await fetch(url,{...options,headers,credentials:'same-origin',cache:'no-store'});if(!res.ok){let msg='خطای سرور ('+res.status+')';try{const data=await res.json();msg=data.error||msg;}catch(_){}throw Error(msg);}return res;}
@@ -38,14 +75,15 @@ const cover=el('div',{id:'kh-user-report-modal'},document.body);
 const box=el('section',{class:'kh-ur-panel',role:'dialog','aria-modal':'true','aria-labelledby':'kh-ur-heading'},cover);
 el('h2',{id:'kh-ur-heading',text:'تنظیمات گزارش کامل کاربران'},box);
 el('p',{text:'ستون‌های مورد نیاز و نحوه مرتب‌سازی فایل اکسل را انتخاب کنید. تمام فیلدهای هویتی و سفارشی مجاز به‌صورت پیش‌فرض انتخاب شده‌اند.'},box);
-const search=el('input',{type:'search',placeholder:'جستجو در نام ستون‌ها','aria-label':'جستجوی ستون'},box);
-const actions=el('div',{class:'kh-ur-actions'},box);
+const workspace=el('section',{class:'kh-ur-workspace','aria-label':'انتخاب ستون‌های گزارش'},box);
+const search=el('input',{type:'search',placeholder:'جستجوی نام ستون یا دسته اطلاعات…','aria-label':'جستجوی ستون'},workspace);
+const actions=el('div',{class:'kh-ur-actions'},workspace);
 const all=el('button',{type:'button',text:'انتخاب همه'},actions);
 const none=el('button',{type:'button',text:'حذف انتخاب‌ها'},actions);
 const count=el('span',{role:'status'},actions);
-const groupPanel=el('div',{class:'kh-ur-groups'},box);
-const fields=el('div',{class:'kh-ur-fields'},box);
-const unselected=el('p',{class:'kh-ur-unselected',role:'status'},box);
+const groupPanel=el('div',{class:'kh-ur-groups'},workspace);
+const fields=el('div',{class:'kh-ur-fields'},workspace);
+const unselected=el('p',{class:'kh-ur-unselected',role:'status'},workspace);
 const controls=el('div',{class:'kh-ur-controls'},box);
 const sortLabel=el('label',{text:'مرتب‌سازی بر اساس'},controls),sort=el('select',{},sortLabel);
 const dirLabel=el('label',{text:'جهت مرتب‌سازی'},controls),dir=el('select',{},dirLabel);
@@ -72,7 +110,8 @@ for(const [key,title] of [
  ['employment_end_to','پایان همکاری تا تاریخ']
 ]){
  const parent=el('label',{text:title},filterArea);
- const input=el('input',{type:'text',placeholder:'۱۴۰۵/۰۱/۰۱',dir:'ltr',maxlength:'10'},parent);
+ const input=el('input',{type:'text',placeholder:'۱۴۰۵/۰۱/۰۱',dir:'ltr',maxlength:'10',inputmode:'numeric'},parent);
+ input.addEventListener('blur',()=>{const ascii=input.value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[.-]/g,'/');if(/^1[34]\\d{2}\\/\\d{1,2}\\/\\d{1,2}$/.test(ascii)){const [y,m,d]=ascii.split('/');input.value=[y,m.padStart(2,'0'),d.padStart(2,'0')].join('/').replace(/\\d/g,n=>'۰۱۲۳۴۵۶۷۸۹'[+n]);}});
  dateInputs[key]=input;
 }
 const presetArea=el('div',{class:'kh-ur-controls'},box);
@@ -89,7 +128,7 @@ const saveServerPreset=el('button',{type:'button',text:'ذخیره / بروزر�
 const copyPreset=el('button',{type:'button',text:'ایجاد کپی'},presetActions);
 const deletePreset=el('button',{type:'button',text:'حذف قالب'},presetActions);
 const status=el('p',{role:'status','aria-live':'polite'},box);
-const foot=el('div',{class:'kh-ur-actions'},box);
+const foot=el('div',{class:'kh-ur-actions kh-ur-footer'},box);
 const preview=el('button',{type:'button',text:'پیش‌نمایش داده‌ها'},foot);
 const savePreset=el('button',{type:'button',text:'ذخیره تنظیمات این مرورگر'},foot);
 const reset=el('button',{type:'button',text:'بازنشانی'},foot);
