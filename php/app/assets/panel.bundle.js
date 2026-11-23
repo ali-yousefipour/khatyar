@@ -11488,7 +11488,7 @@ function CustomFieldInput({ field, value, onChange }) {
     if (field.ftype === "textarea")
         return React.createElement("textarea", { className: "input", rows: "2", value: value || "", onChange: e => onChange(e.target.value) });
     if (field.ftype === "number")
-        return React.createElement("input", { className: "input", type: "number", value: value || "", onChange: e => onChange(e.target.value) });
+        return React.createElement("input", { className: "input", type: "text", inputMode: "decimal", dir: "rtl", value: faPlain(value !== null && value !== void 0 ? value : ""), onChange: e => onChange(e.target.value.replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/٫/g, ".").replace(/٬/g, "")) });
     if (field.ftype === "date")
         return React.createElement(JDate, { jalali: true, value: value || "", onChange: onChange });
     if (field.ftype === "checkbox")
