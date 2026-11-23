@@ -5,6 +5,10 @@ for(const file of ['php/app/assets/identity-banking-audit.js','php/app/assets/id
   new vm.Script(src,{filename:file});
   assert.match(src,/focusout|fetch\(/);
 }
+const auditScript=fs.readFileSync(path.join(root,'php/app/assets/identity-banking-audit.js'),'utf8');
+assert.match(auditScript,/const heading=\[\.\.\.root\.querySelectorAll/,'audit action must choose one management heading');
+assert.match(auditScript,/if\(buttons\.length\)return/,'audit action must not duplicate on rerender');
+assert.match(auditScript,/for\(const extra of buttons\.slice\(1\)\)extra\.remove\(\)/,'legacy duplicated buttons are cleaned up');
 const panel=fs.readFileSync(path.join(root,'php/app/panel.html'),'utf8');
 assert.match(panel,/identity-banking-audit\.js/);
 assert.match(panel,/identity-banking-inputs\.js/);
