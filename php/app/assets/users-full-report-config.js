@@ -97,7 +97,8 @@ const previewArea=el('div',{'aria-live':'polite'},box);
 const save=el('button',{type:'button',class:'kh-ur-primary',text:'دریافت فایل اکسل'},foot);
 const close=el('button',{type:'button',text:'انصراف'},foot);
 const lastFocus=document.activeElement;
-const dismiss=()=>{cover.remove();busy=false;if(lastFocus?.isConnected)lastFocus.focus();};
+let exporting=false;
+const dismiss=()=>{if(exporting)return;cover.remove();busy=false;if(lastFocus?.isConnected)lastFocus.focus();};
 close.onclick=dismiss;
 cover.addEventListener('click',e=>{if(e.target===cover)dismiss();});
 cover.addEventListener('keydown',e=>{
@@ -277,12 +278,12 @@ request(API+'full-report-options').then(r=>r.json()).then(data=>{
    status.textContent='پیش‌نمایش از همان منبع داده خروجی تهیه شد.';
  }catch(err){status.textContent=err.message;}finally{preview.disabled=false;}};
  save.onclick=async()=>{try{
-   save.disabled=true;close.disabled=true;status.textContent='در حال ساخت فایل اکسل…';
+   save.disabled=true;close.disabled=true;exporting=true;status.textContent='در حال ساخت فایل اکسل…';
    const res=await request(API+'full-report-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
    const blob=await res.blob();const href=URL.createObjectURL(blob);
    const a=document.createElement('a');a.href=href;a.download='گزارش_کامل_کاربران.xlsx';document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(href),10000);originalDismiss();lastFocus?.focus();
- }catch(err){status.textContent=err.message;save.disabled=false;close.disabled=false;}};
+   setTimeout(()=>URL.revokeObjectURL(href),10000);exporting=false;originalDismiss();lastFocus?.focus();
+ }catch(err){exporting=false;status.textContent=err.message;save.disabled=false;close.disabled=false;}};
  search.focus();
 }).catch(err=>{status.textContent=err.message;save.disabled=true;});
 }
