@@ -81,13 +81,17 @@
   }
   function mount(){
     const root=document.querySelector('#root');if(!root)return;
-    for(const heading of root.querySelectorAll('h1,h2,h3,[role="heading"]')){
-      if((heading.textContent||'').trim()!=='مدیریت کاربران')continue;
-      if(heading.nextElementSibling?.classList?.contains('kh-audit-trigger'))continue;
-      const btn=make('button','بررسی صحت اطلاعات هویتی و بانکی کاربران');
-      btn.className='kh-audit-trigger';btn.type='button';btn.onclick=open;
-      heading.insertAdjacentElement('afterend',btn);
-    }
+    // The management view has more than one heading with this name.
+    // Keep a single audit entry point for the entire page, including rerenders.
+    const heading=[...root.querySelectorAll('h1,h2,h3,[role="heading"]')]
+      .find(node=>(node.textContent||'').trim()==='مدیریت کاربران' && node.closest('.users-management-page'));
+    if(!heading)return;
+    const buttons=[...root.querySelectorAll('.kh-audit-trigger')];
+    for(const extra of buttons.slice(1))extra.remove();
+    if(buttons.length)return;
+    const btn=make('button','بررسی صحت اطلاعات هویتی و بانکی کاربران');
+    btn.className='kh-audit-trigger';btn.type='button';btn.onclick=open;
+    heading.insertAdjacentElement('afterend',btn);
   }
   let scheduled=false;
   function boot(){
