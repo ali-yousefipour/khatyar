@@ -7,7 +7,7 @@ require_once __DIR__.'/UserProfileRules.php';
 final class UserProfileForms {
   private const KEY='personnel_profile';
   private const SYSTEM_FIELDS=['first_name','last_name','email','mobile','address','national_code',
-    'marital_status','children_count','birth_date','personnel_code','employment_start_date',
+    'marital_status','children_count','birth_date','personnel_code','seniority_start','employment_start_date',
     'employment_end_date','zone_id','role_id','rank_stars'];
   private static function json(array $value): string {
     return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
@@ -30,7 +30,7 @@ final class UserProfileForms {
       ['key'=>'email','label'=>'ایمیل','type'=>'email'],
       ['key'=>'address','label'=>'نشانی','type'=>'textarea'],
       ['key'=>'personnel_code','label'=>'شماره پرسنلی','type'=>'text'],
-      ['key'=>'employment_start_date','label'=>'شروع همکاری','type'=>'date'],
+      ['key'=>'seniority_start','label'=>'شروع سنوات','type'=>'date'],
       ['key'=>'employment_end_date','label'=>'پایان همکاری','type'=>'date'],
       ['key'=>'role_id','label'=>'سمت سازمانی','type'=>'number'],
       ['key'=>'zone_id','label'=>'منطقه','type'=>'number'],
@@ -86,7 +86,7 @@ final class UserProfileForms {
       $systemTypes=['first_name'=>'text','last_name'=>'text','email'=>'email','mobile'=>'mobile',
         'address'=>'textarea','national_code'=>'national_id','marital_status'=>'select',
         'children_count'=>'number','birth_date'=>'date','personnel_code'=>'text',
-        'employment_start_date'=>'date','employment_end_date'=>'date','zone_id'=>'number',
+        'employment_start_date'=>'date','seniority_start'=>'date','employment_end_date'=>'date','zone_id'=>'number',
         'role_id'=>'number','rank_stars'=>'number'];
       if($binding==='system' && ($field['type']??null)!==($systemTypes[$key]??null))
         throw new InvalidArgumentException('نوع فیلد سیستمی محافظت‌شده است');
@@ -117,11 +117,35 @@ final class UserProfileForms {
       }
     }
   }
+  // Presentation-only adapter for previously published immutable schemas.
+  // Historical definitions remain stored unchanged, while all consumers
+  // receive one canonical start-date field.
+  private static function normalizeStartSchema(array $schema): array {
+    $seen=false;
+    foreach($schema['sections']??[] as &$section) {
+      if(!isset($section['fields'])||!is_array($section['fields']))continue;
+      $fields=[];
+      foreach($section['fields'] as $field) {
+        if(!is_array($field)){$fields[]=$field;continue;}
+        if(($field['binding']??'')==='system'
+            && in_array(($field['key']??''),['employment_start_date','seniority_start'],true)) {
+          if($seen)continue;
+          $seen=true;
+          $field['key']='seniority_start';
+          $field['label']='شروع سنوات';
+        }
+        $fields[]=$field;
+      }
+      $section['fields']=$fields;
+    }
+    unset($section);
+    return $schema;
+  }
   public static function published(): array {
-    if(!self::available())return ['version'=>0,'schema'=>self::initialSchema(),'source'=>'legacy_fallback'];
+    if(!self::available())return ['version'=>0,'schema'=>self::normalizeStartSchema(self::initialSchema()),'source'=>'legacy_fallback'];
     $row=Db::one("SELECT v.version,v.schema_json FROM user_form_definitions f JOIN user_form_versions v ON v.form_id=f.id AND v.version=f.published_version WHERE f.form_key=?", [self::KEY]);
     if(!$row)return ['version'=>0,'schema'=>self::initialSchema(),'source'=>'legacy_fallback'];
-    return ['version'=>(int)$row['version'],'schema'=>json_decode((string)$row['schema_json'],true,512,JSON_THROW_ON_ERROR),'source'=>'published'];
+    return ['version'=>(int)$row['version'],'schema'=>self::normalizeStartSchema(json_decode((string)$row['schema_json'],true,512,JSON_THROW_ON_ERROR)),'source'=>'published'];
   }
   private static function definition(): ?array {
     return Db::one("SELECT id,draft_json,published_version,revision FROM user_form_definitions WHERE form_key=?", [self::KEY]);
@@ -130,7 +154,7 @@ final class UserProfileForms {
     if(!self::available())throw new RuntimeException('مهاجرت جداول فرم‌ساز پرسنلی هنوز اجرا نشده است');
     $row=self::definition();
     return ['revision'=>(int)($row['revision']??0),'published_version'=>(int)($row['published_version']??0),
-      'schema'=>!empty($row['draft_json'])?json_decode($row['draft_json'],true,512,JSON_THROW_ON_ERROR):self::published()['schema']];
+      'schema'=>!empty($row['draft_json'])?self::normalizeStartSchema(json_decode($row['draft_json'],true,512,JSON_THROW_ON_ERROR)):self::published()['schema']];
   }
   public static function saveDraft(array $schema,int $revision,int $actor): array {
     self::validate($schema);
