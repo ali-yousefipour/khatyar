@@ -11274,17 +11274,37 @@ route('POST', '/api/admin/users', function($p,$b,$u){
   if(array_key_exists('national_code',$b))
     $b['national_code']=_identity_save_national_code($b['national_code']);
 
+  // New accounts persist one canonical Jalali date in both compatibility fields.
+  $seniorityRaw = array_key_exists('seniority_start',$b) ? $b['seniority_start'] : ($b['employment_start_date'] ?? null);
+  $normalizeSeniority = static function($v) {
+    if ($v===null || trim((string)$v)==='') return null;
+    $date=strtr(trim((string)$v),[
+      '۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+      '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9'
+    ]);
+    $date=str_replace('/','-',$date);
+    if(!preg_match('/^1[34][0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/',$date))
+      Http::error('تاریخ شروع سنوات معتبر نیست',422);
+    [$y,$m,$d]=array_map('intval',explode('-',$date));
+    if($d>IranCalendar::monthLength($y,$m))
+      Http::error('روز شروع سنوات نامعتبر است',422);
+    return $date;
+  };
+  $seniorityDate=$normalizeSeniority($seniorityRaw);
+  if (array_key_exists('seniority_start',$b) && array_key_exists('employment_start_date',$b)
+    && $seniorityDate!==$normalizeSeniority($b['employment_start_date']))
+      Http::error('دو تاریخ شروع سنوات با یکدیگر مغایرت دارند',422);
   $initialPassword = (string)($b['password'] ?? '');
   if (strlen($initialPassword) < 12 || in_array($initialPassword, ['123456', '12345678', '123456789', 'password123'], true))
     Http::error('رمز اولیه باید حداقل ۱۲ کاراکتر و غیرقابل حدس باشد', 422);
   // اطمینان از وجود ستون تاریخ تولد در نسخه‌های ارتقایی
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='birth_date'")) Db::run("ALTER TABLE users ADD COLUMN birth_date VARCHAR(20) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if (Db::one("SELECT 1 a FROM users WHERE username=?", [$b['username']])) Http::error('این کد ملی قبلاً ثبت شده است', 409);
-  $id = Db::insert("INSERT INTO users(username,first_name,last_name,password_hash,role_id,zone_id,manager_id,phone,email,allow_android,allow_web,national_code,marital_status,address,children_count,birth_date,must_change_pw)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)", [$b['username'],$b['first_name'],$b['last_name'],
+  $id = Db::insert("INSERT INTO users(username,first_name,last_name,password_hash,role_id,zone_id,manager_id,phone,email,allow_android,allow_web,national_code,marital_status,address,children_count,birth_date,seniority_start,employment_start_date,must_change_pw)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)", [$b['username'],$b['first_name'],$b['last_name'],
     password_hash($initialPassword, PASSWORD_BCRYPT), $b['role_id'], $b['zone_id'] ?? null, $b['manager_id'] ?? null, $b['phone'] ?? null,
     $b['email'] ?? null, isset($b['allow_android'])?(int)!!$b['allow_android']:1, isset($b['allow_web'])?(int)!!$b['allow_web']:1,
-    $b['national_code'] ?? null, $b['marital_status'] ?? null, $b['address'] ?? null, isset($b['children_count'])?(int)$b['children_count']:null, $b['birth_date'] ?? null]);
+    $b['national_code'] ?? null, $b['marital_status'] ?? null, $b['address'] ?? null, isset($b['children_count'])?(int)$b['children_count']:null, $b['birth_date'] ?? null, $seniorityDate, $seniorityDate]);
   // ذخیرهٔ مقام‌های بالاسری (چند مدیر)
   $mgrs = $b['manager_ids'] ?? ($b['manager_id'] ? [$b['manager_id']] : []);
   if (is_array($mgrs)) foreach (array_unique(array_map('intval',$mgrs)) as $mid) if ($mid) Db::run("INSERT IGNORE INTO user_managers(user_id,manager_id) VALUES(?,?)", [$id,$mid]);
