@@ -34,6 +34,9 @@ assert.doesNotMatch(modal,/className="row users-edit-tablist"/,'old overflowing 
 assert.match(source,/const label=\(\)=>selected\?faPlain/,'Jalali date labels preserve Persian digits and zero padding');
 assert.match(source,/field.ftype==="date"\) return <JDate jalali/,'custom dates are handled as Jalali values');
 assert.match(source,/field.ftype==="number"\) return <input[^\n]*inputMode="decimal"/,'custom numeric inputs support Persian displayed digits');
+assert.match(modal,/value=\{faPlain\(edit\.phone\|\|""\)\}/,'phone input displays Persian digits');
+assert.match(modal,/value=\{faPlain\(edit\.rank_stars\?\?""\)\}/,'rank input displays Persian digits');
+assert.match(modal,/value=\{faPlain\(edit\.children_count\?\?""\)\}/,'children input displays Persian digits');
 assert.match(modal,/users-edit-summary/);
 assert.match(modal,/users-edit-footer/);
 assert.match(modal,/closeUserEditor/);
