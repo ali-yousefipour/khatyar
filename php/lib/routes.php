@@ -4266,6 +4266,106 @@ route('GET', '/api/admin/shift-report/range', function($p,$b,$u){
   return ['from'=>$from,'to'=>$to,'rows'=>array_values($rows)];
 }, false, ADMIN);
 
+// Vehicle duty allowance: unique entry dates, including weekends and holidays.
+function _vehicle_duty_role($value){
+  $v=trim(preg_replace('/\s+/u',' ',str_replace(['ي','ك','‌'],['ی','ک',' '],(string)$value)));
+  $v=str_replace(' ','',$v);
+  if(in_array($v,['گشتخودرویی','گشتخودروئی','گشتهایخودرویی'],true))return 'گشت خودرویی';
+  if(in_array($v,['سربازرس','سربازرسین','سربازرسان'],true))return 'سربازرس';
+  if(in_array($v,['سربازرسارشد','سربازرسینارشد','سربازرسانارشد'],true))return 'سربازرس ارشد';
+  return null;
+}
+function _vehicle_duty_add_day(array &$row,array &$seen,$date,$friday,$holiday){
+  if(isset($seen[$date]))return;
+  $seen[$date]=true;
+  $row['days']++;
+  if($friday)$row['fridays']++;
+  elseif($holiday)$row['holidays']++;
+  else $row['ordinary']++;
+}
+function _vehicle_duty_report($from,$to){
+  $from=ShiftCalc::normJdate($from);$to=ShiftCalc::normJdate($to);
+  foreach([$from,$to] as $date){
+    if(!$date)Http::error('تاریخ شمسی نامعتبر است',422);
+    [$y,$m,$d]=array_map('intval',explode('-',$date));
+    if($y<1300||$y>1500||$m<1||$m>12||$d<1||$d>ShiftCalc::jMonthDays($y,$m))Http::error('تاریخ شمسی نامعتبر است',422);
+  }
+  [$fy,$fm]=array_map('intval',explode('-',substr($from,0,7)));
+  [$ty,$tm]=array_map('intval',explode('-',substr($to,0,7)));
+  if($from>$to||($ty-$fy)*12+$tm-$fm>11)Http::error('بازه تاریخ نامعتبر است؛ حداکثر ۱۲ ماه',422);
+  $today=sprintf('%04d-%02d-%02d',...gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j')));
+  if($to>$today)Http::error('تاریخ پایان نباید در آینده باشد',422);
+  $people=Db::all("SELECT u.id,CONCAT_WS(' ',u.first_name,u.last_name) name,r.title role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1");
+  $live=[];foreach($people as $person)if($role=_vehicle_duty_role($person['role'])){$person['role']=$role;$live[(int)$person['id']]=$person;}
+  $rows=[];$seen=[];$unknown=0;$calendar=[];
+  $ensure=static function($id,$name,$role)use(&$rows,&$seen){
+    $key=$id.'|'.$role;
+    if(!isset($rows[$key])){$rows[$key]=['user_id'=>$id,'name'=>$name,'role'=>$role,'days'=>0,'ordinary'=>0,'fridays'=>0,'holidays'=>0,'missing_source'=>false];$seen[$key]=[];}
+    return $key;
+  };
+  for($y=$fy,$m=$fm;$y<$ty||($y===$ty&&$m<=$tm);){
+    $a=max($from,sprintf('%04d-%02d-01',$y,$m));$b=min($to,sprintf('%04d-%02d-%02d',$y,$m,ShiftCalc::jMonthDays($y,$m)));
+    $final=_final_work_month($y,$m);
+    if($final){
+      $monthly=_work_snapshot_decode($final['monthly_json']);$daily=_work_snapshot_decode($final['daily_json']);
+      foreach($monthly as $person){
+        $id=(int)($person['user_id']??0);$role=_vehicle_duty_role($person['role']??'');
+        if(!$role){if(empty($person['role']))$unknown++;continue;}
+        $key=$ensure($id,$person['name']??'',$role);
+        $days=$daily[$id]['days']??null;
+        if(!is_array($days)||!$days){$rows[$key]['missing_source']=true;continue;}
+        foreach($days as $day){
+          $date=ShiftCalc::normJdate($day['jdate']??$day['date']??'');
+          if(!$date||$date<$a||$date>$b)continue;
+          if(!array_key_exists('punches',$day)){$rows[$key]['missing_source']=true;continue;}
+          foreach($day['punches'] as $punch){
+            $entry=_shift_rotation_stamp($punch['in_full']??null);
+            if(!$entry){$rows[$key]['missing_source']=true;continue;}
+            $owned=sprintf('%04d-%02d-%02d',...gregorian_to_jalali((int)$entry->format('Y'),(int)$entry->format('n'),(int)$entry->format('j')));
+            if($owned!==$date)continue;
+            _vehicle_duty_add_day($rows[$key],$seen[$key],$date,ShiftCalc::isFriday($date),!empty($day['is_holiday']));break;
+          }
+        }
+      }
+    }else{
+      foreach($live as $id=>$person)$ensure($id,$person['name'],$person['role']);
+      if($live){
+        $ids=array_keys($live);$marks=implode(',',array_fill(0,count($ids),'?'));
+        $start=date('Y-m-d 00:00:00',ShiftCalc::jdateToTs($a));
+        $end=date('Y-m-d 00:00:00',ShiftCalc::jdateToTs(ShiftCalc::jdateAddDays($b,1)));
+        $punches=Db::all("SELECT DISTINCT user_id,DATE(check_in) entry_date FROM staff_attendance WHERE user_id IN ($marks) AND check_in>=? AND check_in<? AND check_in<=NOW()",array_merge($ids,[$start,$end]));
+        foreach($punches as $punch){
+          $id=(int)$punch['user_id'];if(!isset($live[$id]))continue;
+          $entry=DateTimeImmutable::createFromFormat('!Y-m-d',$punch['entry_date'],new DateTimeZone('Asia/Tehran'));if(!$entry)continue;
+          $date=sprintf('%04d-%02d-%02d',...gregorian_to_jalali((int)$entry->format('Y'),(int)$entry->format('n'),(int)$entry->format('j')));
+          if($date<$a||$date>$b)continue;
+          $key=$id.'|'.$live[$id]['role'];
+          if(!isset($calendar[$date]))$calendar[$date]=ShiftCalc::effectiveHoliday($date);
+          _vehicle_duty_add_day($rows[$key],$seen[$key],$date,ShiftCalc::isFriday($date),$calendar[$date]);
+        }
+      }
+    }
+    if(++$m>12){$m=1;$y++;}
+  }
+  $rows=array_values($rows);usort($rows,static fn($a,$b)=>strcmp($a['role'],$b['role'])?:strcmp($a['name'],$b['name']));
+  $totals=['days'=>0,'ordinary'=>0,'fridays'=>0,'holidays'=>0];foreach($rows as $row)foreach($totals as $key=>$unused)$totals[$key]+=$row[$key];
+  return ['from'=>$from,'to'=>$to,'rows'=>$rows,'totals'=>$totals,'unknown_role_count'=>$unknown];
+}
+route('GET','/api/admin/shift-report/vehicle-duty',function($p,$b,$u){
+  _attendance_work_review_need($u);header('Cache-Control: no-store');
+  $report=_vehicle_duty_report($_GET['from']??'',$_GET['to']??'');
+  if(($_GET['export']??'')==='1'){
+    $xw=new XlsxWriter(['ردیف','نام و نام خانوادگی','سمت','روز عادی','جمعه','تعطیل غیرجمعه','جمع روز حضور','وضعیت داده']);
+    $xw->setProfessionalStyle();
+    $xw->setReportHeading('گزارش محاسبه خودرویی','از '.$report['from'].' تا '.$report['to'],'هر تاریخ ورود یک روز؛ جمعه و تعطیل هم‌زمان فقط یک بار شمرده می‌شود.');
+    foreach([8,30,24,15,15,20,20,24] as $col=>$width)$xw->setColWidth($col,$width);
+    foreach($report['rows'] as $i=>$r)$xw->addRow([$i+1,$r['name'],$r['role'],$r['ordinary'],$r['fridays'],$r['holidays'],$r['days'],$r['missing_source']?'ناقص؛ حداقل ثبت‌شده':'کامل']);
+    $t=$report['totals'];$xw->addRow(['','جمع داده‌های موجود','',$t['ordinary'],$t['fridays'],$t['holidays'],$t['days'],'']);
+    $xw->output('گزارش_محاسبه_خودرویی_'.$report['from'].'_'.$report['to'].'.xlsx','محاسبه خودرویی');
+  }
+  return $report;
+},false,ADMIN);
+
 // Shift rotation is an entry-time classification, independent of assigned/payable shifts.
 function _shift_rotation_stamp($value){
   if(!$value)return null;
