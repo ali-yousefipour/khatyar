@@ -16270,13 +16270,117 @@ function WorkReviewReport() {
                 detail.focus && React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0633\u062A\u0648\u0646 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0627\u0628\u062A\u062F\u0627\u06CC \u062C\u062F\u0648\u0644 \u0631\u0648\u0632\u0627\u0646\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u062F\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0648\u062F\u0627\u0644 \u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062F\u0644\u0627\u06CC\u0644\u060C \u0631\u0648\u06CC \u0645\u0642\u062F\u0627\u0631 \u0631\u0646\u06AF\u06CC \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F."),
                 React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: (applied === null || applied === void 0 ? void 0 : applied.from) || from, initialTo: (applied === null || applied === void 0 ? void 0 : applied.to) || to, initialFocusColumn: detail.focus, onChanged: () => { detailEdited.current = true; } }))));
 }
+function VehicleDutyReport() {
+    var _a;
+    const today = todayJ(), start = String(today[0]) + '/' + String(today[1]).padStart(2, '0') + '/01', end = String(today[0]) + '/' + String(today[1]).padStart(2, '0') + '/' + String(today[2]).padStart(2, '0');
+    const [from, setFrom] = useState(start), [to, setTo] = useState(end), [data, setData] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [exporting, setExporting] = useState(false);
+    const lock = useRef(false);
+    const matches = data && data.from.replace(/-/g, '/') === from && data.to.replace(/-/g, '/') === to;
+    const query = () => new URLSearchParams({ from, to }).toString();
+    const load = async () => {
+        if (lock.current)
+            return;
+        if (!/^\d{4}\/\d{2}\/\d{2}$/.test(from) || !/^\d{4}\/\d{2}\/\d{2}$/.test(to) || from > to || to > end) {
+            setError('بازه تاریخ شمسی معتبر و غیرآینده انتخاب کنید.');
+            setData(null);
+            return;
+        }
+        lock.current = true;
+        setBusy(true);
+        setData(null);
+        setError('');
+        try {
+            setData(await GET('/admin/shift-report/vehicle-duty?' + query()));
+        }
+        catch (e) {
+            setError(e.message || 'دریافت گزارش ناموفق بود.');
+        }
+        finally {
+            lock.current = false;
+            setBusy(false);
+        }
+    };
+    const download = async () => {
+        var _a, _b, _c;
+        if (!matches || lock.current || !((_a = data.rows) === null || _a === void 0 ? void 0 : _a.length))
+            return;
+        lock.current = true;
+        setExporting(true);
+        setError('');
+        const op = (_b = window.KhatyarLongOperation) === null || _b === void 0 ? void 0 : _b.begin('در حال ساخت اکسل محاسبه خودرویی', { stage: 'ساخت فایل گزارش…', delay: 0 });
+        try {
+            const response = await _fetchWithAuth('/api/admin/shift-report/vehicle-duty?' + query() + '&export=1', { cache: 'no-store' });
+            if (!response.ok) {
+                const d = await response.json().catch(() => ({}));
+                throw Error(d.error || 'ساخت اکسل ناموفق بود.');
+            }
+            const blob = await response.blob();
+            if (new Uint8Array(await blob.slice(0, 4).arrayBuffer()).join(',') !== '80,75,3,4')
+                throw Error('فایل اکسل معتبر نیست.');
+            const url = URL.createObjectURL(blob), a = document.createElement('a');
+            a.href = url;
+            a.download = 'گزارش_محاسبه_خودرویی_' + data.from + '_' + data.to + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+        catch (e) {
+            setError(e.message || 'خطا در دانلود اکسل');
+        }
+        finally {
+            lock.current = false;
+            setExporting(false);
+            if (op != null)
+                (_c = window.KhatyarLongOperation) === null || _c === void 0 ? void 0 : _c.end(op);
+        }
+    };
+    const cols = [['ordinary', 'روز عادی'], ['fridays', 'جمعه'], ['holidays', 'تعطیل غیرجمعه'], ['days', 'جمع روز حضور']];
+    return React.createElement("div", { className: "admin-workspace-page" },
+        React.createElement("div", { className: "card-p", style: { marginBottom: 12 } },
+            React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC"),
+            React.createElement("p", { className: "muted" }, "\u0648\u06CC\u0698\u0647 \u06AF\u0634\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0648 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F. \u0647\u0631 \u062A\u0627\u0631\u06CC\u062E \u0648\u0631\u0648\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u06CC\u06A9 \u0631\u0648\u0632 \u062D\u0636\u0648\u0631 \u0627\u0633\u062A\u061B \u0648\u0631\u0648\u062F \u0628\u062F\u0648\u0646 \u062E\u0631\u0648\u062C \u0646\u06CC\u0632 \u0634\u0645\u0631\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062C\u0645\u0639\u0647 \u0648 \u062A\u0639\u0637\u06CC\u0644 \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u062A\u0646\u0647\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' } },
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
+                    React.createElement(JDate, { value: from, onChange: setFrom, jalali: true })),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
+                    React.createElement(JDate, { value: to, onChange: setTo, jalali: true })),
+                React.createElement("button", { type: "button", className: "btn p", onClick: load, disabled: busy || exporting }, busy ? 'در حال محاسبه…' : 'محاسبه روزهای حضور'),
+                React.createElement("button", { type: "button", className: "btn g", onClick: download, disabled: !matches || busy || exporting || !((_a = data === null || data === void 0 ? void 0 : data.rows) === null || _a === void 0 ? void 0 : _a.length) }, exporting ? 'در حال ساخت اکسل…' : 'دانلود اکسل'))),
+        error && React.createElement("div", { className: "card-p", role: "alert", style: { color: 'var(--danger)' } }, error),
+        busy && React.createElement("div", { className: "card-p", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0631\u0648\u0632\u0647\u0627\u06CC \u062D\u0636\u0648\u0631\u2026"),
+        data && !matches && React.createElement("p", { role: "status", className: "muted" }, "\u0628\u0631\u0627\u06CC \u0628\u0627\u0632\u0647 \u062C\u062F\u06CC\u062F\u060C \u0645\u062D\u0627\u0633\u0628\u0647 \u0631\u0627 \u062F\u0648\u0628\u0627\u0631\u0647 \u0627\u0646\u062C\u0627\u0645 \u062F\u0647\u06CC\u062F."),
+        matches && React.createElement("div", { className: "card-p" },
+            React.createElement("div", { className: "row", style: { gap: 12, flexWrap: 'wrap', marginBottom: 12 } }, cols.map(([key, label]) => React.createElement("div", { key: key, style: { padding: 12, border: '1px solid var(--line)', borderRadius: 10, minWidth: 110 } },
+                React.createElement("small", null, label),
+                React.createElement("div", { style: { fontWeight: 800, color: '#0d7a5f' } }, fa(data.totals[key]))))),
+            (data.unknown_role_count > 0 || data.rows.some(r => r.missing_source)) && React.createElement("p", { role: "alert" }, "\u0628\u062E\u0634\u06CC \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0627\u0647\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647 \u0646\u0627\u0642\u0635 \u0627\u0633\u062A\u061B \u0645\u062C\u0645\u0648\u0639 \u0641\u0642\u0637 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F."),
+            !data.rows.length ? React.createElement("p", { role: "status" }, "\u0646\u06CC\u0631\u0648\u06CC \u0645\u0634\u0645\u0648\u0644 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC", tabIndex: 0, style: { overflow: 'auto', maxHeight: '70vh' } },
+                React.createElement("table", { style: { width: '100%', minWidth: 800, textAlign: 'center' } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null, ['ردیف', 'نام و نام خانوادگی', 'سمت', ...cols.map(c => c[1]), 'وضعیت داده'].map(label => React.createElement("th", { key: label, style: { position: 'sticky', top: 0, background: '#e8f3ed', color: '#164e3e', padding: 10 } }, label)))),
+                    React.createElement("tbody", null, data.rows.map((r, i) => React.createElement("tr", { key: r.user_id + '|' + r.role, style: { background: i % 2 ? '#f5faf7' : undefined } },
+                        React.createElement("td", null, fa(i + 1)),
+                        React.createElement("td", null, r.name),
+                        React.createElement("td", null, r.role),
+                        cols.map(([key]) => React.createElement("td", { key: key, style: { fontWeight: key === 'days' ? 800 : 400 } }, fa(r[key]))),
+                        React.createElement("td", null, r.missing_source ? 'ناقص؛ حداقل ثبت‌شده' : 'کامل')))),
+                    React.createElement("tfoot", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", { colSpan: 3 }, "\u062C\u0645\u0639 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F"),
+                            cols.map(([key]) => React.createElement("th", { key: key }, fa(data.totals[key]))),
+                            React.createElement("td", null)))))));
+}
 function AttendanceReport(props) {
     const [tab, setTab] = useState('daily');
     return React.createElement("div", null,
         React.createElement("div", { className: "tabbar", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F", style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 } },
             React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'daily', className: 'tabbtn' + (tab === 'daily' ? ' on' : ''), onClick: () => setTab('daily') }, "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F"),
-            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'work', className: 'tabbtn' + (tab === 'work' ? ' on' : ''), onClick: () => setTab('work') }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F")),
-        tab === 'daily' ? React.createElement(AttendanceDailyReport, { ...props }) : React.createElement(WorkReviewReport, null));
+            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'work', className: 'tabbtn' + (tab === 'work' ? ' on' : ''), onClick: () => setTab('work') }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F"),
+            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'vehicle', className: 'tabbtn' + (tab === 'vehicle' ? ' on' : ''), onClick: () => setTab('vehicle') }, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC")),
+        tab === 'daily' ? React.createElement(AttendanceDailyReport, { ...props }) : tab === 'vehicle' ? React.createElement(VehicleDutyReport, null) : React.createElement(WorkReviewReport, null));
 }
 function MonthlyMetricDetails({ detail, onClose }) {
     var _a;
