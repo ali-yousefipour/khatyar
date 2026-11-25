@@ -106,6 +106,8 @@ function sc_case($id,$u): array {
  if(!$r)Http::error('پرونده یافت نشد',404);
  if(!$a['report']&&(int)$r['created_by']!==(int)$u['id']&&(int)$r['assigned_to']!==(int)$u['id']&&(int)$r['supervisor_id']!==(int)$u['id']&&!Db::one('SELECT id FROM school_complaint_events WHERE complaint_id=? AND actor_id=? LIMIT 1',[$id,$u['id']]))Http::error('دسترسی به پرونده مجاز نیست',403);
  $r['school_snapshot']=json_decode($r['school_snapshot'],true);$r['company_snapshot']=json_decode($r['company_snapshot'],true);
+ $r['can_edit_reception']=!empty($a['receive'])&&(!empty($a['admin'])||(int)$r['created_by']===(int)$u['id']);
+ $r['reception_audit']=Db::all('SELECT actor_id,old_reception_type,new_reception_type,old_received_at,new_received_at,changed_at FROM school_complaint_reception_audit WHERE complaint_id=? ORDER BY id DESC LIMIT 50',[$id]);
  $r['allowed_actions']=sc_allowed_actions($r,$u);
  $r['can_act']=!empty($r['allowed_actions']);
  $overall=(new DateTimeImmutable($r['created_at'],new DateTimeZone('Asia/Tehran')))->modify('+'.((int)$r['review_hours']+(int)$r['supervisor_hours']).' hours');
@@ -231,6 +233,25 @@ route('GET','/api/school-complaints/search',function($p,$b,$u){return sc_list($u
 route('GET','/api/school-complaints/dashboard',function($p,$b,$u){return sc_list($u,false,true);});
 route('GET','/api/school-complaints/{id}',function($p,$b,$u){
  $r=sc_case((int)$p['id'],$u);$r['events']=Db::all("SELECT e.*,COALESCE(NULLIF(CONCAT_WS(' ',u.first_name,u.last_name),''),a.display_name) actor_name FROM school_complaint_events e LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN school_complaint_accounts a ON a.id=-e.actor_id WHERE e.complaint_id=? ORDER BY e.id",[$r['id']]);return $r;
+});
+route('PATCH','/api/school-complaints/{id}/reception',function($p,$b,$u){
+ $a=sc_need($u,'receive');$id=(int)$p['id'];
+ $case=sc_case($id,$u);
+ if(empty($a['admin'])&&(int)$case['created_by']!==(int)$u['id'])Http::error('اصلاح اطلاعات دریافت این پرونده مجاز نیست',403);
+ $reception=sc_reception_type($b['reception_type']??null);
+ $received=sc_received_date($b['received_at']??null);
+ $db=Db::pdo();$db->beginTransaction();
+ try{
+  $old=Db::one('SELECT id,reception_type,received_at FROM school_complaints WHERE id=? FOR UPDATE',[$id]);
+  if(!$old)Http::error('پرونده یافت نشد',404);
+  if($old['reception_type']!==$reception||$old['received_at']!==$received){
+   Db::run('UPDATE school_complaints SET reception_type=?,received_at=? WHERE id=?',[$reception,$received,$id]);
+   Db::run('INSERT INTO school_complaint_reception_audit(complaint_id,actor_id,old_reception_type,new_reception_type,old_received_at,new_received_at) VALUES(?,?,?,?,?,?)',
+     [$id,(int)$u['id'],$old['reception_type'],$reception,$old['received_at'],$received]);
+  }
+  $db->commit();
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+ return ['id'=>$id,'reception_type'=>$reception,'received_at'=>$received];
 });
 route('GET','/api/school-complaints/{id}/attachments',function($p,$b,$u){
  $r=sc_case((int)$p['id'],$u);
