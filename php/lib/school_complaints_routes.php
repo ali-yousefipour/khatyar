@@ -58,6 +58,16 @@ function sc_phone($v,$type): string {
  if(!preg_match($type==='driver'?'/^09[0-9]{9}$/D':'/^0[1-9][0-9]{9}$/D',$v))Http::error('شماره تماس معتبر وارد کنید',422);
  return $v;
 }
+function sc_reception_type($value): string {
+ if(!is_string($value)||!in_array($value,['phone','in_person'],true))Http::error('نوع دریافت شکایت را انتخاب کنید',422);
+ return $value;
+}
+function sc_received_date($value): string {
+ $date=sc_date($value);
+ $now=(new DateTimeImmutable('now',new DateTimeZone('Asia/Tehran')))->format('Y-m-d H:i:s');
+ if($date>$now)Http::error('تاریخ دریافت شکایت نمی‌تواند در آینده باشد',422);
+ return $date;
+}
 function sc_deadline($hours): string {
  return (new DateTimeImmutable('now',new DateTimeZone('Asia/Tehran')))->modify('+'.(int)$hours.' hours')->format('Y-m-d H:i:s');
 }
@@ -115,15 +125,15 @@ function sc_list($u,$inbox=false,$summary=false): array {
  foreach(['school_id','company_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  foreach(['first_name','last_name','phone'] as $k)if(!empty($_GET[$k])){$w[]="c.$k LIKE ?";$p[]='%'.sc_text($_GET[$k],100).'%';}
  foreach(['from'=>'>=','to'=>'<='] as $k=>$op)if(!empty($_GET[$k])){$w[]="c.received_at $op ?";$p[]=sc_date($_GET[$k]);}
- foreach(['status','complainant_type','tracking_code','subject'] as $k)if(isset($_GET[$k])&&$_GET[$k]!==''){$w[]="c.$k=?";$p[]=sc_text($_GET[$k],255);}
+ foreach(['status','complainant_type','reception_type','tracking_code','subject'] as $k)if(isset($_GET[$k])&&$_GET[$k]!==''){$w[]="c.$k=?";$p[]=sc_text($_GET[$k],255);}
  if(!empty($_GET['district'])){$w[]="JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))=?";$p[]=sc_text($_GET['district'],100);}
  foreach(['closed_from'=>'>=','closed_to'=>'<='] as $k=>$op)if(!empty($_GET[$k])){$w[]="c.closed_at $op ?";$p[]=sc_date($_GET[$k]);}
  foreach(['assigned_to','created_by','supervisor_id'] as $k)if(!empty($_GET[$k])){$w[]="c.$k=?";$p[]=(int)$_GET[$k];}
  if(($_GET['overdue']??'')==='1')$w[]="(c.status<>'closed' AND c.due_at<NOW())";
  $where=implode(' AND ',$w);
- if($summary){$onTime=sc_completed_on_time_expr();$overallDue=sc_overall_due_expr();$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM($onTime)/NULLIF(SUM(c.status='closed'),0) on_time_percent,COALESCE(SUM(c.status<>'closed' AND $overallDue<NOW()),0) overall_overdue FROM school_complaints c WHERE $where",$p)??[];
+ if($summary){$onTime=sc_completed_on_time_expr();$overallDue=sc_overall_due_expr();$metrics=Db::one("SELECT COUNT(*) total,COALESCE(SUM(c.status='pending'),0) pending,COALESCE(SUM(c.status='in_progress'),0) in_progress,COALESCE(SUM(c.status='answered'),0) answered,COALESCE(SUM(c.status='returned'),0) returned,COALESCE(SUM(c.status='escalated'),0) escalated,COALESCE(SUM(c.status='closed'),0) closed,COALESCE(SUM(c.status<>'closed' AND c.due_at<NOW()),0) overdue,COALESCE(SUM(c.reception_type='phone'),0) phone,COALESCE(SUM(c.reception_type='in_person'),0) in_person,COALESCE(SUM(c.reception_type IS NULL),0) reception_unknown,COALESCE(SUM(c.complainant_type='parent'),0) parents,COALESCE(SUM(c.complainant_type='driver'),0) drivers,COALESCE(SUM(DATE(c.received_at)=CURRENT_DATE()),0) today,AVG(CASE WHEN c.closed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE,c.created_at,c.closed_at) END) average_resolution_minutes,100*SUM(c.status='closed')/NULLIF(COUNT(*),0) resolved_percent,100*SUM($onTime)/NULLIF(SUM(c.status='closed'),0) on_time_percent,COALESCE(SUM(c.status<>'closed' AND $overallDue<NOW()),0) overall_overdue FROM school_complaints c WHERE $where",$p)??[];
  $metrics['charts']=[];
- foreach(['status'=>'c.status','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)', 'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
+ foreach(['status'=>'c.status','reception'=>'c.reception_type','type'=>'c.complainant_type','subject'=>'c.subject','district'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.educational_district'))",'school'=>"JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name'))",'company'=>"JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name'))",'day'=>'DATE(c.received_at)', 'overdue'=>"(c.status<>'closed' AND c.due_at<NOW())",'receiver'=>'c.created_by','assignee'=>'c.assigned_to'] as $key=>$expr){$metrics['charts'][$key]=Db::all("SELECT $expr label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY $expr ORDER BY total DESC LIMIT 12",$p);}
  // Group by Persian calendar month using counts per Gregorian day, not top-N days.
  $days=Db::all("SELECT DATE(c.received_at) label,COUNT(*) total FROM school_complaints c WHERE $where GROUP BY DATE(c.received_at) ORDER BY label",$p);
  $metrics['charts']['month']=[];$metrics['month']=null;
@@ -141,7 +151,7 @@ function sc_list($u,$inbox=false,$summary=false): array {
  $direction=strtolower((string)($_GET['direction']??''))==='asc'?'ASC':'DESC';
  $limit=isset($_GET['page'])?"LIMIT $size OFFSET $offset":"LIMIT 500";
  $overallDue=sc_overall_due_expr();
- $rows=Db::all("SELECT c.id,c.complainant_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,$overallDue overall_due_at,TIMESTAMPDIFF(MINUTE,NOW(),$overallDue) overall_remaining_minutes,COALESCE((SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to),(SELECT a.display_name FROM school_complaint_accounts a WHERE a.id=-c.assigned_to)) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
+ $rows=Db::all("SELECT c.id,c.complainant_type,c.reception_type,c.school_id,c.company_id,c.tracking_code,c.first_name,c.last_name,c.phone,c.subject,c.status,c.received_at,c.created_at,c.due_at,c.closed_at,c.assigned_to,$overallDue overall_due_at,TIMESTAMPDIFF(MINUTE,NOW(),$overallDue) overall_remaining_minutes,COALESCE((SELECT CONCAT_WS(' ',u.first_name,u.last_name) FROM users u WHERE u.id=c.assigned_to),(SELECT a.display_name FROM school_complaint_accounts a WHERE a.id=-c.assigned_to)) assigned_name,TIMESTAMPDIFF(MINUTE,NOW(),c.due_at) remaining_minutes,JSON_UNQUOTE(JSON_EXTRACT(c.school_snapshot,'$.name')) school_name,JSON_UNQUOTE(JSON_EXTRACT(c.company_snapshot,'$.name')) company_name,(c.status<>'closed' AND c.due_at<NOW()) overdue FROM school_complaints c WHERE $where ORDER BY $sort $direction,c.id DESC $limit",$p);
  if(!isset($_GET['page']))return $rows;
  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_complaints c WHERE $where",$p)['n']??0);
  $result=['rows'=>$rows,'total'=>$total,'page'=>$page,'page_size'=>$size];
@@ -206,10 +216,10 @@ route('POST','/api/school-complaints',function($p,$b,$u){
  foreach(['address','educational_district','education_level','school_type','phone'] as $k)if(isset($b['school_snapshot'][$k]))$school[$k]=sc_text($b['school_snapshot'][$k],700,false);
  foreach(['address','manager_name','manager_mobile','landline_phone'] as $k)if(isset($b['company_snapshot'][$k]))$company[$k]=sc_text($b['company_snapshot'][$k],500,false);
  $subject=sc_text($b['subject']??'',255);if($subject==='سایر')$subject=sc_text($b['custom_subject']??'',255);elseif(!in_array($subject,(array)($c['topics']??[]),true))Http::error('موضوع معتبر انتخاب کنید',422);$body=sc_text($b['body']??'',12000);
- $received=sc_date($b['received_at']??'');$rh=(int)$c['review_hours'];$sh=(int)$c['supervisor_hours'];
+ $reception=sc_reception_type($b['reception_type']??null);$received=sc_received_date($b['received_at']??'');$rh=(int)$c['review_hours'];$sh=(int)$c['supervisor_hours'];
  $db=Db::pdo();$db->beginTransaction();
  try{
- $id=Db::insert('INSERT INTO school_complaints(tracking_code,complainant_type,first_name,last_name,phone,address,school_id,company_id,school_snapshot,company_snapshot,subject,body,received_at,created_by,assigned_to,supervisor_id,review_hours,supervisor_hours,due_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[$code,$type,$first,$last,$phone,$address,$school['id'],$company['id'],json_encode($school,JSON_UNESCAPED_UNICODE),json_encode($company,JSON_UNESCAPED_UNICODE),$subject,$body,$received,$u['id'],$review,$super,$rh,$sh,sc_deadline($rh)]);
+ $id=Db::insert('INSERT INTO school_complaints(tracking_code,complainant_type,reception_type,first_name,last_name,phone,address,school_id,company_id,school_snapshot,company_snapshot,subject,body,received_at,created_by,assigned_to,supervisor_id,review_hours,supervisor_hours,due_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[$code,$type,$reception,$first,$last,$phone,$address,$school['id'],$company['id'],json_encode($school,JSON_UNESCAPED_UNICODE),json_encode($company,JSON_UNESCAPED_UNICODE),$subject,$body,$received,$u['id'],$review,$super,$rh,$sh,sc_deadline($rh)]);
  $eventId=Db::insert("INSERT INTO school_complaint_events(complaint_id,actor_id,action,body) VALUES(?,?,'created','')",[$id,$u['id']]);
  SchoolComplaintNotifications::queue((int)$id,(int)$eventId,'created',$c);
  sc_notify($review,$id,'شکایت جدید سرویس مدارس');$db->commit();
