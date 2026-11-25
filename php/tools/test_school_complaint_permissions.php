@@ -17,6 +17,7 @@ class Db {
  ];
  public static array $roles=['10'=>['schoolcomplaints']];
  public static array $case=[];
+ public static function all(string $sql,array $args=[]): array { return []; }
  public static function one(string $sql,array $args=[]): ?array {
   if(str_contains($sql,'FROM school_complaint_settings'))return ['config'=>json_encode(self::$config)];
   if(str_contains($sql,'FROM app_settings'))return ['value'=>json_encode(self::$roles)];
@@ -56,6 +57,8 @@ Db::$case=[
 ];
 denied(static fn()=>sc_case(123,$person(55,10)),403);
 ok(sc_case(123,$person(21))['can_attach'],'Creator can attach before closing');
+ok(sc_case(123,$person(21))['can_edit_reception'],'Creator with receive permission may correct reception');
+ok(!sc_case(123,$person(51))['can_edit_reception'],'Reporter cannot correct reception');
 ok(sc_case(123,$person(31))['can_act'],'Assigned reviewer can act');
 ok(!sc_case(123,$person(41))['can_act'],'Supervisor cannot act until assigned');
 ok(sc_case(123,$person(1,99,true))['id']===123,'Admin can view');

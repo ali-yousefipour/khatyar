@@ -19,6 +19,7 @@ class Db {
  public static array $events=[];
  public static FakePDO $pdo;
  public static function pdo():FakePDO{return self::$pdo;}
+ public static function all(string $query,array $params=[]):array { return []; }
  public static function one(string $query,array $params=[]):?array {
   if(str_contains($query,'school_complaint_settings'))return ['config'=>json_encode(['receivers'=>[21],'reviewer'=>31,'supervisor'=>41,'require_supervisor'=>true,'review_hours'=>24,'supervisor_hours'=>24])];
   if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['10'=>['schoolcomplaints']])];

@@ -18,6 +18,8 @@ on:
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
       - 'php/tests/school_complaints_date_ui_test.cjs'
+      - 'php/tests/school_complaints_reception_test.php'
+      - 'php/migrations/20261125_school_complaints_reception_type.sql'
       - 'php/tests/school_complaints_wizard_pdf_test.cjs'
       - '.github/workflows/school-complaints-regression.yml'
   pull_request:
@@ -36,6 +38,8 @@ on:
       - 'php/app/assets/school-complaints-*'
       - 'php/tools/test_school_complaint_*'
       - 'php/tests/school_complaints_date_ui_test.cjs'
+      - 'php/tests/school_complaints_reception_test.php'
+      - 'php/migrations/20261125_school_complaints_reception_type.sql'
       - 'php/tests/school_complaints_wizard_pdf_test.cjs'
       - '.github/workflows/school-complaints-regression.yml'
 
@@ -66,6 +70,8 @@ jobs:
           node --check php/app/assets/school-complaints-qr.js
           node --check php/app/assets/school-complaints-pdf.js
           node --check php/app/assets/school-complaints-portal.js
+      - name: Verify reception channels and historical dates
+        run: php php/tests/school_complaints_reception_test.php
       - name: Verify complaint timestamps and lookup loading state
         run: node php/tests/school_complaints_date_ui_test.cjs
       - name: Verify deployed asset wiring and source/bundle consistency
