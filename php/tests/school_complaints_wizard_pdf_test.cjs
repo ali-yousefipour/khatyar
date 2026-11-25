@@ -9,7 +9,7 @@ const pdf=fs.readFileSync(path.join(root,'school-complaints-pdf.js'),'utf8');
 assert.match(admin,/useEffect\(\(\)=>\{if\(tab!=='receive'\)return;document\.getElementById\('sc-wizard-heading'\)\?\.focus\(\{preventScroll:true\}\);\},\[step,tab\]\)/,'wizard focuses each newly selected step');
 assert.match(admin,/h\('h4',\{id:'sc-wizard-heading',tabIndex:-1\}/,'wizard heading is programmatically focusable');
 assert.match(admin,/document\.querySelector\('\.sc-module > \.sc-alert'\)\?\.focus\(\{preventScroll:true\}\)/,'validation errors receive keyboard focus');
-assert.match(admin,/h\('td',\{colSpan:9,role:'status',className:'sc-empty-results'\}/,'empty table has a full-width accessible status');
+assert.match(admin,/h\('td',\{colSpan:11,role:'status',className:'sc-empty-results'\}/,'empty table has a full-width accessible status');
 assert.match(admin,/onProgress:\(done,total\)=>/,'PDF caller receives real completed page counts');
 const canvases=[];
 let downloaded=0;
