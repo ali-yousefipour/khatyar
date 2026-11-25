@@ -122,7 +122,8 @@ final class UserProfileForms {
   // receive one canonical start-date field.
   private static function normalizeStartSchema(array $schema): array {
     $seen=false;
-    foreach($schema['sections']??[] as &$section) {
+    if(!isset($schema['sections'])||!is_array($schema['sections']))return $schema;
+    foreach($schema['sections'] as &$section) {
       if(!isset($section['fields'])||!is_array($section['fields']))continue;
       $fields=[];
       foreach($section['fields'] as $field) {
