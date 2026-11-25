@@ -17,7 +17,9 @@ function testProfileForm($text,$yes){if(!$yes)throw new RuntimeException('FAIL '
 $default=UserProfileForms::published();
 testProfileForm('legacy fallback works before additive migration',$default['version']===0&&$default['source']==='legacy_fallback');
 $schema=$default['schema'];UserProfileForms::validate($schema);
-testProfileForm('legacy system columns are kept in system storage',in_array('employment_start_date',array_column($schema['sections'][2]['fields'],'key'),true));
+$employmentFields=$schema['sections'][2]['fields'];
+$startFields=array_values(array_filter($employmentFields,static fn($f)=>in_array($f['key'],['employment_start_date','seniority_start'],true)));
+testProfileForm('canonical seniority start retains system storage without duplicate employment start',count($startFields)===1&&$startFields[0]['key']==='seniority_start'&&$startFields[0]['binding']==='system'&&$startFields[0]['label']==='شروع سنوات');
 testProfileForm('custom field IDs stay mapped to existing records',$schema['sections'][3]['fields'][0]['key']==='cf_7'&&$schema['sections'][3]['fields'][0]['custom_field_id']===7);
 testProfileForm('private bank account remains readonly',$schema['sections'][3]['fields'][0]['readonly']===true);
 $repeat=$schema['sections'][3]['fields'][2];
