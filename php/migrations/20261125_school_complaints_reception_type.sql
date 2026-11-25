@@ -13,3 +13,15 @@ EXECUTE sc_statement;
 DEALLOCATE PREPARE sc_statement;
 -- Do not infer a reception channel for historical complaints.
 -- received_at and created_at are intentionally untouched.
+
+CREATE TABLE IF NOT EXISTS school_complaint_reception_audit (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ complaint_id BIGINT NOT NULL,
+ actor_id BIGINT NOT NULL,
+ old_reception_type VARCHAR(16) NULL,
+ new_reception_type VARCHAR(16) NULL,
+ old_received_at DATETIME NOT NULL,
+ new_received_at DATETIME NOT NULL,
+ changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_sc_reception_audit_case (complaint_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
