@@ -34,6 +34,7 @@ const context = {
   window: { KhatyarLongOperation: progress, KhatyarSchoolPdf: { download: async () => { calls.push(['pdf']); if (fail) throw Error('pdf failed'); } }, XLSX: xlsx },
   perform: fn => fn(), base: '/school-complaints', tab: 'inbox', query: p => 'page=' + p,
   get: async () => { if (fail) throw Error('network failed'); fetchCalls++; if (partialResult) return { total: 2, rows: fetchCalls === 1 ? [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] : [] }; if (bulkResult) return { total: 501, rows: Array.from({ length: 501 }, (_, i) => ({ tracking_code: 'SSC-' + i, phone: '0912', status: 'pending' })) }; return { total: invalidTotal === null ? 1 : invalidTotal, rows: [{ tracking_code: 'SSC-1', phone: '0912', status: 'pending' }] }; },
+  receptionLabel: v => v === 'phone' ? 'تلفنی' : v === 'in_person' ? 'حضوری' : 'نامشخص',
   labels: { pending: 'در انتظار' }, name: () => 'کاربر نمونه', date: () => '۱۴۰۵/۰۸/۳۰',
   files: [], M: () => {}, setTimeout: cb => cb(), XLSX: xlsx, Map, Error
 };
