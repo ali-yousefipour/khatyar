@@ -16127,6 +16127,9 @@ function WorkReviewReport() {
     const [from, setFrom] = useState(start), [to, setTo] = useState(end), [zone, setZone] = useState(''), [role, setRole] = useState('');
     const [zones, setZones] = useState([]), [roles, setRoles] = useState([]), [rows, setRows] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
     const [detail, setDetail] = useState(null), request = useRef(0), detailEdited = useRef(false);
+    const [applied, setApplied] = useState(null), [exporting, setExporting] = useState(false), [exportError, setExportError] = useState('');
+    const exportLock = useRef(false);
+    const matches = applied && applied.from === from && applied.to === to && applied.zone === zone && applied.role === role;
     useEffect(() => { let active = true; Promise.all([db.zones(), db.roles()]).then(([z, r]) => { if (active) {
         setZones(Array.isArray(z) ? z : []);
         setRoles(Array.isArray(r) ? r : []);
@@ -16142,11 +16145,16 @@ function WorkReviewReport() {
         const generation = ++request.current;
         setBusy(true);
         setError('');
+        setExportError('');
+        setRows(null);
+        setApplied(null);
         const q = new URLSearchParams({ from, to, ...(zone ? { zone_id: zone } : {}), ...(role ? { role_id: role } : {}) });
         try {
             const data = await GET('/admin/shift-report/range?' + q.toString());
-            if (generation === request.current)
+            if (generation === request.current) {
                 setRows(Array.isArray(data.rows) ? data.rows : []);
+                setApplied({ from, to, zone, role });
+            }
         }
         catch (e) {
             if (generation === request.current)
@@ -16161,13 +16169,50 @@ function WorkReviewReport() {
     const fields = [['expected', 'موظفی'], ['worked', 'حضور کل'], ['in_shift', 'حضور در شیفت'], ['late_in', 'تأخیر ورود'], ['early_out', 'تعجیل خروج'], ['shortage', 'کسری کار'], ['gps_inactive_minutes', 'کسر کار غیرفعال بودن برنامه / GPS'], ['internet_inactive_minutes', 'کسر کار خاموشی اینترنت'], ['absent_min', 'غیبت'], ['absence_shortage', 'جمع غیبت و کسری'], ['night', 'شب‌کاری'], ['regular_overtime', 'اضافه‌کاری'], ['surplus', 'مازاد حضور'], ['friday', 'جمعه‌کاری'], ['holiday', 'تعطیل‌کاری'], ['mission_min', 'مأموریت'], ['annual_min', 'مرخصی استحقاقی'], ['sick_min', 'مرخصی استعلاجی']];
     const deficitKeys = new Set(['shortage', 'absent_min', 'absence_shortage']);
     const gpsKeys = new Set(['gps_inactive_minutes', 'internet_inactive_minutes']);
+    const reportValue = (r, key) => { var _a; return key === 'absence_shortage' ? (Number(r.absent_min || 0) + Number(r.shortage || 0)) : key === 'regular_overtime' ? ((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime) : r[key]; };
+    const exportWorkReview = async () => {
+        var _a, _b;
+        if (!matches || busy || !(rows === null || rows === void 0 ? void 0 : rows.length) || exportLock.current)
+            return;
+        exportLock.current = true;
+        setExporting(true);
+        setExportError('');
+        const op = (_a = window.KhatyarLongOperation) === null || _a === void 0 ? void 0 : _a.begin('در حال تهیه اکسل کارکرد', { stage: 'آماده‌سازی داده‌های گزارش…', delay: 0 });
+        try {
+            const exportRows = [['نام و نام خانوادگی', 'از تاریخ', 'تا تاریخ', ...fields.map(([, label]) => label)], ...rows.map(r => [r.name || '—', applied.from, applied.to, ...fields.map(([key]) => { const v = reportValue(r, key); return gpsKeys.has(key) && v == null ? '—' : hm(v); })])];
+            const response = await _fetchWithAuth('/api/admin-attendance-xlsx.php', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }, body: JSON.stringify({ rows: exportRows, report: 'work_review' }), cache: 'no-store' });
+            if (!response.ok) {
+                const problem = await response.json().catch(() => ({}));
+                throw Error(problem.error || 'ساخت خروجی اکسل کارکرد ناموفق بود.');
+            }
+            const blob = await response.blob();
+            if (new Uint8Array(await blob.slice(0, 4).arrayBuffer()).join(',') !== '80,75,3,4')
+                throw Error('فایل اکسل معتبر نیست.');
+            const url = URL.createObjectURL(blob), a = document.createElement('a');
+            a.href = url;
+            a.download = 'گزارش_کارکرد_' + applied.from.replace(/\//g, '-') + '_' + applied.to.replace(/\//g, '-') + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+        catch (e) {
+            setExportError(e.message || 'خطا در دریافت اکسل کارکرد');
+        }
+        finally {
+            exportLock.current = false;
+            setExporting(false);
+            if (op != null)
+                (_b = window.KhatyarLongOperation) === null || _b === void 0 ? void 0 : _b.end(op);
+        }
+    };
     const openDetail = (r, key = '') => { detailEdited.current = false; setDetail({ id: r.user_id, name: r.name, focus: key }); };
     const closeDetail = () => { setDetail(null); if (detailEdited.current) {
         detailEdited.current = false;
         load();
     } };
     return React.createElement("div", { className: "monthly-work-report-page admin-workspace-page work-review-page" },
-        React.createElement("style", null, `.work-review-page{min-width:0}.work-review-page .work-review-filters{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr)) minmax(135px,auto);gap:12px;align-items:end}.work-review-page .work-review-filters>div{min-width:0}.work-review-page .work-review-filters .input{width:100%;max-width:100%;min-height:42px}.work-review-page .work-review-filters .btn{min-height:42px;white-space:nowrap}.work-review-page .work-review-scroller{width:100%;max-width:100%;overflow-x:auto;overflow-y:auto;max-height:min(72vh,780px);border:1px solid var(--line);border-radius:14px;scrollbar-gutter:stable;overscroll-behavior-inline:contain}.work-review-page .work-review-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:2480px;min-width:2480px;margin:0;direction:rtl;font-variant-numeric:tabular-nums}.work-review-page .work-review-table th,.work-review-page .work-review-table td{box-sizing:border-box;width:127px;min-width:127px;max-width:127px;padding:12px 8px;text-align:center;vertical-align:middle;line-height:1.75;white-space:nowrap;word-break:normal;overflow-wrap:normal}.work-review-page .work-review-table th{position:sticky;top:0;z-index:2;background:#e8f3ed;color:#164e3e;font-size:12px;font-weight:800;white-space:normal;line-height:1.8;border-bottom:2px solid #168363}.work-review-page .work-review-table th:first-child,.work-review-page .work-review-table td:first-child{position:sticky;right:0;width:194px;min-width:194px;max-width:194px;text-align:right;z-index:3;background:var(--card,#fff);box-shadow:-5px 0 12px rgba(17,67,51,.08)}.work-review-page .work-review-table th:first-child{z-index:4;background:#e8f3ed}.work-review-page .work-review-table tbody tr:nth-child(even) td{background:#f5faf7}.work-review-page .work-review-table tbody tr:nth-child(even) td:first-child{background:#f5faf7}.work-review-page .work-review-table tbody tr:hover td{background:#eaf6ef}.work-review-page .work-review-table .work-review-person{width:100%;min-height:38px;padding:6px 9px;text-align:right;white-space:normal;overflow-wrap:break-word;line-height:1.8}.work-review-page .work-review-table .work-review-value{min-width:54px;min-height:34px;padding:4px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}.work-review-page .work-review-scroll-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 2px 10px;color:var(--muted);font-size:12px}.work-review-page .work-review-scroller:focus-visible{outline:3px solid #168363;outline-offset:2px}@media(max-width:1100px){.work-review-page .work-review-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.work-review-page .work-review-filters .btn{width:100%}}@media(max-width:570px){.work-review-page .work-review-filters{grid-template-columns:minmax(0,1fr)}.work-review-page .work-review-table th:first-child,.work-review-page .work-review-table td:first-child{width:160px;min-width:160px;max-width:160px}}`),
+        React.createElement("style", null, `.work-review-page{min-width:0}.work-review-page .work-review-filters{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr)) repeat(2,minmax(135px,auto));gap:12px;align-items:end}.work-review-page .work-review-filters>div{min-width:0}.work-review-page .work-review-filters .input{width:100%;max-width:100%;min-height:42px}.work-review-page .work-review-filters .btn{min-height:42px;white-space:nowrap}.work-review-page .work-review-scroller{width:100%;max-width:100%;overflow-x:auto;overflow-y:auto;max-height:min(72vh,780px);border:1px solid var(--line);border-radius:14px;scrollbar-gutter:stable;overscroll-behavior-inline:contain}.work-review-page .work-review-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:2480px;min-width:2480px;margin:0;direction:rtl;font-variant-numeric:tabular-nums}.work-review-page .work-review-table th,.work-review-page .work-review-table td{box-sizing:border-box;width:127px;min-width:127px;max-width:127px;padding:12px 8px;text-align:center;vertical-align:middle;line-height:1.75;white-space:nowrap;word-break:normal;overflow-wrap:normal}.work-review-page .work-review-table th{position:sticky;top:0;z-index:2;background:#e8f3ed;color:#164e3e;font-size:12px;font-weight:800;white-space:normal;line-height:1.8;border-bottom:2px solid #168363}.work-review-page .work-review-table th:first-child,.work-review-page .work-review-table td:first-child{position:sticky;right:0;width:194px;min-width:194px;max-width:194px;text-align:right;z-index:3;background:var(--card,#fff);box-shadow:-5px 0 12px rgba(17,67,51,.08)}.work-review-page .work-review-table th:first-child{z-index:4;background:#e8f3ed}.work-review-page .work-review-table tbody tr:nth-child(even) td{background:#f5faf7}.work-review-page .work-review-table tbody tr:nth-child(even) td:first-child{background:#f5faf7}.work-review-page .work-review-table tbody tr:hover td{background:#eaf6ef}.work-review-page .work-review-table .work-review-person{width:100%;min-height:38px;padding:6px 9px;text-align:right;white-space:normal;overflow-wrap:break-word;line-height:1.8}.work-review-page .work-review-table .work-review-value{min-width:54px;min-height:34px;padding:4px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}.work-review-page .work-review-scroll-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 2px 10px;color:var(--muted);font-size:12px}.work-review-page .work-review-scroller:focus-visible{outline:3px solid #168363;outline-offset:2px}@media(max-width:1100px){.work-review-page .work-review-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.work-review-page .work-review-filters .btn{width:100%}}@media(max-width:570px){.work-review-page .work-review-filters{grid-template-columns:minmax(0,1fr)}.work-review-page .work-review-table th:first-child,.work-review-page .work-review-table td:first-child{width:160px;min-width:160px;max-width:160px}}`),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("h3", { style: { marginTop: 0 } }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
             React.createElement("p", { className: "muted" }, "\u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0628\u0631 \u067E\u0627\u06CC\u0647\u0654 \u0647\u0645\u0627\u0646 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u0631\u0648\u0632\u0627\u0646\u0647 \u0631\u0648\u06CC \u0646\u0627\u0645 \u0641\u0631\u062F \u0628\u0632\u0646\u06CC\u062F."),
@@ -16188,14 +16233,17 @@ function WorkReviewReport() {
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: to, onChange: setTo, jalali: true })),
-                React.createElement("button", { className: "btn p", type: "button", disabled: busy, onClick: load }, busy ? 'در حال محاسبه…' : 'بررسی کارکرد'))),
+                React.createElement("button", { className: "btn p", type: "button", disabled: busy || exporting, onClick: load }, busy ? 'در حال محاسبه…' : 'بررسی کارکرد'),
+                React.createElement("button", { className: "btn g", type: "button", onClick: exportWorkReview, disabled: busy || exporting || !matches || !(rows === null || rows === void 0 ? void 0 : rows.length) }, exporting ? 'در حال ساخت اکسل…' : 'دانلود اکسل کارکرد'))),
+        exportError && React.createElement("div", { role: "alert", className: "card-p", style: { color: 'var(--danger)' } }, exportError),
+        !busy && rows && !matches && React.createElement("p", { className: "muted", role: "status" }, "\u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0628\u0631\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u06AF\u0632\u0627\u0631\u0634 \u0648 \u062E\u0631\u0648\u062C\u06CC \u062C\u062F\u06CC\u062F\u060C \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
         busy && React.createElement("div", { role: "status", className: "card-p" }, "\u062F\u0631 \u062D\u0627\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644\u2026"),
         !busy && error && React.createElement("div", { className: "card-p", role: "alert", style: { color: 'var(--danger)' } },
             error,
             " ",
             React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
         !busy && !error && rows === null && React.createElement("div", { className: "card-p muted" }, "\u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0645\u062A \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u00AB\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
-        !busy && !error && rows && (rows.length === 0 ? React.createElement("div", { className: "card-p muted", role: "status" }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { className: "card-p", style: { minWidth: 0 } },
+        !busy && !error && matches && rows && (rows.length === 0 ? React.createElement("div", { className: "card-p muted", role: "status" }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { className: "card-p", style: { minWidth: 0 } },
             React.createElement("div", { className: "work-review-scroll-hint" },
                 React.createElement("strong", null,
                     fa(rows.length),
@@ -16213,14 +16261,14 @@ function WorkReviewReport() {
                     React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.user_id },
                         React.createElement("td", null,
                             React.createElement("button", { type: "button", className: "btn g work-review-person", onClick: () => openDetail(r) }, r.name)),
-                        fields.map(([key]) => { var _a; const value = key === 'absence_shortage' ? (Number(r.absent_min || 0) + Number(r.shortage || 0)) : key === 'regular_overtime' ? ((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime) : r[key]; const active = Number(value) > 0; const color = active ? (gpsKeys.has(key) ? '#1764cf' : deficitKeys.has(key) ? '#c62828' : undefined) : undefined; return React.createElement("td", { key: key, style: { color, fontWeight: color ? 700 : 400 } }, active && (gpsKeys.has(key) || deficitKeys.has(key)) ? React.createElement("button", { type: "button", className: "btn g work-review-value", style: { fontWeight: 800, color }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647 \u0648 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC", onClick: () => openDetail(r, key) }, hm(value)) : gpsKeys.has(key) && value == null ? '—' : hm(value)); })))))))),
+                        fields.map(([key]) => { const value = reportValue(r, key); const active = Number(value) > 0; const color = active ? (gpsKeys.has(key) ? '#1764cf' : deficitKeys.has(key) ? '#c62828' : undefined) : undefined; return React.createElement("td", { key: key, style: { color, fontWeight: color ? 700 : 400 } }, active && (gpsKeys.has(key) || deficitKeys.has(key)) ? React.createElement("button", { type: "button", className: "btn g work-review-value", style: { fontWeight: 800, color }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647 \u0648 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC", onClick: () => openDetail(r, key) }, hm(value)) : gpsKeys.has(key) && value == null ? '—' : hm(value)); })))))))),
         detail && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": 'گزارش تردد ' + detail.name, style: { position: 'fixed', inset: 0, zIndex: 9900, background: 'rgba(0,0,0,.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 } },
             React.createElement("div", { className: "card-p", style: { width: 'min(98vw,1600px)', maxHeight: '94vh', overflow: 'auto' } },
                 React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12 } },
                     React.createElement("strong", null, detail.name),
                     React.createElement("button", { className: "btn g", type: "button", onClick: closeDetail }, "\u0628\u0633\u062A\u0646 \u00D7")),
                 detail.focus && React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0633\u062A\u0648\u0646 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0627\u0628\u062A\u062F\u0627\u06CC \u062C\u062F\u0648\u0644 \u0631\u0648\u0632\u0627\u0646\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u062F\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0648\u062F\u0627\u0644 \u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062F\u0644\u0627\u06CC\u0644\u060C \u0631\u0648\u06CC \u0645\u0642\u062F\u0627\u0631 \u0631\u0646\u06AF\u06CC \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F."),
-                React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: from, initialTo: to, initialFocusColumn: detail.focus, onChanged: () => { detailEdited.current = true; } }))));
+                React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: (applied === null || applied === void 0 ? void 0 : applied.from) || from, initialTo: (applied === null || applied === void 0 ? void 0 : applied.to) || to, initialFocusColumn: detail.focus, onChanged: () => { detailEdited.current = true; } }))));
 }
 function AttendanceReport(props) {
     const [tab, setTab] = useState('daily');
