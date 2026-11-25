@@ -109,7 +109,8 @@ async function download(record,options={}){
  }
  if(!receipt){
   section('مشخصات شاکی');
-  field('نوع شاکی',record.complainant_type==='driver'?'راننده':'ولی دانش‌آموز');
+  field('نوع دریافت',record.reception_type==='phone'?'تلفنی':record.reception_type==='in_person'?'حضوری':'نامشخص');
+   field('نوع شاکی',record.complainant_type==='driver'?'راننده':'ولی دانش‌آموز');
   field('نام و نام خانوادگی',[record.first_name,record.last_name].filter(Boolean).join(' '));
   field('تلفن',fa(record.phone));field('نشانی',record.address);
   section('مدرسه و شرکت سرویس‌دهنده');
