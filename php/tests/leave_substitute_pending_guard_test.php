@@ -7,10 +7,14 @@ class Db {
  public static array $locks=[];
  public static array $coverage=[];
  public static array $assignments=[];
+ public static array $unqualified=[];
+ public static array $absences=[];
  public static int $serial=1;
  public static function one($sql,$args=[]) {
   if(str_contains($sql,'GET_LOCK(')){self::$locks[(string)$args[0]]=true;return ['ok'=>1];}
   if(str_contains($sql,'RELEASE_LOCK(')){unset(self::$locks[(string)$args[0]]);return ['ok'=>1];}
+  if(str_contains($sql,'can_be_substitute=1'))return in_array((int)$args[0],self::$unqualified,true)?null:['id'=>$args[0]];
+  if(str_contains($sql,"type IN ('annual','sick','unpaid','mission')"))return in_array((int)$args[0],self::$absences,true)?['id'=>99]:null;
   if(str_contains($sql,'FROM requests WHERE id=?'))return self::$requests[(int)$args[0]]??null;
   if(str_contains($sql,'SELECT r.id,r.status FROM requests r')){
    [$sid,$except,$to,$from]=$args;
@@ -66,6 +70,12 @@ function conflict(callable $operation):void{
  throw new RuntimeException('request incorrectly accepted');
 }
 $leave=['type'=>'annual','unit'=>'daily','from_jdate'=>'1405-09-01','to_jdate'=>'1405-09-03','substitute_user_id'=>42];
+Db::$absences=[42];
+conflict(fn()=>runRoute('POST','/api/my/requests',[],$leave));
+Db::$absences=[];
+Db::$unqualified=[42];
+try{runRoute('POST','/api/my/requests',[],$leave);throw new LogicException('unqualified substitute accepted');}catch(RuntimeException $e){check($e->getCode()===422,'unqualified substitute rejected');}
+Db::$unqualified=[];
 $a=runRoute('POST','/api/my/requests',[],$leave);
 check($a['id']===1,'first pending request created');
 check(Db::$requests[1]['status']==='pending','no automatic approval');
