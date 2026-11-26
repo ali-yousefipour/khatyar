@@ -22937,7 +22937,7 @@ function SchoolComplaintsLauncher() {
         if (!document.querySelector('link[data-school-complaints]')) {
             const css = document.createElement("link");
             css.rel = "stylesheet";
-            css.href = "/assets/school-complaints-admin.css?v=20261121.wizard6";
+            css.href = "/assets/school-complaints-admin.css?v=20261126.school-dates";
             css.dataset.schoolComplaints = "1";
             document.head.appendChild(css);
         }
@@ -22950,14 +22950,14 @@ function SchoolComplaintsLauncher() {
             return () => { alive = false; };
         }
         const script = document.createElement("script");
-        script.src = "/assets/school-complaints-admin.js?v=20261121.wizard6";
+        script.src = "/assets/school-complaints-admin.js?v=20261126.school-dates";
         script.onload = ready;
         script.onerror = () => { if (alive)
             setError("خطا در دریافت ماژول شکایات"); };
         document.head.appendChild(script);
         return () => { alive = false; script.onload = null; script.onerror = null; };
     }, []);
-    return Component ? React.createElement(Component, { get: GET, send: SEND, DatePicker: JDate, ClockInput: ShiftClockInput }) : React.createElement("div", { className: "card-p", role: "status" }, error || "در حال بارگذاری شکایات سرویس مدارس...");
+    return Component ? React.createElement(Component, { get: GET, send: SEND, DatePicker: JDate }) : React.createElement("div", { className: "card-p", role: "status" }, error || "در حال بارگذاری شکایات سرویس مدارس...");
 }
 function ComplaintsLauncher() {
     const hostRef = useRef(null);

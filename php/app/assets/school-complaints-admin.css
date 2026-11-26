@@ -276,3 +276,23 @@
 .sc-module .sc-wizard-help{border-inline-start:3px solid #0c8868;background:#edf8f1;border-radius:6px;padding:9px 12px}
 @media(max-width:430px){.sc-module .sc-notification-settings{padding:12px}.sc-module .sc-notification-recipients{grid-template-columns:1fr}.sc-module .sc-notification-stage-head{align-items:flex-start}}
 @media print{.sc-module .sc-notification-settings{display:none!important}}
+
+/* Complaints dashboard */
+.sc-dashboard{display:grid;gap:18px;color:#17382f}
+.sc-dashboard-heading{padding-block:8px 13px;border-bottom:1px solid #cfdfd9}
+.sc-dashboard-heading h3{margin:0;font-size:clamp(21px,3vw,34px);line-height:1.45}
+.sc-dashboard-summary,.sc-dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:0 12px}
+.sc-dashboard-summary{background:#eaf5ef;border:1px solid #cfdfd9;border-radius:14px;padding:8px 16px}
+.sc-dashboard-stage,.sc-dashboard-chart{min-width:0;border:1px solid #d8e5e0;border-radius:14px;padding:16px;background:#fcfefd}
+.sc-dashboard :is(.sc-dashboard-stage,.sc-dashboard-chart) h4{margin:0 0 12px;color:#17382f;font-size:16px}
+.sc-dashboard-metric{min-width:0;text-align:start;display:grid;align-content:start;gap:7px;border:0;border-top:1px solid #cfdfd9;border-radius:0;background:transparent;color:#31584c;padding:12px 6px;font:inherit}
+.sc-dashboard-summary .sc-dashboard-metric{border-top:0}
+.sc-dashboard-metric strong{font-size:clamp(21px,3vw,32px);line-height:1.2;color:#17382f;font-variant-numeric:tabular-nums}
+button.sc-dashboard-metric{cursor:pointer}
+button.sc-dashboard-metric:hover{background:#e0f1e8}
+button.sc-dashboard-metric:focus-visible{outline:2px solid #08705a;outline-offset:2px}
+.sc-dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sc-dashboard-lead{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.sc-dashboard .sc-chart-row progress{height:8px;accent-color:#0b765d}
+.sc-dashboard-empty{margin:0;color:#4a655c}
+@media(max-width:700px){.sc-dashboard-grid{grid-template-columns:minmax(0,1fr)}}

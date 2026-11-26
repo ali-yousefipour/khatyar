@@ -12,9 +12,10 @@ const actionTitle={created:'ثبت شکایت',start:'شروع بررسی',note:
 function tehran(value){
  if(!value)return '—';
  try{
-  const d=value instanceof Date?value:new Date(String(value).replace(' ','T')+'+03:30');
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(d);
- }catch(_){return fa(value);}
+  const iso=String(value).trim().replace(' ','T');
+  const d=value instanceof Date?value:new Date(/[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso)?iso:iso+'+03:30');
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-arabext',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(d);
+ }catch(_){return '—';}
 }
 function image(src){
  return new Promise(resolve=>{

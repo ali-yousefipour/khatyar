@@ -9,17 +9,20 @@ const labels={pending:'در انتظار بررسی',in_progress:'در حال ب
 const actions={start:'شروع بررسی',note:'ثبت یادداشت',reply:'ثبت پاسخ',escalate:'ارجاع به مسئول واحد',return:'بازگشت برای تکمیل',close:'مختومه کردن'};
 const fa=v=>String(v??'—').replace(/[0-9]/g,x=>'۰۱۲۳۴۵۶۷۸۹'[+x]);
 const en=v=>String(v).replace(/[۰-۹]/g,x=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).replace(/[٠-٩]/g,x=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)));
+const calendarDate=new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-arabext',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tehran'});
 const date=v=>{
  if(!v)return '—';
  try{
   const iso=String(v).trim().replace(' ','T');
   // Timestamps may already include an explicit offset or UTC designator.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(iso))return calendarDate.format(new Date(iso+'T12:00:00+03:30'));
   const hasZone=/[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso);
   const parsed=new Date(hasZone?iso:iso+'+03:30');
-  if(!Number.isFinite(parsed.getTime()))return fa(v);
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(parsed);
- }catch(_){return fa(v);}
+  if(!Number.isFinite(parsed.getTime()))return '—';
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-arabext',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tehran'}).format(parsed);
+ }catch(_){return '—';}
 };
+const validTimestamp=v=>/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(v);
 const now=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tehran',dateStyle:'short',timeStyle:'medium'}).format(new Date()).replace(' ','T').slice(0,16);
 const receptionLabel=v=>v==='phone'?'تلفنی':v==='in_person'?'حضوری':'نامشخص';
 const fresh=()=>({reception_type:'',complainant_type:'parent',first_name:'',last_name:'',phone:'',address:'',school_id:'',company_id:'',subject:'',custom_subject:'',body:'',received_at:now(),school_snapshot:{},company_snapshot:{}});
@@ -186,6 +189,11 @@ function NotificationSettings({value,onChange}){
                h('span',null,method))))))))),
    h('p',{className:'sc-help sc-notification-footnote'},'ارسال فقط برای شماره موبایل معتبر انجام می‌شود. دریافت پیام بله به اتصال قبلی شماره به ربات نیاز دارد. پیام‌ها فاقد متن محرمانه شکایت هستند و وضعیت ارسال در صف ثبت می‌شود.'));
 }
+function ComplaintClock({value,onChange}){
+ return h('input',{className:'input',type:'text',inputMode:'numeric',dir:'ltr',maxLength:5,
+  placeholder:'۰۰:۰۰','aria-label':'ساعت دریافت',value:fa(value),
+  onChange:e=>onChange(en(e.target.value).replace(/[^0-9:]/g,''))});
+}
 function ReceptionEditor({record,DatePicker,onSave,busy}){
  const original=String(record.received_at||'').replace(' ','T').slice(0,16);
  const [kind,Kind]=useState(record.reception_type||'');
@@ -197,12 +205,12 @@ function ReceptionEditor({record,DatePicker,onSave,busy}){
      select('نوع دریافت',kind,Kind,[['','انتخاب کنید'],['phone','تلفنی'],['in_person','حضوری']]),
      h('label',{className:'sc-field'},h('span',null,'تاریخ دریافت'),
        DatePicker?h(DatePicker,{value:value.slice(0,10),portal:true,onChange:v=>Value((v||value.slice(0,10))+value.slice(10))}):
-         h('input',{className:'input',type:'date',value:value.slice(0,10),onChange:e=>Value(e.target.value+value.slice(10))})),
+         h('p',{role:'alert'},'تقویم بارگذاری نشده است')),
      h('label',{className:'sc-field'},h('span',null,'ساعت دریافت'),
-       h('input',{className:'input',type:'time',value:value.slice(11,16),onChange:e=>Value(value.slice(0,11)+e.target.value)}))),
-   btn('ذخیره اصلاحات',()=>onSave({reception_type:kind,received_at:value.replace('T',' ')+':00'}),busy||!kind||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value),true));
+       h(ComplaintClock,{value:value.slice(11,16),onChange:v=>Value(value.slice(0,11)+v)}))),
+   btn('ذخیره اصلاحات',()=>onSave({reception_type:kind,received_at:value.replace('T',' ')+':00'}),busy||!DatePicker||!kind||!validTimestamp(value),true));
 }
-function Module({get,send,DatePicker,ClockInput}){
+function Module({get,send,DatePicker}){
  const [access,A]=useState(null),[tab,T]=useState('dashboard'),[err,E]=useState(''),[msg,M]=useState(''),[busy,B]=useState(false),[refresh,F]=useState(0),[stats,S]=useState(null);
  const [draft,D]=useState(fresh),[step,J]=useState(0),[topics,Topics]=useState([]),[related,C]=useState([]),[detail,Q]=useState(null),[note,N]=useState(''),[act,Act]=useState('note');
  const [files,Files]=useState([]),[filterTopics,FilterTopics]=useState([]);
@@ -225,7 +233,7 @@ function Module({get,send,DatePicker,ClockInput}){
  const upload=(id,file)=>perform(async()=>{if(!file)return;if(file.size>3*1024*1024)throw Error('حداکثر حجم فایل ۳ مگابایت است');if(!['image/jpeg','image/png','application/pdf'].includes(file.type))throw Error('فرمت فایل مجاز نیست');const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('خواندن فایل ناموفق بود'));reader.readAsDataURL(file);});await send('POST',base+'/'+id+'/attachments',{filename:file.name,content:data});Files(await get(base+'/'+id+'/attachments'));M('مستند ثبت شد');});
  const download=(id,aid)=>perform(async()=>{const x=await get(base+'/'+id+'/attachments/'+aid);const bytes=Uint8Array.from(atob(x.content),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:x.mime}));const a=document.createElement('a');a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  const deadline=x=>x.status==='closed'?'پایان یافته':x.remaining_minutes==null?'—':(Number(x.remaining_minutes)<0?'تأخیر: ':'باقی‌مانده: ')+fa(Math.abs(Number(x.remaining_minutes)))+' دقیقه';
- const verifyStep=(at=step)=>{const phone=en(draft.phone).trim().replace(/[\s()-]/g,'');if(at===0){if(!['phone','in_person'].includes(draft.reception_type))throw Error('نوع دریافت شکایت (تلفنی یا حضوری) را انتخاب کنید');if(!draft.first_name.trim()||!draft.last_name.trim()||(draft.complainant_type==='parent'&&!draft.address.trim()))throw Error('نام، نام خانوادگی و نشانی شاکی را کامل کنید');if(!(draft.complainant_type==='driver'?/^09\d{9}$/:/^0[1-9]\d{9}$/).test(phone))throw Error(draft.complainant_type==='driver'?'شماره همراه راننده باید ۱۱ رقم و با ۰۹ شروع شود':'شماره تماس والدین باید ۱۱ رقم و با ۰ شروع شود');}if(at===0&&(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(draft.received_at))&&draft.received_at>now())throw Error('تاریخ دریافت شکایت نمی‌تواند در آینده باشد');if(at===1&&!draft.school_id)throw Error('مدرسه را انتخاب کنید');if(at===2&&!draft.company_id)throw Error('شرکت سرویس‌دهنده را انتخاب کنید');if(at===3){if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(draft.received_at)||!draft.subject||!draft.body.trim()||(draft.subject==='سایر'&&!draft.custom_subject.trim()))throw Error('تاریخ، ساعت، موضوع و متن شکایت را کامل کنید');}};
+ const verifyStep=(at=step)=>{const phone=en(draft.phone).trim().replace(/[\s()-]/g,'');if(at===0){if(!['phone','in_person'].includes(draft.reception_type))throw Error('نوع دریافت شکایت (تلفنی یا حضوری) را انتخاب کنید');if(!draft.first_name.trim()||!draft.last_name.trim()||(draft.complainant_type==='parent'&&!draft.address.trim()))throw Error('نام، نام خانوادگی و نشانی شاکی را کامل کنید');if(!(draft.complainant_type==='driver'?/^09\d{9}$/:/^0[1-9]\d{9}$/).test(phone))throw Error(draft.complainant_type==='driver'?'شماره همراه راننده باید ۱۱ رقم و با ۰۹ شروع شود':'شماره تماس والدین باید ۱۱ رقم و با ۰ شروع شود');}if(at===0&&(validTimestamp(draft.received_at))&&draft.received_at>now())throw Error('تاریخ دریافت شکایت نمی‌تواند در آینده باشد');if(at===1&&!draft.school_id)throw Error('مدرسه را انتخاب کنید');if(at===2&&!draft.company_id)throw Error('شرکت سرویس‌دهنده را انتخاب کنید');if(at===3){if(!validTimestamp(draft.received_at)||!draft.subject||!draft.body.trim()||(draft.subject==='سایر'&&!draft.custom_subject.trim()))throw Error('تاریخ، ساعت، موضوع و متن شکایت را کامل کنید');}};
  const advance=()=>{try{verifyStep();E('');J(n=>Math.min(n+1,4));}catch(e){E(errorText(e));}};
  const register=()=>perform(async()=>{for(let i=0;i<4;i++){try{verifyStep(i);}catch(e){J(i);throw e;}}if(!requestKey.current)requestKey.current=crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');const result=await send('POST',base,{...draft,submission_key:requestKey.current,phone:en(draft.phone).trim(),address:draft.complainant_type==='parent'?draft.address:'',received_at:draft.received_at.replace('T',' ')+':00'});requestKey.current=null;Receipt({...draft,...result,received_at:draft.received_at.replace('T',' ')+':00'});M('شکایت با موفقیت ثبت شد');D(fresh());J(0);});
  const filt=(k,v)=>{P(1);G(f=>({...f,[k]:v}));};
@@ -236,7 +244,51 @@ function Module({get,send,DatePicker,ClockInput}){
  const loadFallback=message=>err?h('div',{className:'sc-card',role:'status'},h('p',null,'دریافت اطلاعات انجام نشد. برای تلاش دوباره دکمه زیر را انتخاب کنید.'),btn('تلاش مجدد',()=>F(n=>n+1),busy,true)):h('p',{role:'status'},message);
  const content=()=>{
   if(detail){const d=detail;const own=d.can_act===true&&d.status!=='closed';return h('div',null,h('div',{className:'sc-toolbar sc-no-print'},btn('بازگشت',()=>Q(null)),btn('چاپ پرونده',()=>printOrganization(d)),btn('دریافت PDF مستقل',()=>savePdf(d),busy)),h('h3',null,'پرونده '+d.tracking_code),h('div',{className:'sc-case-qr'},h(QR,{code:d.tracking_code}),h('div',null,h('strong',{dir:'ltr',className:'sc-code'},d.tracking_code),h('p',{className:'sc-help'},'برای پیگیری، کد رهگیری را در بخش جستجوی شکایات وارد کنید'))),h('p',null,labels[d.status],d.overdue?' | دارای تأخیر':'',' | مهلت: '+date(d.due_at)),h('p',null,'مسئول فعلی: '+(d.assigned_name||'—')+' | '+deadline(d)),h('p',null,'مهلت کلی: '+date(d.overall_due_at)+' | '+deadline({...d,remaining_minutes:d.overall_remaining_minutes})),d.overall_overdue&&h('p',{className:'sc-overdue'},'مهلت کلی پرونده سپری شده است'),h('section',{className:'sc-card'},h('h4',null,'مشخصات شاکی'),h('p',null,name(d)+' — '+fa(d.phone)),h('p',null,d.address)),h('section',{className:'sc-card'},h('h4',null,'مدرسه'),h(Snapshot,{value:d.school_snapshot||{},fields:schoolFields})),h('section',{className:'sc-card'},h('h4',null,'شرکت'),h(Snapshot,{value:d.company_snapshot||{},fields:companyFields})),h('section',{className:'sc-card'},h('h4',null,d.subject),h('p',{className:'sc-long'},d.body),h('p',null,'نوع دریافت: '+receptionLabel(d.reception_type)),h('p',null,'دریافت: '+date(d.received_at)),h('p',null,'ثبت: '+date(d.created_at)),h('p',null,'پایان رسیدگی: '+date(d.closed_at))),d.can_edit_reception&&h(ReceptionEditor,{key:d.id+'-'+d.received_at,record:d,DatePicker,busy,onSave:values=>perform(async()=>{await send('PATCH',base+'/'+d.id+'/reception',values);Q(await get(base+'/'+d.id));F(x=>x+1);M('اطلاعات دریافت اصلاح و در سابقه حسابرسی ثبت شد');})}),h('section',{className:'sc-card'},h('h4',null,'سابقه اصلاح دریافت'),...(d.reception_audit||[]).map((x,i)=>h('p',{key:i},'شناسه کاربر: '+fa(x.actor_id)+' | '+receptionLabel(x.old_reception_type)+' ← '+receptionLabel(x.new_reception_type)+' | '+date(x.old_received_at)+' ← '+date(x.new_received_at)+' | '+date(x.changed_at))),!(d.reception_audit||[]).length&&h('p',null,'اصلاحی ثبت نشده است')),h('section',{className:'sc-card'},h('h4',null,'مستندات پرونده'),files.length?files.map(x=>h('div',{key:x.id,className:'sc-toolbar'},h('span',null,x.filename+' — '+fa(Math.ceil(x.byte_size/1024))+' کیلوبایت'),btn('دریافت',()=>download(d.id,x.id),busy))):h('p',null,'مستندی ثبت نشده است'),d.can_attach&&h('label',{className:'sc-field sc-no-print'},'افزودن مستند (PDF یا تصویر، حداکثر ۳ مگابایت)',h('input',{type:'file',accept:'.pdf,.jpg,.jpeg,.png',disabled:busy,onChange:e=>{const file=e.target.files[0];e.target.value='';upload(d.id,file);}}))),h('section',{className:'sc-card'},h('h4',null,'تاریخچه رسیدگی'),...(d.events||[]).map(x=>h('article',{key:x.id,className:'sc-event'},h('strong',null,(actions[x.action]||'ثبت شکایت')+' — '+(x.actor_name||'کاربر')),h('small',null,date(x.created_at)),h('p',{className:'sc-long'},x.body)))),own&&h('section',{className:'sc-card sc-no-print'},select('عملیات',act,Act,Object.entries(actions).filter(([k])=>(d.allowed_actions||[]).includes(k))),h('textarea',{className:'input',rows:4,value:note,onChange:e=>N(e.target.value),placeholder:'توضیحات عملیات'}),btn('ثبت عملیات',()=>perform(async()=>{await send('POST',base+'/'+d.id+'/action',{action:act,body:note});Q(await get(base+'/'+d.id));N('');F(x=>x+1);M('عملیات ثبت شد');}),busy,true))); }
-  if(tab==='dashboard'){const chartTitles={reception:'نوع دریافت',status:'وضعیت پرونده‌ها',type:'نوع شاکی',subject:'موضوع شکایات',district:'ناحیه آموزشی',school:'مدارس',company:'شرکت‌ها',day:'روز دریافت',month:'ماه دریافت',overdue:'وضعیت تأخیر',receiver:'ثبت‌کنندگان',assignee:'مسئولان جاری'};const chartLabel=(k,v)=>k==='reception'?receptionLabel(v):k==='status'?(labels[v]||v):k==='type'?(v==='parent'?'والدین':'رانندگان'):k==='overdue'?(+v?'دارای تأخیر':'بدون تأخیر'):v||'نامشخص';const keys={phone:'تلفنی',in_person:'حضوری',reception_unknown:'نامشخص',total:'کل شکایات',today:'امروز',month:'ماه جاری',pending:'در انتظار',in_progress:'در حال بررسی',answered:'پاسخ داده‌شده',escalated:'ارجاع‌شده',returned:'بررسی تکمیلی',closed:'مختومه',overdue:'دارای تأخیر',parents:'والدین',drivers:'رانندگان',average_resolution_minutes:'میانگین زمان رسیدگی (دقیقه)',resolved_percent:'درصد تعیین تکلیف',on_time_percent:'درصد مختومه در مهلت تمام مراحل',overall_overdue:'عبور از مهلت کلی'};return stats?h('div',null,h('div',{className:'sc-metrics'},...Object.entries(keys).map(([k,t])=>h('button',{key:k,className:'sc-card sc-metric',onClick:()=>{go('search');if(k in labels)G({status:k});else if(k==='overdue')G({overdue:'1'});else if(k==='parents'||k==='drivers')G({complainant_type:k==='parents'?'parent':'driver'});}},h('span',null,t),h('strong',null,fa(stats[k]==null?'—':Math.round(Number(stats[k])*10)/10))))),h('div',{className:'sc-chart-grid'},...Object.entries(chartTitles).map(([k,t])=>{const rows=stats.charts?.[k]||[],max=Math.max(1,...rows.map(x=>Number(x.total)));return h('section',{key:k,className:'sc-card'},h('h3',null,t),rows.length?rows.map((x,i)=>h('div',{key:i,className:'sc-chart-row'},h('span',null,fa(chartLabel(k,x.label))),h('strong',null,fa(x.total)),h('progress',{max,value:Number(x.total),'aria-label':String(chartLabel(k,x.label))}))):h('p',null,'داده‌ای وجود ندارد'));}))):loadFallback('در حال دریافت آمار…');}
+  if(tab==='dashboard'){
+   if(!stats)return loadFallback('در حال دریافت آمار…');
+   const metric=(key,label,filter,suffix='')=>{
+    const number=stats[key]==null?'—':fa(Math.round(Number(stats[key])*10)/10)+suffix;
+    const content=[h('span',{key:'label'},label),h('strong',{key:'value'},number)];
+    return filter?h('button',{key,type:'button',className:'sc-dashboard-metric',onClick:()=>{go('search');G(filter);}},...content):
+      h('div',{key,className:'sc-dashboard-metric'},...content);
+   };
+   const chart=(key,title,label=v=>fa(v||'نامشخص'))=>{
+    const rows=stats.charts?.[key]||[];
+    const max=Math.max(1,...rows.map(row=>Number(row.total)));
+    return h('section',{key,className:'sc-dashboard-chart'},h('h4',null,title),
+     rows.length?rows.map((row,i)=>{const caption=label(row.label);return h('div',{key:i,className:'sc-chart-row'},
+       h('span',null,caption),h('strong',null,fa(row.total)),h('progress',{max,value:Number(row.total),'aria-label':caption}));}):
+       h('p',{className:'sc-dashboard-empty'},'داده‌ای برای نمایش وجود ندارد.'));
+   };
+   const byMonth=v=>v?fa(String(v).replace('-','/')):'—';
+   return h('div',{className:'sc-dashboard'},
+    h('header',{className:'sc-dashboard-heading'},h('h3',null,'نمای کلی شکایات')),
+    h('section',{className:'sc-dashboard-summary','aria-label':'خلاصهٔ شکایات'},
+     metric('total','کل شکایات',{}),metric('today','دریافت امروز'),metric('month','دریافت این ماه'),
+     metric('overdue','دارای تأخیر',{overdue:'1'})),
+    h('section',{className:'sc-dashboard-stage'},h('h4',null,'وضعیت رسیدگی'),
+     h('div',{className:'sc-dashboard-metrics'},
+      ...Object.entries(labels).map(([key,label])=>metric(key,label,{status:key})),
+      metric('overall_overdue','عبور از مهلت کلی'),
+      metric('resolved_percent','تعیین تکلیف',null,'٪'),
+      metric('on_time_percent','مختومه در مهلت تمام مراحل',null,'٪'),
+      metric('average_resolution_minutes','میانگین زمان رسیدگی (دقیقه)'))),
+    h('div',{className:'sc-dashboard-grid sc-dashboard-lead'},
+     chart('month','شکایات دریافتی به تفکیک ماه',byMonth),
+     chart('reception','روش دریافت شکایت',receptionLabel)),
+    h('section',{className:'sc-dashboard-stage'},h('h4',null,'دریافت و نوع شاکی'),
+     h('div',{className:'sc-dashboard-metrics'},
+      metric('phone','تلفنی',{reception_type:'phone'}),metric('in_person','حضوری',{reception_type:'in_person'}),
+      metric('reception_unknown','روش دریافت نامشخص'),
+      metric('parents','والدین',{complainant_type:'parent'}),metric('drivers','رانندگان',{complainant_type:'driver'}))),
+    h('div',{className:'sc-dashboard-grid sc-dashboard-breakdowns'},
+     chart('subject','موضوع شکایات'),chart('day','روز دریافت',date),
+     chart('district','ناحیهٔ آموزشی'),chart('company','شرکت‌ها'),
+     chart('school','مدارس'),chart('status','وضعیت پرونده‌ها',v=>labels[v]||v||'نامشخص'),
+     chart('type','نوع شاکی',v=>v==='parent'?'والدین':'رانندگان'),
+     chart('overdue','وضعیت تأخیر',v=>+v?'دارای تأخیر':'بدون تأخیر'),
+     chart('receiver','ثبت‌کنندگان'),chart('assignee','مسئولان جاری')));
+  }
   if(tab==='receive'&&receipt){return h('section',{className:'sc-card sc-receipt'},h('h3',null,'رسید ثبت شکایت'),h('p',null,'کد رهگیری پرونده'),h(QR,{code:receipt.tracking_code}),h('strong',{dir:'ltr',className:'sc-code'},receipt.tracking_code),h('div',{className:'sc-toolbar sc-no-print'},btn('کپی کد رهگیری',()=>perform(async()=>{await navigator.clipboard.writeText(receipt.tracking_code);M('کد رهگیری کپی شد');})),btn('چاپ رسید',()=>printOrganization(receipt,true)),btn('دریافت PDF رسید',()=>savePdf(receipt,true),busy),btn('مشاهده پرونده',()=>open(receipt.id),busy),btn('ثبت شکایت جدید',()=>{Receipt(null);M('');},false,true)));}
   if(tab==='receive'){
    const steps=[['دریافت و شاکی','نوع و زمان دریافت، اطلاعات شاکی'],['انتخاب مدرسه','اطلاعات و موقعیت مدرسه'],['انتخاب شرکت','شرکت سرویس‌دهنده'],['شرح شکایت','تاریخ، موضوع و متن'],['بازبینی نهایی','تأیید و صدور کد رهگیری']];
@@ -259,13 +311,12 @@ function Module({get,send,DatePicker,ClockInput}){
            className:'sc-wizard-type'+(draft.reception_type===v?' selected':''),
            onClick:()=>{set('reception_type',v);E('');}},h('strong',null,title),h('small',null,desc)))),
      h('div',{className:'sc-wizard-form-grid'},
-       h('div',{className:'sc-field'},h('span',null,'تاریخ دریافت (شمسی) *'),
+       h('div',{className:'sc-field'},h('span',null,'تاریخ دریافت *'),
          DatePicker?h(DatePicker,{value:draft.received_at.split('T')[0],portal:true,
            onChange:v=>set('received_at',(v||draft.received_at.split('T')[0])+'T'+(draft.received_at.split('T')[1]||'00:00'))}):h('p',{role:'alert'},'تقویم بارگذاری نشده است')),
-       h('div',{className:'sc-field'},h('span',null,'ساعت دریافت (تهران) *'),
-         ClockInput?h(ClockInput,{value:draft.received_at.split('T')[1]||'',onChange:v=>set('received_at',draft.received_at.split('T')[0]+'T'+en(v))}):
-           h('input',{className:'input',type:'time',value:draft.received_at.split('T')[1]||'',onChange:e=>set('received_at',draft.received_at.split('T')[0]+'T'+e.target.value)}),
-         btn('زمان فعلی تهران',()=>set('received_at',now()),busy))),
+       h('div',{className:'sc-field'},h('span',null,'ساعت دریافت *'),
+         h(ComplaintClock,{value:draft.received_at.split('T')[1]||'',onChange:v=>set('received_at',draft.received_at.split('T')[0]+'T'+v)}),
+         btn('زمان فعلی',()=>set('received_at',now()),busy))),
      h('h4',null,'اطلاعات شاکی'),
      h('div',{className:'sc-wizard-type-group',role:'group','aria-label':'نوع شاکی'},
        ...[['parent','والدین دانش‌آموز','ثبت شکایت توسط والد یا سرپرست'],['driver','راننده سرویس مدارس','ثبت شکایت توسط راننده']].map(([v,title,desc])=>

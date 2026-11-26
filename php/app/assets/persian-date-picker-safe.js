@@ -41,8 +41,8 @@
   function close(){if(active)active.remove();active=null;activeInput=null;if(posHandler){window.removeEventListener('resize',posHandler);window.removeEventListener('scroll',posHandler,true);posHandler=null;}}
   function position(){if(!active||!activeInput||!document.body.contains(activeInput))return;var r=activeInput.getBoundingClientRect(),w=Math.min(348,window.innerWidth-20),left=Math.max(10,Math.min(r.right-w,window.innerWidth-w-10)),h=Math.min(active.scrollHeight||430,window.innerHeight-20),top=r.bottom+7;if(top+h>window.innerHeight-10)top=r.top-h-7;if(top<10)top=10;active.style.left=left+'px';active.style.top=top+'px';active.style.width=w+'px';active.style.maxHeight=Math.max(180,window.innerHeight-20)+'px';}
   function draw(input,cal){
-    var cur=isoToJ(input.value)||todayJ(),y=cur[0],m=cur[1],sel=isoToJ(input.value),tod=todayJ();
-    function emit(value){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));close();}
+    var iso=input.dataset.khIsoDate??input.value,cur=isoToJ(iso)||todayJ(),y=cur[0],m=cur[1],sel=isoToJ(iso),tod=todayJ();
+    function emit(value){if(input.dataset.khIsoDate!==undefined)input.dataset.khIsoDate=value;else input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));close();}
     function render(){
       var len=monthLen(y,m),first=firstWd(y,m);
       if(!Number.isInteger(len)||len<28||len>31)len=m<=6?31:m<=11?30:29;

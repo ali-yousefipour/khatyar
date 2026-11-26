@@ -19,7 +19,9 @@ for (const input of [
   '2026-11-21T13:30:00+03:30',
   '2026-11-21 13:30:00'
 ]) assert.equal(formatter(input), target, 'complaint time should be Tehran-local for '+input);
-assert.equal(formatter('not-a-date'), 'not-a-date', 'invalid dates must remain readable');
+assert.equal(formatter('not-a-date'), '—', 'invalid dates show an empty state');
+assert.equal(formatter('2026-11-26'), '۱۴۰۵/۰۹/۰۵', 'day labels show a Persian date without time');
+assert.doesNotMatch(source, /شمسی|تهران/, 'date and time labels avoid redundant qualifiers');
 assert.equal(formatter(''), '—', 'missing dates should have an empty-state label');
 assert.match(source, /if\(q\.length<min\)\{setRows\(\[\]\);setLoading\(false\);return;\}/, 'short searches must reset loading');
 console.log('school complaints date and lookup regression checks passed');

@@ -29,8 +29,8 @@ for (const ext of ['js','css']) {
  const active=[html,portal].map(text=>version(text,ext));
  assert.ok(active.every(Boolean),'panel and portal load refreshed complaints asset: '+ext);
  assert.equal(new Set(active).size,1,'panel and portal use same refreshed asset key');
- assert.equal(active[0],'20261121.notify1','new complaints asset version must be cache-busted');
+ assert.equal(active[0],'20261126.school-dates','new complaints asset version must be cache-busted');
 }
-assert.ok(html.indexOf('school-complaints-admin.js?v=20261121.notify1')<html.indexOf('panel.bundle.js'),
+assert.ok(html.indexOf('school-complaints-admin.js?v=20261126.school-dates')<html.indexOf('panel.bundle.js'),
  'refreshed module must load before the compiled panel launcher');
 console.log('PASS complaints tables responsive cards, keyboard scroll and versioned modules');

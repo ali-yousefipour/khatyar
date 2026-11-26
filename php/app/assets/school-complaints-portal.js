@@ -16,15 +16,16 @@ async function request(method,path,body,token){
 }
 function DatePicker({value,onChange}){
  const ref=R.useRef(null);
+ const format=v=>v?new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-arabext',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'UTC'}).format(new Date(v+'T12:00:00Z')):'';
  R.useEffect(()=>{
   const node=ref.current;if(!node)return;
-  const handler=()=>onChange(node.value);
-  node.addEventListener('change',handler);node.addEventListener('input',handler);
+  const handler=()=>{const iso=node.dataset.khIsoDate;node.value=format(iso);onChange(iso);};
+  node.addEventListener('change',handler);
   window.KhatyarSafeJalaliDate?.install(node);
-  return()=>{node.removeEventListener('change',handler);node.removeEventListener('input',handler);};
+  return()=>{node.removeEventListener('change',handler);};
  },[onChange]);
- R.useEffect(()=>{if(ref.current&&ref.current.value!==value)ref.current.value=value||'';},[value]);
- return h('input',{ref,type:'text',defaultValue:value||'',readOnly:true,placeholder:'انتخاب تاریخ از تقویم شمسی',className:'input',name:'received_date'});
+ R.useEffect(()=>{if(ref.current){ref.current.dataset.khIsoDate=value||'';ref.current.value=format(value);}},[value]);
+ return h('input',{ref,type:'text',defaultValue:format(value),'data-kh-iso-date':value||'',readOnly:true,onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.currentTarget.click();}},placeholder:'انتخاب تاریخ',className:'input',name:'received_date'});
 }
 function Portal(){
  const [token,setToken]=R.useState(()=>{try{return sessionStorage.getItem(KEY)||'';}catch(_){return '';}});
