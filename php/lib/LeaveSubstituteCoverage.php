@@ -50,10 +50,12 @@ final class LeaveSubstituteCoverage {
         if($subId===$ownerId)Http::error('نیروی جایگزین نمی‌تواند خود درخواست‌کننده باشد',422);
         if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$subId]))
             Http::error('نیروی جایگزین فعال و واجد شرایط انتخاب کنید',422);
-        $busy=Db::one("SELECT id FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')
+        if(self::approvedAbsence($subId,$from,$to))Http::error('نیروی جایگزین در بازه انتخابی مرخصی یا مأموریت تأییدشده دارد',409);
+    }
+    private static function approvedAbsence(int $subId,string $from,string $to): ?array {
+        return Db::one("SELECT id FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')
             AND REPLACE(TRIM(COALESCE(NULLIF(from_jdate,''),NULLIF(the_date,''))),'/','-')<=?
             AND REPLACE(TRIM(COALESCE(NULLIF(to_jdate,''),NULLIF(the_date,''),NULLIF(from_jdate,''))),'/','-')>=? LIMIT 1",[$subId,$to,$from]);
-        if($busy)Http::error('نیروی جایگزین در بازه انتخابی مرخصی یا مأموریت تأییدشده دارد',409);
     }
     // Persist the authenticated actor separately from the absent and substitute users.
     public static function prepareReservationAudit(): void {
@@ -149,9 +151,16 @@ final class LeaveSubstituteCoverage {
         if(!$range)return $answer;
         foreach($answer['substitutes'] as &$person){
             $id=(int)($person['id']??0);
-            if($id>0&&self::conflict($id,$range[0],$range[1])){
+            if($id<=0||empty($person['available']))continue;
+            if($id===(int)($user['id']??0)||!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$id])){
+                $person['available']=false;
+                $person['reason']='نیروی جایگزین فعال و واجد شرایط نیست';
+            }elseif(self::conflict($id,$range[0],$range[1])){
                 $person['available']=false;
                 $person['reason']='برای درخواست مرخصی دیگری در این بازه رزرو شده است';
+            }elseif(self::approvedAbsence($id,$range[0],$range[1])){
+                $person['available']=false;
+                $person['reason']='در این بازه مرخصی یا مأموریت تأییدشده دارد';
             }
         }
         unset($person);
