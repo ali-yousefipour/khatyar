@@ -237,6 +237,8 @@ final class LeaveSubstituteCoverage {
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
            JOIN users u ON u.id=sa.absent_user_id
            WHERE sa.substitute_user_id=? AND sa.status='active'
+             AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id
+             AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')
              AND sa.from_date<=? AND sa.to_date>=?",
            [$uid,$to,$from]);
         foreach($covers as $cover){
