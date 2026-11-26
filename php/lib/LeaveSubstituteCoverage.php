@@ -42,8 +42,18 @@ final class LeaveSubstituteCoverage {
         $sql.=" ORDER BY (r.status='approved') DESC,r.id ASC LIMIT 1";
         return Db::one($sql,$params);
     }
-    private static function ensureAvailable(int $subId,string $from,string $to,int $exclude=0,bool $earlierOnly=false): void {
-        $busy=self::conflict($subId,$from,$to,$exclude,$earlierOnly);
+    private static function ensureOpenRange(string $from,string $to): void {
+        if(!function_exists('_final_work_month'))return;
+        [$year,$month]=array_map('intval',explode('-',$from));
+        $last=substr($to,0,7);
+        for($n=0;sprintf('%04d-%02d',$year,$month)<=$last;$n++){
+            if($n>24)Http::error('بازه جایگزینی بیش از حد طولانی است',422);
+            if(_final_work_month($year,$month))Http::error('تغییر جایگزینی در ماه نهایی‌شده مجاز نیست',409);
+            if(++$month>12){$month=1;$year++;}
+        }
+    }
+    private static function ensureAvailable(int $subId,string $from,string $to,int $exclude=0,bool $earlierOnly=false,?array $request=null): void {
+        $busy=$request&&class_exists('ShiftCalc')?self::preciseConflict($subId,$request,$exclude):self::conflict($subId,$from,$to,$exclude,$earlierOnly);
         if($busy)Http::error('نیروی انتخاب‌شده در این بازه برای درخواست مرخصی دیگری رزرو شده یا جایگزینی تأییدشده دارد. جایگزین دیگری انتخاب کنید.',409);
     }
     private static function validatePerson(int $subId,int $ownerId,string $from,string $to): void {
@@ -53,7 +63,7 @@ final class LeaveSubstituteCoverage {
         if(self::approvedAbsence($subId,$from,$to))Http::error('نیروی جایگزین در بازه انتخابی مرخصی یا مأموریت تأییدشده دارد',409);
     }
     private static function approvedAbsence(int $subId,string $from,string $to): ?array {
-        return Db::one("SELECT id FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')
+        return Db::one("SELECT id FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission') AND COALESCE(unit,'daily')<>'hourly'
             AND REPLACE(TRIM(COALESCE(NULLIF(from_jdate,''),NULLIF(the_date,''))),'/','-')<=?
             AND REPLACE(TRIM(COALESCE(NULLIF(to_jdate,''),NULLIF(the_date,''),NULLIF(from_jdate,''))),'/','-')>=? LIMIT 1",[$subId,$to,$from]);
     }
@@ -101,10 +111,11 @@ final class LeaveSubstituteCoverage {
             return $original($params,$body,$user);
         $subId=(int)$body['substitute_user_id'];$range=self::range($body);
         if($subId<=0||!$range)return $original($params,$body,$user); // Canonical handler validates fields.
+        self::ensureOpenRange($range[0],$range[1]);
         self::lock($subId);
         try{
             self::validatePerson($subId,(int)($body['user_id']??$user['id']??0),$range[0],$range[1]);
-            self::ensureAvailable($subId,$range[0],$range[1]);
+            self::ensureAvailable($subId,$range[0],$range[1],0,false,array_replace($body,['user_id'=>(int)($body['user_id']??$user['id'])]));
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
     }
@@ -117,11 +128,12 @@ final class LeaveSubstituteCoverage {
         if(!$row||!self::eligible($row)||empty($row['substitute_user_id']))return $original($params,$body,$user);
         $subId=(int)$row['substitute_user_id'];$range=self::range($row);
         if(!$range)return $original($params,$body,$user);
+        self::ensureOpenRange($range[0],$range[1]);
         self::lock($subId);
         try{
             // Old duplicate pending requests can be resolved in creation order.
             self::validatePerson($subId,(int)$row['user_id'],$range[0],$range[1]);
-            self::ensureAvailable($subId,$range[0],$range[1],$id,true);
+            self::ensureAvailable($subId,$range[0],$range[1],$id,true,$row);
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
     }
@@ -133,14 +145,16 @@ final class LeaveSubstituteCoverage {
         // Do not block a text-only correction; canonical editor handles validation.
         if(!array_intersect(['substitute_user_id','from_jdate','to_jdate','the_date'],array_keys($body)))
             return $original($params,$body,$user);
+        $oldRange=self::range($row);if($oldRange)self::ensureOpenRange($oldRange[0],$oldRange[1]);
         $next=array_replace($row,array_intersect_key($body,array_flip(['substitute_user_id','from_jdate','to_jdate','the_date'])));
         if(!self::eligible($next)||empty($next['substitute_user_id']))return $original($params,$body,$user);
         $subId=(int)$next['substitute_user_id'];$range=self::range($next);
         if(!$range)return $original($params,$body,$user);
+        self::ensureOpenRange($range[0],$range[1]);
         self::lock($subId);
         try{
             self::validatePerson($subId,(int)$row['user_id'],$range[0],$range[1]);
-            self::ensureAvailable($subId,$range[0],$range[1],$id);
+            self::ensureAvailable($subId,$range[0],$range[1],$id,false,$next);
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
     }
@@ -155,7 +169,7 @@ final class LeaveSubstituteCoverage {
             if($id===(int)($user['id']??0)||!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$id])){
                 $person['available']=false;
                 $person['reason']='نیروی جایگزین فعال و واجد شرایط نیست';
-            }elseif(self::conflict($id,$range[0],$range[1])){
+            }elseif(self::preciseConflict($id,['user_id'=>(int)$user['id'],'from_jdate'=>$range[0],'to_jdate'=>$range[1]])){
                 $person['available']=false;
                 $person['reason']='برای درخواست مرخصی دیگری در این بازه رزرو شده است';
             }elseif(self::approvedAbsence($id,$range[0],$range[1])){
@@ -182,37 +196,250 @@ final class LeaveSubstituteCoverage {
                 $route['fn']=static fn($params,$body,$user)=>self::guardApprovedEdit($params,$body,$user,$original);
         }
         unset($route);
+        route('GET','/api/admin/substitute-calendar',static function($params,$body,$user){
+            if(empty($user['is_admin']))Http::error('دسترسی مدیریتی لازم است',403);
+            $uid=filter_var($_GET['user_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if(!$uid)Http::error('نیروی جایگزین را انتخاب کنید',422);
+            return self::status((int)$uid,!empty($_GET['include_history']));
+        },false,3);
+        route('GET','/api/admin/substitute-calendar/users',static function($params,$body,$user){
+            if(empty($user['is_admin']))Http::error('دسترسی مدیریتی لازم است',403);
+            return Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS name,u.is_active FROM users u WHERE (u.can_be_substitute=1 AND u.is_active=1) OR EXISTS(SELECT 1 FROM requests r WHERE r.substitute_user_id=u.id AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')) ORDER BY name,u.id");
+        },false,3);
         route('GET','/api/my/shift-cover-status',static function($params,$body,$user){
             return self::status((int)$user['id']);
         });
     }
-    private static function requesterShift(int $userId,string $date): ?array {
-        // Resolve the absent employee's OWN effective shift; never infer from
-        // the substitute employee's permanent shift.
-        if($userId<=0||!function_exists('_active_user_shift_assignment'))return null;
-        $shift=_active_user_shift_assignment($userId,$date);
-        if(!is_array($shift))return null;
-        $title=trim((string)($shift['title']??$shift['shift_title']??$shift['type']??''));
-        $result=['title'=>$title,'type'=>(string)($shift['type']??''),'segments'=>[],'minutes'=>null];
-        $sid=(int)($shift['shift_id']??$shift['id']??0);
-        if($sid>0&&function_exists('_shift_day_row')){
-            $row=_shift_day_row($sid,$date);
-            if(is_array($row)){
-                $segments=$row['segments']??($row['day_config']['segments']??[]);
-                if(is_string($segments))$segments=json_decode($segments,true);
-                if(is_array($segments))$result['segments']=array_slice($segments,0,10);
-                $minute=$row['duty_min']??($row['day_config']['duty_min']??null);
-                if(is_numeric($minute))$result['minutes']=(int)$minute;
+    /** Own assignment only: replacement chains must not redefine the source duty. */
+    public static function ownShift(int $userId,string $date): ?array {
+        $rows=Db::all("SELECT us.shift_id,us.from_jdate,us.to_jdate,s.* FROM user_shifts us LEFT JOIN shifts s ON s.id=us.shift_id WHERE us.user_id=? AND (us.shift_id=0 OR s.is_active=1) ORDER BY us.id DESC",[$userId]);
+        foreach($rows as $row){
+            $from=self::day($row['from_jdate']??'');$to=self::day($row['to_jdate']??'');
+            if(($from&&$date<$from)||($to&&$date>$to))continue;
+            if((int)$row['shift_id']===0)return function_exists('_auto_shift_for_user')?_auto_shift_for_user($userId):null;
+            return $row;
+        }
+        return null;
+    }
+    public static function ownWindows(int $userId,string $date): ?array {
+        $shift=self::ownShift($userId,$date);
+        if(!$shift)return [];
+        // Floating duty without fixed clock bounds cannot safely prove non-overlap.
+        if(in_array(($shift['type']??''),['floating','auto'],true))return null;
+        $row=null;$id=(int)($shift['shift_id']??$shift['id']??0);
+        if($id>0&&function_exists('_shift_day_row'))$row=_shift_day_row($id,$date);
+        $config=ShiftCalc::parseJson($row['day_config']??null);
+        if(($config['type']??'')==='floating')return null;
+        $segments=ShiftCalc::daySegments($shift,$date,$row);
+        $base=ShiftCalc::jdateToTs($date);if($base===null)return null;
+        $windows=[];
+        foreach($segments as $segment){
+            $window=ShiftCalc::segmentWindow($segment,$base);
+            if(!$window)return null;
+            $windows[]=$window;
+        }
+        return $windows;
+    }
+    /** Null means the schedule cannot prove availability and must fail closed. */
+    public static function requestWindows(array $request): ?array {
+        $range=self::range($request);$owner=(int)($request['user_id']??0);
+        if(!$range||$owner<=0)return null;
+        $date=$range[0];$windows=[];
+        for($count=0;$date<=$range[1];$count++){
+            if($count>=367)return null;
+            $dayWindows=self::ownWindows($owner,$date);
+            if($dayWindows===null)return null;
+            foreach($dayWindows as $window)$windows[]=$window;
+            $next=ShiftCalc::jdateAddDays($date,1);
+            if(!$next||$next<=$date)return null;
+            $date=$next;
+        }
+        return $windows;
+    }
+    private static array $syntheticDays=[];
+    public static function syntheticDay(int $id,string $date): ?array {return self::$syntheticDays[$id][$date]??null;}
+    private static function fixedSource(int $uid,string $date): ?array {
+        $shift=self::ownShift($uid,$date);if(!$shift||!in_array($shift['type']??'',['simple','advanced','rotating'],true))return null;
+        $id=(int)($shift['shift_id']??$shift['id']??0);
+        $row=$id>0?_shift_day_row($id,$date):null;
+        $cfg=ShiftCalc::parseJson($row['day_config']??null);
+        if(($cfg['type']??'')==='floating')return null;
+        $segments=ShiftCalc::daySegments($shift,$date,$row);
+        $policy=$shift;
+        foreach(['id','shift_id','user_id','from_jdate','to_jdate','title','weekly','advanced','created_at','updated_at'] as $key)unset($policy[$key]);
+        ksort($policy);ksort($cfg);
+        return ['shift'=>$shift,'segments'=>$segments,'config'=>$cfg,'signature'=>json_encode([$policy,$cfg])];
+    }
+    public static function compatibleRequests(array $left,array $right): bool {
+        $a=self::range($left);$b=self::range($right);if(!$a||!$b)return false;
+        $from=max($a[0],$b[0]);$to=min($a[1],$b[1]);
+        if($from>$to)return false;
+        for($date=$from,$n=0;$date<=$to;$date=ShiftCalc::jdateAddDays($date,1),$n++){
+            if(!$date||$n>366)return false;
+            $x=self::fixedSource((int)$left['user_id'],$date);$y=self::fixedSource((int)$right['user_id'],$date);
+            if(!$x||!$y||$x['signature']!==$y['signature'])return false;
+        }
+        $x=self::requestWindows($left);$y=self::requestWindows($right);
+        return $x!==null&&$y!==null&&!self::windowsOverlap($x,$y);
+    }
+    public static function preciseConflict(int $sub,array $request,int $exclude=0): ?array {
+        if(!function_exists('jalali_to_gregorian')||!function_exists('gregorian_to_jalali')){
+            $range=self::range($request);return $range?self::conflict($sub,$range[0],$range[1],$exclude):['id'=>0];
+        }
+        $rows=Db::all("SELECT id,user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE substitute_user_id=? AND id<>? AND type='annual' AND (unit='daily' OR unit IS NULL OR unit='') AND status IN ('pending','approved')",[$sub,$exclude]);
+        $range=self::range($request);if(!$range)return ['id'=>0];
+        $requested=self::requestWindows($request);
+        $hourly=Db::all("SELECT id,from_jdate,to_jdate,the_date,from_time,to_time FROM requests WHERE user_id=? AND status='approved' AND unit='hourly' AND type IN ('annual','sick','unpaid','mission')",[$sub]);
+        foreach($hourly as $absence){
+            $absenceRange=self::range($absence);if(!$absenceRange)continue;
+            $first=ShiftCalc::jdateAddDays($range[0],-1);$last=ShiftCalc::jdateAddDays($range[1],1);
+            if($absenceRange[0]>$last||$absenceRange[1]<$first)continue;
+            if($requested===null)return ['id'=>$absence['id'],'conflict_type'=>'hourly_absence'];
+            for($date=max($first,$absenceRange[0]),$n=0;$date&&$date<=min($last,$absenceRange[1]);$date=ShiftCalc::jdateAddDays($date,1),$n++){
+                if($n>369)return ['id'=>$absence['id'],'conflict_type'=>'range'];
+                $window=ShiftCalc::segmentWindow(['s'=>$absence['from_time'],'e'=>$absence['to_time']],ShiftCalc::jdateToTs($date));
+                if(!$window||self::windowsOverlap($requested,[$window]))return ['id'=>$absence['id'],'conflict_type'=>'hourly_absence'];
             }
         }
+
+        $start=ShiftCalc::jdateAddDays($range[0],-1);$last=ShiftCalc::jdateAddDays($range[1],1);
+        for($date=$start,$n=0;$date&&$date<=$last;$date=ShiftCalc::jdateAddDays($date,1),$n++){
+            if($n>369)return ['id'=>0,'conflict_type'=>'range'];
+            $own=self::ownWindows($sub,$date);
+            if($own===null||($own&&($requested===null||self::windowsOverlap($requested,$own))))return ['id'=>0,'conflict_type'=>'own_shift'];
+            if($own){
+                $source=self::fixedSource((int)$request['user_id'],$date);$primary=self::fixedSource($sub,$date);
+                if(!$source||!$primary||$source['signature']!==$primary['signature'])return ['id'=>0,'conflict_type'=>'own_policy'];
+            }
+        }
+
+        foreach($rows as $row){
+            $other=self::range($row);if(!$other)continue;
+            // Include adjacent days because an overnight shift can cross the date boundary.
+            $from=ShiftCalc::jdateAddDays($range[0],-1);$to=ShiftCalc::jdateAddDays($range[1],1);
+            if($other[0]>$to||$other[1]<$from)continue;
+            if($other[0]<=$range[1]&&$other[1]>=$range[0]){
+                if(!self::compatibleRequests($request,$row))return $row;
+            }else{
+                $x=self::requestWindows($request);$y=self::requestWindows($row);
+                if($x===null||$y===null||self::windowsOverlap($x,$y))return $row;
+            }
+        }
+        return null;
+    }
+    public static function composite(int $uid,string $date): ?array {
+        if(function_exists('_db_table_exists_safe')&&!_db_table_exists_safe('substitute_assignments'))return null;
+        $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id",[$uid,$date,$date]);
+        if(!$rows)return null;
+        $primary=self::fixedSource($uid,$date);
+        if($primary&&!empty($primary['segments']))array_unshift($rows,['request_id'=>0,'absent_user_id'=>$uid]);
+        if(count($rows)<2)return null;
+        $signature=null;$first=null;$segments=[];$seen=[];$windows=[];$explicitDuty=0;$hasExplicitDuty=false;
+        foreach($rows as $row){
+            if(isset($seen[$row['request_id']]))continue;$seen[$row['request_id']]=true;
+            $source=self::fixedSource((int)$row['absent_user_id'],$date);
+            if(!$source||($signature!==null&&$signature!==$source['signature']))return null;
+            $signature=$source['signature'];$first=$first??$source;
+            if(isset($source['config']['duty_min'])&&$source['config']['duty_min']!==''){
+                $hasExplicitDuty=true;$explicitDuty+=max(0,(int)$source['config']['duty_min']);
+            }
+            foreach($source['segments'] as $seg){
+                $win=ShiftCalc::segmentWindow($seg,ShiftCalc::jdateToTs($date));
+                if(!$win||self::windowsOverlap($windows,[$win]))return null;
+                $windows[]=$win;$seg['request_id']=(int)$row['request_id'];$seg['absent_user_id']=(int)$row['absent_user_id'];$segments[]=$seg;
+            }
+        }
+        if($hasExplicitDuty)$first['config']['duty_min']=$explicitDuty;
+        $id=-max(1,$uid);self::$syntheticDays[$id][$date]=['segments'=>$segments,'is_off'=>!$segments,'day_config'=>$first['config']];
+        $shift=$first['shift'];$shift['shift_id']=$id;$shift['id']=$id;$shift['type']='advanced';$shift['is_substitute_shift']=1;$shift['substitute_sources']=$rows;$shift['title']='شیفت‌های جایگزینی';return $shift;
+    }
+    public static function windowsOverlap(array $left,array $right): bool {
+        foreach($left as $a)foreach($right as $b)if($a[0]<$b[1]&&$b[0]<$a[1])return true;
+        return false;
+    }
+    private static function requesterShift(int $userId,string $date,array &$context): ?array {
+        if($userId<=0)return null;
+        $shift=null;
+        foreach($context['assignments'][$userId]??[] as $candidate){
+            $from=self::day($candidate['from_jdate']??'');$to=self::day($candidate['to_jdate']??'');
+            if(($from&&$date<$from)||($to&&$date>$to))continue;
+            if((int)$candidate['shift_id']===0){
+                if(!array_key_exists($userId,$context['auto']))$context['auto'][$userId]=function_exists('_auto_shift_for_user')?_auto_shift_for_user($userId):null;
+                $shift=$context['auto'][$userId];
+            }else $shift=$candidate;
+            break;
+        }
+        if(!is_array($shift))return null;
+        $sid=(int)($shift['shift_id']??$shift['id']??0);
+        $row=$context['days'][$sid][$date]??null;
+        $config=ShiftCalc::parseJson($row['day_config']??null);
+        if(($config['type']??'')==='floating')return null;
+        $segments=ShiftCalc::daySegments($shift,$date,$row);
+        $minutes=0;
+        foreach($segments as $segment)$minutes+=ShiftCalc::segmentLength($segment);
+        return ['id'=>$sid,'title'=>trim((string)($shift['title']??$shift['shift_title']??$shift['type']??'')),
+            'type'=>(string)($shift['type']??''),'segments'=>array_values($segments),
+            'minutes'=>($shift['type']??'')==='floating'?null:$minutes,
+            // No historical service-location field exists on this assignment source.
+            'line_id'=>null,'line_name'=>null,'service_location'=>null];
+    }
+    private static function reservationMetadata(array $ids,int $uid): array {
+        if(!$ids||!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('leave_reservation_audit'))return [];
+        $slots=implode(',',array_fill(0,count($ids),'?'));
+        $rows=Db::all("SELECT a.id reservation_id,a.request_id,a.actor_id reserved_by_user_id,a.created_at reserved_at,
+            TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) reserved_by_name,a.event
+            FROM leave_reservation_audit a LEFT JOIN users u ON u.id=a.actor_id
+            WHERE a.substitute_user_id=? AND a.request_id IN ($slots) ORDER BY a.id DESC",array_merge([$uid],$ids));
+        $result=[];
+        foreach($rows as $row){$id=(int)$row['request_id'];if(!isset($result[$id]))$result[$id]=$row;}
         return $result;
     }
-    public static function status(int $uid): array {
+    /** Warnings cover loaded substitute reservations only; registration guards have broader duties. */
+    private static function calendarConflicts(array &$days): void {
+        $events=[];
+        foreach($days as $date=>&$day)foreach(['cover','reservations'] as $kind){
+            if(!isset($day[$kind]))continue;
+            foreach($day[$kind] as $index=>&$entry){
+                $entry['conflict']=false;$entry['conflicts']=[];$entry['conflict_scope']='substitute_reservations';
+                $shift=$entry['shift']??null;$segments=$shift['segments']??[];$windows=[];
+                $complete=is_array($shift)&&!in_array($shift['type']??'',['floating','auto'],true)&&count($segments)>0;
+                $base=ShiftCalc::jdateToTs($date);
+                foreach($segments as $segment){
+                    $window=$base===null?null:ShiftCalc::segmentWindow($segment,$base);
+                    if(!$window){$complete=false;continue;}
+                    $windows[]=$window;
+                }
+                $entry['conflict_check_complete']=$complete;
+                $events[]=['date'=>$date,'kind'=>$kind,'index'=>$index,'request_id'=>(int)$entry['request_id'],
+                    'absent_name'=>$entry['absent_name'],'windows'=>$windows];
+            }unset($entry);
+        }unset($day);
+        $count=count($events);
+        for($i=0;$i<$count;$i++)for($j=$i+1;$j<$count;$j++){
+            $left=$events[$i];$right=$events[$j];
+            if(!self::windowsOverlap($left['windows'],$right['windows']))continue;
+            foreach([[$left,$right],[$right,$left]] as [$entry,$other]){
+                $target=&$days[$entry['date']][$entry['kind']][$entry['index']];$target['conflict']=true;
+                $target['conflicts'][]=['request_id'=>$other['request_id'],'date'=>$other['date'],
+                    'absent_name'=>$other['absent_name'],
+                    'intervals'=>array_map(static fn($window)=>['start'=>date('Y-m-d H:i:s',$window[0]),'end'=>date('Y-m-d H:i:s',$window[1])],$other['windows'])];
+                unset($target);
+            }
+        }
+    }
+    public static function status(int $uid,bool $includeHistory=false): array {
         $input=explode(',',(string)($_GET['dates']??''));
         $dates=[];
-        foreach($input as $raw){$d=self::day($raw);if($d)$dates[$d]=true;}
+        foreach($input as $raw){$d=self::day($raw);if(!$d)Http::error('تاریخ تقویم نامعتبر است',422);$dates[$d]=true;}
         if(!$dates||count($dates)>40)Http::error('تاریخ‌های تقویم نامعتبر هستند',422);
         $keys=array_keys($dates);sort($keys);$from=$keys[0];$to=end($keys);
+        $viewFrom=$from;$viewTo=$to;
+        // Include adjacent entry-owned night shifts, including legacy >24-hour clock values.
+        for($offset=1;$offset<=3;$offset++){
+            $before=ShiftCalc::jdateAddDays($viewFrom,-$offset);$after=ShiftCalc::jdateAddDays($viewTo,$offset);
+            if($before)$keys[]=$before;if($after)$keys[]=$after;
+        }
+        $keys=array_values(array_unique($keys));sort($keys);$from=$keys[0];$to=end($keys);
         $output=[];
         $leaves=Db::all("SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time
           FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick')
@@ -230,23 +457,119 @@ final class LeaveSubstituteCoverage {
                 ];
             }
         }
-        $covers=Db::all("SELECT sa.from_date,sa.to_date,r.id AS request_id,
+        $covers=Db::all("SELECT sa.id assignment_id,sa.from_date,sa.to_date,r.id AS request_id,r.created_at request_created_at,
                 sa.absent_user_id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
            FROM substitute_assignments sa
            JOIN requests r ON r.id=sa.request_id AND r.status='approved'
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
            JOIN users u ON u.id=sa.absent_user_id
            WHERE sa.substitute_user_id=? AND sa.status='active'
-             AND sa.from_date<=? AND sa.to_date>=?",
+             AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC",
            [$uid,$to,$from]);
+        // Pending reservations are advisory and never enter the confirmed cover list.
+        $pending=Db::all("SELECT r.id,r.user_id,r.from_jdate,r.to_jdate,r.the_date,
+            TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS absent_name
+            FROM requests r JOIN users u ON u.id=r.user_id
+            WHERE r.substitute_user_id=? AND r.status='pending' AND r.type='annual'
+              AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
+              AND REPLACE(TRIM(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,''))),'/','-')<=?
+              AND REPLACE(TRIM(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.the_date,''),NULLIF(r.from_jdate,''))),'/','-')>=?",[$uid,$to,$from]);
+        $owners=[];
+        foreach($covers as $r)$owners[(int)$r['absent_user_id']]=true;
+        foreach($pending as $r)$owners[(int)$r['user_id']]=true;
+        $context=['assignments'=>[],'days'=>[],'auto'=>[]];
+        if($owners){
+            $ids=array_keys($owners);$slots=implode(',',array_fill(0,count($ids),'?'));
+            $assignments=Db::all("SELECT us.user_id,us.shift_id,us.from_jdate,us.to_jdate,s.* FROM user_shifts us LEFT JOIN shifts s ON s.id=us.shift_id WHERE us.user_id IN ($slots) AND (us.shift_id=0 OR s.is_active=1) ORDER BY us.id DESC",$ids);
+            $shiftIds=[];
+            foreach($assignments as $row){$context['assignments'][(int)$row['user_id']][]=$row;if((int)$row['shift_id']>0)$shiftIds[(int)$row['shift_id']]=true;}
+            if($shiftIds){
+                $ids=array_keys($shiftIds);$slots=implode(',',array_fill(0,count($ids),'?'));
+                foreach(Db::all("SELECT shift_id,jdate,segments,is_off,day_config FROM shift_days WHERE shift_id IN ($slots) AND jdate>=? AND jdate<=?",array_merge($ids,[$from,$to])) as $row){
+                    $context['days'][(int)$row['shift_id']][str_replace('/','-',$row['jdate'])]=$row;
+                }
+            }
+        }
+        $seenCovers=[];
         foreach($covers as $cover){
             $a=self::day($cover['from_date']??'');$b=self::day($cover['to_date']??'');
             if(!$a||!$b)continue;
             foreach($keys as $day){
                 if($day<$a||$day>$b)continue;
-                $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_name'=>$cover['absent_name'],'shift'=>self::requesterShift((int)$cover['absent_user_id'],$day)];
+                $key=(int)$cover['request_id'].':'.$day;
+                if(isset($seenCovers[$key]))continue;
+                $seenCovers[$key]=true;
+                $shift=self::requesterShift((int)$cover['absent_user_id'],$day,$context);
+                if($shift&&$shift['type']!=='floating'&&!$shift['segments'])continue;
+                $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],
+                    'assignment_id'=>isset($cover['assignment_id'])?(int)$cover['assignment_id']:null,
+                    'request_created_at'=>$cover['request_created_at']??null,'absent_name'=>$cover['absent_name'],
+                    'status'=>'confirmed','request_status'=>'approved','is_confirmed'=>true,'shift'=>$shift];
             }
         }
-        return ['days'=>$output,'from'=>$from,'to'=>$to];
+        foreach($pending as $reservation){
+            $range=self::range($reservation);if(!$range)continue;
+            foreach($keys as $date){
+                if($date<$range[0]||$date>$range[1])continue;
+                $output[$date]['reservations'][]=[
+                    'request_id'=>(int)$reservation['id'],
+                    'absent_user_id'=>(int)$reservation['user_id'],
+                    'absent_name'=>$reservation['absent_name'],
+                    'status'=>'pending','is_confirmed'=>false,
+                    'shift'=>self::requesterShift((int)$reservation['user_id'],$date,$context)
+                ];
+            }
+        }
+        if($includeHistory){
+            $history=Db::all("SELECT r.id,r.user_id,r.status,r.from_jdate,r.to_jdate,r.the_date,r.created_at,
+                TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS absent_name
+                FROM requests r JOIN users u ON u.id=r.user_id
+                WHERE r.substitute_user_id=? AND r.status IN ('rejected','cancelled','canceled') AND r.type='annual'
+                  AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
+                  AND REPLACE(TRIM(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,''))),'/','-')<=?
+                  AND REPLACE(TRIM(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.the_date,''),NULLIF(r.from_jdate,''))),'/','-')>=?",[$uid,$to,$from]);
+            foreach($history as $r){
+                $range=self::range($r);if(!$range)continue;
+                foreach($keys as $date){
+                    if($date<$range[0]||$date>$range[1])continue;
+                    $output[$date]['history'][]=['request_id'=>(int)$r['id'],'absent_user_id'=>(int)$r['user_id'],
+                        'absent_name'=>$r['absent_name'],'status'=>$r['status'],'request_status'=>$r['status'],
+                        'is_confirmed'=>false,'shift'=>null,'request_created_at'=>$r['created_at']??null];
+                }
+            }
+        }
+        // Audit ranges retain reservations released by replacing the substitute or moving dates.
+        if($includeHistory&&function_exists('_db_table_exists_safe')&&_db_table_exists_safe('leave_reservation_audit')){
+            $released=Db::all("SELECT a.id reservation_id,a.request_id,a.absent_user_id,a.from_date,a.to_date,a.created_at reserved_at,a.actor_id reserved_by_user_id,a.event,
+                TRIM(CONCAT_WS(' ',actor.first_name,actor.last_name)) reserved_by_name,
+                r.substitute_user_id current_substitute_user_id,r.status current_status,r.from_jdate,r.to_jdate,r.the_date,
+                TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) absent_name
+                FROM leave_reservation_audit a JOIN requests r ON r.id=a.request_id LEFT JOIN users u ON u.id=a.absent_user_id LEFT JOIN users actor ON actor.id=a.actor_id
+                WHERE a.substitute_user_id=? AND a.from_date<=? AND a.to_date>=? ORDER BY a.id DESC",[$uid,$to,$from]);
+            $seen=[];
+            foreach($released as $r){
+                $a=self::day($r['from_date']??'');$b=self::day($r['to_date']??'');if(!$a||!$b)continue;
+                $current=self::range($r);
+                foreach($keys as $date){
+                    if($date<$a||$date>$b)continue;
+                    $key=(int)$r['request_id'].':'.$date;if(isset($seen[$key]))continue;$seen[$key]=true;
+                    // Current dates remain covered by active or cancelled request records above.
+                    if((int)($r['current_substitute_user_id']??0)===$uid&&$current&&$date>=$current[0]&&$date<=$current[1])continue;
+                    $output[$date]['history'][]=['request_id'=>(int)$r['request_id'],'absent_user_id'=>(int)$r['absent_user_id'],
+                        'absent_name'=>$r['absent_name'],'status'=>'released','request_status'=>$r['current_status'],
+                        'reservation_id'=>(int)$r['reservation_id'],'reserved_at'=>$r['reserved_at'],'reserved_by_user_id'=>(int)$r['reserved_by_user_id'],'reserved_by_name'=>$r['reserved_by_name'],'event'=>$r['event'],'is_confirmed'=>false,'shift'=>null];
+                }
+            }
+        }
+        $ids=[];
+        foreach($output as $day)foreach(['cover','reservations','history'] as $kind)foreach($day[$kind]??[] as $entry)$ids[(int)$entry['request_id']]=true;
+        $metadata=self::reservationMetadata(array_keys($ids),$uid);
+        foreach($output as &$day)foreach(['cover','reservations','history'] as $kind){
+            if(!isset($day[$kind]))continue;
+            foreach($day[$kind] as &$entry){$entry['substitute_user_id']=$uid;$entry=array_merge($metadata[(int)$entry['request_id']]??[],$entry);}unset($entry);
+        }unset($day);
+        self::calendarConflicts($output);
+        $output=array_intersect_key($output,$dates);
+        return ['days'=>$output,'from'=>$viewFrom,'to'=>$viewTo,'conflict_scope'=>'substitute_reservations'];
     }
 }

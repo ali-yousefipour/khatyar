@@ -3524,6 +3524,10 @@ function _active_user_shift_assignment($userId, $jdate=null){
 }
 function _active_user_shift_assignment_uncached($userId, $jdate=null){
   $jdate = $jdate ? str_replace('/','-',$jdate) : null;
+  if($jdate&&class_exists('LeaveSubstituteCoverage')){
+    $composite=LeaveSubstituteCoverage::composite((int)$userId,$jdate);
+    if($composite)return $composite;
+  }
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
     try {
@@ -3580,6 +3584,7 @@ function _active_user_shift_assignment_uncached($userId, $jdate=null){
   return null;
 }
 function _shift_day_row($shiftId, $jdate){
+  if((int)$shiftId<0&&class_exists('LeaveSubstituteCoverage'))return LeaveSubstituteCoverage::syntheticDay((int)$shiftId,str_replace('/','-',$jdate));
   return WorkReportReadScope::remember('shift-day:'.(int)$shiftId.':'.str_replace('/','-',$jdate),static fn()=>Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=?", [(int)$shiftId, str_replace('/','-',$jdate)]));
 }
 function _attendance_day_bounds($jdate){
@@ -5895,7 +5900,11 @@ function _date_ranges_overlap($from1,$to1,$from2,$to2){
 
 // بررسی در دسترس بودن یک نیروی جایگزین در بازهٔ مشخص
 // خروجی: ['available'=>bool, 'reason'=>string|null]
-function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=null,$prepareStorage=true){
+function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=null,$prepareStorage=true,$ownerId=null){
+  if($ownerId && class_exists('LeaveSubstituteCoverage')){
+    $conflict=LeaveSubstituteCoverage::preciseConflict((int)$subId,['user_id'=>(int)$ownerId,'from_jdate'=>$fromDate,'to_jdate'=>$toDate],(int)$excludeRequestId);
+    return ['available'=>!$conflict,'reason'=>$conflict?'نیروی جایگزین در این بازه رزرو یا تخصیص متداخل دارد':null];
+  }
   // اطمینان از وجود جدول
   if($prepareStorage){try { Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }}
 
@@ -5982,7 +5991,7 @@ route('GET', '/api/my/substitutes', function($p,$b,$u){
     WHERE u.can_be_substitute=1 AND u.is_active=1 AND u.id<>? ORDER BY name", [$u['id']]);
   $out = [];
   foreach ($rows as $r) {
-    $av = ($from && $to) ? _substitute_availability($r['id'], $from, $to) : ['available'=>true, 'reason'=>null];
+    $av = ($from && $to) ? _substitute_availability($r['id'], $from, $to,null,true,(int)$u['id']) : ['available'=>true, 'reason'=>null];
     $out[] = ['id'=>$r['id'], 'name'=>$r['name'], 'role_title'=>$r['role_title'],
               'available'=>$av['available'], 'reason'=>$av['reason']];
   }
@@ -5995,7 +6004,7 @@ route('POST', '/api/my/check-leave-window', function($p,$b,$u){
   if (!$from) Http::error('تاریخ لازم است', 422);
   $blocked = _leave_blocked_in_range($from, $to);
   $subId = !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
-  $subAv = $subId ? _substitute_availability($subId, $from, $to) : null;
+  $subAv = $subId ? _substitute_availability($subId, $from, $to,null,true,(int)$u['id']) : null;
   return [
     'blocked' => $blocked ? true : false,
     'blocked_date' => $blocked['jdate'] ?? null,
@@ -6230,7 +6239,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
       $blocked = _leave_blocked_in_range($fromD, $toD);
       if ($blocked) Http::error('در بازهٔ انتخابی، روز «'.$blocked['jdate'].'» جزو روزهای ممنوعهٔ مرخصی است'.(!empty($blocked['reason'])?' ('.$blocked['reason'].')':'').'. لطفاً تاریخ دیگری انتخاب کنید.', 422);
       if ($sub) {
-        $av = _substitute_availability($sub, $fromD, $toD);
+        $av = _substitute_availability($sub, $fromD, $toD,null,true,(int)$u['id']);
         if (!$av['available']) Http::error($av['reason'] ?: 'نیروی جایگزین در این بازه در دسترس نیست.', 422);
       }
     }
@@ -6738,7 +6747,7 @@ function _req_apply_approval_effects(array $request,int $id){
     if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE",[(int)$request['substitute_user_id']]))Http::error('نیروی جایگزین فعال نیست',422);
     $from=$request['from_jdate']?:$request['the_date'];
     $to=$request['to_jdate']?:($request['the_date']?:$from);
-    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1 FOR UPDATE",[(int)$request['substitute_user_id'],$id,$to,$from]);
+    $conflict=class_exists('LeaveSubstituteCoverage')?LeaveSubstituteCoverage::preciseConflict((int)$request['substitute_user_id'],$request,$id):Db::one("SELECT sa.id FROM substitute_assignments sa WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1 FOR UPDATE",[(int)$request['substitute_user_id'],$id,$to,$from]);
     if($conflict)Http::error('نیروی جایگزین در این بازه جایگزینی تأییدشدهٔ دیگری دارد',409);
     if($from&&$to&&!Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'",[$id]))
       Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",[(int)$request['substitute_user_id'],$id,(int)$request['user_id'],$from,$to]);
@@ -6970,7 +6979,7 @@ function _req_edit_approved($id,array $body,array $actor){
         if(_req_leave_substitute_required($uid)&&empty($after['substitute_user_id']))Http::error('برای مرخصی استحقاقی روزانه نیروی جایگزین لازم است.',422);
         if(!empty($after['substitute_user_id'])){
           if((int)$after['substitute_user_id']===$uid||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE',[(int)$after['substitute_user_id']]))Http::error('نیروی جایگزین فعال و معتبر انتخاب کنید.',422);
-          $available=_substitute_availability((int)$after['substitute_user_id'],$after['from_jdate'],$after['to_jdate'],$id,false);
+          $available=_substitute_availability((int)$after['substitute_user_id'],$after['from_jdate'],$after['to_jdate'],$id,false,(int)$after['user_id']);
           if(!$available['available'])Http::error($available['reason'],409);
         }
       }

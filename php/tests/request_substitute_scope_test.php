@@ -7,10 +7,11 @@ class Db {
     if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7];
     return ['Field'=>'substitute_user_id'];
   }
-  static function all($sql,$args=[]){if(str_contains($sql,'FROM staff_attendance'))return [];throw new LogicException('Unexpected read: '.$sql);}
+  static function all($sql,$args=[]){if(str_contains($sql,'FROM staff_attendance'))return [];if(str_contains($sql,'FROM users u LEFT JOIN roles'))return [['id'=>7,'name'=>'جایگزین'],['id'=>12,'name'=>'درخواست‌کننده']];throw new LogicException('Unexpected read: '.$sql);}
   static function run($sql,$args=[]){}
   static function insert($sql,$args=[]){self::$insert=$args;return 1;}
 }
+require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 class Push {static function send(...$args){} static function notify(...$args){}}
 function _ensure_requests_table(){}
 function _manual_provisional_schema(){}

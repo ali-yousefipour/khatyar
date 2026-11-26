@@ -99,6 +99,13 @@ jobs:
           php -l lib/SchoolComplaintNotifications.php
           php -l lib/LeaveSubstituteCoverage.php
           php tests/leave_substitute_pending_guard_test.php
+          php tests/request_substitute_scope_test.php
+          php tests/substitute_interval_test.php
+          php tests/substitute_composite_test.php
+          php tests/substitute_lock_test.php
+          node tests/shift_manager_tabs_ui_test.cjs
+          node tests/substitute_calendar_dates_test.cjs
+          node tests/substitute_calendar_behavior_test.cjs
           php -l app/cron_bale.php
           php -l lib/CompanyWork.php
           php -l app/api/admin-attendance-report-owned.php

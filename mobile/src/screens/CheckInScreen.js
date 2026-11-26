@@ -1466,7 +1466,18 @@ function CheckInShiftTab(){
         </TouchableOpacity>
         {active?<View style={s.shiftDetails}>
           {leaveCaption?<View style={s.shiftLeaveNotice}><Text style={s.shiftLeaveNoticeTitle}>{leaveCaption}</Text><Text style={s.shiftLeaveNoticeText}>درخواست مرخصی برای این تاریخ تأیید شده است.</Text>{(coverageDay.leave||[]).filter(v=>v.unit==='hourly').map((v,i)=><Text key={'hourly-'+i} style={s.shiftLeaveNoticeText}>بازه مرخصی: {shiftTimeFa(v.from_time)} تا {shiftTimeFa(v.to_time)}</Text>)}</View>:null}
-          {coverCaption?<View style={s.shiftCoverNotice}><Text style={s.shiftCoverNoticeTitle}>مأموریت جایگزینی تأییدشده</Text><Text style={s.shiftCoverNoticeText}>در این تاریخ به جای: {coverNames.join('، ')}</Text><Text style={s.shiftCoverNoticeText}>شیفت نیروی مرخصی‌گیرنده: {kind}</Text><Text style={s.shiftCoverNoticeText}>ساعت‌های شیفت درخواست‌دهنده در بخش زیر نمایش داده می‌شوند؛ اگر برنامه ثبت نشده باشد، ساعت ساختگی نمایش داده نمی‌شود.</Text></View>:null}
+          {(coverageDay.cover||[]).map(cover=><View key={'cover-'+cover.request_id} style={s.shiftCoverNotice}>
+            <Text style={s.shiftCoverNoticeTitle}>جایگزینی تأییدشده: {cover.absent_name}</Text>
+            <Text style={s.shiftCoverNoticeText}>{cover.shift?.title||'عنوان شیفت ثبت نشده'}</Text>
+            {shiftIntervals(cover.shift).length?shiftIntervals(cover.shift).map((interval,i)=><Text key={i} style={s.shiftCoverNoticeText}>ورود {shiftTimeFa(interval.start)} تا خروج {shiftTimeFa(interval.end)}</Text>):<Text style={s.shiftCoverNoticeText}>ساعت معتبر این تخصیص در پاسخ سرور مشخص نشده است.</Text>}
+            {cover.reserved_by_name?<Text style={s.shiftCoverNoticeText}>رزروکننده: {cover.reserved_by_name}</Text>:null}
+          </View>)}
+          {(coverageDay.reservations||[]).map(reservation=><View key={'reservation-'+reservation.request_id} style={s.shiftLeaveNotice}>
+            <Text style={s.shiftLeaveNoticeTitle}>رزرو جایگزینی — در انتظار تأیید</Text>
+            <Text style={s.shiftLeaveNoticeText}>به‌جای: {reservation.absent_name||'نام ثبت نشده'}</Text>
+            <Text style={s.shiftLeaveNoticeText}>این رزرو هنوز تخصیص قطعی و الزام حضور نیست.</Text>
+            {shiftIntervals(reservation.shift).map((interval,i)=><Text key={i} style={s.shiftLeaveNoticeText}>{shiftTimeFa(interval.start)} تا {shiftTimeFa(interval.end)}</Text>)}
+          </View>)}
           <Text style={s.shiftDetailHeading}>نوع شیفت: {kind}</Text>
           {!coverCaption&&d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج شیفت تأییدشده در پاسخ سرور مشخص نشده است.</Text>}
           <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {coverCaption?(requesterShift?.minutes==null?'—':fmtMinFa(requesterShift.minutes)):(d.is_off?'—':fmtMinFa(d.minutes))}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>

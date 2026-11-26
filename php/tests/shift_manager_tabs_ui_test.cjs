@@ -9,7 +9,7 @@ function block(name){
   return source.slice(a,b);
 }
 const manager=block('ShiftManager');
-for(const key of ['shifts','assign','autoRules','userRules','shiftOps','rejectLogs','offlineConflicts','holidays','blocked','leavebal']){
+for(const key of ['shifts','assign','autoRules','userRules','shiftOps','rejectLogs','offlineConflicts','holidays','blocked','leavebal','substituteCalendar']){
   assert(manager.includes('tab==="'+key+'"'),'Missing shift tab '+key);
 }
 for(const section of ['برنامه‌ریزی','کنترل و پایش','تقویم و مرخصی']){
@@ -34,3 +34,15 @@ assert(block('LeaveBalanceInit').includes('دریافت مانده مرخصی ن
 const rules=block('AutoShiftRules');
 assert(rules.includes('Number(v.m)>59')&&rules.includes('saving!==null'),'Rule editor requires validation and single-flight');
 console.log('PASS all 10 shift manager tabs, UI, and safety guards');
+
+const vm=require('node:vm');
+const context={Intl,Date};vm.createContext(context);
+vm.runInContext(block('substituteMonthDays'),context);
+assert.equal(context.substituteMonthDays(1403,12).length,30,'Leap Esfand');
+assert.equal(context.substituteMonthDays(1404,12).length,29,'Ordinary Esfand');
+assert.equal(context.substituteMonthDays(1405,1).length,31,'Farvardin');
+assert.equal(context.substituteMonthDays(1405,7).length,30,'Mehr');
+const calendar=block('SubstituteCalendar');
+assert(calendar.includes('controller.abort()'),'Cancel stale calendar requests');
+assert(calendar.includes('reservations')&&calendar.includes('cover'),'Show both advisory and confirmed records');
+console.log('PASS substitute tab, Jalali month lengths and stale request guard');

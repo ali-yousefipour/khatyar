@@ -12784,12 +12784,177 @@ const shiftManagerV3Styles = `
 .shift-manager-v3 .sm-empty{padding:20px;text-align:center;color:#68817b;font-size:12px}
 @media(max-width:760px){.shift-manager-v3 .sm-hero{padding:16px}.shift-manager-v3 .sm-content{padding:12px}.shift-manager-v3 .sm-nav-label{width:100%;min-width:0}.shift-manager-v3 .sm-nav-btn{flex:1}}
 `;
+function substituteMonthDays(year, month) {
+    const fmt = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' });
+    const result = [];
+    for (let time = Date.UTC(year + 621, 0, 1); time < Date.UTC(year + 622, 6, 1); time += 86400000) {
+        const parts = Object.fromEntries(fmt.formatToParts(new Date(time)).map(p => [p.type, p.value]));
+        if (Number(parts.year) === year && Number(parts.month) === month)
+            result.push({ date: parts.year + '-' + parts.month + '-' + parts.day, day: Number(parts.day), weekday: (new Date(time).getUTCDay() + 1) % 7 });
+    }
+    return result;
+}
+function SubstituteCalendar() {
+    var _a, _b, _c, _e;
+    const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
+    const [year, setYear] = useState(Number(todayParts.year)), [month, setMonth] = useState(Number(todayParts.month));
+    const [reload, setReload] = useState(0);
+    const [holidays, setHolidays] = useState({}), [holidayError, setHolidayError] = useState('');
+    useEffect(() => { let live = true; db.holidays().then(rows => { if (live)
+        setHolidays(Object.fromEntries((rows || []).map(v => [String(v.jdate).replaceAll('/', '-'), v.title]))); }).catch(() => { if (live)
+        setHolidayError('تعطیلات رسمی دریافت نشد؛ برای دریافت دوباره صفحه را باز کنید.'); }); return () => { live = false; }; }, []);
+    const [users, setUsers] = useState([]), [uid, setUid] = useState(''), [search, setSearch] = useState(''), [status, setStatus] = useState('all');
+    useEffect(() => { if (!uid)
+        return; const timer = setInterval(() => setReload(v => v + 1), 60000); return () => clearInterval(timer); }, [uid]);
+    const [data, setData] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState(''), [selected, setSelected] = useState(null);
+    const detailRef = useRef(null);
+    useEffect(() => { if (selected && detailRef.current) {
+        detailRef.current.showModal();
+        return () => { var _a; (_a = detailRef.current) === null || _a === void 0 ? void 0 : _a.close(); };
+    } }, [selected]);
+    const days = useMemo(() => substituteMonthDays(year, month), [year, month]);
+    useEffect(() => { let live = true; fetch(API_BASE + '/admin/substitute-calendar/users', { headers: tok(), cache: 'no-store' }).then(async (r) => { if (!r.ok)
+        throw Error('دریافت نیروها ناموفق بود'); return r.json(); }).then(v => { if (live)
+        setUsers(Array.isArray(v) ? v : []); }).catch(e => { if (live)
+        setError(e.message); }); return () => { live = false; }; }, [reload]);
+    useEffect(() => { setData({}); setSelected(null); if (!uid) {
+        setBusy(false);
+        return;
+    } const controller = new AbortController(); setBusy(true); setError(''); fetch(API_BASE + '/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), { headers: tok(), cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok)
+        throw Error('دریافت تقویم ناموفق بود؛ دوباره تلاش کنید'); return r.json(); }).then(v => { if (!controller.signal.aborted)
+        setData(v.days || {}); }).catch(e => { if (!controller.signal.aborted && e.name !== 'AbortError')
+        setError(e.message); }).finally(() => { if (!controller.signal.aborted)
+        setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload]);
+    const entries = date => { var _a, _b, _c; return [...(((_a = data[date]) === null || _a === void 0 ? void 0 : _a.cover) || []).map(v => ({ ...v, status: 'confirmed' })), ...(((_b = data[date]) === null || _b === void 0 ? void 0 : _b.reservations) || []).map(v => ({ ...v, status: 'pending' })), ...(((_c = data[date]) === null || _c === void 0 ? void 0 : _c.history) || []).map(v => ({ ...v, history_status: v.status, status: 'history' }))].filter(v => status === 'all' ? v.status !== 'history' : v.status === status); };
+    const all = days.flatMap(d => entries(d.date));
+    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map(segment => { var _a, _b, _c, _e, _f; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? 'تخصیص قطعی' : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_c = v.shift) === null || _c === void 0 ? void 0 : _c.service_location) || ((_e = v.shift) === null || _e === void 0 ? void 0 : _e.line_name) || 'در منبع تخصیص ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': ((_f = v.shift) === null || _f === void 0 ? void 0 : _f.minutes) == null ? 'نامشخص' : fa(v.shift.minutes), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
+    const move = delta => { const next = month + delta; if (next < 1) {
+        setYear(year - 1);
+        setMonth(12);
+    }
+    else if (next > 12) {
+        setYear(year + 1);
+        setMonth(1);
+    }
+    else
+        setMonth(next); };
+    return React.createElement("div", { dir: "rtl" },
+        React.createElement("style", null, `@media(max-width:700px){.sub-calendar-grid{grid-template-columns:1fr!important;min-width:0!important}.sub-calendar-heading,.sub-calendar-blank{display:none}.sub-calendar-grid>div{min-height:0!important}}`),
+        React.createElement("div", { className: "sm-toolbar" },
+            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", value: search, onChange: e => setSearch(e.target.value) }),
+            React.createElement("select", { className: "input", "aria-label": "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", value: uid, onChange: e => setUid(e.target.value) },
+                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+                users.filter(u => u.name.includes(search)).map(u => React.createElement("option", { key: u.id, value: u.id },
+                    u.name,
+                    Number(u.is_active) ? '' : ' (سوابق)'))),
+            React.createElement("select", { className: "input", "aria-label": "\u0633\u0627\u0644 \u0634\u0645\u0633\u06CC", value: year, onChange: e => setYear(Number(e.target.value)) }, Array.from({ length: 21 }, (_, i) => Number(todayParts.year) - 10 + i).map(v => React.createElement("option", { key: v, value: v }, fa(v)))),
+            React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC", value: month, onChange: e => setMonth(Number(e.target.value)) }, ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'].map((v, i) => React.createElement("option", { key: v, value: i + 1 }, v))),
+            React.createElement("button", { className: "btn g", onClick: () => move(-1) }, "\u0645\u0627\u0647 \u0642\u0628\u0644"),
+            React.createElement("span", null,
+                fa(year),
+                " / ",
+                fa(month)),
+            React.createElement("button", { className: "btn g", onClick: () => move(1) }, "\u0645\u0627\u0647 \u0628\u0639\u062F"),
+            React.createElement("button", { className: "btn g", onClick: () => { setYear(Number(todayParts.year)); setMonth(Number(todayParts.month)); } }, "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC"),
+            React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635", value: status, onChange: e => setStatus(e.target.value) },
+                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
+                React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
+                React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
+                React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC"))),
+        React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: () => { try {
+                exportXlsx(exportRows(), 'برنامه جایگزینی', 'substitute-calendar-' + year + '-' + month + '.xlsx');
+            }
+            catch (e) {
+                setError(e.message);
+            } } }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0641\u06CC\u0644\u062A\u0631\u0634\u062F\u0647"),
+        React.createElement("button", { className: "btn g", disabled: !uid || busy, onClick: () => setReload(v => v + 1) }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062A\u0642\u0648\u06CC\u0645"),
+        React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: printReport }, "\u0686\u0627\u067E / \u0630\u062E\u06CC\u0631\u0647 PDF"),
+        holidayError && React.createElement("p", { role: "status" }, holidayError),
+        " ",
+        error && React.createElement("p", { role: "alert", className: "sm-status-error" },
+            error,
+            " ",
+            React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
+        busy && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062A\u0642\u0648\u06CC\u0645\u2026"),
+        uid && !busy && React.createElement(React.Fragment, null,
+            React.createElement("p", null,
+                "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC: ",
+                fa(all.filter(v => v.status === 'confirmed').length),
+                " \u00B7 \u0631\u0632\u0631\u0648 \u0645\u0648\u0642\u062A: ",
+                fa(all.filter(v => v.status === 'pending').length),
+                " \u00B7 \u0631\u0648\u0632\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0628\u0631\u0646\u0627\u0645\u0647: ",
+                fa(days.filter(d => entries(d.date).length).length),
+                " \u00B7 \u0645\u062C\u0645\u0648\u0639 \u0633\u0627\u0639\u0627\u062A \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC\u200C\u0634\u062F\u0647: ",
+                fa((all.filter(v => v.status !== 'history').reduce((sum, v) => { var _a; return sum + (Number((_a = v.shift) === null || _a === void 0 ? void 0 : _a.minutes) || 0); }, 0) / 60).toFixed(1)),
+                " (\u062D\u0636\u0648\u0631 \u0648\u0627\u0642\u0639\u06CC \u0646\u06CC\u0633\u062A) \u00B7 \u0647\u0634\u062F\u0627\u0631 \u062A\u062F\u0627\u062E\u0644 \u0631\u0632\u0631\u0648\u0647\u0627: ",
+                fa(all.filter(v => v.conflict).length)),
+            !all.length && React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0648 \u0641\u06CC\u0644\u062A\u0631\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+            React.createElement("div", { style: { overflowX: 'auto' } },
+                React.createElement("div", { className: "sub-calendar-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(7,minmax(120px,1fr))', minWidth: 840, gap: 6 } },
+                    ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'].map(v => React.createElement("strong", { className: "sub-calendar-heading", key: v }, v)),
+                    Array.from({ length: ((_a = days[0]) === null || _a === void 0 ? void 0 : _a.weekday) || 0 }, (_, i) => React.createElement("div", { className: "sub-calendar-blank", key: 'blank' + i })),
+                    days.map(d => React.createElement("div", { key: d.date, style: { border: '1px solid var(--border,#ddd)', borderRadius: 8, padding: 8, minHeight: 120 } },
+                        React.createElement("strong", null,
+                            fa(d.day),
+                            d.weekday === 6 ? ' · جمعه' : '',
+                            holidays[d.date] ? ' · ' + holidays[d.date] : '',
+                            d.date === todayParts.year + '-' + todayParts.month + '-' + todayParts.day ? ' · امروز' : ''),
+                        entries(d.date).map((v, i) => { var _a, _b; return React.createElement("button", { className: "btn g", key: v.request_id + '-' + i, style: { display: 'block', whiteSpace: 'normal', width: '100%', marginTop: 8, borderInlineStart: '4px solid ' + (v.conflict ? '#b91c1c' : v.status === 'confirmed' ? '#15803d' : v.status === 'history' ? '#64748b' : '#b45309') }, onClick: () => setSelected({ ...v, date: d.date }) },
+                            "\u0628\u0647\u200C\u062C\u0627\u06CC: ",
+                            v.absent_name,
+                            v.conflict ? ' · هشدار تداخل' : '',
+                            React.createElement("br", null),
+                            ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.title) || 'برنامه ساعت ثبت نشده',
+                            React.createElement("br", null),
+                            (((_b = v.shift) === null || _b === void 0 ? void 0 : _b.segments) || []).map((segment, index) => React.createElement("span", { key: index },
+                                fa(segment.s || '—'),
+                                " \u062A\u0627 ",
+                                fa(segment.e || '—'),
+                                React.createElement("br", null))),
+                            v.status === 'confirmed' ? 'تخصیص قطعی' : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت؛ در انتظار تأیید'); })))))),
+        selected && React.createElement("dialog", { ref: detailRef, onCancel: () => setSelected(null), "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", className: "panel" },
+            React.createElement("h4", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+            React.createElement("p", null,
+                fa(selected.date),
+                " \u00B7 \u0628\u0647\u200C\u062C\u0627\u06CC ",
+                selected.absent_name),
+            React.createElement("p", null,
+                "\u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A: ",
+                fa(selected.request_id)),
+            selected.conflict && React.createElement("div", { role: "alert" },
+                React.createElement("strong", null, "\u062A\u062F\u0627\u062E\u0644 \u0645\u06CC\u0627\u0646 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0647\u0627\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC"),
+                (selected.conflicts || []).map((conflict, i) => React.createElement("p", { key: i },
+                    "\u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
+                    fa(conflict.request_id),
+                    " \u00B7 ",
+                    conflict.absent_name,
+                    " \u00B7 ",
+                    fa(conflict.date),
+                    " ",
+                    (conflict.intervals || []).map(interval => fa(interval.start) + ' تا ' + fa(interval.end)).join('، ')))),
+            React.createElement("p", null,
+                "\u0631\u0632\u0631\u0648\u06A9\u0646\u0646\u062F\u0647: ",
+                selected.reserved_by_name || 'ثبت نشده'),
+            React.createElement("p", null,
+                "\u062E\u0637 \u06CC\u0627 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A: ",
+                ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.service_location) || ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.line_name) || 'در منبع تخصیص ثبت نشده'),
+            React.createElement("p", null,
+                "\u0632\u0645\u0627\u0646 \u0631\u0632\u0631\u0648: ",
+                selected.reserved_at ? fa(selected.reserved_at) : 'ثبت نشده'),
+            React.createElement("p", null, selected.status === 'confirmed' ? 'تخصیص قطعی' : selected.status === 'history' ? (selected.history_status === 'released' ? 'رزرو آزادشده؛ برنامه فعال نیست' : 'لغو یا رد شده؛ برنامه فعال نیست') : 'رزرو موقت؛ الزام حضور نیست'),
+            (((_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segments) || []).map((v, i) => React.createElement("p", { key: i },
+                fa(v.s || '—'),
+                " \u062A\u0627 ",
+                fa(v.e || '—'))),
+            React.createElement("button", { className: "btn g", autoFocus: true, onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")));
+}
 function ShiftManager() {
     const [tab, setTab] = useState("shifts");
     const groups = [
         { title: "برنامه‌ریزی", tabs: [["shifts", "تعریف شیفت‌ها", "ساخت و ویرایش شیفت ساده، تقویمی، شناور و چرخشی"], ["assign", "تخصیص به نیروها", "انتخاب شیفت ثابت یا خودکار برای هر نیرو"], ["autoRules", "قوانین شیفت خودکار", "تنظیم قوانین محاسبه بر اساس سمت"], ["userRules", "قانون اختصاصی افراد", "مدیریت استثناهای محاسبه برای کاربران مشخص"]] },
         { title: "کنترل و پایش", tabs: [["shiftOps", "عملیات و عیب‌یابی", "بررسی تعارض‌ها، جلسات باز و محاسبه مجدد"], ["rejectLogs", "لاگ رد حضور", "جست‌وجوی خطاهای ثبت حضور و دلایل رد"], ["offlineConflicts", "تعارض آفلاین", "بررسی و تعیین تکلیف درخواست‌های آفلاین"]] },
-        { title: "تقویم و مرخصی", tabs: [["holidays", "تعطیلات رسمی", "مدیریت تعطیلات مورد استفاده در محاسبات"], ["blocked", "روزهای ممنوعه مرخصی", "تعریف روزهای غیرمجاز برای درخواست مرخصی"], ["leavebal", "مانده مرخصی ابتدای دوره", "ثبت موجودی اولیه مرخصی کارکنان"]] }
+        { title: "تقویم و مرخصی", tabs: [["substituteCalendar", "شیفت کاری نیروهای جایگزین", "مشاهده برنامه قطعی و رزروهای موقت نیروها"], ["holidays", "تعطیلات رسمی", "مدیریت تعطیلات مورد استفاده در محاسبات"], ["blocked", "روزهای ممنوعه مرخصی", "تعریف روزهای غیرمجاز برای درخواست مرخصی"], ["leavebal", "مانده مرخصی ابتدای دوره", "ثبت موجودی اولیه مرخصی کارکنان"]] }
     ];
     const all = groups.flatMap(g => g.tabs);
     const current = all.find(t => t[0] === tab) || all[0];
@@ -12817,6 +12982,7 @@ function ShiftManager() {
             tab === "shiftOps" && React.createElement(ShiftOperations, null),
             tab === "rejectLogs" && React.createElement(AttendanceRejectLogs, null),
             tab === "offlineConflicts" && React.createElement(OfflineSyncConflicts, null),
+            tab === "substituteCalendar" && React.createElement(SubstituteCalendar, null),
             tab === "holidays" && React.createElement(Holidays, null),
             tab === "blocked" && React.createElement(LeaveBlockedDates, null),
             tab === "leavebal" && React.createElement(LeaveBalanceInit, null)));

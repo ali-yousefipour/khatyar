@@ -1,12 +1,22 @@
 <?php
 /** Regression for pending substitute reservation, approval, cancellation, and private calendar. */
 declare(strict_types=1);
+date_default_timezone_set('Asia/Tehran');
 class Http { public static function error($m,$s=400):void {throw new RuntimeException((string)$m,(int)$s);} }
 class Db {
  public static array $requests=[];
  public static array $locks=[];
  public static array $coverage=[];
  public static array $assignments=[];
+ public static array $reservations=[];
+ public static array $history=[];
+ public static ?array $ownShifts=null;
+ public static array $audit=[];
+ public static array $released=[];
+ public static int $assignmentReads=0;
+ public static int $dayReads=0;
+ public static array $coverReadArgs=[];
+ public static int $auditReads=0;
  public static array $unqualified=[];
  public static array $absences=[];
  public static int $serial=1;
@@ -31,7 +41,15 @@ class Db {
   return null;
  }
  public static function all($sql,$args=[]){
-  if(str_contains($sql,"FROM substitute_assignments sa"))return self::$assignments;
+  if(str_contains($sql,'SELECT id,user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE substitute_user_id'))return array_values(array_filter(self::$requests,fn($r)=>(int)$r['substitute_user_id']===(int)$args[0]&&(int)$r['id']!==(int)$args[1]&&in_array($r['status'],['pending','approved'],true)));
+  if(str_contains($sql,'FROM user_shifts us')){self::$assignmentReads++;if(self::$ownShifts===null&&in_array((int)$args[0],[42,43],true))return [];$rows=self::$ownShifts??[['shift_id'=>17,'title'=>'شیفت صبح نیروی مرخصی‌گیرنده','type'=>'advanced']];return array_map(fn($r)=>array_merge(['user_id'=>$args[0]],$r),$rows);}
+  if(str_contains($sql,'FROM shift_days WHERE shift_id IN')){self::$dayReads++;return [['shift_id'=>17,'jdate'=>'1405-09-02','segments'=>[['s'=>'06:00','e'=>'14:00']],'is_off'=>0,'day_config'=>'{}'],['shift_id'=>17,'jdate'=>'1405-09-03','segments'=>[['s'=>'06:00','e'=>'14:00']],'is_off'=>0,'day_config'=>'{}']];}
+  if(str_contains($sql,'FROM leave_reservation_audit a JOIN requests r'))return self::$released;
+  if(str_contains($sql,'FROM leave_reservation_audit a')){self::$auditReads++;return self::$audit;}
+  if(str_contains($sql,"r.status IN ('rejected','cancelled','canceled')"))return self::$history;
+
+  if(str_contains($sql,"FROM requests r JOIN users u"))return self::$reservations;
+  if(str_contains($sql,"FROM substitute_assignments sa")){self::$coverReadArgs=$args;return self::$assignments;}
   if(str_contains($sql,"FROM requests WHERE user_id=?"))return array_values(array_filter(self::$coverage,
    fn($r)=>$r['status']==='approved'&&$r['user_id']===$args[0]&&in_array($r['type'],['annual','sick'],true)));
   return [];
@@ -57,6 +75,11 @@ route('PUT','/api/admin/requests/{id}',function($p,$body,$user){
 });
 function _active_user_shift_assignment($uid,$day){return ['shift_id'=>17,'title'=>'شیفت صبح نیروی مرخصی‌گیرنده','type'=>'advanced'];}
 function _shift_day_row($id,$day){return ['segments'=>[['s'=>'06:00','e'=>'14:00']],'day_config'=>['duty_min'=>480]];}
+$source=file_get_contents(__DIR__.'/../lib/routes.php');
+$start=strpos($source,'function gregorian_to_jalali(');$end=strpos($source,'function j_to_ts(',$start);
+eval(substr($source,$start,$end-$start));
+require __DIR__.'/../lib/ShiftCalc.php';
+function _db_table_exists_safe($table){return true;}
 require __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 LeaveSubstituteCoverage::register($routes);
 function runRoute($method,$path,$p=[],$b=[],$user=['id'=>5]){
@@ -128,4 +151,102 @@ check(!isset($calendar['days']['1405-09-03']['leave']),'pending leave does not d
 check($calendar['days']['1405-09-02']['cover'][0]['absent_name']==='نیروی مرخصی‌گیرنده','replacement subject name returned');
 check($calendar['days']['1405-09-02']['cover'][0]['shift']['title']==='شیفت صبح نیروی مرخصی‌گیرنده','shift belongs to absent employee');
 check($calendar['days']['1405-09-02']['cover'][0]['shift']['segments'][0]['s']==='06:00','original shift hours returned');
+Db::$reservations=[['id'=>99,'user_id'=>5,'from_jdate'=>'1405-09-03','to_jdate'=>'1405-09-03','absent_name'=>'آزمایشی']];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-09-03']['reservations'][0]['is_confirmed']===false,'pending reservation is explicitly advisory');
+check(!isset($calendar['days']['1405-09-03']['cover']),'pending reservation never becomes confirmed cover');
 echo "PASS pending substitute reservations, conflicts, release and approved-only calendar\n";
+
+foreach(['/api/admin/substitute-calendar','/api/admin/substitute-calendar/users'] as $endpoint){
+ try{runRoute('GET',$endpoint);throw new LogicException('unauthorized calendar access accepted');}
+ catch(RuntimeException $e){check($e->getCode()===403,'admin calendar rejects ordinary user');}
+}
+$_GET=['dates'=>'invalid'];
+try{LeaveSubstituteCoverage::status(5);throw new LogicException('invalid dates accepted');}
+catch(RuntimeException $e){check($e->getCode()===422,'invalid dates rejected');}
+echo "PASS admin calendar authorization and invalid dates\n";
+
+$_GET=['dates'=>'1405-09-02,1405-09-03','user_id'=>'5','include_history'=>'1'];
+Db::$history=[['id'=>101,'user_id'=>8,'status'=>'cancelled','from_jdate'=>'1405-09-03','to_jdate'=>'1405-09-03','absent_name'=>'سابقه لغوشده']];
+Db::$audit=[['reservation_id'=>22,'request_id'=>4,'reserved_by_user_id'=>99,'reserved_by_name'=>'مسئول رزرو','reserved_at'=>'2026-11-26 10:00:00','event'=>'reserved']];
+Db::$auditReads=0;
+$admin=runRoute('GET','/api/admin/substitute-calendar',[],[],['id'=>99,'is_admin'=>1]);
+check($admin['days']['1405-09-02']['cover'][0]['reserved_by_name']==='مسئول رزرو','authenticated reservation actor is included');
+check(Db::$auditReads===1,'audit metadata is batched once for entire calendar');
+check($admin['days']['1405-09-03']['history'][0]['is_confirmed']===false,'cancelled history never appears as confirmed');
+check($admin['days']['1405-09-03']['history'][0]['shift']===null,'missing historic shift must not be reconstructed from current assignment');
+$personal=runRoute('GET','/api/my/shift-cover-status');
+check(!isset($personal['days']['1405-09-03']['history']),'personal API ignores history query parameter');
+echo "PASS batched reservation actor metadata and admin-only cancelled history\n";
+
+Db::$assignments[]=Db::$assignments[0];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check(count($calendar['days']['1405-09-02']['cover'])===1,'legacy duplicate assignments do not duplicate a request/day');
+echo "PASS duplicate confirmed assignments are displayed once\n";
+
+$segments=[['s'=>'06:00','e'=>'10:00'],['s'=>'14:00','e'=>'18:00']];
+Db::$ownShifts=[['shift_id'=>2,'title'=>'دوپاره','type'=>'simple','weekly'=>json_encode(array_fill(0,7,$segments))]];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check(count($calendar['days']['1405-09-02']['cover'][0]['shift']['segments'])===2,'simple split-shift segments are resolved from weekly plan');
+check($calendar['days']['1405-09-02']['cover'][0]['shift']['minutes']===480,'planned minutes sum all split-shift segments');
+Db::$ownShifts=[['shift_id'=>3,'title'=>'چرخشی','type'=>'rotating','advanced'=>json_encode(['cycle_start_jdate'=>'1405-09-01','cycle'=>[['days'=>2,'segments'=>[['s'=>'22:00','e'=>'06:00']]]]])]];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-09-02']['cover'][0]['shift']['minutes']===480,'rotating overnight shift retains duration');
+echo "PASS simple split and rotating overnight calendar shifts\n";
+
+Db::$ownShifts=null;
+Db::$released=[['reservation_id'=>31,'request_id'=>301,'absent_user_id'=>8,'from_date'=>'1405-09-02','to_date'=>'1405-09-03','reserved_at'=>'2026-11-26 09:00:00','reserved_by_user_id'=>21,'reserved_by_name'=>'رزروکننده قبلی','event'=>'reserved','current_substitute_user_id'=>77,'current_status'=>'approved','from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-03','absent_name'=>'جایگزین تغییرکرده'],
+['reservation_id'=>30,'request_id'=>301,'absent_user_id'=>8,'from_date'=>'1405-09-02','to_date'=>'1405-09-03','reserved_at'=>'2026-11-25 09:00:00','reserved_by_user_id'=>20,'reserved_by_name'=>'رزروکننده قدیمی','event'=>'reserved','current_substitute_user_id'=>77,'current_status'=>'approved','from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-03','absent_name'=>'جایگزین تغییرکرده']];
+Db::$assignmentReads=0;Db::$dayReads=0;
+$calendar=runRoute('GET','/api/admin/substitute-calendar',[],[],['id'=>99,'is_admin'=>1]);
+$released=array_values(array_filter($calendar['days']['1405-09-02']['history'],fn($r)=>$r['status']==='released'));
+check(count($released)===1,'repeated reservation audits do not duplicate released history');
+check($released[0]['reserved_by_name']==='رزروکننده قبلی','released history preserves actor from matching audit');
+check($released[0]['shift']===null&&$released[0]['is_confirmed']===false,'released history never invents historic shift or active assignment');
+check(Db::$assignmentReads===1&&Db::$dayReads===1,'calendar assignments and day rows each load once across all days');
+Db::$ownShifts=[];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-09-02']['cover'][0]['shift']===null,'next call observes changed assignments without stale global cache');
+echo "PASS released historical substitute, audit dedup and batched request-local schedules\n";
+
+Db::$released=[array_replace(Db::$released[0],['current_substitute_user_id'=>5,'from_jdate'=>'1405-09-03','to_jdate'=>'1405-09-03'])];
+$calendar=runRoute('GET','/api/admin/substitute-calendar',[],[],['id'=>99,'is_admin'=>1]);
+$releasedOld=array_values(array_filter($calendar['days']['1405-09-02']['history'],fn($r)=>$r['status']==='released'));
+$releasedCurrent=array_values(array_filter($calendar['days']['1405-09-03']['history']??[],fn($r)=>$r['status']==='released'));
+check(count($releasedOld)===1&&!$releasedCurrent,'moved dates release only the old reservation days');
+echo "PASS changed request dates retain only released historical days\n";
+
+Db::$reservations=[];
+Db::$assignments=[['request_id'=>401,'absent_name'=>'صبح','absent_user_id'=>5,'from_date'=>'1405-09-02','to_date'=>'1405-09-02'],['request_id'=>402,'absent_name'=>'عصر','absent_user_id'=>6,'from_date'=>'1405-09-02','to_date'=>'1405-09-02']];
+Db::$ownShifts=[['user_id'=>5,'shift_id'=>21,'title'=>'صبح','type'=>'simple','weekly'=>json_encode(array_fill(0,7,[['s'=>'06:00','e'=>'14:00']]))],['user_id'=>6,'shift_id'=>22,'title'=>'عصر','type'=>'simple','weekly'=>json_encode(array_fill(0,7,[['s'=>'14:00','e'=>'22:00']]))]];
+$_GET=['dates'=>'1405-09-02'];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check(!$calendar['days']['1405-09-02']['cover'][0]['conflict']&&!$calendar['days']['1405-09-02']['cover'][1]['conflict'],'touching half-open calendar shifts do not conflict');
+Db::$ownShifts[1]['weekly']=json_encode(array_fill(0,7,[['s'=>'12:00','e'=>'20:00']]));
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-09-02']['cover'][0]['conflict']&&$calendar['days']['1405-09-02']['cover'][1]['conflict'],'both overlapping calendar entries show a warning');
+check($calendar['days']['1405-09-02']['cover'][0]['conflicts'][0]['request_id']===402,'warning identifies conflicting request');
+check($calendar['conflict_scope']==='substitute_reservations','calendar warning scope is explicit');
+Db::$assignments[0]['from_date']=Db::$assignments[0]['to_date']='1405-09-30';
+Db::$assignments[1]['from_date']=Db::$assignments[1]['to_date']='1405-10-01';
+Db::$ownShifts[0]['weekly']=json_encode(array_fill(0,7,[['s'=>'22:00','e'=>'06:00']]));
+Db::$ownShifts[1]['weekly']=json_encode(array_fill(0,7,[['s'=>'05:00','e'=>'13:00']]));
+$_GET=['dates'=>'1405-10-01'];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-10-01']['cover'][0]['conflict'],'night shift from previous month warns on current month');
+check($calendar['days']['1405-10-01']['cover'][0]['conflicts'][0]['date']==='1405-09-30','warning includes previous-month conflict date');
+check(!isset($calendar['days']['1405-09-30']),'adjacent lookup days do not leak into requested calendar');
+check(Db::$coverReadArgs[2]<'1405-10-01','calendar query includes earlier entry-owned shifts');
+echo "PASS half-open and cross-month overnight calendar conflict warnings\n";
+
+Db::$assignments=[['request_id'=>501,'absent_name'=>'قطعی','absent_user_id'=>5,'from_date'=>'1405-10-01','to_date'=>'1405-10-01']];
+Db::$reservations=[['id'=>502,'user_id'=>6,'from_jdate'=>'1405-10-01','to_jdate'=>'1405-10-01','absent_name'=>'رزرو']];
+Db::$ownShifts[0]['weekly']=json_encode(array_fill(0,7,[['s'=>'06:00','e'=>'14:00']]));
+Db::$ownShifts[1]['weekly']=json_encode(array_fill(0,7,[['s'=>'12:00','e'=>'20:00']]));
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-10-01']['cover'][0]['conflict']&&$calendar['days']['1405-10-01']['reservations'][0]['conflict'],'pending reservations participate in conflict warnings without becoming confirmed');
+check($calendar['days']['1405-10-01']['reservations'][0]['is_confirmed']===false,'warning never upgrades a pending reservation');
+Db::$ownShifts=[];
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check($calendar['days']['1405-10-01']['cover'][0]['conflict_check_complete']===false,'missing duty bounds explicitly mark conflict check incomplete');
+echo "PASS advisory conflict warnings and unknown-schedule limitation\n";

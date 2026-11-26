@@ -7598,12 +7598,57 @@ const shiftManagerV3Styles = `
 .shift-manager-v3 .sm-empty{padding:20px;text-align:center;color:#68817b;font-size:12px}
 @media(max-width:760px){.shift-manager-v3 .sm-hero{padding:16px}.shift-manager-v3 .sm-content{padding:12px}.shift-manager-v3 .sm-nav-label{width:100%;min-width:0}.shift-manager-v3 .sm-nav-btn{flex:1}}
 `;
+function substituteMonthDays(year,month){
+ const fmt=new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tehran'});
+ const result=[];
+ for(let time=Date.UTC(year+621,0,1);time<Date.UTC(year+622,6,1);time+=86400000){
+  const parts=Object.fromEntries(fmt.formatToParts(new Date(time)).map(p=>[p.type,p.value]));
+  if(Number(parts.year)===year&&Number(parts.month)===month)result.push({date:parts.year+'-'+parts.month+'-'+parts.day,day:Number(parts.day),weekday:(new Date(time).getUTCDay()+1)%7});
+ }
+ return result;
+}
+function SubstituteCalendar(){
+ const todayParts=Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tehran'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+ const [year,setYear]=useState(Number(todayParts.year)),[month,setMonth]=useState(Number(todayParts.month));
+ const [reload,setReload]=useState(0);
+ const [holidays,setHolidays]=useState({}),[holidayError,setHolidayError]=useState('');
+ useEffect(()=>{let live=true;db.holidays().then(rows=>{if(live)setHolidays(Object.fromEntries((rows||[]).map(v=>[String(v.jdate).replaceAll('/','-'),v.title])));}).catch(()=>{if(live)setHolidayError('تعطیلات رسمی دریافت نشد؛ برای دریافت دوباره صفحه را باز کنید.');});return()=>{live=false;};},[]);
+ const [users,setUsers]=useState([]),[uid,setUid]=useState(''),[search,setSearch]=useState(''),[status,setStatus]=useState('all');
+ useEffect(()=>{if(!uid)return;const timer=setInterval(()=>setReload(v=>v+1),60000);return()=>clearInterval(timer);},[uid]);
+ const [data,setData]=useState({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[selected,setSelected]=useState(null);
+ const detailRef=useRef(null);
+ useEffect(()=>{if(selected&&detailRef.current){detailRef.current.showModal();return()=>{detailRef.current?.close();};}},[selected]);
+ const days=useMemo(()=>substituteMonthDays(year,month),[year,month]);
+ useEffect(()=>{let live=true;fetch(API_BASE+'/admin/substitute-calendar/users',{headers:tok(),cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('دریافت نیروها ناموفق بود');return r.json();}).then(v=>{if(live)setUsers(Array.isArray(v)?v:[]);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[reload]);
+ useEffect(()=>{setData({});setSelected(null);if(!uid){setBusy(false);return;}const controller=new AbortController();setBusy(true);setError('');fetch(API_BASE+'/admin/substitute-calendar?include_history=1&user_id='+encodeURIComponent(uid)+'&dates='+encodeURIComponent(days.map(d=>d.date).join(',')),{headers:tok(),cache:'no-store',signal:controller.signal}).then(async r=>{if(!r.ok)throw Error('دریافت تقویم ناموفق بود؛ دوباره تلاش کنید');return r.json();}).then(v=>{if(!controller.signal.aborted)setData(v.days||{});}).catch(e=>{if(!controller.signal.aborted&&e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});return()=>controller.abort();},[uid,year,month,reload]);
+ const entries=date=>[...(data[date]?.cover||[]).map(v=>({...v,status:'confirmed'})),...(data[date]?.reservations||[]).map(v=>({...v,status:'pending'})),...(data[date]?.history||[]).map(v=>({...v,history_status:v.status,status:'history'}))].filter(v=>status==='all'?v.status!=='history':v.status===status);
+ const all=days.flatMap(d=>entries(d.date));
+ const exportRows=()=>days.flatMap(d=>entries(d.date).flatMap(v=>{const segments=v.shift?.segments?.length?v.shift.segments:[{}];return segments.map(segment=>({'تاریخ':fa(d.date),'نیروی جایگزین':users.find(u=>String(u.id)===String(uid))?.name||'','نیروی اصلی':v.absent_name,'شیفت':v.shift?.title||'','شروع':fa(segment.s||'—'),'پایان':fa(segment.e||'—'),'وضعیت':v.status==='confirmed'?'تخصیص قطعی':v.status==='history'?(v.history_status==='released'?'رزرو آزادشده':'لغو یا رد شده'):'رزرو موقت','رزروکننده':v.reserved_by_name||'ثبت نشده','زمان رزرو':v.reserved_at?fa(v.reserved_at):'ثبت نشده','خط یا محل خدمت':v.shift?.service_location||v.shift?.line_name||'در منبع تخصیص ثبت نشده','مدت برنامه‌ریزی‌شده (دقیقه)':v.shift?.minutes==null?'نامشخص':fa(v.shift.minutes),'شماره درخواست':fa(v.request_id)}));}));
+ const printReport=()=>{const rows=exportRows();const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const columns=Object.keys(rows[0]||{});printLetterhead('برنامه ماهانه نیروهای جایگزین','<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>'+columns.map(c=>'<th>'+escape(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(c=>'<td>'+escape(row[c])+'</td>').join('')+'</tr>').join('')+'</tbody></table>');};
+ const move=delta=>{const next=month+delta;if(next<1){setYear(year-1);setMonth(12);}else if(next>12){setYear(year+1);setMonth(1);}else setMonth(next);};
+ return <div dir="rtl"><style>{`@media(max-width:700px){.sub-calendar-grid{grid-template-columns:1fr!important;min-width:0!important}.sub-calendar-heading,.sub-calendar-blank{display:none}.sub-calendar-grid>div{min-height:0!important}}`}</style><div className="sm-toolbar">
+ <input className="input" aria-label="جستجوی نیرو" placeholder="جستجوی نام نیرو" value={search} onChange={e=>setSearch(e.target.value)}/>
+ <select className="input" aria-label="نیروی جایگزین" value={uid} onChange={e=>setUid(e.target.value)}><option value="">انتخاب نیروی جایگزین</option>{users.filter(u=>u.name.includes(search)).map(u=><option key={u.id} value={u.id}>{u.name}{Number(u.is_active)?'':' (سوابق)'}</option>)}</select>
+ <select className="input" aria-label="سال شمسی" value={year} onChange={e=>setYear(Number(e.target.value))}>{Array.from({length:21},(_,i)=>Number(todayParts.year)-10+i).map(v=><option key={v} value={v}>{fa(v)}</option>)}</select>
+ <select className="input" aria-label="ماه شمسی" value={month} onChange={e=>setMonth(Number(e.target.value))}>{['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'].map((v,i)=><option key={v} value={i+1}>{v}</option>)}</select>
+ <button className="btn g" onClick={()=>move(-1)}>ماه قبل</button><span>{fa(year)} / {fa(month)}</span><button className="btn g" onClick={()=>move(1)}>ماه بعد</button><button className="btn g" onClick={()=>{setYear(Number(todayParts.year));setMonth(Number(todayParts.month));}}>ماه جاری</button>
+ <select className="input" aria-label="وضعیت تخصیص" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">همه وضعیت‌ها</option><option value="confirmed">تخصیص قطعی</option><option value="pending">رزرو در انتظار تأیید</option><option value="history">سوابق لغو، رد و آزادسازی</option></select></div>
+ <button className="btn g" disabled={!uid||busy||!all.length} onClick={()=>{try{exportXlsx(exportRows(),'برنامه جایگزینی','substitute-calendar-'+year+'-'+month+'.xlsx');}catch(e){setError(e.message);}}}>خروجی Excel فیلترشده</button>
+ <button className="btn g" disabled={!uid||busy} onClick={()=>setReload(v=>v+1)}>به‌روزرسانی تقویم</button>
+ <button className="btn g" disabled={!uid||busy||!all.length} onClick={printReport}>چاپ / ذخیره PDF</button>
+ {holidayError&&<p role="status">{holidayError}</p>} {error&&<p role="alert" className="sm-status-error">{error} <button className="btn g" disabled={busy} onClick={()=>setReload(v=>v+1)}>تلاش مجدد</button></p>}{busy&&<p role="status">در حال دریافت تقویم…</p>}
+ {uid&&!busy&&<><p>تخصیص قطعی: {fa(all.filter(v=>v.status==='confirmed').length)} · رزرو موقت: {fa(all.filter(v=>v.status==='pending').length)} · روزهای دارای برنامه: {fa(days.filter(d=>entries(d.date).length).length)} · مجموع ساعات برنامه‌ریزی‌شده: {fa((all.filter(v=>v.status!=='history').reduce((sum,v)=>sum+(Number(v.shift?.minutes)||0),0)/60).toFixed(1))} (حضور واقعی نیست) · هشدار تداخل رزروها: {fa(all.filter(v=>v.conflict).length)}</p>{!all.length&&<p>برای این ماه و فیلتر، برنامه جایگزینی ثبت نشده است.</p>}
+ <div style={{overflowX:'auto'}}><div className="sub-calendar-grid" style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(120px,1fr))',minWidth:840,gap:6}}>{['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(v=><strong className="sub-calendar-heading" key={v}>{v}</strong>)}{Array.from({length:days[0]?.weekday||0},(_,i)=><div className="sub-calendar-blank" key={'blank'+i}/>)}{days.map(d=><div key={d.date} style={{border:'1px solid var(--border,#ddd)',borderRadius:8,padding:8,minHeight:120}}><strong>{fa(d.day)}{d.weekday===6?' · جمعه':''}{holidays[d.date]?' · '+holidays[d.date]:''}{d.date===todayParts.year+'-'+todayParts.month+'-'+todayParts.day?' · امروز':''}</strong>{entries(d.date).map((v,i)=><button className="btn g" key={v.request_id+'-'+i} style={{display:'block',whiteSpace:'normal',width:'100%',marginTop:8,borderInlineStart:'4px solid '+(v.conflict?'#b91c1c':v.status==='confirmed'?'#15803d':v.status==='history'?'#64748b':'#b45309')}} onClick={()=>setSelected({...v,date:d.date})}>به‌جای: {v.absent_name}{v.conflict?' · هشدار تداخل':''}<br/>{v.shift?.title||'برنامه ساعت ثبت نشده'}<br/>{(v.shift?.segments||[]).map((segment,index)=><span key={index}>{fa(segment.s||'—')} تا {fa(segment.e||'—')}<br/></span>)}{v.status==='confirmed'?'تخصیص قطعی':v.status==='history'?(v.history_status==='released'?'رزرو آزادشده':'لغو یا رد شده'):'رزرو موقت؛ در انتظار تأیید'}</button>)}</div>)}</div></div></>}
+ {selected&&<dialog ref={detailRef} onCancel={()=>setSelected(null)} aria-label="جزئیات شیفت جایگزین" className="panel"><h4>جزئیات شیفت جایگزین</h4><p>{fa(selected.date)} · به‌جای {selected.absent_name}</p><p>شماره درخواست: {fa(selected.request_id)}</p>{selected.conflict&&<div role="alert"><strong>تداخل میان برنامه‌های جایگزینی</strong>{(selected.conflicts||[]).map((conflict,i)=><p key={i}>درخواست {fa(conflict.request_id)} · {conflict.absent_name} · {fa(conflict.date)} {(conflict.intervals||[]).map(interval=>fa(interval.start)+' تا '+fa(interval.end)).join('، ')}</p>)}</div>}<p>رزروکننده: {selected.reserved_by_name||'ثبت نشده'}</p><p>خط یا محل خدمت: {selected.shift?.service_location||selected.shift?.line_name||'در منبع تخصیص ثبت نشده'}</p><p>زمان رزرو: {selected.reserved_at?fa(selected.reserved_at):'ثبت نشده'}</p><p>{selected.status==='confirmed'?'تخصیص قطعی':selected.status==='history'?(selected.history_status==='released'?'رزرو آزادشده؛ برنامه فعال نیست':'لغو یا رد شده؛ برنامه فعال نیست'):'رزرو موقت؛ الزام حضور نیست'}</p>{(selected.shift?.segments||[]).map((v,i)=><p key={i}>{fa(v.s||'—')} تا {fa(v.e||'—')}</p>)}<button className="btn g" autoFocus onClick={()=>setSelected(null)}>بستن جزئیات</button></dialog>}
+ </div>;
+}
+
 function ShiftManager(){
  const [tab,setTab]=useState("shifts");
  const groups=[
   {title:"برنامه‌ریزی",tabs:[["shifts","تعریف شیفت‌ها","ساخت و ویرایش شیفت ساده، تقویمی، شناور و چرخشی"],["assign","تخصیص به نیروها","انتخاب شیفت ثابت یا خودکار برای هر نیرو"],["autoRules","قوانین شیفت خودکار","تنظیم قوانین محاسبه بر اساس سمت"],["userRules","قانون اختصاصی افراد","مدیریت استثناهای محاسبه برای کاربران مشخص"]]},
   {title:"کنترل و پایش",tabs:[["shiftOps","عملیات و عیب‌یابی","بررسی تعارض‌ها، جلسات باز و محاسبه مجدد"],["rejectLogs","لاگ رد حضور","جست‌وجوی خطاهای ثبت حضور و دلایل رد"],["offlineConflicts","تعارض آفلاین","بررسی و تعیین تکلیف درخواست‌های آفلاین"]]},
-  {title:"تقویم و مرخصی",tabs:[["holidays","تعطیلات رسمی","مدیریت تعطیلات مورد استفاده در محاسبات"],["blocked","روزهای ممنوعه مرخصی","تعریف روزهای غیرمجاز برای درخواست مرخصی"],["leavebal","مانده مرخصی ابتدای دوره","ثبت موجودی اولیه مرخصی کارکنان"]]}
+  {title:"تقویم و مرخصی",tabs:[["substituteCalendar","شیفت کاری نیروهای جایگزین","مشاهده برنامه قطعی و رزروهای موقت نیروها"],["holidays","تعطیلات رسمی","مدیریت تعطیلات مورد استفاده در محاسبات"],["blocked","روزهای ممنوعه مرخصی","تعریف روزهای غیرمجاز برای درخواست مرخصی"],["leavebal","مانده مرخصی ابتدای دوره","ثبت موجودی اولیه مرخصی کارکنان"]]}
  ];
  const all=groups.flatMap(g=>g.tabs);
  const current=all.find(t=>t[0]===tab)||all[0];
@@ -7624,6 +7669,7 @@ function ShiftManager(){
     {tab==="shiftOps"&&<ShiftOperations/>}
     {tab==="rejectLogs"&&<AttendanceRejectLogs/>}
     {tab==="offlineConflicts"&&<OfflineSyncConflicts/>}
+    {tab==="substituteCalendar"&&<SubstituteCalendar/>}
     {tab==="holidays"&&<Holidays/>}
     {tab==="blocked"&&<LeaveBlockedDates/>}
     {tab==="leavebal"&&<LeaveBalanceInit/>}
