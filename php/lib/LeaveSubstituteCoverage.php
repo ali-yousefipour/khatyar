@@ -329,7 +329,7 @@ final class LeaveSubstituteCoverage {
     }
     public static function composite(int $uid,string $date): ?array {
         if(function_exists('_db_table_exists_safe')&&!_db_table_exists_safe('substitute_assignments'))return null;
-        $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id",[$uid,$date,$date]);
+        $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active') AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id",[$uid,$date,$date]);
         if(!$rows)return null;
         $primary=self::fixedSource($uid,$date);
         if($primary&&!empty($primary['segments']))array_unshift($rows,['request_id'=>0,'absent_user_id'=>$uid]);
@@ -464,6 +464,8 @@ final class LeaveSubstituteCoverage {
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
            JOIN users u ON u.id=sa.absent_user_id
            WHERE sa.substitute_user_id=? AND sa.status='active'
+             AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id
+             AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')
              AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC",
            [$uid,$to,$from]);
         // Pending reservations are advisory and never enter the confirmed cover list.
