@@ -6243,7 +6243,9 @@ route('POST', '/api/my/requests', function($p,$b,$u){
   if($type==='manual')_manual_provisional_schema();
   $manualUuid=trim((string)($b['client_uuid']??''));
   if($manualUuid!==''&&!preg_match('/^[a-zA-Z0-9_-]{12,110}$/D',$manualUuid))Http::error('شناسه ثبت تردد دستی معتبر نیست.',422);
-  $manualTx=$type==='manual'?Db::pdo():null;
+  $reservationNotification=null;
+  if($sub)LeaveSubstituteCoverage::prepareReservationAudit();
+  $manualTx=($type==='manual'||$sub)?Db::pdo():null;
   if($manualTx)$manualTx->beginTransaction();
   try {
   if($type==='manual'&&$manualUuid!==''){
@@ -6263,6 +6265,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
      $b['manual_kind']??null,$b['in_time']??null,$b['out_time']??null,$minutes,$b['reason']??null,
      $b['attachment_name']??null,$b['attachment_data']??null,$b['selfie_data']??null,$approver,$sub]);
   $provisionalAttendanceId=$type==='manual' ? _manual_provisional_apply($b,(int)$id,(int)$u['id']) : null;
+   if($sub)$reservationNotification=LeaveSubstituteCoverage::recordReservation((int)$id,(int)$u['id'],$sub,(int)$u['id'],$b);
   if($type==='manual'&&$manualUuid!=='')Db::run("UPDATE manual_request_submission_keys SET request_id=? WHERE user_id=? AND client_uuid=?",[ (int)$id,(int)$u['id'],$manualUuid ]);
   if($manualTx)$manualTx->commit();
   }catch(Throwable $failure){
@@ -6270,7 +6273,8 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     throw $failure;
   }
   if ($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
-  // اطلاع به نیروی جایگزین معرفی‌شده
+  if($reservationNotification)LeaveSubstituteCoverage::sendReservation($reservationNotification);
+   // اطلاع به نیروی جایگزین معرفی‌شده
   if ($sub) {
     try {
       Push::notify([$sub], 'معرفی به‌عنوان جایگزین', trim(($u['first_name']??'').' '.($u['last_name']??'')).' شما را به‌عنوان نیروی جایگزین در یک درخواست مرخصی/ماموریت معرفی کرده است.', ['type'=>'substitute_assigned','request_id'=>$id]);
@@ -6950,6 +6954,8 @@ function _req_edit_approved($id,array $body,array $actor){
   $pdo=Db::pdo();
   try{
     _zone_leave_requirement_storage();_req_edit_storage();_req_prepare_approval_storage(array_replace($before,['substitute_user_id'=>$body['substitute_user_id']??$before['substitute_user_id']??null]));
+    $reservationNotification=null;
+    if(_req_substitute_eligible($before))LeaveSubstituteCoverage::prepareReservationAudit();
     $pdo->beginTransaction();
     $before=Db::one('SELECT * FROM requests WHERE id=? FOR UPDATE',[$id]);
     if(!$before||$before['status']!=='approved'||!hash_equals(_req_edit_token($before),$token))Http::error('درخواست هم‌زمان تغییر کرده است؛ آن را دوباره باز کنید.',409);
@@ -6977,11 +6983,16 @@ function _req_edit_approved($id,array $body,array $actor){
     if($updated->rowCount()!==1)Http::error('درخواست هم‌زمان تغییر کرده است؛ دوباره بررسی کنید.',409);
     if($domain&&_req_substitute_eligible($after)){
       if(!empty($after['substitute_user_id'])||_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=? AND status='active'",[$id]);
-      if(!empty($after['substitute_user_id']))_req_apply_approval_effects($after,$id);
+      if(!empty($after['substitute_user_id'])){
+        _req_apply_approval_effects($after,$id);
+        $reservationNotification=LeaveSubstituteCoverage::recordReservation($id,(int)$after['user_id'],(int)$after['substitute_user_id'],(int)$actor['id'],$after,'changed');
+      }
     }
     $prior=_req_edit_state($before);$next=_req_edit_state($after);if($attendance){$prior['attendance']=$attendance['before'];$next['attendance']=$attendance['after'];}
     $audit=Db::insert('INSERT INTO request_edit_history(request_id,actor_id,edit_reason,before_json,after_json) VALUES(?,?,?,?,?)',[$id,(int)$actor['id'],$why,json_encode($prior,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),json_encode($next,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
-    $pdo->commit();return ['id'=>$id,'status'=>'approved','minutes'=>$after['minutes'],'edit_id'=>$audit,'message'=>'درخواست تأییدشده اصلاح شد.'];
+    $pdo->commit();
+    if($reservationNotification)LeaveSubstituteCoverage::sendReservation($reservationNotification);
+    return ['id'=>$id,'status'=>'approved','minutes'=>$after['minutes'],'edit_id'=>$audit,'message'=>'درخواست تأییدشده اصلاح شد.'];
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
 }
 
