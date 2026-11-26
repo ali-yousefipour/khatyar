@@ -1392,6 +1392,18 @@ function shiftCoverageCaption(day){
   if(leaves.some(v=>v.unit!=='hourly'))return 'مرخصی تأییدشده';
   return 'مرخصی ساعتی تأییدشده';
 }
+function shiftCalendarDaySummary(day,coverageDay){
+  const covers=Array.isArray(coverageDay?.cover)?coverageDay.cover:[];
+  const known=v=>v!=null&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
+  // The schedule endpoint owns effective daily duty (including composite shifts).
+  // Only use coverage as a fallback when the schedule has no usable working day.
+  const scheduled=known(day?.minutes)&&!day?.is_off&&Number(day.minutes)>0;
+  if(scheduled)return {working:true,minutes:Number(day.minutes),unknown:false};
+  if(!covers.length)return {working:!day?.is_off,minutes:known(day?.minutes)?Number(day.minutes):0,unknown:!day?.is_off&&!known(day?.minutes)};
+  const unique=[...new Map(covers.map((v,i)=>[v.request_id??('unknown-'+i),v])).values()];
+  const unknown=unique.some(v=>!known(v.shift?.minutes));
+  return {working:true,minutes:unique.reduce((sum,v)=>sum+(known(v.shift?.minutes)?Number(v.shift.minutes):0),0),unknown};
+}
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
   const [coverage,setCoverage]=useState({});
@@ -1428,20 +1440,23 @@ function CheckInShiftTab(){
   if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
   const scheduled=Array.isArray(data?.days)?data.days:[];
   // Show confirmed leave/cover events even for staff without a permanent shift.
-  const days=scheduled.length?scheduled:Object.keys(coverage).sort().map(date=>({
-    date,weekday:'روز',is_off:true,minutes:0,shift_title:'بدون شیفت دائمی'
-  }));
+  const byDate=new Map(scheduled.map(d=>[shiftCoverageJdate(d.date)||d.date,d]));
+  for(const date of Object.keys(coverage))if(!byDate.has(date))byDate.set(date,{date,weekday:'روز',is_off:true,minutes:0,shift_title:'بدون شیفت دائمی'});
+  const days=[...byDate.entries()].sort(([a],[b])=>String(a).localeCompare(String(b))).map(([,day])=>day);
   // A temporary substitute can have dated shifts even without a permanent assignment.
   const shiftMissing=days.length===0;
-  const total=days.reduce((sum,d)=>sum+Math.max(0,Number(d.minutes)||0),0);
-  const working=days.filter(d=>!d.is_off).length;
+  const summaries=days.map(d=>shiftCalendarDaySummary(d,coverage[shiftCoverageJdate(d.date)]));
+  const total=summaries.reduce((sum,d)=>sum+d.minutes,0);
+  const working=summaries.filter(d=>d.working).length;
+  const unknownDuty=summaries.some(d=>d.unknown);
   const shiftType=data?.shift?.type??data?.shift_type;
   return <ScrollView persistentScrollbar contentContainerStyle={{padding:14,paddingBottom:45}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
+    {coverageError?<Text style={s.warnText}>{coverageError}</Text>:null}
     <View style={s.shiftHero}><Text style={s.shiftHeroTitle}>تقویم شیفت کاری</Text><Text style={s.shiftHeroSub}>برنامه ماه جاری • تاریخ شمسی</Text></View>
     <View style={s.shiftSummaryRow}>
       <View style={s.shiftSummaryItem}><Text style={s.shiftSummaryValue}>{faNum(working)}</Text><Text style={s.shiftSummaryLabel}>روز کاری</Text></View>
-      <View style={s.shiftSummaryItem}><Text style={s.shiftSummaryValue}>{fmtMinFa(total)}</Text><Text style={s.shiftSummaryLabel}>مجموع موظفی</Text></View>
+      <View style={s.shiftSummaryItem}><Text style={s.shiftSummaryValue}>{unknownDuty?(total?fmtMinFa(total)+' + نامشخص':'نامشخص'):fmtMinFa(total)}</Text><Text style={s.shiftSummaryLabel}>مجموع موظفی</Text></View>
     </View>
     {shiftType?<Text style={s.shiftTypeHint}>نوع شیفت: {String(data?.shift?.title??data?.shift_title??shiftType)}</Text>:null}
     {shiftMissing?<View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}><Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text><Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد.'}</Text></View>:days.map((d,index)=>{
@@ -1450,14 +1465,15 @@ function CheckInShiftTab(){
       const leaveCaption=shiftCoverageCaption(coverageDay);
       const fullDayLeave=!!coverageDay.leave?.some(v=>v.unit!=='hourly');
       const coverNames=[...new Set((coverageDay.cover||[]).map(v=>v.absent_name).filter(Boolean))];
-      const coverCaption=coverNames.length?'جایگزین: '+coverNames.join('، '):null;
-      const requesterShift=coverageDay.cover?.[0]?.shift||null;
-      const sourceIntervals=shiftIntervals(requesterShift);
+      const confirmedCovers=coverageDay.cover||[];
+      const coverCaption=confirmedCovers.length?'حضور به‌جای: '+(coverNames.length?coverNames.join('، '):'نام نیروی اصلی در سرور ثبت نشده'):null;
+      const sourceIntervals=confirmedCovers.flatMap(cover=>shiftIntervals(cover.shift).map(interval=>({...interval,label:cover.absent_name||'نیروی اصلی نامشخص'})));
       const intervals=coverCaption?sourceIntervals:ownIntervals;
+      const summary=summaries[index];
       const active=expanded[d.date]??!!d.is_today;
       const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
       const ownKind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
-      const kind=coverCaption?(requesterShift?.title||'شیفت جایگزینی؛ جزئیات نامشخص'):ownKind;
+      const kind=coverCaption?([...new Set(confirmedCovers.map(v=>v.shift?.title).filter(Boolean))].join('، ')||'شیفت جایگزینی؛ جزئیات نامشخص'):ownKind;
       return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard,leaveCaption&&s.shiftLeaveCard,coverCaption&&s.shiftCoverCard]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${leaveCaption||coverCaption||kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
           <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{leaveCaption||coverCaption||(d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind)}</Text></View>
@@ -1467,7 +1483,7 @@ function CheckInShiftTab(){
         {active?<View style={s.shiftDetails}>
           {leaveCaption?<View style={s.shiftLeaveNotice}><Text style={s.shiftLeaveNoticeTitle}>{leaveCaption}</Text><Text style={s.shiftLeaveNoticeText}>درخواست مرخصی برای این تاریخ تأیید شده است.</Text>{(coverageDay.leave||[]).filter(v=>v.unit==='hourly').map((v,i)=><Text key={'hourly-'+i} style={s.shiftLeaveNoticeText}>بازه مرخصی: {shiftTimeFa(v.from_time)} تا {shiftTimeFa(v.to_time)}</Text>)}</View>:null}
           {(coverageDay.cover||[]).map(cover=><View key={'cover-'+cover.request_id} style={s.shiftCoverNotice}>
-            <Text style={s.shiftCoverNoticeTitle}>جایگزینی تأییدشده: {cover.absent_name}</Text>
+            <Text style={s.shiftCoverNoticeTitle}>حضور به‌جای: {cover.absent_name||'نام نیروی اصلی نامشخص'}</Text>
             <Text style={s.shiftCoverNoticeText}>{cover.shift?.title||'عنوان شیفت ثبت نشده'}</Text>
             {shiftIntervals(cover.shift).length?shiftIntervals(cover.shift).map((interval,i)=><Text key={i} style={s.shiftCoverNoticeText}>ورود {shiftTimeFa(interval.start)} تا خروج {shiftTimeFa(interval.end)}</Text>):<Text style={s.shiftCoverNoticeText}>ساعت معتبر این تخصیص در پاسخ سرور مشخص نشده است.</Text>}
             {cover.reserved_by_name?<Text style={s.shiftCoverNoticeText}>رزروکننده: {cover.reserved_by_name}</Text>:null}
@@ -1479,8 +1495,8 @@ function CheckInShiftTab(){
             {shiftIntervals(reservation.shift).map((interval,i)=><Text key={i} style={s.shiftLeaveNoticeText}>{shiftTimeFa(interval.start)} تا {shiftTimeFa(interval.end)}</Text>)}
           </View>)}
           <Text style={s.shiftDetailHeading}>نوع شیفت: {kind}</Text>
-          {!coverCaption&&d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج شیفت تأییدشده در پاسخ سرور مشخص نشده است.</Text>}
-          <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {coverCaption?(requesterShift?.minutes==null?'—':fmtMinFa(requesterShift.minutes)):(d.is_off?'—':fmtMinFa(d.minutes))}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
+          {!coverCaption&&d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{coverCaption?interval.label:(intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد')}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج شیفت تأییدشده در پاسخ سرور مشخص نشده است.</Text>}
+          <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {summary.unknown?(summary.minutes?fmtMinFa(summary.minutes)+' + نامشخص':'نامشخص'):(summary.working?fmtMinFa(summary.minutes):'—')}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
         </View>:null}
       </View>;
     })}
