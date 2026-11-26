@@ -2,7 +2,7 @@
 /**
  * Guard pending/approved daily-leave replacement reservations and expose scoped
  * confirmed leave/cover days for the "My attendance > Shift" calendar.
- * No schema changes, permanent user_shifts writes or public data exposure.
+ * Reservation audit storage is append-only; no permanent user_shifts writes.
  */
 final class LeaveSubstituteCoverage {
     private static function day($raw): ?string {
@@ -54,6 +54,45 @@ final class LeaveSubstituteCoverage {
             AND REPLACE(TRIM(COALESCE(NULLIF(from_jdate,''),NULLIF(the_date,''))),'/','-')<=?
             AND REPLACE(TRIM(COALESCE(NULLIF(to_jdate,''),NULLIF(the_date,''),NULLIF(from_jdate,''))),'/','-')>=? LIMIT 1",[$subId,$to,$from]);
         if($busy)Http::error('نیروی جایگزین در بازه انتخابی مرخصی یا مأموریت تأییدشده دارد',409);
+    }
+    // Persist the authenticated actor separately from the absent and substitute users.
+    public static function prepareReservationAudit(): void {
+        Db::run("CREATE TABLE IF NOT EXISTS leave_reservation_audit (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            request_id BIGINT NOT NULL, absent_user_id INT NOT NULL,
+            substitute_user_id INT NOT NULL, actor_id INT NOT NULL,
+            event VARCHAR(24) NOT NULL, from_date VARCHAR(10) NOT NULL,
+            to_date VARCHAR(10) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_leave_reservation_request (request_id,id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    public static function recordReservation(int $id,int $owner,int $sub,int $actor,array $body,string $event='reserved'): array {
+        $range=self::range($body);
+        if(!$range||$id<=0||$owner<=0||$sub<=0||$actor<=0)throw new InvalidArgumentException('Invalid reservation audit');
+        Db::run("INSERT INTO leave_reservation_audit(request_id,absent_user_id,substitute_user_id,actor_id,event,from_date,to_date) VALUES(?,?,?,?,?,?,?)",[$id,$owner,$sub,$actor,$event,$range[0],$range[1]]);
+        $people=Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) name,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id IN (?,?)",[$sub,$actor]);
+        $names=[];foreach($people as $person)$names[(int)$person['id']]=$person['name'];
+        $message='نیروی جایگزین: '.($names[$sub]??'—').'؛ رزروکننده: '.($names[$actor]??'—').'؛ بازه: '.$range[0].' تا '.$range[1].'؛ '.($event==='changed'?'جایگزینی اصلاح شد.':'در انتظار تأیید نهایی.');
+        $data=['type'=>'substitute_assigned','request_id'=>$id,'substitute_user_id'=>$sub,'reserved_by_user_id'=>$actor];
+        Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES (?,?,?,?)",[$owner,'اطلاعات رزرو نیروی جایگزین',$message,json_encode($data,JSON_UNESCAPED_UNICODE)]);
+        return ['owner'=>$owner,'message'=>$message,'data'=>$data];
+    }
+    public static function sendReservation(array $notification): void {
+        try{Push::send([$notification['owner']],'اطلاعات رزرو نیروی جایگزین',$notification['message'],$notification['data']);}
+        catch(Throwable $e){error_log('leave reservation delivery failed: request_id='.(int)$notification['data']['request_id']);}
+    }
+    private static function enrichReservations($answer): array {
+        if(!is_array($answer))return [];
+        if(!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('leave_reservation_audit'))return $answer;
+        $single=isset($answer['id']);$rows=$single?[$answer]:$answer;
+        foreach($rows as &$row){
+            if(!is_array($row)||empty($row['id'])||!self::eligible($row)||empty($row['substitute_user_id']))continue;
+            $audit=Db::one("SELECT a.actor_id reserved_by_user_id,a.created_at reserved_at,a.from_date,a.to_date,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) reserved_by_name,r.title reserved_by_role, sr.title substitute_role
+                FROM leave_reservation_audit a LEFT JOIN users u ON u.id=a.actor_id LEFT JOIN roles r ON r.id=u.role_id LEFT JOIN users su ON su.id=a.substitute_user_id LEFT JOIN roles sr ON sr.id=su.role_id
+                WHERE a.request_id=? AND a.substitute_user_id=? ORDER BY a.id DESC LIMIT 1",[(int)$row['id'],(int)$row['substitute_user_id']]);
+            $row['substitute_reservation']=$audit;
+        }unset($row);
+        return $single?$rows[0]:$rows;
     }
     private static function guardRegistration(array $body,callable $original,array $params,$user) {
         if(!self::eligible($body)||empty($body['substitute_user_id']))
@@ -122,7 +161,9 @@ final class LeaveSubstituteCoverage {
         foreach($routes as &$route){
             $p=$route['p']??'';$m=$route['m']??'';
             $original=$route['fn'];
-            if($p==='/api/my/substitutes'&&$m==='GET')
+            if($m==='GET'&&in_array($p,['/api/my/requests','/api/admin/requests/{id}'],true))
+                $route['fn']=static fn($params,$body,$user)=>self::enrichReservations($original($params,$body,$user));
+            elseif($p==='/api/my/substitutes'&&$m==='GET')
                 $route['fn']=static fn($params,$body,$user)=>self::listSubstitutes($params,$body,$user,$original);
             elseif($m==='POST'&&in_array($p,['/api/my/requests','/api/admin/requests'],true))
                 $route['fn']=static fn($params,$body,$user)=>self::guardRegistration($body,$original,$params,$user);
