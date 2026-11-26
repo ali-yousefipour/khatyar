@@ -125,6 +125,19 @@ const manualTimeSummary = (r) => {
 };
 const STATUS = { queued: ['در صف ارسال آفلاین', '#a16207'], pending: ['در انتظار بررسی', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'], canceled: ['لغوشده', '#64748b'] };
 
+function SubstituteReservation({ item }) {
+  if (item.type !== 'annual' || item.unit === 'hourly' || !item.substitute_user_id) return null;
+  const reservation = item.substitute_reservation;
+  const state = item.status === 'approved' ? 'تأیید نهایی' : item.status === 'pending' ? 'رزرو در انتظار تأیید' : 'رزرو غیرفعال';
+  return <View style={s.approvalTimeline}>
+    <Text style={s.approvalTitle}>اطلاعات نیروی جایگزین</Text>
+    <Text style={s.approvalName}>نیروی جایگزین: {item.substitute_name || 'نام ثبت نشده'}{reservation?.substitute_role ? ' — ' + reservation.substitute_role : ''}</Text>
+    <Text style={s.approvalName}>رزروکننده: {reservation?.reserved_by_name || 'در سوابق قدیمی ثبت نشده'}{reservation?.reserved_by_role ? ' — ' + reservation.reserved_by_role : ''}</Text>
+    <Text style={s.approvalDate}>بازه: {faDigits(reservation?.from_date || item.from_jdate)} تا {faDigits(reservation?.to_date || item.to_jdate || item.from_jdate)}</Text>
+    <Text style={s.approvalNote}>{state}</Text>
+  </View>;
+}
+
 function ApprovalTimeline({ item }) {
   const steps = Array.isArray(item.approval_steps) ? item.approval_steps : [];
   const current = item.status === 'pending' ? pendingPerson(item) : '';
@@ -550,6 +563,7 @@ function MyRequests() {
             <Text style={s.cardMeta}>{faDigits(r.the_date || r.from_jdate) }{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faDigits(r.to_jdate)}` : ''}{r.from_time ? `  ${faDigits(r.from_time)}–${faDigits(r.to_time)}` : ''}{r.type==='manual' ? `  ${manualTimeSummary(r)}` : ''}</Text>
             {r.reason ? <Text style={s.cardReason}>{r.reason}</Text> : null}
             {r.status==='rejected' ? <View style={s.rejectedBox}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.danger}/><Text style={s.rejectedText}>دلیل رد: {rejectedReason || 'دلیل رد توسط تأییدکننده ثبت نشده است.'}</Text></View> : null}
+            <SubstituteReservation item={r}/>
             <ApprovalTimeline item={r}/>
             {r.status==='pending' && <TouchableOpacity accessibilityRole="button" accessibilityLabel="حذف درخواست در انتظار تأیید" disabled={deletingId!==null} onPress={()=>removeRequest(r)} style={s.deleteRequestBtn}>
               <MaterialCommunityIcons name="trash-can-outline" size={18} color={C.danger}/>
