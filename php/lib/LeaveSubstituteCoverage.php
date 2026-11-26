@@ -46,6 +46,15 @@ final class LeaveSubstituteCoverage {
         $busy=self::conflict($subId,$from,$to,$exclude,$earlierOnly);
         if($busy)Http::error('نیروی انتخاب‌شده در این بازه برای درخواست مرخصی دیگری رزرو شده یا جایگزینی تأییدشده دارد. جایگزین دیگری انتخاب کنید.',409);
     }
+    private static function validatePerson(int $subId,int $ownerId,string $from,string $to): void {
+        if($subId===$ownerId)Http::error('نیروی جایگزین نمی‌تواند خود درخواست‌کننده باشد',422);
+        if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$subId]))
+            Http::error('نیروی جایگزین فعال و واجد شرایط انتخاب کنید',422);
+        $busy=Db::one("SELECT id FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')
+            AND REPLACE(TRIM(COALESCE(NULLIF(from_jdate,''),NULLIF(the_date,''))),'/','-')<=?
+            AND REPLACE(TRIM(COALESCE(NULLIF(to_jdate,''),NULLIF(the_date,''),NULLIF(from_jdate,''))),'/','-')>=? LIMIT 1",[$subId,$to,$from]);
+        if($busy)Http::error('نیروی جایگزین در بازه انتخابی مرخصی یا مأموریت تأییدشده دارد',409);
+    }
     private static function guardRegistration(array $body,callable $original,array $params,$user) {
         if(!self::eligible($body)||empty($body['substitute_user_id']))
             return $original($params,$body,$user);
@@ -53,6 +62,7 @@ final class LeaveSubstituteCoverage {
         if($subId<=0||!$range)return $original($params,$body,$user); // Canonical handler validates fields.
         self::lock($subId);
         try{
+            self::validatePerson($subId,(int)($body['user_id']??$user['id']??0),$range[0],$range[1]);
             self::ensureAvailable($subId,$range[0],$range[1]);
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
@@ -62,13 +72,14 @@ final class LeaveSubstituteCoverage {
         if(!in_array($state,['approved','approve'],true))return $original($params,$body,$user);
         $id=(int)($params['id']??0);
         if($id<=0)return $original($params,$body,$user);
-        $row=Db::one('SELECT id,type,unit,substitute_user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE id=?',[$id]);
+        $row=Db::one('SELECT id,user_id,type,unit,substitute_user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE id=?',[$id]);
         if(!$row||!self::eligible($row)||empty($row['substitute_user_id']))return $original($params,$body,$user);
         $subId=(int)$row['substitute_user_id'];$range=self::range($row);
         if(!$range)return $original($params,$body,$user);
         self::lock($subId);
         try{
             // Old duplicate pending requests can be resolved in creation order.
+            self::validatePerson($subId,(int)$row['user_id'],$range[0],$range[1]);
             self::ensureAvailable($subId,$range[0],$range[1],$id,true);
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
@@ -76,7 +87,7 @@ final class LeaveSubstituteCoverage {
     private static function guardApprovedEdit(array $params,array $body,$user,callable $original) {
         $id=(int)($params['id']??0);
         if($id<=0)return $original($params,$body,$user);
-        $row=Db::one('SELECT id,type,unit,substitute_user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE id=?',[$id]);
+        $row=Db::one('SELECT id,user_id,type,unit,substitute_user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE id=?',[$id]);
         if(!$row||$row['status']!=='approved')return $original($params,$body,$user);
         // Do not block a text-only correction; canonical editor handles validation.
         if(!array_intersect(['substitute_user_id','from_jdate','to_jdate','the_date'],array_keys($body)))
@@ -87,6 +98,7 @@ final class LeaveSubstituteCoverage {
         if(!$range)return $original($params,$body,$user);
         self::lock($subId);
         try{
+            self::validatePerson($subId,(int)$row['user_id'],$range[0],$range[1]);
             self::ensureAvailable($subId,$range[0],$range[1],$id);
             return $original($params,$body,$user);
         }finally{self::unlock($subId);}
