@@ -628,11 +628,18 @@ final class LeaveSubstituteCoverage {
             }
         }
         $covers=Db::all("SELECT sa.id assignment_id,sa.from_date,sa.to_date,r.id AS request_id,r.created_at request_created_at,
-                sa.absent_user_id,r.from_jdate,r.to_jdate,r.the_date,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
+                sa.absent_user_id,r.from_jdate,r.to_jdate,r.the_date,r.approver_id,r.decided_at,
+                TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name,
+                COALESCE(ar.title,'') absent_role,
+                TRIM(CONCAT_WS(' ',ap.first_name,ap.last_name)) AS approver_name,
+                TRIM(CONCAT_WS(' ',su.first_name,su.last_name)) AS substitute_name
            FROM substitute_assignments sa
            JOIN requests r ON r.id=sa.request_id AND r.status='approved'
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
            JOIN users u ON u.id=sa.absent_user_id
+           LEFT JOIN roles ar ON ar.id=u.role_id
+           LEFT JOIN users ap ON ap.id=r.approver_id
+           LEFT JOIN users su ON su.id=sa.substitute_user_id
            WHERE sa.substitute_user_id=? AND sa.status='active'
              AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id
              AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')
@@ -683,6 +690,10 @@ final class LeaveSubstituteCoverage {
                 $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],
                     'assignment_id'=>isset($cover['assignment_id'])?(int)$cover['assignment_id']:null,
                     'request_created_at'=>$cover['request_created_at']??null,'absent_name'=>$cover['absent_name'],
+                    'absent_role'=>$cover['absent_role']??null,
+                    'substitute_name'=>$cover['substitute_name']??null,
+                    'approved_at'=>$cover['decided_at']??null,'approved_by_id'=>isset($cover['approver_id'])?(int)$cover['approver_id']:null,
+                    'approved_by_name'=>$cover['approver_name']??null,
                     'status'=>'confirmed','request_status'=>'approved','is_confirmed'=>true,'shift'=>$shift]+$completion;
             }
         }
