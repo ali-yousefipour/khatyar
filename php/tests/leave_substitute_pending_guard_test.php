@@ -186,7 +186,7 @@ catch(RuntimeException $e){check($e->getCode()===403,'historical location edits 
 echo "PASS historical service-location: unknown, partial, verified, independent segments and admin authorization\n";
 
 $completionMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'completedByAttendance');
-$epoch=ShiftCalc::jdateToTs('1405-09-02');
+$epoch=strtotime(date('Y-m-d 00:00:00',ShiftCalc::jdateToTs('1405-09-02')));
 $asClock=static fn(int $minutes):string=>date('Y-m-d H:i:s',$epoch+$minutes*60);
 $attendance=[
  ['id'=>101,'check_in'=>$asClock(360),'check_out'=>$asClock(840),'method'=>'gps','line_id'=>10],
