@@ -144,3 +144,13 @@ $historyChecks=[['slot'=>'12:00','captured_at'=>date('Y-m-d H:i:s',$now-110)]];
 $history=$presenceCron([],[],['id'=>21]);
 assertPresence(array_column($history['items'],'status')===['done','missed','pending'],'Today history must distinguish completed, missed and active requests');
 echo "PASS today presence history statuses\n";
+$historyNotifications=[
+ ['id'=>1,'data'=>json_encode(['type'=>'presence_check','slot'=>'12:30','request_id'=>'imm-a','ts'=>$now-120]),'created_at'=>date('Y-m-d H:i:s',$now-120)],
+ ['id'=>2,'data'=>json_encode(['type'=>'presence_check','slot'=>'12:30','request_id'=>'imm-b','ts'=>$now-120]),'created_at'=>date('Y-m-d H:i:s',$now-120)]
+];
+$historyChecks=[['slot'=>'12:30','request_id'=>'imm-a','captured_at'=>date('Y-m-d H:i:s',$now-110)]];
+$separate=$presenceCron([],[],['id'=>21]);
+$statuses=array_column($separate['items'],'status','id');
+assertPresence(($statuses['imm-a']??'')==='done'&&($statuses['imm-b']??'')==='missed',
+ 'A single photo from one immediate challenge must not complete a different same-minute challenge');
+echo "PASS presence request identity keeps two immediate checks in one slot independent\n";
