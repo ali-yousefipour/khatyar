@@ -167,6 +167,25 @@ check($calendar['days']['1405-09-03']['reservations'][0]['is_confirmed']===false
 check(!isset($calendar['days']['1405-09-03']['cover']),'pending reservation never becomes confirmed cover');
 echo "PASS pending substitute reservations, conflicts, release and approved-only calendar\n";
 
+// Verify historical service-location semantics without relying on a mutable user profile.
+$locationMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'attachServiceLocation');
+$shiftWithSegments=['segments'=>[['s'=>'06:00','e'=>'14:00'],['s'=>'14:00','e'=>'22:00']],
+ 'line_id'=>null,'line_name'=>null,'service_location'=>null];
+$unknown=$locationMethod->invoke(null,$shiftWithSegments,[]);
+check($unknown['location_status']==='unrecorded'&&$unknown['line_id']===null,'missing historical location stays unknown');
+$first=['line_id'=>10,'line_name'=>'خط ۱۰','service_location'=>'ایستگاه اول'];
+$partial=$locationMethod->invoke(null,$shiftWithSegments,[0=>$first]);
+check($partial['location_status']==='partial'&&$partial['line_id']===null,'partially verified shifts cannot invent a common line');
+$both=$locationMethod->invoke(null,$shiftWithSegments,[0=>$first,1=>$first]);
+check($both['location_status']==='verified'&&$both['line_id']===10&&count($both['segment_locations'])===2,'verified segment snapshots retain historical line');
+$other=['line_id'=>11,'line_name'=>'خط ۱۱','service_location'=>'ایستگاه دوم'];
+$different=$locationMethod->invoke(null,$shiftWithSegments,[0=>$first,1=>$other]);
+check($different['location_status']==='verified'&&$different['line_id']===null&&$different['segment_locations'][1]['line_id']===11,'two verified distinct lines remain independent');
+try{runRoute('PUT','/api/admin/substitute-calendar/service-location',[],['assignment_id'=>1,'line_id'=>10],['id'=>5]);throw new LogicException('ordinary user edited historical location');}
+catch(RuntimeException $e){check($e->getCode()===403,'historical location edits are admin-only');}
+echo "PASS historical service-location: unknown, partial, verified, independent segments and admin authorization\n";
+
+
 foreach(['/api/admin/substitute-calendar','/api/admin/substitute-calendar/users'] as $endpoint){
  try{runRoute('GET',$endpoint);throw new LogicException('unauthorized calendar access accepted');}
  catch(RuntimeException $e){check($e->getCode()===403,'admin calendar rejects ordinary user');}
