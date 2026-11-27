@@ -54,7 +54,7 @@ assert.match(gate,/if\(!saved\)await AsyncStorage.setItem/);
 // Account-scoped completion markers and absolute notification deadlines must
 // never accept an old challenge from another user or revive an expired alert.
 assert.match(gateSource,/presence_user:'\+userId\+':'/,'presence keys must include authenticated user identity');
-assert.match(gateSource,/completedForUser\(await localPresenceCompletions\(\),requestId\)/,
+assert.match(gateSource,/completedForUser\(await localPresenceCompletions\(userId\),requestId\)/,
  'local completion must belong to the signed-in account');
 assert.match(gateSource,/if\(!alive\|\|Date\.now\(\)>=deadlineMs\)return;/,
  'late delivered notifications must never bypass the original deadline');
