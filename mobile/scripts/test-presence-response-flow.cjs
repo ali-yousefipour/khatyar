@@ -51,6 +51,19 @@ assert.throws(()=>patchPresenceAlarm('unexpected Expo builder'),/builder changed
 const gate=fs.readFileSync(path.join(root,'src/PresenceGate.js'),'utf8');
 assert.match(gate,/presence_wizard_started:/);
 assert.match(gate,/if\(!saved\)await AsyncStorage.setItem/);
+// Account-scoped completion markers and absolute notification deadlines must
+// never accept an old challenge from another user or revive an expired alert.
+assert.match(gateSource,/presence_user:'\+userId\+':'/,'presence keys must include authenticated user identity');
+assert.match(gateSource,/completedForUser\(await localPresenceCompletions\(\),requestId\)/,
+ 'local completion must belong to the signed-in account');
+assert.match(gateSource,/if\(!alive\|\|Date\.now\(\)>=deadlineMs\)return;/,
+ 'late delivered notifications must never bypass the original deadline');
+const alarmSource=fs.readFileSync(path.join(root,'src/presenceAlarm.js'),'utf8');
+assert.match(alarmSource,/try\{await NativeModules\?\.KhatyarRadio\?\.stopPresenceAlarm\?\.\(\);\}catch/,
+ 'native MediaPlayer must stop even if notification dismissal is not requested');
+const policySource=fs.readFileSync(path.join(root,'src/presenceLocalSchedule.js'),'utf8');
+assert.match(policySource,/POLICY_REFRESH_MS=60\*1000/,'policy refreshes during the same day');
+assert.match(policySource,/request_id:'local_'\+Number\(userId\)/,'random requests require account-scoped IDs');
 const wizard=fs.readFileSync(path.join(root,'src/PresenceCheckWizard.js'),'utf8');
 assert.match(wizard,/stopPresenceAlarm\(\{dismissNotifications:true\}\)/);
 assert.doesNotMatch(wizard,/manualSystemCamera/);
