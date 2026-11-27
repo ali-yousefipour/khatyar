@@ -15,7 +15,7 @@ class Db {
   }
   static function all($query, $params=[]) {
     if(str_contains($query,'information_schema.COLUMNS'))return [
-      ['COLUMN_NAME'=>'id'],['COLUMN_NAME'=>'selfie_path'],['COLUMN_NAME'=>'vehicles_photo_path']
+      ['COLUMN_NAME'=>'id'],['COLUMN_NAME'=>'selfie_path'],['COLUMN_NAME'=>'vehicles_photo_path'],['COLUMN_NAME'=>'request_id']
     ];
     return [];
   }
