@@ -6,6 +6,13 @@ on:
     paths:
       - '.github/workflows/android-presence-debug-smoke.yml'
       - 'mobile/src/VehiclesPhotoCapture.js'
+      - 'mobile/src/PresenceGate.js'
+      - 'mobile/src/PresenceCheckWizard.js'
+      - 'mobile/src/presenceLocalSchedule.js'
+      - 'mobile/src/presenceAlarm.js'
+      - 'mobile/src/presenceDeadlineClock.js'
+      - 'mobile/scripts/test-presence-response-flow.cjs'
+      - 'mobile/scripts/test-presence-local-scheduling.cjs'
       - 'mobile/package.json'
       - 'mobile/package-lock.json'
       - 'mobile/app.config.js'
