@@ -307,6 +307,8 @@ class ShiftCalc
             'exit_from'=>$format($exitStart),'exit_until'=>$format($exitEnd)
         ];
     }
+    // Registration time limits are entered at minute precision and include the final minute.
+    static function minuteInThreshold($mins,$start,$end){if($start===null||$end===null)return false;if($end<$start)return $mins>=$start||$mins<=$end;return $mins>=$start&&$mins<=$end;}
     static function minuteInWindow($mins,$start,$end){if($start===null||$end===null)return false;if($end<$start)return $mins>=$start||$mins<=$end;return $mins>=$start&&$mins<=$end;}
     static function checkTrafficWindow($dayRow,$ts){
         $cfg=self::parseJson($dayRow['day_config']??null);
@@ -344,7 +346,7 @@ class ShiftCalc
             $entry=$kind==='in';
             $from=$entry?$window['entry_start_min']:$window['exit_start_min'];
             $until=$entry?$window['entry_end_min']:$window['exit_end_min'];
-            if(self::minuteInWindow($minutes,$from,$until))return ['ok'=>true,'seg'=>$segment];
+            if(self::minuteInThreshold($minutes,$from,$until))return ['ok'=>true,'seg'=>$segment];
         }
         return ['ok'=>false,'reason'=>"ثبت ".($kind==='in'?'ورود':'خروج')." خارج از بازهٔ مجاز شیفت است."];
     }
