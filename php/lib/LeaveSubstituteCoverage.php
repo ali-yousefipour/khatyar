@@ -466,7 +466,13 @@ final class LeaveSubstituteCoverage {
             foreach($attendance as $punch){
                 if(empty($punch['check_in'])||empty($punch['check_out'])||
                    str_contains((string)($punch['method']??''),'auto_close'))continue;
-                if($lineId&&$lineId!==(int)($punch['line_id']??0))continue;
+                if($lineId){
+                    // A session that checked out on another known line cannot prove
+                    // completion of this specific replacement duty segment.
+                    if($lineId!==(int)($punch['line_id']??0))continue;
+                    $exitLine=(int)($punch['out_line_id']??0);
+                    if($exitLine>0&&$exitLine!==$lineId)continue;
+                }
                 $in=strtotime((string)$punch['check_in']);$out=strtotime((string)$punch['check_out']);
                 if(!$in||!$out||$out<=$in||$out<=$start||$in>=$end)continue;
                 $parts[]=[max($start,$in),min($end,$out),(int)$punch['id']];
