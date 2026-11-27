@@ -55,7 +55,7 @@ export async function currentPresencePolicy(userId,request) {
   try {
     const remote=await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000});
     if(!remote?.enabled||!remote?.assigned||!remote?.random_enabled)
-      await clearLocalRandomSchedule().catch(()=>{});
+      await suspendLocalRandomSchedule().catch(()=>{});
     return await storePresencePolicy(userId,remote);
   }
   catch {
@@ -108,12 +108,13 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   const id=String(Math.floor(open.start/1000));
   if(Number(existing?.user_id)===Number(userId)&&existing?.attendance_id===id&&existing?.items?.length){
     const nextWindow=Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES));
-    if(existing.notification_channel_version===2&&existing.items.every(item=>item.window_minutes===nextWindow))return existing;
+    if(!existing.suspended&&existing.notification_channel_version===2&&existing.items.every(item=>item.window_minutes===nextWindow))return existing;
     for(const item of existing.items)item.window_minutes=nextWindow;
     // Refresh pending notifications when the channel or policy window changes.
     for(const item of existing.items)if(item.notification_id){await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});delete item.notification_id;}
     await installLocalAlerts(existing);
     existing.notification_channel_version=2;
+    existing.suspended=false;
     await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(existing));
     return existing;
   }
@@ -133,6 +134,17 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   await installLocalAlerts(schedule);
   await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(schedule));
   return schedule;
+}
+export async function suspendLocalRandomSchedule() {
+  let existing=null;
+  try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
+  if(!existing?.items?.length)return;
+  for(const item of existing.items)if(item.notification_id){
+    await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
+    delete item.notification_id;
+  }
+  existing.suspended=true;
+  await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(existing));
 }
 export async function clearLocalRandomSchedule() {
   const raw=await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY);
