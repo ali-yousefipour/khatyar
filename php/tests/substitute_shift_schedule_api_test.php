@@ -47,14 +47,14 @@ $working=array_values(array_filter($result['days'],fn($day)=>!$day['is_friday'])
 if(!$working)throw new RuntimeException('No scheduled weekdays');
 if(($working[0]['primary_segments'][0]['s']??null)!=='00:00'||count($working[0]['segments'])!==2)throw new RuntimeException('Permanent and replacement segments not returned independently');
 foreach($working as $day){
-    if($day['minutes']!==960||$day['is_off']||$day['is_no_shift'])
+    if($day['minutes']!==960||$day['primary_minutes']!==360||$day['is_off']||$day['is_no_shift'])
         throw new RuntimeException('Composite expected duty not reported: '.$day['date']);
 }
 if(count($GLOBALS['dayCalls'])!==count($result['days'])*2)
     throw new RuntimeException('Every synthetic day must use the canonical day-row accessor');
 $GLOBALS['withoutShift']=true;$GLOBALS['dayCalls']=[];
 $empty=$handler([],[],['id'=>9]);
-if(array_filter($empty['days'],fn($day)=>!$day['is_no_shift']||$day['minutes']!==0))
+if(array_filter($empty['days'],fn($day)=>!$day['is_no_shift']||$day['minutes']!==0||$day['primary_minutes']!==null))
     throw new RuntimeException('Unassigned day must never invent duty');
 if($GLOBALS['dayCalls'])throw new RuntimeException('Unassigned day queried shift row');
 echo "PASS effective synthetic schedule: two independent segments, no zero-duty fallback, and no phantom duty\\n";
