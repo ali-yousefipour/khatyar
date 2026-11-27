@@ -579,6 +579,15 @@ final class LeaveSubstituteCoverage {
             if(!$line)Http::error('خط خدمت معتبر نیست',422);
             $lineName=trim((string)($line['code']??''));
             if($lineName==='')Http::error('شناسه خط فاقد عنوان معتبر است',422);
+            // Preserve the official line code and the route label as captured
+            // at correction time; do not resolve historic labels from today's profile.
+            $origin=trim((string)($line['origin']??''));
+            $destination=trim((string)($line['destination']??''));
+            if($origin!==''||$destination!==''){
+                $routeName=$origin!==''&&$destination!==''&&$origin!==$destination
+                    ?$origin.' – '.$destination:($origin?:$destination);
+                $lineName.=' — '.$routeName;
+            }
             $previous=Db::one("SELECT line_id,line_name,service_location FROM substitute_shift_service_snapshots
                 WHERE assignment_id=? AND jdate=? AND segment_index=? FOR UPDATE",[$assignment,$date,$segment]);
             $next=['line_id'=>(int)$line['id'],'line_name'=>$lineName,'service_location'=>$location];
