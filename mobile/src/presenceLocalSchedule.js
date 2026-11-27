@@ -12,9 +12,14 @@ const DEFAULT_WINDOW_MINUTES = 3;
 const policyDay = () => { const p=tehranGregorianParts(new Date()); return p?`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`:new Date().toISOString().slice(0,10); };
 const FIXED_KEY='presence_fixed_notifications_v1';
 async function scheduleFixedAlerts(policy){
-  if(!policy?.enabled||!policy?.assigned||policy?.random_enabled||!policy?.slots?.length)return;
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(FIXED_KEY)||'null')}catch{}
+  if(!policy?.enabled||!policy?.assigned||policy?.random_enabled||!policy?.slots?.length){
+    for(const item of existing?.items||[])if(item.notification_id)
+      await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
+    await AsyncStorage.removeItem(FIXED_KEY).catch(()=>{});
+    return;
+  }
   if(existing?.version===3&&existing?.user_id===policy.user_id&&existing?.day===policy.day&&existing?.window_minutes===policy.window_minutes&&JSON.stringify(existing?.slots)===JSON.stringify(policy.slots))return;
   for(const item of existing?.items||[])if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
   await ensurePresenceChannel();
@@ -47,7 +52,12 @@ export async function storePresencePolicy(userId,config) {
 export async function currentPresencePolicy(userId,request) {
   const cached=await cachedPresencePolicy(userId);
   if(cached?.day===policyDay()&&!cached.stale&&Date.now()-Number(cached.saved_at||0)<POLICY_REFRESH_MS){await scheduleFixedAlerts(cached).catch(()=>{});return cached;}
-  try { return await storePresencePolicy(userId,await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000})); }
+  try {
+    const remote=await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000});
+    if(!remote?.enabled||!remote?.assigned||!remote?.random_enabled)
+      await clearLocalRandomSchedule().catch(()=>{});
+    return await storePresencePolicy(userId,remote);
+  }
   catch {
     if(cached?.day!==policyDay()&&cached){
       const fallback={...cached,day:policyDay(),stale:true};
@@ -97,8 +107,10 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   // The clock-in epoch (not the temporary/server database ID) survives offline sync.
   const id=String(Math.floor(open.start/1000));
   if(Number(existing?.user_id)===Number(userId)&&existing?.attendance_id===id&&existing?.items?.length){
-    if(existing.notification_channel_version===2)return existing;
-    // Upgrade today's pending notifications off the old DND-bypass channel.
+    const nextWindow=Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES));
+    if(existing.notification_channel_version===2&&existing.items.every(item=>item.window_minutes===nextWindow))return existing;
+    for(const item of existing.items)item.window_minutes=nextWindow;
+    // Refresh pending notifications when the channel or policy window changes.
     for(const item of existing.items)if(item.notification_id){await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});delete item.notification_id;}
     await installLocalAlerts(existing);
     existing.notification_channel_version=2;
