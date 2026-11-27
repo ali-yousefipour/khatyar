@@ -4,6 +4,10 @@ date_default_timezone_set('Asia/Tehran');
 final class Db {
     public static array $writes=[];
     public static bool $failSecondNotification=false;
+    public static function one(string $sql,array $args=[]): ?array {
+        if(str_contains($sql,'FROM users WHERE id=?')&&$args===[11])return ['name'=>'نیروی اصلی آزمون'];
+        throw new LogicException('Unexpected decision lookup: '.$sql);
+    }
     public static function all(string $sql,array $args=[]): array {
         if(!str_contains($sql,'FROM users u LEFT JOIN roles'))throw new LogicException('Unexpected lookup: '.$sql);
         if($args!==[11,22,33])throw new LogicException('Reservation names must be resolved using authenticated ids');
@@ -21,6 +25,10 @@ final class Db {
 }
 final class Push {
     public static array $sent=[];
+    public static array $notified=[];
+    public static function notify(array $ids,string $title,string $message,array $data): void {
+        self::$notified[]=[$ids,$title,$message,$data];
+    }
     public static function send(array $ids,string $title,string $message,array $data): void {
         self::$sent[]=[$ids,$title,$message,$data];
     }
@@ -53,4 +61,18 @@ try {
 } catch(RuntimeException $e) {
     assertNotice($e->getMessage()==='simulated notification persistence failure'&&Push::$sent===[],'failed second insert cannot send push before transaction completion');
 }
+// Exercise the actual post-commit approval/rejection helper without loading the full router.
+$routes=file_get_contents(__DIR__.'/../lib/routes.php');
+$from=strpos($routes,'function _req_notify_substitute(');
+$to=strpos($routes,'// دسترسی کامل',$from);
+if($from===false||$to==false||$to<=$from)throw new LogicException('Decision notification helper not found');
+eval(substr($routes,$from,$to-$from));
+function _req_substitute_eligible(array $r): bool {return ($r['type']??'')==='annual'&&($r['unit']??'daily')==='daily';}
+$decision=['type'=>'annual','unit'=>'daily','user_id'=>11,'substitute_user_id'=>22,'from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-03'];
+_req_notify_substitute($decision,77,'approved');
+assertNotice(count(Push::$notified)===1&&Push::$notified[0][0]===[22]&&str_contains(Push::$notified[0][2],'حضور به‌جای: نیروی اصلی آزمون')&&Push::$notified[0][3]['status']==='approved','approved substitute receives named confirmed-duty notice');
+_req_notify_substitute($decision,77,'rejected');
+assertNotice(count(Push::$notified)===2&&str_contains(Push::$notified[1][2],'رزرو دیگر معتبر نیست')&&Push::$notified[1][3]['status']==='rejected','rejected leave releases substitute through persisted notification');
+_req_notify_substitute($decision,77,'pending');
+assertNotice(count(Push::$notified)===2,'uncommitted or non-final decisions never emit final notice');
 echo "Reservation notification contract tests passed\n";
