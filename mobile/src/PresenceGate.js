@@ -173,7 +173,15 @@ export default function PresenceGate({navigationRef}){
    const deliveredAtMs=Number(data.delivered_at_ms)||requestedAtMs;
    // Prefer the authoritative scheduled/request timestamp. A delayed Android
    // notification or late tap must never restart or extend the response window.
-   const deadlineAnchorMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:deliveredAtMs;
+   // Old fixed-time pushes may not include ts. Reconstruct their original
+   // slot boundary instead of granting a fresh window when the user taps late.
+   const canonicalFixed=/^(\\d{4}-\\d{2}-\\d{2})_(\\d{2}:\\d{2})$/.exec(requestId);
+   const scheduledDay=canonicalFixed?.[1]||now.day;
+   const originalSlotMs=!random&&!immediate
+     ?Date.parse(scheduledDay+'T'+sl+':00+03:30'):NaN;
+   const deadlineAnchorMs=requestTs>0?requestTs*1000
+     :Number.isFinite(legacyImmediateMs)?legacyImmediateMs
+     :Number.isFinite(originalSlotMs)?originalSlotMs:deliveredAtMs;
    const deadlineMs=deadlineAnchorMs+notificationWindow*60000;
    if(!alive||Date.now()>=deadlineMs)return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
