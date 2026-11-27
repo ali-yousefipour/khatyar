@@ -108,6 +108,24 @@ final class LeaveSubstituteCoverage {
             catch(Throwable $e){error_log('leave substitute reservation delivery failed: request_id='.(int)$notification['data']['request_id']);}
         }
     }
+    /** Persist the old substitute's release within the approved-edit transaction. */
+    public static function recordRelease(int $id,int $owner,int $oldSub,int $actor,array $before): array {
+        if($id<=0||$owner<=0||$oldSub<=0||$actor<=0)throw new InvalidArgumentException('Invalid substitute release');
+        $range=self::range($before);
+        $people=Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) name FROM users u WHERE u.id IN (?,?)",[$owner,$actor]);
+        $names=[];foreach($people as $person)$names[(int)$person['id']]=trim((string)($person['name']??''));
+        $message='رزرو شما برای حضور به‌جای: '.(($names[$owner]??'')?:'نام ثبت نشده')
+            .'؛ بازه: '.($range?($range[0].' تا '.$range[1]):'تاریخ ثبت نشده')
+            .'؛ توسط '.(($names[$actor]??'')?:'مسئول ثبت').' آزاد شد. این تخصیص دیگر معتبر نیست.';
+        $data=['type'=>'substitute_released','request_id'=>$id,'status'=>'released','reserved_by_user_id'=>$actor];
+        Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES (?,?,?,?)",
+            [$oldSub,'آزاد شدن رزرو جایگزینی',$message,json_encode($data,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        return ['recipient'=>$oldSub,'message'=>$message,'data'=>$data];
+    }
+    public static function sendRelease(array $notice): void {
+        try{Push::send([(int)$notice['recipient']],'آزاد شدن رزرو جایگزینی',$notice['message'],$notice['data']);}
+        catch(Throwable $e){error_log('leave substitute release delivery failed: request_id='.(int)$notice['data']['request_id']);}
+    }
     private static function enrichReservations($answer): array {
         if(!is_array($answer))return [];
         if(!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('leave_reservation_audit'))return $answer;
