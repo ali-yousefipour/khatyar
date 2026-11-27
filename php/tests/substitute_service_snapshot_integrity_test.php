@@ -18,6 +18,7 @@ class Db {
     public static array $writes=[];
     public static array $audit=[];
     public static array $locks=[];
+    public static ?array $previousSnapshot=null;
     public static SnapshotTransaction $connection;
     public static function pdo(): SnapshotTransaction {return self::$connection??=new SnapshotTransaction();}
     public static function one($sql,$params=[]): ?array {
@@ -36,7 +37,7 @@ class Db {
                 'from_jdate'=>'1405-09-02','to_jdate'=>'1405-09-02','the_date'=>null];
         }
         if(str_contains($sql,'FROM `lines`'))return ['id'=>17,'code'=>'L-17','origin'=>'آغاز','destination'=>'پایان'];
-        if(str_contains($sql,'FROM substitute_shift_service_snapshots'))return null;
+        if(str_contains($sql,'FROM substitute_shift_service_snapshots'))return self::$previousSnapshot;
         throw new LogicException('Unexpected query: '.$sql);
     }
     public static function all($sql,$params=[]): array {
@@ -79,6 +80,13 @@ $result=$method->invoke(null,$body,$actor);
 if(empty($result['ok'])||$result['line_id']!==17||Db::pdo()->commits!==1||
     count(Db::$writes)!==1||count(Db::$audit)!==1||Db::$locks)
     throw new LogicException('Latest active assignment failed to commit snapshot and history atomically');
+Db::$previousSnapshot=['line_id'=>17,'line_name'=>'L-17',
+    'service_location'=>'ایستگاه تأییدشده'];
+$noOp=$method->invoke(null,$body,$actor);
+if(empty($noOp['unchanged'])||count(Db::$writes)!==1||count(Db::$audit)!==1||
+    Db::pdo()->commits!==2||Db::$locks)
+    throw new LogicException('Identical location retry created duplicate history or changed snapshot');
+Db::$previousSnapshot=null;
 $body['segment_index']=1;
 try {$method->invoke(null,$body,$actor);throw new LogicException('Nonexistent segment accepted');}
 catch(RuntimeException $e){if($e->getCode()!==422)throw $e;}
