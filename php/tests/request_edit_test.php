@@ -31,6 +31,7 @@ class Db {
   }
   static function all($sql,$params=[]){
     if(str_contains($sql,'FROM users u LEFT JOIN roles'))return [['id'=>$params[0],'name'=>'نیروی جایگزین آزمون'],['id'=>$params[1],'name'=>'رزروکننده آزمون']];
+    if(str_contains($sql,'FROM user_shifts'))return [];
     if(str_contains($sql,'FROM staff_attendance'))return array_values(array_filter(self::$punches,static function($p)use($sql,$params){
       if($p['user_id']!=$params[0])return false;
       if(str_contains($sql,"method='manual'"))return ($p['method']==='manual'||str_starts_with($p['method'],'manual|'))&&$p['check_in']===$params[1]&&(!str_contains($sql,'AND check_out=?')||$p['check_out']===$params[2]);
