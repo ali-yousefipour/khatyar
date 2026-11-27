@@ -1001,10 +1001,17 @@ function _presence_photo_columns_ready(): bool {
 }
 
 // Challenge windows are checked by the backend even for offline replay.
-require_once dirname(__DIR__).'/lib/PresenceChallengeGuard.php';
-
+// Load the feature dependency only for its own endpoint: a partial FTP release
+// must not prevent unrelated API routes, including login, from bootstrapping.
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
+  try {
+    require_once __DIR__.'/PresenceChallengeGuard.php';
+    if (!class_exists('PresenceChallengeGuard', false)) throw new RuntimeException('presence challenge guard missing');
+  } catch (Throwable $error) {
+    error_log('presence challenge guard unavailable: '.get_class($error));
+    Http::error('ماژول صحت‌سنجی حضور موقتاً آماده نیست؛ با مدیر سامانه تماس بگیرید.',503);
+  }
   $slot = $b['slot'] ?? '';
   if (!is_string($slot) || !preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $slot)) Http::error('بازهٔ ساعتی نامعتبر است.', 422);
   $selfie = $b['selfie'] ?? '';
