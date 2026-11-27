@@ -5,6 +5,7 @@ import {tehranGregorianParts} from './jdate';
 
 export const PRESENCE_LOCAL_SCHEDULE_KEY = 'presence_local_schedule_v2';
 const MODE_KEY = 'presence_daily_policy_v2';
+const POLICY_REFRESH_MS=60*1000;
 const MAX_RANDOM_PER_SESSION = 6;
 const BLOCK_MS = 4 * 60 * 60 * 1000;
 const DEFAULT_WINDOW_MINUTES = 3;
@@ -29,7 +30,7 @@ async function scheduleFixedAlerts(policy){
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(ts)}
       });
       items.push({slot,notification_id});
-      await AsyncStorage.setItem('presence_notified:'+policy.day+':'+slot,'1');
+      await AsyncStorage.setItem('presence_user:'+policy.user_id+':presence_notified:'+policy.day+':'+slot,'1');
     }catch{}
   }
   await AsyncStorage.setItem(FIXED_KEY,JSON.stringify({version:3,user_id:policy.user_id,day:policy.day,window_minutes:policy.window_minutes,slots:policy.slots,items}));
@@ -45,7 +46,7 @@ export async function storePresencePolicy(userId,config) {
 }
 export async function currentPresencePolicy(userId,request) {
   const cached=await cachedPresencePolicy(userId);
-  if(cached?.day===policyDay()&&!cached.stale){await scheduleFixedAlerts(cached).catch(()=>{});return cached;}
+  if(cached?.day===policyDay()&&!cached.stale&&Date.now()-Number(cached.saved_at||0)<POLICY_REFRESH_MS){await scheduleFixedAlerts(cached).catch(()=>{});return cached;}
   try { return await storePresencePolicy(userId,await request('/my/presence-config',{auth:true,noStore:true,timeoutMs:8000})); }
   catch {
     if(cached?.day!==policyDay()&&cached){
@@ -85,7 +86,7 @@ async function installLocalAlerts(schedule) {
         trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(item.ts*1000)}
       });
       item.notification_id=identifier;
-      await AsyncStorage.setItem('presence_random_notified:'+item.request_id,'1');
+      await AsyncStorage.setItem('presence_user:'+schedule.user_id+':presence_random_notified:'+item.request_id,'1');
     }catch{}
   }
 }
@@ -113,7 +114,7 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
     for(let j=0;j<3;j++) {
       const at=Math.floor(start+margin+segment*(j+Math.random()*0.85));
       const ts=Math.floor(at/1000);
-      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
+      items.push({ts,slot:new Date(at).toLocaleTimeString('en-GB',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit'}),request_id:'local_'+Number(userId)+'_'+id.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+ts,window_minutes:Math.min(10,Math.max(3,Number(windowMinutes)||DEFAULT_WINDOW_MINUTES))});
     }
   }
   const schedule={user_id:Number(userId),attendance_id:id,start:open.start,items:items.slice(0,MAX_RANDOM_PER_SESSION),created_at:Date.now(),notification_channel_version:2};
