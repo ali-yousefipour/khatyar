@@ -1403,11 +1403,14 @@ function shiftCalendarDaySummary(day,coverageDay){
   const duty=v=>v.shift?.duty_minutes??v.shift?.minutes;
   const unknown=unique.some(v=>!known(duty(v)));
   const coveredDuty=unique.reduce((sum,v)=>sum+(known(duty(v))?Number(duty(v)):0),0);
-  // Keep an effective composite/own duty whenever the server has calculated more.
-  // If cover duty exceeds the returned schedule, the schedule was incomplete.
-  const minutes=scheduled?Math.max(Number(day.minutes),coveredDuty):coveredDuty;
+  // The canonical API distinguishes original permanent duty from approved cover duty.
+  // The effective schedule may already contain both; choose the stronger complete
+  // server-derived total rather than summing the same cover twice.
+  const permanent=known(day?.primary_minutes)?Number(day.primary_minutes):0;
+  const independentlyKnown=permanent+coveredDuty;
+  const minutes=scheduled?Math.max(Number(day.minutes),independentlyKnown):independentlyKnown;
   return {working:minutes>0||(!day?.is_off&&!!day)||unique.some(v=>!!v.shift?.segments?.length),minutes,
-    unknown:unknown||(!scheduled&&unique.some(v=>!known(duty(v))))};
+    unknown:unknown||(day?.primary_segments?.length>0&&!known(day?.primary_minutes))};
 }
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
