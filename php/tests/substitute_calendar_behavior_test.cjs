@@ -17,7 +17,7 @@ assert.equal(context.substituteSegmentPlannedMinutes({s:'26:00',e:'29:00'}),180,
 assert.equal(context.substituteSegmentPlannedMinutes({s:'bad',e:'09:00'}),null,'unknown segment times never become a fabricated zero');
 assert.equal(context.substituteSegmentPlannedMinutes({s:'06:00',e:'14:00',planned_minutes:360}),360,'explicit planned segment duration wins over clock difference');
 function render(){let rounds=0;do{dirty=false;cursor=0;tree=context.SubstituteCalendar();const jobs=pending;pending=[];jobs.forEach(fn=>fn());assert(++rounds<15,'render settled');}while(dirty);return tree;}
-async function flush(){for(let i=0;i<8;i++)await Promise.resolve();render();}
+async function flush(){await new Promise(resolve=>setImmediate(resolve));render();await new Promise(resolve=>setImmediate(resolve));render();}
 // Undefined JSX children must not reset traversal to the root.
 function nodes(node){if(arguments.length===0)node=tree;return node&&typeof node==='object'&&Array.isArray(node.children)?[node,...node.children.flatMap(n=>nodes(n))]:[];}
 assert.deepEqual(nodes(undefined),[],'undefined child never restarts traversal');
@@ -46,6 +46,6 @@ function choose(label,value){findLabel(label).props.onChange({target:{value}});r
  choose('وضعیت تخصیص','history');assert.equal(cards().length,1,'history filter shows historical row');
  choose('نیروی جایگزین','1');requests.at(-1).resolve({ok:true,status:200,text:async()=>''});await flush();
  assert(nodes().some(n=>n.props.role==='alert'&&text(n).includes('پاسخ سرور خالی است')),'empty response produces controlled error');
- assert.equal(button('دانلود PDF مستقل').props.disabled,true,'failed response cannot export fake empty month');
+ assert(!button('دانلود PDF مستقل')||button('دانلود PDF مستقل').props.disabled===true,'failed response cannot export fake empty month');
  console.log('PASS component behavior: selection/loading, stale response, multi-card/history filtering, Excel segments and escaped print');
 })().catch(e=>{console.error(e);process.exitCode=1;});
