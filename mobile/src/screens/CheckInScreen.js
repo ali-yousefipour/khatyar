@@ -1418,6 +1418,8 @@ function CheckInShiftTab(){
   const [coverageError,setCoverageError]=useState('');
   const [busy,setBusy]=useState(true);
   const [err,setErr]=useState('');
+  const [scheduleFromCache,setScheduleFromCache]=useState(false);
+  const [lastScheduleRefresh,setLastScheduleRefresh]=useState(null);
   const [expanded,setExpanded]=useState({});
   const requestSeq=useRef(0);
   const loadSchedule=async()=>{
@@ -1426,9 +1428,9 @@ function CheckInShiftTab(){
     try{
       const cacheKey='/my/shift-schedule?scope=current-month';
       const cached=await cachedValue(cacheKey);
-      if(seq===requestSeq.current&&cached&&Array.isArray(cached.days))setData(cached);
+      if(seq===requestSeq.current&&cached&&Array.isArray(cached.days)){setData(cached);setScheduleFromCache(true);}
       const fresh=await request(cacheKey,{timeoutMs:12000,noStore:true});
-      if(seq===requestSeq.current)setData(fresh||{shift:null,days:[],message:'پاسخ برنامه شیفت خالی است.'});
+      if(seq===requestSeq.current){setData(fresh||{shift:null,days:[],message:'پاسخ برنامه شیفت خالی است.'});setScheduleFromCache(false);setLastScheduleRefresh(new Date().toISOString());}
       const scheduleDates=[...new Set((fresh?.days||[]).map(d=>shiftCoverageJdate(d.date)).filter(Boolean))];
       const dates=scheduleDates.length?scheduleDates:shiftCurrentJalaliMonthDates();
       if(dates.length){
@@ -1441,7 +1443,7 @@ function CheckInShiftTab(){
           if(seq===requestSeq.current){setCoverage({});setCoverageError('وضعیت مرخصی و جایگزینی بارگذاری نشد؛ دوباره به‌روزرسانی کنید.');}
         }
       } else if(seq===requestSeq.current){setCoverage({});setCoverageError('');}
-    }catch(e){if(seq===requestSeq.current)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.');}
+    }catch(e){if(seq===requestSeq.current){setErr(e.message||'دریافت برنامه شیفت ناموفق بود.');setScheduleFromCache(true);}}
     finally{if(seq===requestSeq.current)setBusy(false);}
   };
   useEffect(()=>{loadSchedule();return()=>{requestSeq.current++}},[]);
@@ -1459,6 +1461,7 @@ function CheckInShiftTab(){
   const unknownDuty=summaries.some(d=>d.unknown);
   const shiftType=data?.shift?.type??data?.shift_type;
   return <ScrollView persistentScrollbar contentContainerStyle={{padding:14,paddingBottom:45}}>
+    {scheduleFromCache?<Text style={s.warnText}>نمایش اطلاعات ذخیره‌شده؛ اعتبار فعلی تخصیص‌ها تأیید نشده است. زمان آخرین همگام‌سازی این کش مشخص نیست.</Text>:lastScheduleRefresh?<Text style={s.shiftHeroSub}>آخرین دریافت موفق برنامه: {new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Tehran'}).format(new Date(lastScheduleRefresh))}</Text>:null}
     {err?<Text style={s.warnText}>{err}</Text>:null}
     {coverageError?<Text style={s.warnText}>{coverageError}</Text>:null}
     <View style={s.shiftHero}><Text style={s.shiftHeroTitle}>تقویم شیفت کاری</Text><Text style={s.shiftHeroSub}>برنامه ماه جاری • تاریخ شمسی</Text></View>
