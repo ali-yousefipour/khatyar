@@ -18,6 +18,10 @@ assert.match(gate,/wizardReadyRef\.current=true;\s*stopPresenceAlarm\(\{dismissN
 assert.doesNotMatch(gate,/getCurrentRoute\?\.\(\)\?\.name==='PresenceCheckWizard'\)\{stopPresenceAlarm/,'navigation route alone cannot silence native alarm');
 assert.match(gate,/deadlineMs:Number\(due\.deadlineMs\)\|\|presenceDeadline/,'reopen retains original deadline');
 assert.match(gate,/if\(due&&alarmOn&&!wizardReadyRef\.current\)/,'navigation start cannot silence active alerts');
+assert.match(gate,/if\(previousUserId>0\)stopPresenceAlarm\(\{dismissNotifications:true\}\)/,
+ 'initial authentication hydration cannot silence notification-started native audio');
+assert.match(wizard,/await stopPresenceAlarm\(\{dismissNotifications:true\}\);\s*closeWizard\(\)/,
+ 'explicit expiry completion must stop native playback');
 assert.match(wizard,/if\(!isFocused\|\|readyReported\.current\)return/,'screen must be focused before announcing interactive readiness');
 assert.match(wizard,/onLayout=\{acknowledgeVisible\}/,'render-ready signal follows actual layout');
 assert.match(wizard,/emitPresenceWizardState\(requestId,'ready'\)/,'wizard emits ready handshake');
