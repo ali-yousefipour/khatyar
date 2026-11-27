@@ -20,7 +20,7 @@ class Db {
       if($params[0]!==21)throw new RuntimeException('History must be scoped to recipient');
       return $GLOBALS['historyNotifications'];
     }
-    if(str_contains($sql,'SELECT slot,captured_at FROM presence_checks')){
+    if(str_contains($sql,'FROM presence_checks') && str_contains($sql,'captured_at')){
       if($params[0]!==21)throw new RuntimeException('Completions must be scoped to recipient');
       return $GLOBALS['historyChecks'];
     }
