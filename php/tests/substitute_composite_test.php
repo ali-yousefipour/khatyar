@@ -98,3 +98,11 @@ ok(count($mixedResult['composite_parts'])===2&&$mixedResult['composite_parts'][0
 $firstPolicy=ShiftCalc::checkThreshold($mixed,'1405-09-10',$mixedDay,strtotime('2026-12-01 07:00:00'),'in');
 $secondPolicy=ShiftCalc::checkThreshold($mixed,'1405-09-10',$mixedDay,strtotime('2026-12-01 15:00:00'),'in');
 ok(!empty($firstPolicy['ok'])&&$firstPolicy['request_id']===1&&!empty($secondPolicy['ok'])&&$secondPolicy['request_id']===4,'attendance threshold selects source request identity per shift');
+
+Db::$ownDuty=false;Db::$explicitDuty=false;
+Db::$assignments=[['request_id'=>1,'absent_user_id'=>1],['request_id'=>3,'absent_user_id'=>3]];
+ok(LeaveSubstituteCoverage::composite(9,'1405-09-10')===null,'overlapping source duties cannot become a composite');
+ok(LeaveSubstituteCoverage::unresolvedComposite(9,'1405-09-10'),'unresolved multi-cover blocks unsafe first-assignment fallback');
+Db::$assignments=[['request_id'=>1,'absent_user_id'=>1],['request_id'=>2,'absent_user_id'=>2]];
+ok(LeaveSubstituteCoverage::composite(9,'1405-09-10')!==null,'adjacent source assignments remain valid');
+ok(!LeaveSubstituteCoverage::unresolvedComposite(9,'1405-09-10'),'successful recomputation clears stale unresolved flag');
