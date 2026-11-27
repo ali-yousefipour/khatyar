@@ -49,7 +49,17 @@ class Db {
   if(str_contains($sql,"r.status IN ('rejected','cancelled','canceled')"))return self::$history;
 
   if(str_contains($sql,"FROM requests r JOIN users u"))return self::$reservations;
-  if(str_contains($sql,"FROM substitute_assignments sa")){self::$coverReadArgs=$args;return self::$assignments;}
+  if(str_contains($sql,"FROM substitute_assignments sa")){
+   self::$coverReadArgs=$args;
+   return array_map(static function($row){
+    $original=self::$requests[(int)($row['request_id']??0)]??[];
+    return array_merge($row,[
+     'from_jdate'=>$row['request_from_date']??$original['from_jdate']??$row['from_date'],
+     'to_jdate'=>$row['request_to_date']??$original['to_jdate']??$row['to_date'],
+     'the_date'=>null
+    ]);
+   },self::$assignments);
+  }
   if(str_contains($sql,"FROM requests WHERE user_id=?"))return array_values(array_filter(self::$coverage,
    fn($r)=>$r['status']==='approved'&&$r['user_id']===$args[0]&&in_array($r['type'],['annual','sick'],true)));
   return [];
@@ -182,7 +192,15 @@ echo "PASS batched reservation actor metadata and admin-only cancelled history\n
 Db::$assignments[]=Db::$assignments[0];
 $calendar=runRoute('GET','/api/my/shift-cover-status');
 check(count($calendar['days']['1405-09-02']['cover'])===1,'legacy duplicate assignments do not duplicate a request/day');
-echo "PASS duplicate confirmed assignments are displayed once\n";
+echo "PASS duplicate confirmed assignments are displayed once\\n";
+Db::$assignments[0]['request_from_date']='1405-09-03';
+Db::$assignments[0]['request_to_date']='1405-09-03';
+Db::$assignments[1]['request_from_date']='1405-09-03';
+Db::$assignments[1]['request_to_date']='1405-09-03';
+$calendar=runRoute('GET','/api/my/shift-cover-status');
+check(!isset($calendar['days']['1405-09-02']['cover']),'expired leave dates cannot keep obsolete assignment effective');
+foreach(Db::$assignments as &$assignment){unset($assignment['request_from_date'],$assignment['request_to_date']);}unset($assignment);
+echo "PASS assignment and request date intersection excludes obsolete shifts\\n";
 
 $segments=[['s'=>'06:00','e'=>'10:00'],['s'=>'14:00','e'=>'18:00']];
 Db::$ownShifts=[['shift_id'=>2,'title'=>'دوپاره','type'=>'simple','weekly'=>json_encode(array_fill(0,7,$segments))]];
