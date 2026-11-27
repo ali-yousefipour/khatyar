@@ -1485,7 +1485,12 @@ function CheckInShiftTab(){
           {(coverageDay.cover||[]).map(cover=><View key={'cover-'+cover.request_id} style={s.shiftCoverNotice}>
             <Text style={s.shiftCoverNoticeTitle}>حضور به‌جای: {cover.absent_name||'نام نیروی اصلی نامشخص'}</Text>
             <Text style={s.shiftCoverNoticeText}>{cover.shift?.title||'عنوان شیفت ثبت نشده'}</Text>
-            {shiftIntervals(cover.shift).length?shiftIntervals(cover.shift).map((interval,i)=><Text key={i} style={s.shiftCoverNoticeText}>ورود {shiftTimeFa(interval.start)} تا خروج {shiftTimeFa(interval.end)}</Text>):<Text style={s.shiftCoverNoticeText}>ساعت معتبر این تخصیص در پاسخ سرور مشخص نشده است.</Text>}
+            {shiftIntervals(cover.shift).length?shiftIntervals(cover.shift).map((interval,i)=><View key={i}>
+              <Text style={s.shiftCoverNoticeText}>ورود {shiftTimeFa(interval.start)} تا خروج {shiftTimeFa(interval.end)}</Text>
+              <Text style={s.shiftCoverNoticeText}>{cover.shift?.segment_locations?.[i]
+                ?'خط خدمت: '+cover.shift.segment_locations[i].line_name+' · '+cover.shift.segment_locations[i].service_location
+                :'محل خدمت تاریخی این نوبت ثبت نشده است.'}</Text>
+            </View>):<Text style={s.shiftCoverNoticeText}>ساعت معتبر این تخصیص در پاسخ سرور مشخص نشده است.</Text>}
             {cover.reserved_by_name?<Text style={s.shiftCoverNoticeText}>رزروکننده: {cover.reserved_by_name}</Text>:null}
           </View>)}
           {(coverageDay.reservations||[]).map(reservation=><View key={'reservation-'+reservation.request_id} style={s.shiftLeaveNotice}>
