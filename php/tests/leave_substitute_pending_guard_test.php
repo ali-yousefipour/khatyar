@@ -320,6 +320,11 @@ $attendance=[['id'=>901,'check_in'=>date('Y-m-d H:i:s',$base+6*3600),
 $complete=$completionMethod->invoke(null,$day,$shift,$attendance);
 check($complete['completion_status']==='completed'&&$complete['attendance_ids']===[901],
     'same-line actual closed attendance confirms covered shift');
+$withoutHistoricLocation=$shift;
+unset($withoutHistoricLocation['segment_locations']);
+$unverifiedLine=$completionMethod->invoke(null,$day,$withoutHistoricLocation,$attendance);
+check($unverifiedLine['completion_status']==='unverified',
+    'attendance must not confirm duty with unknown historical service line');
 $attendance[0]['out_line_id']=8;
 $wrongLine=$completionMethod->invoke(null,$day,$shift,$attendance);
 check($wrongLine['completion_status']==='unverified',
