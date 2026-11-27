@@ -404,7 +404,16 @@ final class LeaveSubstituteCoverage {
         if(($config['type']??'')==='floating')return null;
         $segments=ShiftCalc::daySegments($shift,$date,$row);
         $minutes=0;
-        foreach($segments as $segment)$minutes+=ShiftCalc::segmentLength($segment);
+        foreach($segments as &$segment){
+            $minutes+=ShiftCalc::segmentLength($segment);
+            $limits=ShiftCalc::segmentTrafficLimits($segment,$config);
+            if($limits){
+                $segment['allowed_entry_from']=$limits['entry_from'];
+                $segment['allowed_entry_until']=$limits['entry_until'];
+                $segment['allowed_exit_from']=$limits['exit_from'];
+                $segment['allowed_exit_until']=$limits['exit_until'];
+            }
+        }unset($segment);
         return ['id'=>$sid,'title'=>trim((string)($shift['title']??$shift['shift_title']??$shift['type']??'')),
             'type'=>(string)($shift['type']??''),'segments'=>array_values($segments),
             'minutes'=>($shift['type']??'')==='floating'?null:$minutes,
