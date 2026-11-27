@@ -39,7 +39,7 @@ class Push {static array $sent=[];static function send(...$args){self::$sent[]=$
 function _req_notify_sms(...$args){}
 function _report_audit(...$args){}
 function _db_table_exists_safe($name){return true;}
-require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
+
 function check($ok,$label){if(!$ok)throw new LogicException($label);}
 function denied($fn,$code){try{$fn();}catch(RuntimeException $e){check($e->getCode()===$code,'wrong error: '.$e->getMessage());return;}throw new LogicException('unexpected success');}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
@@ -102,6 +102,7 @@ Db::$request=['id'=>3,'type'=>'annual','status'=>'approved'];
 $a=strpos($source,"route('DELETE', '/api/admin/requests/{id}'");$b=strpos($source,'// خروجی اکسل گزارش',$a);eval(substr($source,$a,$b-$a));Db::$writes=[];
 $handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],"UPDATE substitute_assignments SET status='canceled'")))===1 && count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'DELETE FROM requests')))===1,'delete releases substitute and removes request');
 
+require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 Db::$request=['id'=>3,'type'=>'annual','unit'=>'daily','status'=>'approved','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-09-01','to_jdate'=>'1405-09-01'];
 Db::$writes=[];Push::$sent=[];
 $priorCommits=Db::pdo()->commits;
