@@ -77,10 +77,10 @@ if(Db::$writes||Db::$audit||Db::$locks||Db::pdo()->rollbacks!==1)
     throw new LogicException('Rejected old assignment changed snapshots, audits or held locks');
 $body['assignment_id']=2;
 $result=$method->invoke(null,$body,$actor);
-if(empty($result['ok'])||$result['line_id']!==17||Db::pdo()->commits!==1||
+if(empty($result['ok'])||$result['line_id']!==17||$result['line_name']!=='L-17 — آغاز – پایان'||Db::pdo()->commits!==1||
     count(Db::$writes)!==1||count(Db::$audit)!==1||Db::$locks)
     throw new LogicException('Latest active assignment failed to commit snapshot and history atomically');
-Db::$previousSnapshot=['line_id'=>17,'line_name'=>'L-17',
+Db::$previousSnapshot=['line_id'=>17,'line_name'=>'L-17 — آغاز – پایان',
     'service_location'=>'ایستگاه تأییدشده'];
 $noOp=$method->invoke(null,$body,$actor);
 if(empty($noOp['unchanged'])||count(Db::$writes)!==1||count(Db::$audit)!==1||
