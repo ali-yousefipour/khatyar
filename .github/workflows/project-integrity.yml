@@ -193,6 +193,8 @@ jobs:
           node --check php/app/assets/school-complaints-admin.js
           node --check php/app/assets/substitute-calendar-pdf.js
           node php/tests/substitute_calendar_pdf_test.cjs
+          node php/tests/substitute_calendar_dates_test.cjs
+          node php/tests/substitute_calendar_behavior_test.cjs
           node php/tests/school_complaints_lookup_table_ux_test.cjs
           node php/tests/school_complaints_export_progress_test.cjs
           node php/tests/school_complaints_tables_accessibility_test.cjs
