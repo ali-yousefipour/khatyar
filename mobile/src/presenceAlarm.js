@@ -43,10 +43,10 @@ export async function startPresenceAlarm(deadlineMs) {
 }
 
 export async function stopPresenceAlarm({dismissNotifications=false}={}) {
-  // Always stop the native foreground service, even when notification dismissal
-  // is intentionally skipped. Otherwise a completed or expired challenge can
-  // leave its MediaPlayer running after the JS timer and vibration have stopped.
-  try{await NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();}catch(_){}
+  // No due challenge during initial JS hydration is not proof that the
+  // notification-started native alarm is obsolete. Only a wizard readiness,
+  // completion, expiration or explicit account reset can dismiss it.
+  if(dismissNotifications)try{await NativeModules?.KhatyarRadio?.stopPresenceAlarm?.();}catch(_){} 
   alarmActive = false;
   activeDeadlineMs = 0;
   ++generation;
