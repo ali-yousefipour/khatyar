@@ -320,7 +320,9 @@ async function sendPersistedQueueItem(item,forceNetwork=true) {
     try{
       const key='presence_local_completions_v1';
       const map=JSON.parse(await AsyncStorage.getItem(key)||'{}');
-      map[String(body.request_id)]={...map[String(body.request_id)],status:'done',time:Date.now()};
+      const uid=Number(item.owner_user_id||0);
+      const receiptKey=uid>0?'user:'+uid+':'+String(body.request_id):String(body.request_id);
+      map[receiptKey]={...map[receiptKey],user_id:uid,status:'done',time:Date.now()};
       await AsyncStorage.setItem(key,JSON.stringify(map));
     }catch{}
   }
