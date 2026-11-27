@@ -9,10 +9,11 @@ class FakeConnection {
   function rollBack(){$this->active=false;$this->rollbacks++;}
 }
 class Db {
-  static $request,$report=null,$routeOwner=null,$failReply=false,$writes=[],$failAttendance=false,$changed=1,$open=null,$pdo,$subConflict=false;
+  static $request,$report=null,$routeOwner=null,$failReply=false,$writes=[],$failAttendance=false,$changed=1,$open=null,$pdo,$subConflict=false,$failRelease=false;
   static function pdo(){return self::$pdo??=new FakeConnection;}
   static function all($sql,$params=[]){
     if(str_contains($sql,'FROM request_edit_history') || str_contains($sql,'FROM request_approval_steps'))return [];
+    if(str_contains($sql,'FROM users u WHERE'))return [['id'=>$params[0],'name'=>'نیروی اصلی آزمون'],['id'=>$params[1],'name'=>'مدیر آزمون']];
     throw new LogicException($sql);
   }
   static function one($sql,$params=[]){
@@ -27,16 +28,18 @@ class Db {
   }
   static function insert($sql,$params=[]){self::run($sql,$params);return 77;}
   static function run($sql,$params=[]){
+    if(self::$failRelease&&str_contains($sql,'INSERT INTO notifications'))throw new RuntimeException('simulated release notification failure');
     if(self::$failAttendance&&str_contains($sql,'INSERT INTO staff_attendance'))throw new RuntimeException('simulated storage failure');
     if(self::$failReply&&str_contains($sql,'INSERT INTO report_routes'))throw new RuntimeException('simulated reply storage failure');
     if(str_contains($sql,'request_approval_steps'))return new class {function rowCount(){return 1;}};
     self::$writes[]=[$sql,$params];return new class {function rowCount(){return Db::$changed;}};
   }
 }
-class Push {static function send(...$args){}}
+class Push {static array $sent=[];static function send(...$args){self::$sent[]=$args;}}
 function _req_notify_sms(...$args){}
 function _report_audit(...$args){}
 function _db_table_exists_safe($name){return true;}
+require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 function check($ok,$label){if(!$ok)throw new LogicException($label);}
 function denied($fn,$code){try{$fn();}catch(RuntimeException $e){check($e->getCode()===$code,'wrong error: '.$e->getMessage());return;}throw new LogicException('unexpected success');}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
@@ -98,6 +101,19 @@ Db::$request=null;denied(fn()=>$handlers['GET/api/admin/requests/{id}/detail']([
 Db::$request=['id'=>3,'type'=>'annual','status'=>'approved'];
 $a=strpos($source,"route('DELETE', '/api/admin/requests/{id}'");$b=strpos($source,'// خروجی اکسل گزارش',$a);eval(substr($source,$a,$b-$a));Db::$writes=[];
 $handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],"UPDATE substitute_assignments SET status='canceled'")))===1 && count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'DELETE FROM requests')))===1,'delete releases substitute and removes request');
+
+Db::$request=['id'=>3,'type'=>'annual','unit'=>'daily','status'=>'approved','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-09-01','to_jdate'=>'1405-09-01'];
+Db::$writes=[];Push::$sent=[];
+$priorCommits=Db::pdo()->commits;
+$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);
+check(Db::pdo()->commits===$priorCommits+1,'approved substitute deletion committed');
+check(count(array_filter(Db::$writes,fn($w)=>str_contains($w[0],'INSERT INTO notifications')&&$w[1][0]===7))===1,'release notice persisted to old substitute');
+check(count(array_filter(Push::$sent,fn($w)=>$w[0]===[7]&&$w[1]==='آزاد شدن رزرو جایگزینی'))===1,'old substitute receives release only after deletion commit');
+Push::$sent=[];Db::$writes=[];Db::$failRelease=true;$priorRollbacks=Db::pdo()->rollbacks;
+try{$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);throw new LogicException('failed notice did not rollback request deletion');}
+catch(RuntimeException $e){check($e->getMessage()==='simulated release notification failure'&&Db::pdo()->rollbacks===$priorRollbacks+1&&Push::$sent===[],'release persistence failure rolls back deletion without push');}
+Db::$failRelease=false;
+
 // Real report action handler: reply must atomically return ownership to sender.
 $a=strpos($source,"route('POST', '/api/reports/{id}/action'");
 $b=strpos($source,"\n});",$a);
