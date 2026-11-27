@@ -980,6 +980,9 @@ function _presence_photo_columns_ready(): bool {
   }
 }
 
+// Challenge windows are checked by the backend even for offline replay.
+require_once __DIR__.'/PresenceChallengeGuard.php';
+
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
   $slot = $b['slot'] ?? '';
@@ -994,13 +997,44 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   $capturedRaw=(string)($b['captured_at']??'');
   $capturedTs=$capturedRaw!==''?strtotime($capturedRaw):time();
   if(!$capturedTs || $capturedTs>time()+300 || $capturedTs<time()-30*86400) Http::error('زمان ثبت تصویر معتبر نیست.',422);
-  $date=date('Y-m-d',$capturedTs);
-  $capturedAt=date('Y-m-d H:i:s',$capturedTs);
+  $date=(new DateTimeImmutable('@'.$capturedTs))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d');
+  $capturedAt=(new DateTimeImmutable('@'.$capturedTs))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d H:i:s');
+  $policyRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
+  $policy=$policyRow?json_decode((string)$policyRow['value'],true):[];
+  if(!is_array($policy))$policy=[];
+  try{
+    PresenceChallengeGuard::validate($b,(int)$u['id'],$capturedTs,$policy,
+      static function(int $uid,string $rid): ?array {
+        $rows=Db::all("SELECT data,created_at FROM notifications WHERE user_id=? AND data LIKE ? ORDER BY id DESC LIMIT 50",
+          [$uid,'%"immediate":true%']);
+        foreach($rows as $row){
+          $notice=json_decode((string)($row['data']??''),true);
+          if(!is_array($notice)||($notice['type']??'')!=='presence_check'||($notice['request_id']??'')!==$rid)continue;
+          $notice['ts']=(int)($notice['ts']??strtotime((string)($notice['immediate_at']??$row['created_at'])));
+          return $notice;
+        }
+        return null;
+      },
+      static function(int $uid,int $start): ?array {
+        $zone=new DateTimeZone('Asia/Tehran');
+        $from=(new DateTimeImmutable('@'.($start-3)))->setTimezone($zone)->format('Y-m-d H:i:s');
+        $to=(new DateTimeImmutable('@'.($start+3)))->setTimezone($zone)->format('Y-m-d H:i:s');
+        return Db::one("SELECT id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in BETWEEN ? AND ? ORDER BY id DESC LIMIT 1",[$uid,$from,$to]);
+      });
+  }catch(DomainException $error){Http::error($error->getMessage(),422);}
   $selfiePath=null;$vehiclePath=null;
   // Storage and database writes are separate failure domains. Never leave
   // orphan files or replace a successful prior check when a retry fails.
+  // MySQL advisory lock is per account/date/slot: concurrent client retries
+  // cannot race between the existence check and the insert.
+  $lockName='pc:'.hash('sha256',(int)$u['id'].'|'.$date.'|'.$slot);
+  $locked=Db::one("SELECT GET_LOCK(?,12) AS acquired",[$lockName]);
+  if((int)($locked['acquired']??0)!==1)Http::error('ثبت قبلی در حال پردازش است؛ دوباره تلاش کنید.',503);
+  try{
   try {
     $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?",[(int)$u['id'],$date,$slot]);
+    if($ex&&!empty($ex['selfie_path'])&&!empty($ex['vehicles_photo_path']))
+      return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
     if (!$selfiePath)throw new RuntimeException('selfie file persistence failed');
     $vehiclePath=Media::saveBase64($veh,'presence',1280,68);
@@ -1034,6 +1068,11 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   }
   catch(Throwable $notificationError){error_log('presence-check auxiliary alert failed: '.get_class($notificationError));}
   return ['ok'=>true,'id'=>$id];
+  } finally {
+    // Release on both successful writes and failure responses. Never leave a
+    // named lock held on a pooled DB connection.
+    try{Db::one("SELECT RELEASE_LOCK(?) AS released",[$lockName]);}catch(Throwable $ignored){}
+  }
 });
 
 
@@ -1059,7 +1098,7 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
       $targets[] = (int)$usr['id'];
     }
     if ($targets) {
-      Push::notify($targets, 'صحت‌سنجی حضور', "لطفاً ظرف {$win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.", ['type'=>'presence_check','slot'=>$sl,'presence_slot'=>$sl,'window_minutes'=>$win]);
+      Push::notify($targets, 'صحت‌سنجی حضور', "لطفاً ظرف {$win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.", ['type'=>'presence_check','slot'=>$sl,'presence_slot'=>$sl,'request_id'=>$today.'_'.$sl,'ts'=>$slotTs,'window_minutes'=>$win]);
       $sent += count($targets);
     }
   }
