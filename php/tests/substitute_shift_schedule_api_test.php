@@ -11,6 +11,12 @@ eval(substr($source,$start,$end-$start));
 class Db {
     public static function one($sql,$args=[]){throw new RuntimeException('Synthetic shift must never query shift_days directly');}
 }
+class LeaveSubstituteCoverage {
+    static function ownShift(int $uid,string $date): ?array {
+        if(!empty($GLOBALS['withoutShift']))return null;
+        return ['shift_id'=>17,'id'=>17,'title'=>'شیفت اصلی','type'=>'advanced'];
+    }
+}
 $GLOBALS['shiftCalls']=0;
 $GLOBALS['dayCalls']=[];
 function _active_user_shift_assignment($uid,$jdate) {
@@ -20,6 +26,8 @@ function _active_user_shift_assignment($uid,$jdate) {
 }
 function _shift_day_row($id,$date) {
     $GLOBALS['dayCalls'][]=[$id,$date];
+    if($id===17)return ['segments'=>[['s'=>'00:00','e'=>'06:00']],
+        'day_config'=>['duty_min'=>360], 'is_off'=>false];
     if($id!==-9)throw new RuntimeException('Wrong shift identity');
     return ['segments'=>[['s'=>'06:00','e'=>'14:00'],['s'=>'14:00','e'=>'22:00']],
         'day_config'=>['duty_min'=>960], 'is_off'=>false];
@@ -37,11 +45,12 @@ $handler=$handlers['GET/api/my/shift-schedule'];
 $result=$handler([],[],['id'=>9]);
 $working=array_values(array_filter($result['days'],fn($day)=>!$day['is_friday']));
 if(!$working)throw new RuntimeException('No scheduled weekdays');
+if(($working[0]['primary_segments'][0]['s']??null)!=='00:00'||count($working[0]['segments'])!==2)throw new RuntimeException('Permanent and replacement segments not returned independently');
 foreach($working as $day){
     if($day['minutes']!==960||$day['is_off']||$day['is_no_shift'])
         throw new RuntimeException('Composite expected duty not reported: '.$day['date']);
 }
-if(count($GLOBALS['dayCalls'])!==count($result['days']))
+if(count($GLOBALS['dayCalls'])!==count($result['days'])*2)
     throw new RuntimeException('Every synthetic day must use the canonical day-row accessor');
 $GLOBALS['withoutShift']=true;$GLOBALS['dayCalls']=[];
 $empty=$handler([],[],['id'=>9]);
