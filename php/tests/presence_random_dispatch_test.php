@@ -142,7 +142,7 @@ foreach([['done','12:00',$now-120],['missed','11:00',$now-120],['pending','12:01
 }
 $historyChecks=[['slot'=>'12:00','captured_at'=>date('Y-m-d H:i:s',$now-110)]];
 $history=$presenceCron([],[],['id'=>21]);
-assertPresence(array_column($history['items'],'status')===['done','missed','pending'],'Today history must distinguish completed, missed and active requests');
+assertPresence(array_column($history['items'],'status')===['done','missed','pending'],'Today history must distinguish completed, missed and active requests: '.json_encode($history['items']));
 echo "PASS today presence history statuses\n";
 $historyNotifications=[
  ['id'=>1,'data'=>json_encode(['type'=>'presence_check','slot'=>'12:30','request_id'=>'imm-a','ts'=>$now-120]),'created_at'=>date('Y-m-d H:i:s',$now-120)],
