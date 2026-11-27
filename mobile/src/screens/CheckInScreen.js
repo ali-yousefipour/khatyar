@@ -1395,14 +1395,19 @@ function shiftCoverageCaption(day){
 function shiftCalendarDaySummary(day,coverageDay){
   const covers=Array.isArray(coverageDay?.cover)?coverageDay.cover:[];
   const known=v=>v!=null&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
-  // The schedule endpoint owns effective daily duty (including composite shifts).
-  // Only use coverage as a fallback when the schedule has no usable working day.
+  // Schedule and approved coverage are independent authoritative server inputs.
+  // A positive but partial legacy schedule must never discard a second cover shift.
   const scheduled=known(day?.minutes)&&!day?.is_off&&Number(day.minutes)>0;
-  if(scheduled)return {working:true,minutes:Number(day.minutes),unknown:false};
   if(!covers.length)return {working:!day?.is_off,minutes:known(day?.minutes)?Number(day.minutes):0,unknown:!day?.is_off&&!known(day?.minutes)};
-  const unique=[...new Map(covers.map((v,i)=>[v.request_id??('unknown-'+i),v])).values()];
-  const unknown=unique.some(v=>!known(v.shift?.minutes));
-  return {working:true,minutes:unique.reduce((sum,v)=>sum+(known(v.shift?.minutes)?Number(v.shift.minutes):0),0),unknown};
+  const unique=[...new Map(covers.map((v,i)=>[v.assignment_id??v.request_id??('unknown-'+i),v])).values()];
+  const duty=v=>v.shift?.duty_minutes??v.shift?.minutes;
+  const unknown=unique.some(v=>!known(duty(v)));
+  const coveredDuty=unique.reduce((sum,v)=>sum+(known(duty(v))?Number(duty(v)):0),0);
+  // Keep an effective composite/own duty whenever the server has calculated more.
+  // If cover duty exceeds the returned schedule, the schedule was incomplete.
+  const minutes=scheduled?Math.max(Number(day.minutes),coveredDuty):coveredDuty;
+  return {working:minutes>0||(!day?.is_off&&!!day)||unique.some(v=>!!v.shift?.segments?.length),minutes,
+    unknown:unknown||(!scheduled&&unique.some(v=>!known(duty(v))))};
 }
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
