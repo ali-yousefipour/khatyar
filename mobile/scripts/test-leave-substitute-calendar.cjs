@@ -21,7 +21,15 @@ assert.equal(context.shiftCoverageJdate('2026-12-06'),'1405-09-15','convert Greg
 assert.equal(context.shiftCoverageCaption({leave:[{unit:'daily'}]}),'مرخصی تأییدشده');
 assert.equal(context.shiftCoverageCaption({leave:[{unit:'hourly'}]}),'مرخصی ساعتی تأییدشده');
 assert.equal(context.shiftCoverageCaption({}),null,'pending or unapproved leave must not have a confirmed label');
-for(const part of ["'/my/shift-cover-status?dates='",'requesterShift=coverageDay.cover?.[0]?.shift','sourceIntervals=shiftIntervals(requesterShift)','setCoverage(related?.days||{})','coverNames.join'])assert.ok(src.includes(part),'missing live coverage binding: '+part);
+for(const part of ["'/my/shift-cover-status?dates='",'confirmedCovers.flatMap','shiftIntervals(cover.shift)','حضور به‌جای:','setCoverage(related?.days||{})','coverNames.join'])assert.ok(src.includes(part),'missing live coverage binding: '+part);
+const summarize=context.shiftCalendarDaySummary;
+const cover={cover:[{request_id:1,absent_name:'الف',shift:{minutes:240}},{request_id:2,absent_name:'ب',shift:{minutes:180}}]};
+assert.equal(summarize({is_off:true,minutes:0},cover).minutes,420,'fallback sums both confirmed duties');
+assert.equal(summarize({is_off:true,minutes:0},cover).working,true);
+assert.equal(summarize({is_off:false,minutes:420},cover).minutes,420,'effective schedule not double counted');
+assert.equal(summarize({is_off:true,minutes:0},{cover:[cover.cover[0],cover.cover[0]]}).minutes,240,'duplicate request not counted twice');
+assert.equal(summarize({is_off:true,minutes:0},{cover:[{request_id:3,shift:null}]}).unknown,true,'unknown duty not represented as known zero');
+assert.equal(summarize({is_off:true,minutes:0},{reservations:cover.cover}).working,false,'pending reservations do not create duty');
 assert.ok(src.includes('shiftMissing=days.length===0'),'temporary substitute shift days display even without permanent shift');
 assert.ok(request.includes('setSub(prev=>'),'selection must be checked after a date change');
 assert.ok(request.includes('available:false,reason:'),'stale substitute selection must be disabled');
