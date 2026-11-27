@@ -9,6 +9,7 @@ on:
       - 'php/lib/OrganizationWorkPlacement.php'
       - 'php/lib/routes.php'
       - 'php/tests/substitute_mysql_concurrency_test.php'
+      - 'php/tests/presence_mysql_idempotency_test.php'
       - 'php/tools/panel_source.jsx'
       - 'php/tests/organization_work_placement_test.php'
       - 'php/tests/work_report_organization_cutoff_test.php'
@@ -23,6 +24,7 @@ on:
       - 'php/lib/work_report_template_routes.php'
       - 'php/lib/routes.php'
       - 'php/tests/substitute_mysql_concurrency_test.php'
+      - 'php/tests/presence_mysql_idempotency_test.php'
       - 'php/tools/panel_source.jsx'
       - 'php/tools/build_panel_bundle.sh'
       - '.github/workflows/work-report-templates-validation.yml'
@@ -111,6 +113,7 @@ jobs:
         run: |
           php php/tests/work_report_template_repository_test.php
           php php/tests/substitute_mysql_concurrency_test.php
+          php php/tests/presence_mysql_idempotency_test.php
   panel-build:
     runs-on: ubuntu-24.04
     steps:
