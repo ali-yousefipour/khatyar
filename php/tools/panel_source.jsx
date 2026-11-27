@@ -7607,6 +7607,22 @@ function substituteMonthDays(year,month){
  }
  return result;
 }
+function substituteSegmentPlannedMinutes(segment){
+ if(!segment||typeof segment!=='object')return null;
+ const explicit=segment.planned_minutes??segment.duration_min;
+ if(explicit!==null&&explicit!==undefined&&explicit!==''){
+  const numeric=Number(explicit);return Number.isFinite(numeric)&&numeric>=0?numeric:null;
+ }
+ const clock=value=>{
+  const match=/^(\\d{1,2}):([0-5]\\d)$/.exec(String(value??''));
+  if(!match)return null;
+  const hour=Number(match[1]);return hour<=47?hour*60+Number(match[2]):null;
+ };
+ const from=clock(segment.s),to=clock(segment.e);
+ if(from===null||to===null)return null;
+ const length=to>=from?to-from:to+1440-from;
+ return length>0&&length<=1440?length:null;
+}
 function SubstituteCalendar(){
  const todayParts=Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tehran'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
  const [year,setYear]=useState(Number(todayParts.year)),[month,setMonth]=useState(Number(todayParts.month));
@@ -7651,7 +7667,7 @@ function SubstituteCalendar(){
   ['تداخل‌ها',all.filter(v=>v.conflict).length],
   ['شیفت انجام‌شده',confirmed.filter(v=>v.completion_status==='completed').length]
  ];
- const exportRows=()=>days.flatMap(d=>entries(d.date).flatMap(v=>{const segments=v.shift?.segments?.length?v.shift.segments:[{}];return segments.map((segment,index)=>({'تاریخ':fa(d.date),'نیروی جایگزین':users.find(u=>String(u.id)===String(uid))?.name||'','نیروی اصلی':v.absent_name,'شیفت':v.shift?.title||'','شروع':fa(segment.s||'—'),'پایان':fa(segment.e||'—'),'وضعیت':v.status==='confirmed'?(v.completion_status==='completed'?'انجام‌شده':'تخصیص قطعی'):v.status==='history'?(v.history_status==='released'?'رزرو آزادشده':'لغو یا رد شده'):'رزرو موقت','رزروکننده':v.reserved_by_name||'ثبت نشده','زمان رزرو':v.reserved_at?fa(v.reserved_at):'ثبت نشده','خط یا محل خدمت':v.shift?.segment_locations?.[index]?.service_location||v.shift?.segment_locations?.[index]?.line_name||'محل خدمت تاریخی ثبت نشده','مدت برنامه‌ریزی‌شده (دقیقه)':v.shift?.minutes==null?'نامشخص':fa(v.shift.minutes),'شماره درخواست':fa(v.request_id)}));}));
+ const exportRows=()=>days.flatMap(d=>entries(d.date).flatMap(v=>{const segments=v.shift?.segments?.length?v.shift.segments:[{}];return segments.map((segment,index)=>({'تاریخ':fa(d.date),'نیروی جایگزین':users.find(u=>String(u.id)===String(uid))?.name||'','نیروی اصلی':v.absent_name,'شیفت':v.shift?.title||'','شروع':fa(segment.s||'—'),'پایان':fa(segment.e||'—'),'وضعیت':v.status==='confirmed'?(v.completion_status==='completed'?'انجام‌شده':'تخصیص قطعی'):v.status==='history'?(v.history_status==='released'?'رزرو آزادشده':'لغو یا رد شده'):'رزرو موقت','رزروکننده':v.reserved_by_name||'ثبت نشده','زمان رزرو':v.reserved_at?fa(v.reserved_at):'ثبت نشده','خط یا محل خدمت':v.shift?.segment_locations?.[index]?.service_location||v.shift?.segment_locations?.[index]?.line_name||'محل خدمت تاریخی ثبت نشده','مدت برنامه‌ریزی‌شده (دقیقه)':substituteSegmentPlannedMinutes(segment)==null?'نامشخص':fa(substituteSegmentPlannedMinutes(segment)),'شماره درخواست':fa(v.request_id)}));}));
  const printReport=()=>{const rows=exportRows();const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const columns=Object.keys(rows[0]||{});printLetterhead('برنامه ماهانه نیروهای جایگزین','<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>'+columns.map(c=>'<th>'+escape(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(c=>'<td>'+escape(row[c])+'</td>').join('')+'</tr>').join('')+'</tbody></table>');};
  const saveLocation=async()=>{
   if(!selected?.assignment_id||savingLocation)return;
