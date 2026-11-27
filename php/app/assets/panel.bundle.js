@@ -12828,9 +12828,9 @@ function SubstituteCalendar() {
     const [users, setUsers] = useState([]), [uid, setUid] = useState(''), [search, setSearch] = useState(''), [status, setStatus] = useState('all');
     const [lineFilter, setLineFilter] = useState('all'), [locationFilter, setLocationFilter] = useState('all'), [absentFilter, setAbsentFilter] = useState('all'), [typeFilter, setTypeFilter] = useState('all');
     const [lines, setLines] = useState([]), [locationSegment, setLocationSegment] = useState(0), [locationLine, setLocationLine] = useState(''), [locationName, setLocationName] = useState(''), [locationReason, setLocationReason] = useState(''), [savingLocation, setSavingLocation] = useState(false);
-    useEffect(() => { if (!uid)
-        return; const timer = setInterval(() => setReload(v => v + 1), 60000); return () => clearInterval(timer); }, [uid]);
     const [data, setData] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState(''), [selected, setSelected] = useState(null);
+    useEffect(() => { if (!uid || selected || selectedDay)
+        return; const timer = setInterval(() => setReload(v => v + 1), 60000); return () => clearInterval(timer); }, [uid, selected, selectedDay]);
     const detailRef = useRef(null);
     useEffect(() => { if (selected && detailRef.current) {
         detailRef.current.showModal();
@@ -12859,34 +12859,37 @@ function SubstituteCalendar() {
     const knownLines = [...new Map(knownEntries.flatMap(v => { var _a; return (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).filter(Boolean).map(x => [String(x.line_id), { id: x.line_id, name: x.line_name }]); })).values()];
     const knownAbsents = [...new Map(knownEntries.filter(v => v.absent_user_id).map(v => [String(v.absent_user_id), { id: v.absent_user_id, name: v.absent_name }])).values()];
     const knownShiftTypes = [...new Set(knownEntries.map(v => { var _a; return (_a = v.shift) === null || _a === void 0 ? void 0 : _a.type; }).filter(Boolean))].sort();
-    const entries = date => rawEntries(date).filter(v => {
+    const baseEntries = date => rawEntries(date).filter(v => {
         var _a, _b, _c, _e, _f, _g, _h;
-        return (status === 'all' ? v.status !== 'history' : v.status === status)
+        return true
             && (absentFilter === 'all' || String(v.absent_user_id) === absentFilter)
             && (typeFilter === 'all' || ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.type) === typeFilter)
             && (lineFilter === 'all' || (lineFilter === 'unknown' ? !((_c = (_b = v.shift) === null || _b === void 0 ? void 0 : _b.segment_locations) === null || _c === void 0 ? void 0 : _c.some(x => x === null || x === void 0 ? void 0 : x.line_id)) : (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f.some(x => String(x === null || x === void 0 ? void 0 : x.line_id) === lineFilter)))
             && (locationFilter === 'all' || ((_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
     });
+    const entries = date => baseEntries(date).filter(v => status === 'all' ? v.status !== 'history' : status === 'completed' ? v.status === 'confirmed' && v.completion_status === 'completed' : status === 'conflict' ? Boolean(v.conflict) : v.status === status);
     const all = days.flatMap(d => entries(d.date));
+    const statsBase = days.flatMap(d => baseEntries(d.date).map(v => ({ ...v, date: d.date })));
     const resetFilters = () => { setStatus('all'); setLineFilter('all'); setLocationFilter('all'); setAbsentFilter('all'); setTypeFilter('all'); setSearch(''); };
     const stateLabel = v => v.conflict ? 'تداخل' : v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'آزادشده' : 'لغو یا رد شده') : 'در انتظار تأیید';
     const stateColor = v => v.conflict ? '#b91c1c' : v.status === 'history' ? '#64748b' : v.status === 'pending' ? '#a16207' : v.completion_status === 'completed' ? '#475569' : '#087f5b';
-    const confirmed = days.flatMap(d => entries(d.date).filter(v => v.status === 'confirmed').map(v => ({ ...v, date: d.date })));
-    const pendingCount = all.filter(v => v.status === 'pending').length;
+    const confirmed = statsBase.filter(v => v.status === 'confirmed');
+    const pendingCount = statsBase.filter(v => v.status === 'pending').length;
     const confirmedDuty = confirmed.reduce((n, v) => { var _a, _b; return n + (Number((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.duty_minutes) !== null && _b !== void 0 ? _b : 0) || 0); }, 0);
     const unknownDuty = confirmed.some(v => { var _a; return ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.duty_minutes) == null; });
     const plannedMinutes = confirmed.reduce((n, v) => { var _a, _b, _c, _e; return n + (Number((_e = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.planned_minutes) !== null && _b !== void 0 ? _b : (_c = v.shift) === null || _c === void 0 ? void 0 : _c.minutes) !== null && _e !== void 0 ? _e : 0) || 0); }, 0);
     const statCards = [
         ['روزهای دارای شیفت', new Set(confirmed.map(v => v.date)).size],
-        ['شیفت قطعی', confirmed.length],
-        ['رزرو در انتظار', pendingCount],
+        ['شیفت قطعی', confirmed.length, 'confirmed'],
+        ['رزرو در انتظار', pendingCount, 'pending'],
         ['نیروهای اصلی', new Set(confirmed.map(v => v.absent_user_id).filter(Boolean)).size],
         ['موظفی (ساعت)', unknownDuty ? (fa((confirmedDuty / 60).toFixed(1)) + ' + نامشخص') : fa((confirmedDuty / 60).toFixed(1))],
         ['برنامه‌ریزی‌شده (ساعت)', fa((plannedMinutes / 60).toFixed(1))],
-        ['تداخل‌ها', all.filter(v => v.conflict).length],
-        ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length]
+        ['تداخل‌ها', statsBase.filter(v => v.conflict).length, 'conflict'],
+        ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length, 'completed'],
+        ['سوابق لغو و آزادسازی', statsBase.filter(v => v.status === 'history').length, 'history']
     ];
-    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'تداخل': v.conflict ? 'دارای تداخل' : '—', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
     const pdfDownload = async () => {
         var _a;
         setError('');
@@ -12972,7 +12975,9 @@ function SubstituteCalendar() {
                     React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
                     React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
                     React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
-                    React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC")),
+                    React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC"),
+                    React.createElement("option", { value: "completed" }, "\u0634\u06CC\u0641\u062A \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
+                    React.createElement("option", { value: "conflict" }, "\u062F\u0627\u0631\u0627\u06CC \u062A\u062F\u0627\u062E\u0644")),
                 React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
                     React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
                     React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u062A\u0627\u0631\u06CC\u062E\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
@@ -13005,9 +13010,9 @@ function SubstituteCalendar() {
             React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
         busy && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062A\u0642\u0648\u06CC\u0645\u2026"),
         uid && !busy && React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "sub-calendar-stat-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, margin: '12px 0' } }, statCards.map(([label, value]) => React.createElement("div", { key: label, style: { border: '1px solid var(--border,#ddd)', borderRadius: 12, padding: 12, background: 'var(--surface,#fff)' } },
+            React.createElement("div", { className: "sub-calendar-stat-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, margin: '12px 0' } }, statCards.map(([label, value, filter]) => { const Tag = filter ? 'button' : 'div'; return React.createElement(Tag, { key: label, ...(filter ? { type: 'button', 'aria-pressed': status === filter, onClick: () => setStatus(status === filter ? 'all' : filter) } : {}), style: { font: 'inherit', color: 'inherit', textAlign: 'start', cursor: filter ? 'pointer' : 'default', border: status === filter ? '2px solid #087f5b' : '1px solid var(--border,#ddd)', borderRadius: 12, padding: 12, background: status === filter ? '#ecfdf5' : 'var(--surface,#fff)' } },
                 React.createElement("div", { style: { fontSize: 12, opacity: .75 } }, label),
-                React.createElement("strong", { style: { display: 'block', fontSize: 19, marginTop: 6 } }, typeof value === 'number' ? fa(value) : value)))),
+                React.createElement("strong", { style: { display: 'block', fontSize: 19, marginTop: 6 } }, typeof value === 'number' ? fa(value) : value)); })),
             !all.length && React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0648 \u0641\u06CC\u0644\u062A\u0631\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
             React.createElement("div", { className: 'sc-body' + (selectedDay ? ' sc-open' : '') },
                 React.createElement("div", { className: "sub-calendar-grid" },
