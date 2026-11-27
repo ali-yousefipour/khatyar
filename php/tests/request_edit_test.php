@@ -31,6 +31,7 @@ class Db {
   }
   static function all($sql,$params=[]){
     if(str_contains($sql,'FROM users u LEFT JOIN roles'))return [['id'=>$params[0],'name'=>'نیروی جایگزین آزمون'],['id'=>$params[1],'name'=>'رزروکننده آزمون']];
+    if(str_contains($sql,'FROM users u WHERE'))return [['id'=>$params[0],'name'=>'نیروی اصلی آزمون'],['id'=>$params[1],'name'=>'مدیر آزمون']];
     if(str_contains($sql,'FROM user_shifts'))return [];
     if(str_contains($sql,'FROM staff_attendance'))return array_values(array_filter(self::$punches,static function($p)use($sql,$params){
       if($p['user_id']!=$params[0])return false;
@@ -61,6 +62,7 @@ class Db {
 }
 require_once __DIR__.'/../lib/ShiftCalc.php';
 require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
+class Push {public static array $sent=[];static function send($users,$title,$body,$data){self::$sent[]=[$users,$title,$body,$data];}}
 function _db_table_exists_safe($name){return true;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
 function _zone_leave_requirement_storage(){}
@@ -91,6 +93,7 @@ resetEdit();$r=edit();expect('unchanged save does not create audit revision',$r[
 resetEdit(['from_jdate'=>null,'to_jdate'=>null]);Db::$policy=null;edit(['approver_note'=>'اصلاح یادداشت']);expect('text-only correction preserves nullable date aliases and does not reapprove',Db::$rows[3]['from_jdate']===null&&Db::$rows[3]['to_jdate']===null&&Db::$rows[3]['approver_note']==='اصلاح یادداشت');
 resetEdit(['unit'=>'daily','minutes'=>480,'from_time'=>null,'to_time'=>null,'substitute_user_id'=>9]);Db::$assignments=[['request_id'=>3,'substitute_user_id'=>9,'absent_user_id'=>12,'from_date'=>'1405-07-01','to_date'=>'1405-07-01','status'=>'active']];edit(['from_jdate'=>'1405-07-02','to_jdate'=>'1405-07-03','substitute_user_id'=>10]);
 expect('substitute old interval canceled and corrected assignment activated',Db::$assignments[0]['status']==='canceled'&&Db::$assignments[1]['substitute_user_id']===10&&Db::$assignments[1]['from_date']==='1405-07-02'&&Db::$rows[3]['minutes']===960);
+expect('original substitute receives one release notice after successful reassignment',count(array_filter(Push::$sent,fn($p)=>$p[0]===[9]&&$p[1]==='آزاد شدن رزرو جایگزینی'))===1);
 resetEdit(['unit'=>'daily','minutes'=>480,'from_time'=>null,'to_time'=>null]);Db::$policy['region_required']=true;denied('region requires substitute for changed daily annual leave',422,fn()=>edit(['to_jdate'=>'1405-07-02']));
 function manual($in,$out){resetEdit(['type'=>'manual','unit'=>'daily','minutes'=>0,'from_jdate'=>null,'to_jdate'=>null,'from_time'=>null,'to_time'=>null,'in_time'=>$in,'out_time'=>$out]);Db::$policy=['config'=>['manual'=>[]]];return _req_policy_date('1405-07-01')->format('Y-m-d');}
 $g=manual('23:00','02:00');$next=(new DateTimeImmutable($g))->modify('+1 day')->format('Y-m-d');Db::$punches=[77=>['id'=>77,'user_id'=>12,'check_in'=>$g.' 23:00:00','check_out'=>$next.' 02:00:00','method'=>'manual','other_evidence'=>'retained']];edit(['in_time'=>'22:00','out_time'=>'03:00']);
