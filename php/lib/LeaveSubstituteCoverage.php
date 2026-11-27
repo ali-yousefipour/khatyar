@@ -595,6 +595,14 @@ final class LeaveSubstituteCoverage {
         foreach($input as $raw){$d=self::day($raw);if(!$d)Http::error('تاریخ تقویم نامعتبر است',422);$dates[$d]=true;}
         if(!$dates||count($dates)>40)Http::error('تاریخ‌های تقویم نامعتبر هستند',422);
         $keys=array_keys($dates);sort($keys);$from=$keys[0];$to=end($keys);
+        // A sparse set of distant dates must not trigger unbounded calendar/database reads.
+        // The mobile and administrative clients send one Jalali month per call.
+        $fromParts=array_map('intval',explode('-',$from));
+        $toParts=array_map('intval',explode('-',$to));
+        [$fgY,$fgM,$fgD]=IranCalendar::toGregorian(...$fromParts);
+        [$tgY,$tgM,$tgD]=IranCalendar::toGregorian(...$toParts);
+        if(gmmktime(12,0,0,$tgM,$tgD,$tgY)-gmmktime(12,0,0,$fgM,$fgD,$fgY)>39*86400)
+            Http::error('بازه تقویم باید حداکثر چهل روز باشد',422);
         $viewFrom=$from;$viewTo=$to;
         // Include adjacent entry-owned night shifts, including legacy >24-hour clock values.
         for($offset=1;$offset<=3;$offset++){
