@@ -8,6 +8,7 @@ on:
       - 'php/lib/organization-template.xlsx'
       - 'php/lib/OrganizationWorkPlacement.php'
       - 'php/lib/routes.php'
+      - 'php/tests/substitute_mysql_concurrency_test.php'
       - 'php/tools/panel_source.jsx'
       - 'php/tests/organization_work_placement_test.php'
       - 'php/tests/work_report_organization_cutoff_test.php'
@@ -21,6 +22,7 @@ on:
       - 'php/lib/OrganizationWorkPlacement.php'
       - 'php/lib/work_report_template_routes.php'
       - 'php/lib/routes.php'
+      - 'php/tests/substitute_mysql_concurrency_test.php'
       - 'php/tools/panel_source.jsx'
       - 'php/tools/build_panel_bundle.sh'
       - '.github/workflows/work-report-templates-validation.yml'
@@ -106,7 +108,9 @@ jobs:
           WORK_REPORT_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=work_report_test;charset=utf8mb4
           WORK_REPORT_TEST_USER: work_test
           WORK_REPORT_TEST_PASSWORD: test-only
-        run: php php/tests/work_report_template_repository_test.php
+        run: |
+          php php/tests/work_report_template_repository_test.php
+          php php/tests/substitute_mysql_concurrency_test.php
   panel-build:
     runs-on: ubuntu-24.04
     steps:
