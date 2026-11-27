@@ -6501,10 +6501,12 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
     // شیفت روز جاری به روزهایی که هیچ انتسابی ندارند تعمیم داده نمی‌شود.
     $dayShift=_active_user_shift_assignment($userId,$j);
     if($displayShift===null && $dayShift) $displayShift=$dayShift;
-    $dr=null;
-    if($dayShift && (($dayShift['type']??'')==='advanced')){
-      $dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$dayShift['id'],$j]);
-    }
+    // The effective shift may be a synthetic composite (negative shift ID).
+    // A direct shift_days lookup always misses it and silently reports zero duty.
+    // Resolve through the same canonical day-row accessor as work calculation.
+    $dr=$dayShift && ($dayShift['type']??'')==='advanced'
+      ? _shift_day_row((int)($dayShift['shift_id']??$dayShift['id']??0),$j)
+      : null;
     $mins=$dayShift ? max(0,(int)ShiftCalc::expectedMinutes($dayShift,$j,$dr)) : 0;
     $cal=ShiftCalc::calendarDay($j);
     $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
