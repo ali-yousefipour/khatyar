@@ -106,3 +106,21 @@ ok(LeaveSubstituteCoverage::unresolvedComposite(9,'1405-09-10'),'unresolved mult
 Db::$assignments=[['request_id'=>1,'absent_user_id'=>1],['request_id'=>2,'absent_user_id'=>2]];
 ok(LeaveSubstituteCoverage::composite(9,'1405-09-10')!==null,'adjacent source assignments remain valid');
 ok(!LeaveSubstituteCoverage::unresolvedComposite(9,'1405-09-10'),'successful recomputation clears stale unresolved flag');
+
+Db::$ownDuty=false;Db::$explicitDuty=true;
+Db::$assignments=[['request_id'=>1,'absent_user_id'=>1],['request_id'=>4,'absent_user_id'=>4]];
+$otComposite=LeaveSubstituteCoverage::composite(9,'1405-09-10');
+$otDay=LeaveSubstituteCoverage::syntheticDay($otComposite['shift_id'],'1405-09-10');
+$otDay['composite_parts'][1]['day_row']['day_config']=['duty_min'=>480,'daily_ot'=>60,'ot_end'=>60];
+$extraWork=ShiftCalc::dayWork($otComposite,'1405-09-10',$otDay,[
+ ['in'=>strtotime('2026-12-01 06:00:00'),'out'=>strtotime('2026-12-01 23:00:00')]
+],false);
+ok($extraWork['expected']===960&&$extraWork['worked']===1020&&$extraWork['overtime']===60&&$extraWork['unattributed_work_minutes']===0,
+ 'explicit source overtime window credits last hour once without losing raw worked time');
+$otDay['composite_parts'][1]['day_row']['day_config']=['duty_min'=>480,'daily_ot'=>60];
+$otDay['composite_parts'][0]['day_row']['day_config']=['duty_min'=>480,'daily_ot'=>60,'ot_end'=>60];
+$adjacent=ShiftCalc::dayWork($otComposite,'1405-09-10',$otDay,[
+ ['in'=>strtotime('2026-12-01 06:00:00'),'out'=>strtotime('2026-12-01 22:00:00')]
+],false);
+ok($adjacent['expected']===960&&$adjacent['worked']===960&&$adjacent['overtime']===0,
+ 'earlier shift overtime window cannot overlap next shift regular duty');
