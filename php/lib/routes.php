@@ -1068,7 +1068,7 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
       return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];
     if(!$ex&&!empty($b['random'])){
       $counts=Db::one("SELECT COUNT(*) AS n FROM presence_checks WHERE user_id=? AND slot_date=? AND LEFT(request_id,6)='local_'",[(int)$u['id'],$date]);
-      if((int)($counts['n']??0)>=6)Http::error('سقف شش صحت‌سنجی تصادفی روزانه تکمیل شده است.',422);
+      if((int)($counts['n']??0)>=6)throw new DomainException('سقف شش صحت‌سنجی تصادفی روزانه تکمیل شده است.');
     }
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
     if (!$selfiePath)throw new RuntimeException('selfie file persistence failed');
@@ -1083,6 +1083,10 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
         [(int)$u['id'],$slot,$date,$requestId,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt]);
     }
     if($id<=0)throw new RuntimeException('presence insert did not return a positive ID');
+  } catch (DomainException $invalid) {
+    // Business-rule rejection: no file was written, and this is not a
+    // transient server fault eligible for offline re-queuing.
+    Http::error($invalid->getMessage(),422);
   } catch (Throwable $failure) {
     if($selfiePath)Media::delete($selfiePath);
     if($vehiclePath)Media::delete($vehiclePath);
