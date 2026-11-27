@@ -185,6 +185,25 @@ try{runRoute('PUT','/api/admin/substitute-calendar/service-location',[],['assign
 catch(RuntimeException $e){check($e->getCode()===403,'historical location edits are admin-only');}
 echo "PASS historical service-location: unknown, partial, verified, independent segments and admin authorization\n";
 
+$completionMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'completedByAttendance');
+$epoch=ShiftCalc::jdateToTs('1405-09-02');
+$asClock=static fn(int $minutes):string=>date('Y-m-d H:i:s',$epoch+$minutes*60);
+$attendance=[
+ ['id'=>101,'check_in'=>$asClock(360),'check_out'=>$asClock(840),'method'=>'gps','line_id'=>10],
+ ['id'=>102,'check_in'=>$asClock(840),'check_out'=>$asClock(1320),'method'=>'gps','line_id'=>11]
+];
+$checked=$completionMethod->invoke(null,'1405-09-02',$different,$attendance);
+check($checked['completion_status']==='completed'&&count($checked['attendance_ids'])===2,'two verified independent shifts require both real sessions');
+$gap=$attendance;$gap[1]['check_in']=$asClock(850);
+check($completionMethod->invoke(null,'1405-09-02',$different,$gap)['completion_status']==='unverified','ten minute unworked gap cannot mark completion');
+$wrongLine=$attendance;$wrongLine[1]['line_id']=10;
+check($completionMethod->invoke(null,'1405-09-02',$different,$wrongLine)['completion_status']==='unverified','attendance in different verified line is insufficient');
+$automatic=$attendance;$automatic[0]['method']='gps|auto_close';
+check($completionMethod->invoke(null,'1405-09-02',$different,$automatic)['completion_status']==='unverified','auto-close is not fabricated physical checkout evidence');
+check($completionMethod->invoke(null,'1405-09-02',null,$attendance)['completion_status']==='unverified','no shift is never declared complete');
+echo "PASS attendance completion: actual closed sessions, gap, verified lines, no auto-close and unknown shift\n";
+
+
 
 foreach(['/api/admin/substitute-calendar','/api/admin/substitute-calendar/users'] as $endpoint){
  try{runRoute('GET',$endpoint);throw new LogicException('unauthorized calendar access accepted');}
