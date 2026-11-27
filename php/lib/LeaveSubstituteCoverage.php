@@ -411,12 +411,12 @@ final class LeaveSubstituteCoverage {
             if($loc)$known[]=$loc;
         }
         $complete=count($segments)>0&&count($known)===count($segments);
-        $same=$complete&&count(array_unique(array_column($known,'line_id'))===1;
+        $same=$complete&&count(array_unique(array_column($known,'line_id')))===1;
         $shift['segment_locations']=$locations;
         $shift['location_status']=$complete?'verified':($known?'partial':'unrecorded');
         $shift['line_id']=$same?$known[0]['line_id']:null;
         $shift['line_name']=$same?$known[0]['line_name']:null;
-        $shift['service_location']=$same&&count(array_unique(array_column($known,'service_location'))===1)
+        $shift['service_location']=$same&&count(array_unique(array_column($known,'service_location')))===1
             ?$known[0]['service_location']:null;
         return $shift;
     }
