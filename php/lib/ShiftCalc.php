@@ -236,6 +236,30 @@ class ShiftCalc
         return ['jdate'=>$jdate,'worked'=>$worked,'in_shift'=>$inShift,'expected'=>$expected,'overtime'=>$overtime,'shortage'=>$shortage,'night'=>$night,'friday'=>$fridayMin,'holiday'=>$holidayMin,'friday_work'=>$fridayMin,'holiday_work'=>$holidayMin,'friday_overtime'=>$fridayMin,'holiday_overtime'=>$holidayMin,'total_overtime'=>$overtime+$fridayMin+$holidayMin,'holiday_friday_overtime'=>$fridayMin+$holidayMin,'friday_workday'=>$fridayMin>0?1:0,'late_in'=>$late,'early_out'=>$early,'surplus'=>$surplus,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>empty($segs)&&$type!=='floating'||$offLike,'is_friday'=>$isFriday,'is_holiday'=>$isHoliday,'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??''];}
     static function autoDayWork($shift,$jdate,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,null,$sessions,$isHoliday);}
     static function dayWork($shift,$jdate,$dayRow,$sessions,$isHoliday){return self::classifyDay($shift,$jdate,$dayRow,$sessions,$isHoliday);}
+    /** Shared per-segment threshold contract for the validator and calendar clients. */
+    static function segmentTrafficLimits(array $seg,array $cfg=[]): ?array {
+        $start=self::hm($seg['s']??null);$end=self::hm($seg['e']??null);
+        if($start===null||$end===null)return null;
+        $entryStart=self::hm($seg['es']??null);
+        $entryEnd=self::hm($seg['ls']??null);
+        $exitStart=self::hm($seg['ee']??null);
+        $exitEnd=self::hm($seg['le']??null);
+        if($entryStart===null)$entryStart=max(0,$start-60);
+        if(!empty($cfg['float_before']))$entryStart-=max(0,(int)$cfg['float_before'])%1440;
+        if($entryEnd===null)$entryEnd=$start+60;
+        if($exitStart===null)$exitStart=max(0,$end-60);
+        if($exitEnd===null)$exitEnd=$end+60;
+        $normalize=static fn(int $n):int=>(($n%1440)+1440)%1440;
+        $format=static fn(int $n):string=>sprintf('%02d:%02d',intdiv($n,60),$n%60);
+        $entryStart=$normalize($entryStart);$entryEnd=$normalize($entryEnd);
+        $exitStart=$normalize($exitStart);$exitEnd=$normalize($exitEnd);
+        return [
+            'entry_start_min'=>$entryStart,'entry_end_min'=>$entryEnd,
+            'exit_start_min'=>$exitStart,'exit_end_min'=>$exitEnd,
+            'entry_from'=>$format($entryStart),'entry_until'=>$format($entryEnd),
+            'exit_from'=>$format($exitStart),'exit_until'=>$format($exitEnd)
+        ];
+    }
     static function minuteInWindow($mins,$start,$end){if($start===null||$end===null)return false;if($end<$start)return $mins>=$start||$mins<=$end;return $mins>=$start&&$mins<=$end;}
     static function checkTrafficWindow($dayRow,$ts){
         $cfg=self::parseJson($dayRow['day_config']??null);
@@ -244,5 +268,38 @@ class ShiftCalc
         if($start!==null&&$end!==null&&!self::minuteInWindow($minutes,$start,$end))return ['ok'=>false,'reason'=>'ثبت تردد خارج از بازه مجاز تقویمی است.'];
         return ['ok'=>true];
     }
-    static function checkThreshold($shift,$jdate,$dayRow,$ts,$kind){if(!empty($dayRow['composite_parts'])){foreach($dayRow['composite_parts'] as $part){$result=self::checkThreshold($part['shift'],$jdate,$part['day_row'],$ts,$kind);if(!empty($result['ok'])){$result['request_id']=$part['request_id'];$result['absent_user_id']=$part['absent_user_id'];return $result;}}return ['ok'=>false,'reason'=>'زمان ثبت تردد با هیچ‌یک از نوبت‌های معتبر جایگزینی مطابقت ندارد.'];}$type=$shift['type']??'simple';$cfg=self::parseJson($dayRow['day_config']??null);$mins=(int)date('G',$ts)*60+(int)date('i',$ts);$traffic=self::checkTrafficWindow($dayRow,$ts);if(empty($traffic['ok']))return $traffic;if($type==='floating'||($type==='advanced'&&($cfg['type']??'')==='floating'))return['ok'=>true];$segs=self::daySegments($shift,$jdate,$dayRow);if(!$segs){if(!empty($shift['allow_offday']))return['ok'=>true];return['ok'=>false,'reason'=>'امروز برای شما شیفتی تعریف نشده است.'];}foreach($segs as $seg){$s=self::hm($seg['s']??null);$e=self::hm($seg['e']??null);if($kind==='in'){$es=self::hm($seg['es']??null);$ls=self::hm($seg['ls']??null);if($es===null)$es=$s!==null?max(0,$s-60):null;if($es!==null&&!empty($cfg['float_before']))$es=($es-max(0,(int)$cfg['float_before'])%1440+1440)%1440;if($ls===null)$ls=$s!==null?$s+60:null;if(self::minuteInWindow($mins,$es,$ls))return['ok'=>true,'seg'=>$seg];}else{$ee=self::hm($seg['ee']??null);$le=self::hm($seg['le']??null);if($ee===null)$ee=$e!==null?max(0,$e-60):null;if($le===null)$le=$e!==null?$e+60:null;if($ee!==null)$ee%=1440;if($le!==null)$le%=1440;if(self::minuteInWindow($mins,$ee,$le))return['ok'=>true,'seg'=>$seg];}}return['ok'=>false,'reason'=>"ثبت ".($kind==='in'?'ورود':'خروج')." خارج از بازهٔ مجاز شیفت است."];}
+    static function checkThreshold($shift,$jdate,$dayRow,$ts,$kind){
+        if(!empty($dayRow['composite_parts'])){
+            foreach($dayRow['composite_parts'] as $part){
+                $result=self::checkThreshold($part['shift'],$jdate,$part['day_row'],$ts,$kind);
+                if(!empty($result['ok'])){
+                    $result['request_id']=$part['request_id'];
+                    $result['absent_user_id']=$part['absent_user_id'];
+                    return $result;
+                }
+            }
+            return ['ok'=>false,'reason'=>'زمان ثبت تردد با هیچ‌یک از نوبت‌های معتبر جایگزینی مطابقت ندارد.'];
+        }
+        $type=$shift['type']??'simple';
+        $cfg=self::parseJson($dayRow['day_config']??null);
+        $minutes=(int)date('G',$ts)*60+(int)date('i',$ts);
+        $traffic=self::checkTrafficWindow($dayRow,$ts);
+        if(empty($traffic['ok']))return $traffic;
+        if($type==='floating'||($type==='advanced'&&($cfg['type']??'')==='floating'))return ['ok'=>true];
+        $segments=self::daySegments($shift,$jdate,$dayRow);
+        if(!$segments){
+            if(!empty($shift['allow_offday']))return ['ok'=>true];
+            return ['ok'=>false,'reason'=>'امروز برای شما شیفتی تعریف نشده است.'];
+        }
+        foreach($segments as $segment){
+            $window=self::segmentTrafficLimits($segment,$cfg);
+            if($window===null)continue;
+            $entry=$kind==='in';
+            $from=$entry?$window['entry_start_min']:$window['exit_start_min'];
+            $until=$entry?$window['entry_end_min']:$window['exit_end_min'];
+            if(self::minuteInWindow($minutes,$from,$until))return ['ok'=>true,'seg'=>$segment];
+        }
+        return ['ok'=>false,'reason'=>"ثبت ".($kind==='in'?'ورود':'خروج')." خارج از بازهٔ مجاز شیفت است."];
+    }
+
 }
