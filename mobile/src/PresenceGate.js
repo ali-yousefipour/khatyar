@@ -124,7 +124,7 @@ export default function PresenceGate({navigationRef}){
         const requestId=String(item.request_id||('rnd_'+schedule.attendance_id+'_'+item.ts));
         const key=scopedKey('presence_random_done:'+requestId);
         const expiredKey=scopedKey('presence_random_expired:'+requestId);
-        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)||completedForUser(await localPresenceCompletions(),requestId))continue;
+        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)||completedForUser(await localPresenceCompletions(userId),requestId))continue;
         const notifKey=scopedKey('presence_random_notified:'+requestId);
         if(!await AsyncStorage.getItem(notifKey)){
           await AsyncStorage.setItem(notifKey,'1');
@@ -188,7 +188,7 @@ export default function PresenceGate({navigationRef}){
    }
    const key=scopedKey(immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`);
    const expiredKey=scopedKey(random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`);
-   if(await AsyncStorage.getItem(key)||completedForUser(await localPresenceCompletions(),requestId))return;
+   if(await AsyncStorage.getItem(key)||completedForUser(await localPresenceCompletions(userId),requestId))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
    const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
    const randomTimestamp= random ? /^rnd_\d+_(\d{10})$/.exec(requestId)?.[1] : null;
