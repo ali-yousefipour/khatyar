@@ -54,7 +54,7 @@ if((int)$primary->query('SELECT COUNT(*) FROM substitute_reservation_race_test')
     throw new RuntimeException('Expected one original and one adjacent reservation');
 echo "PASS independent MySQL connections: advisory serialization, committed conflict, adjacent half-open shifts\\n";
 
-\n// Real database validation of the same latest-active replacement predicate used
+// Real database validation of the same latest-active replacement predicate used
 // by historical service-location writes. Temporary tables shadow production data
 // and disappear when this isolated CI connection closes.
 $primary->exec("CREATE TEMPORARY TABLE requests (
