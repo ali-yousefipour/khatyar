@@ -154,3 +154,8 @@ $statuses=array_column($separate['items'],'status','id');
 assertPresence(($statuses['imm-a']??'')==='done'&&($statuses['imm-b']??'')==='missed',
  'A single photo from one immediate challenge must not complete a different same-minute challenge');
 echo "PASS presence request identity keeps two immediate checks in one slot independent\n";
+$historyChecks=[['slot'=>'12:30','captured_at'=>date('Y-m-d H:i:s',$now-110)]];
+$ambiguous=$presenceCron([],[],['id'=>21]);
+assertPresence(!in_array('done',array_column($ambiguous['items'],'status'),true),
+ 'A legacy slot-only photo must not be assigned to one of two simultaneous challenges');
+echo "PASS ambiguous legacy same-slot photos are not falsely attributed\n";
