@@ -162,7 +162,7 @@ export default function PresenceCheckWizard(){
    terminalRef.current=true;
    emitPresenceWizardState(requestId,'expired');
    if(expiredKey&&!immediate)try{await AsyncStorage.setItem(expiredKey,'1')}catch(_){}
-   await stopPresenceAlarm();
+   await stopPresenceAlarm({dismissNotifications:true});
    closeWizard();
  };
 
