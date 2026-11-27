@@ -20,15 +20,16 @@ const text=node=>typeof node==='string'?node:node&&typeof node==='object'?node.c
 const button=caption=>nodes().find(n=>n.type==='button'&&text(n)===caption);
 function choose(label,value){findLabel(label).props.onChange({target:{value}});render();}
 (async()=>{
- render();requests[0].resolve({ok:true,json:async()=>[{id:1,name:'اول'},{id:2,name:'دوم'}]});await flush();
+ render();requests.find(r=>r.url.includes('/admin/lines')).resolve({ok:true,json:async()=>[{id:7,code:'۷',origin:'مبدأ',destination:'مقصد'}]});requests.find(r=>r.url.includes('/admin/substitute-calendar/users')).resolve({ok:true,json:async()=>[{id:1,name:'اول'},{id:2,name:'دوم'}]});await flush();
  choose('نیروی جایگزین','1');const first=requests.at(-1);assert(nodes().some(n=>n.props.role==='status'),'loading visible');
  choose('نیروی جایگزین','');assert(first.options.signal.aborted);assert(!nodes().some(n=>n.props.role==='status'),'clearing selection clears loading');
  choose('نیروی جایگزین','2');const second=requests.at(-1);const date=new URL('https://local'+second.url).searchParams.get('dates').split(',')[0];
- const shift={title:'صبح',segments:[{s:'06:00',e:'14:00'},{s:'16:00',e:'18:00'}]};
+ const shift={title:'صبح',segments:[{s:'06:00',e:'14:00'},{s:'16:00',e:'18:00'}],segment_locations:[{line_id:7,line_name:'خط ۷',service_location:'ایستگاه ثبت‌شده'},null],location_status:'partial'};
  second.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:1,absent_name:'<img src=x onerror=alert(1)>',shift},{request_id:2,absent_name:'دوم',shift}],history:[{request_id:3,absent_name:'منقضی',shift}]}}})});await flush();
  assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'multiple active cards; history hidden');
- button('خروجی Excel فیلترشده').props.onClick();assert.equal(exported.length,4,'each source segment exported');
+ button('خروجی Excel فیلترشده').props.onClick();assert.equal(exported.length,4,'each source segment exported');assert.equal(exported[0]['خط یا محل خدمت'],'ایستگاه ثبت‌شده','verified historical location exported');assert.equal(exported[1]['خط یا محل خدمت'],'محل خدمت تاریخی ثبت نشده','unknown historic line not fabricated');
  button('چاپ / ذخیره PDF').props.onClick();assert(printed.includes('&lt;img'));assert(!printed.includes('<img src=x'),'print content escaped');
+ choose('فیلتر خط خدمت','7');assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'line filter keeps only matching verified shift records');choose('فیلتر خط خدمت','all');
  first.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:9,absent_name:'STALE',shift}]}}})});await flush();
  assert(!nodes().some(n=>text(n).includes('STALE')),'aborted stale response cannot replace selected user');
  choose('وضعیت تخصیص','history');assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,1,'history filter shows historical row');
