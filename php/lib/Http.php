@@ -47,7 +47,7 @@ class Http {
     [$requestHash,$uuid,$method,$path] = self::$clientRequest;
     try {
       if ($code >= 200 && $code < 300) {
-        Db::run("UPDATE api_client_requests_v2 SET status_code=?,response_json=?,completed_at=NOW() WHERE request_hash=?",[$code,json_encode($data,JSON_UNESCAPED_UNICODE),$requestHash]);
+        Db::run("UPDATE api_client_requests_v2 SET status_code=?,response_json=?,completed_at=NOW() WHERE request_hash=?",[$code,json_encode($data,JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),$requestHash]);
       } else {
         Db::run("DELETE FROM api_client_requests_v2 WHERE request_hash=?",[$requestHash]);
       }
@@ -97,10 +97,17 @@ class Http {
   }
   public static function json($data, $code = 200) {
     if (self::$currentToken) $data = self::stampMediaUrls($data);
+    $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($encoded === false) {
+      error_log('HTTP JSON serialization failed: '.json_last_error_msg());
+      $code = 500;
+      $data = ['error'=>'خطا در تولید پاسخ سرور؛ لطفاً دوباره تلاش کنید.'];
+      $encoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
     self::finishClientRequest($data,$code);
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    echo $encoded;
     exit;
   }
   public static function error($msg, $code = 400) { self::json(['error' => $msg], $code); }
