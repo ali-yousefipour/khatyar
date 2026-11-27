@@ -15,7 +15,7 @@ class Db {
     if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
     if(str_contains($query,'LEFT(request_id,6)'))return ['n'=>self::$randomDailyCount];
     if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive
-      ?['id'=>31,'check_in'=>isset($GLOBALS['randomSessionStart'])?date('Y-m-d H:i:s',$GLOBALS['randomSessionStart']):null,'check_out'=>null]:null;
+      ?['id'=>31,'check_in'=>isset($GLOBALS['randomSessionStart'])?(new DateTimeImmutable('@'.$GLOBALS['randomSessionStart']))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d H:i:s'):null,'check_out'=>null]:null;
     if(str_contains($query,'FROM presence_checks')&&isset(self::$existing['request_id'])&&self::$existing['request_id']!==($params[1]??''))return null;
     return self::$existing;
   }
