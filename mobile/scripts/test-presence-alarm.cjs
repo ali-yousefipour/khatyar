@@ -53,9 +53,9 @@ async function run() {
   await startPresenceAlarm();
   assert.equal(players.length,count,'Native service prevents a duplicate JS sound loop');
   await stopPresenceAlarm();
-  assert.equal(nativeStops,1,'Any alarm termination must also release native MediaPlayer');
+  assert.equal(nativeStops,0,'Initial JS cleanup must preserve notification-started native alarm');
   await stopPresenceAlarm({dismissNotifications:true});
-  assert.equal(nativeStops,2,'Wizard entry stops native playback and dismisses presence notification');
+  assert.equal(nativeStops,1,'Wizard entry stops native playback and dismisses presence notification');
   assert.deepEqual(dismissed,['presence-1'],'Only presence notifications are dismissed');
   let finishNative;context.NativeModules.KhatyarRadio.startPresenceAlarm=()=>new Promise(resolve=>{finishNative=resolve;});
   await startPresenceAlarm();
