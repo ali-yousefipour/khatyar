@@ -36,6 +36,7 @@ export default function PresenceGate({navigationRef}){
  const checkingRef=useRef(false);
  const openNotificationRef=useRef(null);
  const userId=Number(user?.id||0);
+ const previousUserRef=useRef(userId);
 
  const setDueStable=next=>{
   if(!mountedRef.current)return;
@@ -51,6 +52,20 @@ export default function PresenceGate({navigationRef}){
  };
 
  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;dueRef.current=null}},[]);
+ useEffect(()=>{
+   if(previousUserRef.current!==userId){
+     previousUserRef.current=userId;
+     const stale=dueRef.current;
+     if(stale)clearPresenceClock(stale.requestId);
+     dueRef.current=null;
+     setDue(null);
+     cfgRef.current=null;
+     openedRef.current=false;
+     wizardReadyRef.current=false;
+     wizardWasActiveRef.current=false;
+     stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+   }
+ },[userId]);
  useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
  useEffect(()=>onPresenceWizardState(({requestId,state})=>{
    const active=dueRef.current;
@@ -246,7 +261,8 @@ export default function PresenceGate({navigationRef}){
     expiredKey:due.expiredKey,
     immediate:!!due.immediate,
     requestId:due.requestId||'',
-    random:!!due.random
+    random:!!due.random,
+    ownerUserId:userId
    });
   }catch(e){
    openedRef.current=false;
