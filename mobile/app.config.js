@@ -2,9 +2,9 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-// Android 2.0.13 release: keep Myket signing unchanged; offline identity/bank validation is structural only.
-const APP_VERSION = '2.0.13';
-const APP_VERSION_CODE = 20013;
+// Android 2.0.14 release: keep Myket signing unchanged; offline identity/bank validation is structural only.
+const APP_VERSION = '2.0.14';
+const APP_VERSION_CODE = 20014;
 // R8 previously caused startup crashes in release builds. Only enable in a
 // separately tested candidate; standard Myket releases retain safe defaults.
 const EXPERIMENTAL_NATIVE_SHRINK = process.env.KHATYAR_EXPERIMENTAL_R8 === '1';
