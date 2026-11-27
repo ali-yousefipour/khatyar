@@ -10,7 +10,7 @@ const context={window:{KhatyarSubstitutePdf:{download:async(rows,options)=>{pdf=
  useRef(initial){const i=cursor++;if(!(i in slots))slots[i]={current:initial};return slots[i];},
  useMemo(fn){cursor++;return fn();},
  useEffect(fn,deps){const i=cursor++;if(!depsEqual(effects[i]?.deps,deps)){pending.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}},
- fetch(url,options){let resolve;const promise=new Promise(r=>resolve=r);requests.push({url,options,resolve});return promise;}};
+ fetch(url,options){let resolve;const promise=new Promise(r=>resolve=r);requests.push({url,options,resolve(response){resolve({...response,status:response.status??200,text:response.text??(async()=>JSON.stringify(await response.json()))});}});return promise;}};
 vm.createContext(context);vm.runInContext(compiled,context);
 assert.equal(context.substituteSegmentPlannedMinutes({s:'22:00',e:'06:00'}),480,'overnight segment duration remains eight hours');
 assert.equal(context.substituteSegmentPlannedMinutes({s:'26:00',e:'29:00'}),180,'extended overnight hours are not double counted');
@@ -44,5 +44,8 @@ function choose(label,value){findLabel(label).props.onChange({target:{value}});r
  first.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:9,absent_name:'STALE',shift}]}}})});await flush();
  assert(!nodes().some(n=>text(n).includes('STALE')),'aborted stale response cannot replace selected user');
  choose('وضعیت تخصیص','history');assert.equal(cards().length,1,'history filter shows historical row');
+ choose('نیروی جایگزین','1');requests.at(-1).resolve({ok:true,status:200,text:async()=>''});await flush();
+ assert(nodes().some(n=>n.props.role==='alert'&&text(n).includes('پاسخ سرور خالی است')),'empty response produces controlled error');
+ assert.equal(button('دانلود PDF مستقل').props.disabled,true,'failed response cannot export fake empty month');
  console.log('PASS component behavior: selection/loading, stale response, multi-card/history filtering, Excel segments and escaped print');
 })().catch(e=>{console.error(e);process.exitCode=1;});
