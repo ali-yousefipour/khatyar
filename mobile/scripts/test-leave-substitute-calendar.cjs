@@ -27,6 +27,9 @@ const cover={cover:[{request_id:1,absent_name:'الف',shift:{minutes:240}},{req
 assert.equal(summarize({is_off:true,minutes:0},cover).minutes,420,'fallback sums both confirmed duties');
 assert.equal(summarize({is_off:true,minutes:0},cover).working,true);
 assert.equal(summarize({is_off:false,minutes:420},cover).minutes,420,'effective schedule not double counted');
+assert.equal(summarize({is_off:false,minutes:240},cover).minutes,420,'incomplete positive schedule must include every confirmed source');
+assert.equal(summarize({is_off:false,minutes:650},cover).minutes,650,'complete schedule can include own permanent shift');
+assert.equal(summarize({is_off:true,minutes:0},{cover:[{request_id:1,shift:{minutes:480,duty_minutes:0,segments:[{s:'06:00',e:'14:00'}]}}]}).minutes,0,'holiday duty of zero is not replaced by planned duration');
 assert.equal(summarize({is_off:true,minutes:0},{cover:[cover.cover[0],cover.cover[0]]}).minutes,240,'duplicate request not counted twice');
 assert.equal(summarize({is_off:true,minutes:0},{cover:[{request_id:3,shift:null}]}).unknown,true,'unknown duty not represented as known zero');
 assert.equal(summarize({is_off:true,minutes:0},{reservations:cover.cover}).working,false,'pending reservations do not create duty');
