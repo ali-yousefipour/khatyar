@@ -310,6 +310,7 @@ echo "PASS advisory conflict warnings and unknown-schedule limitation\n";
 // Verified line-scoped completion must not treat an exit on another line as proof.
 $completionMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'completedByAttendance');
 $day='1405-09-02';$base=ShiftCalc::jdateToTs($day);
+if($base!==null)$base=strtotime(date('Y-m-d 00:00:00',$base));
 check($base!==null,'completion regression has valid Jalali date');
 $shift=['type'=>'simple','segments'=>[['s'=>'06:00','e'=>'14:00']],
     'segment_locations'=>[['line_id'=>7]]];
