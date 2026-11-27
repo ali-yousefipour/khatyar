@@ -914,6 +914,17 @@ jobs:
               if($created!==2)throw new RuntimeException('Historical location migration must create two tables');
               $pdo->query("SELECT assignment_id,jdate,segment_index,line_id,line_name,service_location FROM substitute_shift_service_snapshots LIMIT 0");
               $pdo->query("SELECT assignment_id,jdate,segment_index,actor_id,reason FROM substitute_shift_service_audit LIMIT 0");
+              $stage = 'presence_request_identity';
+              // Historical records remain NULL; new challenges use a unique
+              // user/request identifier. Perform DDL in deployment, never in a
+              // presence-check request transaction. Repeat deployments are safe.
+              $presenceIdentityColumn=$pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks' AND COLUMN_NAME='request_id'")->fetchColumn();
+              if((int)$presenceIdentityColumn===0)
+                  $pdo->exec("ALTER TABLE presence_checks ADD COLUMN request_id VARCHAR(128) NULL");
+              $presenceIdentityIndex=$pdo->query("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks' AND INDEX_NAME='uq_presence_user_request_id'")->fetchColumn();
+              if((int)$presenceIdentityIndex===0)
+                  $pdo->exec("CREATE UNIQUE INDEX uq_presence_user_request_id ON presence_checks(user_id,request_id)");
+              $pdo->query("SELECT user_id,slot_date,slot,request_id,selfie_path,vehicles_photo_path FROM presence_checks LIMIT 0");
               $stage = 'attendance_receipts';
               // Durable attendance idempotency: apply on the guarded deployment
               // installer only, never during check-in/check-out API requests.
