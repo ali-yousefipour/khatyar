@@ -1086,6 +1086,9 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   } catch (DomainException $invalid) {
     // Business-rule rejection: no file was written, and this is not a
     // transient server fault eligible for offline re-queuing.
+    // Http::error sends an HTTP response and can exit PHP without running
+    // finally. Release explicitly before every error response.
+    try{Db::one("SELECT RELEASE_LOCK(?) AS released",[$lockName]);}catch(Throwable $ignored){}
     Http::error($invalid->getMessage(),422);
   } catch (Throwable $failure) {
     if($selfiePath)Media::delete($selfiePath);
@@ -1094,6 +1097,7 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
     $reason=get_class($failure);
     if($failure instanceof PDOException)$reason.=' sqlstate='.$failure->getCode();
     error_log('presence-check persistence failed: '.$reason);
+    try{Db::one("SELECT RELEASE_LOCK(?) AS released",[$lockName]);}catch(Throwable $ignored){}
     Http::error('ثبت صحت‌سنجی روی سرور انجام نشد. وضعیت فضای ذخیره‌سازی و ساختار جدول presence_checks بررسی شود.',503);
   }
   // Notifications/geofencing are best-effort and must never reverse a durable save.
