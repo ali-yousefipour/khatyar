@@ -379,7 +379,13 @@ function _login_method($deviceType) {
 // Administrators may override it after changing the release signing certificate.
 const KHATYAR_MYKET_SMS_APP_HASH = 'ccku0ertOIb';
 function _android_sms_hash() {
-  $hash = trim((string)_req_setting('android_sms_app_hash', KHATYAR_MYKET_SMS_APP_HASH));
+  // The app hash enables automatic SMS retrieval only; it is not an authentication policy.
+  // If its optional setting cannot be read, use SMS User Consent rather than fail login bootstrap.
+  try { $hash = trim((string)_req_setting('android_sms_app_hash', KHATYAR_MYKET_SMS_APP_HASH)); }
+  catch (Throwable $error) {
+    error_log('android_sms_hash_settings_unavailable class='.get_class($error));
+    return '';
+  }
   return preg_match('~^[A-Za-z0-9+/]{11}$~D', $hash) ? $hash : '';
 }
 route('GET', '/api/session/app-login-config', fn()=>['method'=>_login_method('android'), 'sms_auto_mode'=>_android_sms_hash() !== '' ? 'retriever' : 'consent'], true);
