@@ -68,7 +68,13 @@ const localModule=new Function('AsyncStorage','Notifications','ensurePresenceCha
   await localModule.markLocalPresenceCompleted(schedule.items[0].request_id,'queued');
   assert.equal((await localModule.localPresenceCompletions())[schedule.items[0].request_id].status,'queued');
   await localModule.markLocalPresenceCompleted('urgent-test','queued',{user_id:42,day:'2099-01-01',slot:'09:30',immediate:true});
-  assert.equal((await localModule.localPresenceCompletions())['urgent-test'].user_id,42);
+  assert.equal((await localModule.localPresenceCompletions(42))['urgent-test'].user_id,42);
+  await localModule.markLocalPresenceCompleted('same-slot-test','queued',{user_id:42,day:'2099-01-01',slot:'09:30'});
+  await localModule.markLocalPresenceCompleted('same-slot-test','done',{user_id:43,day:'2099-01-01',slot:'09:30'});
+  assert.equal((await localModule.localPresenceCompletions(42))['same-slot-test'].status,'queued',
+    'Two accounts sharing a device cannot overwrite each other\'s challenge receipt');
+  assert.equal((await localModule.localPresenceCompletions(43))['same-slot-test'].status,'done',
+    'Second account must retain its independent completion');
   const fixedBefore=notifications.length;
   await localModule.scheduleFixedAlerts({user_id:42,day:'2099-01-01',enabled:true,assigned:true,random_enabled:false,slots:['09:30','25:99'],window_minutes:3});
   assert.equal(notifications.length,fixedBefore+1,'Valid fixed time schedules a notification; invalid times are rejected');
