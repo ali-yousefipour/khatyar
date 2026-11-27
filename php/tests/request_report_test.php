@@ -17,7 +17,7 @@ class Db {
   }
   static function one($sql,$params=[]){
     if(str_contains($sql,'FROM users'))return ['id'=>$params[0],'name'=>'جایگزین آزمون'];
-    if(str_contains($sql,'FROM substitute_assignments'))return str_contains($sql,'JOIN requests')&&self::$subConflict?['id'=>99]:null;
+    if(str_contains($sql,'FROM substitute_assignments'))return str_contains($sql,'sa.request_id<>?')&&self::$subConflict?['id'=>99]:null;
     if(str_contains($sql,'FROM manual_attendance_provisional'))return null;
     if(str_contains($sql,'FROM staff_attendance'))return self::$open;
     if(str_contains($sql,'FROM reports WHERE id='))return self::$report;
