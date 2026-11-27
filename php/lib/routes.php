@@ -3527,6 +3527,11 @@ function _active_user_shift_assignment_uncached($userId, $jdate=null){
   if($jdate&&class_exists('LeaveSubstituteCoverage')){
     $composite=LeaveSubstituteCoverage::composite((int)$userId,$jdate);
     if($composite)return $composite;
+    if(LeaveSubstituteCoverage::unresolvedComposite((int)$userId,$jdate)){
+      // Keep only the independently valid permanent assignment. Never fabricate
+      // an effective substitute from one member of an unresolved multiple cover.
+      return LeaveSubstituteCoverage::ownShift((int)$userId,$jdate);
+    }
   }
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
