@@ -960,12 +960,12 @@ function _presence_photo_columns_ready(): bool {
   try{
     $cols=Db::all("SELECT COLUMN_NAME FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks'
-        AND COLUMN_NAME IN ('id','selfie_path','vehicles_photo_path')");
+        AND COLUMN_NAME IN ('id','selfie_path','vehicles_photo_path','request_id')");
     $have=array_map(static fn($r)=>strtolower((string)($r['COLUMN_NAME']??$r['column_name']??'')),$cols);
     if(!in_array('id',$have,true))return false;
-    foreach(['selfie_path','vehicles_photo_path'] as $col){
+    foreach(['selfie_path','vehicles_photo_path','request_id'] as $col){
       if(in_array($col,$have,true))continue;
-      try{Db::run("ALTER TABLE presence_checks ADD COLUMN `$col` VARCHAR(255) NULL");}
+      try{Db::run("ALTER TABLE presence_checks ADD COLUMN `$col` VARCHAR(".($col==='request_id'?128:255).") NULL");}
       catch(Throwable $e){
         // Another concurrent request could have created the column.
         $exists=Db::one("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='presence_checks' AND COLUMN_NAME=?",[$col]);
@@ -1027,12 +1027,13 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   // orphan files or replace a successful prior check when a retry fails.
   // MySQL advisory lock is per account/date/slot: concurrent client retries
   // cannot race between the existence check and the insert.
-  $lockName='pc:'.hash('sha256',(int)$u['id'].'|'.$date.'|'.$slot);
+  $requestId=(string)$b['request_id'];
+  $lockName='pc:'.hash('sha256',(int)$u['id'].'|'.$requestId);
   $locked=Db::one("SELECT GET_LOCK(?,12) AS acquired",[$lockName]);
   if((int)($locked['acquired']??0)!==1)Http::error('ثبت قبلی در حال پردازش است؛ دوباره تلاش کنید.',503);
   try{
   try {
-    $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?",[(int)$u['id'],$date,$slot]);
+    $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND request_id=?",[(int)$u['id'],$requestId]);
     if($ex&&!empty($ex['selfie_path'])&&!empty($ex['vehicles_photo_path']))
       return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
@@ -1044,8 +1045,8 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
         [$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt,(int)$ex['id']]);
       $id=(int)$ex['id'];
     }else{
-      $id=(int)Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng,captured_at) VALUES(?,?,?,?,?,?,?,?)",
-        [(int)$u['id'],$slot,$date,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt]);
+      $id=(int)Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,request_id,selfie_path,vehicles_photo_path,lat,lng,captured_at) VALUES(?,?,?,?,?,?,?,?,?)",
+        [(int)$u['id'],$slot,$date,$requestId,$selfiePath,$vehiclePath,$b['lat']??null,$b['lng']??null,$capturedAt]);
     }
     if($id<=0)throw new RuntimeException('presence insert did not return a positive ID');
   } catch (Throwable $failure) {
