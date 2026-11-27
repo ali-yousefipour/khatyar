@@ -387,6 +387,47 @@ final class LeaveSubstituteCoverage {
             'line_id'=>null,'line_name'=>null,'service_location'=>null];
     }
     /** Immutable-at-capture line name; never reconstruct historic service from today's profile. */
+    private static function attendanceEvidence(int $uid,string $from,string $to): array {
+        $start=ShiftCalc::jdateToTs($from);$end=ShiftCalc::jdateToTs($to);
+        if(!$start||!$end)return [];
+        return Db::all("SELECT id,check_in,check_out,method,line_id,out_line_id
+            FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<?
+              AND check_out IS NOT NULL ORDER BY check_in,id",
+            [$uid,date('Y-m-d H:i:s',$start-3*86400),date('Y-m-d H:i:s',$end+5*86400)]);
+    }
+    /** Evidence-only completion: every segment must be fully spanned by actual closed sessions. */
+    private static function completedByAttendance(string $date,?array $shift,array $attendance): array {
+        $segments=$shift['segments']??[];
+        if(!$shift||!$segments||in_array($shift['type']??'',['floating','auto'],true))
+            return ['completion_status'=>'unverified','attendance_ids'=>[]];
+        $base=ShiftCalc::jdateToTs($date);
+        if($base===null)return ['completion_status'=>'unverified','attendance_ids'=>[]];
+        $used=[];
+        foreach($segments as $index=>$segment){
+            $window=ShiftCalc::segmentWindow($segment,$base);
+            if(!$window)return ['completion_status'=>'unverified','attendance_ids'=>[]];
+            [$start,$end]=$window;
+            $lineId=(int)($shift['segment_locations'][$index]['line_id']??0);
+            $parts=[];
+            foreach($attendance as $punch){
+                if(empty($punch['check_in'])||empty($punch['check_out'])||
+                   str_contains((string)($punch['method']??''),'auto_close'))continue;
+                if($lineId&&$lineId!==(int)($punch['line_id']??0))continue;
+                $in=strtotime((string)$punch['check_in']);$out=strtotime((string)$punch['check_out']);
+                if(!$in||!$out||$out<=$in||$out<=$start||$in>=$end)continue;
+                $parts[]=[max($start,$in),min($end,$out),(int)$punch['id']];
+            }
+            usort($parts,static fn($a,$b)=>$a[0]<=>$b[0]);
+            $cursor=$start;
+            foreach($parts as $part){
+                if($part[0]>$cursor)break;
+                if($part[1]>$cursor){$cursor=$part[1];$used[$part[2]]=true;}
+                if($cursor>=$end)break;
+            }
+            if($cursor<$end)return ['completion_status'=>'unverified','attendance_ids'=>array_keys($used)];
+        }
+        return ['completion_status'=>'completed','attendance_ids'=>array_keys($used)];
+    }
     private static function locationSnapshots(array $covers,string $from,string $to): array {
         if(!$covers||!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('substitute_shift_service_snapshots'))return [];
         $ids=array_values(array_unique(array_filter(array_map(static fn($c)=>(int)($c['assignment_id']??0),$covers))));
@@ -571,6 +612,7 @@ final class LeaveSubstituteCoverage {
              AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC",
            [$uid,$to,$from]);
         $serviceSnapshots=self::locationSnapshots($covers,$from,$to);
+        $attendance=self::attendanceEvidence($uid,$from,$to);
         // Pending reservations are advisory and never enter the confirmed cover list.
         $pending=Db::all("SELECT r.id,r.user_id,r.from_jdate,r.to_jdate,r.the_date,
             TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS absent_name
@@ -610,10 +652,11 @@ final class LeaveSubstituteCoverage {
                 $shift=self::requesterShift((int)$cover['absent_user_id'],$day,$context);
                 if($shift&&$shift['type']!=='floating'&&!$shift['segments'])continue;
                 $shift=self::attachServiceLocation($shift,$serviceSnapshots[(int)$cover['assignment_id']][$day]??[]);
+                $completion=self::completedByAttendance($day,$shift,$attendance);
                 $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],
                     'assignment_id'=>isset($cover['assignment_id'])?(int)$cover['assignment_id']:null,
                     'request_created_at'=>$cover['request_created_at']??null,'absent_name'=>$cover['absent_name'],
-                    'status'=>'confirmed','request_status'=>'approved','is_confirmed'=>true,'shift'=>$shift];
+                    'status'=>'confirmed','request_status'=>'approved','is_confirmed'=>true,'shift'=>$shift]+$completion;
             }
         }
         foreach($pending as $reservation){
