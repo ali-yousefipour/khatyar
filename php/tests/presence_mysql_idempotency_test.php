@@ -21,7 +21,7 @@ $a->exec('CREATE TABLE IF NOT EXISTS khatyar_presence_receipt_ci (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 $a->exec('DELETE FROM khatyar_presence_receipt_ci');
 $uid=19;$first='2026-11-27_10:30';$other='imm_'.str_repeat('a',32);
-$lock='pc:'.hash('sha256',$uid.'|'.$first);
+$lock='pc:'.substr(hash('sha256',$uid.'|'.$first),0,60);
 $pick=$a->prepare('SELECT GET_LOCK(?,12)');
 $pick->execute([$lock]);
 if((int)$pick->fetchColumn()!==1)throw new RuntimeException('Unable to obtain primary presence lock');
