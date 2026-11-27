@@ -1919,11 +1919,11 @@ function CheckInPresenceTab(){
     setLoading(true);
     setError(false);
     (async()=>{
-      const local=await localPresenceCompletions();
+      const local=await localPresenceCompletions(Number(owner?.id||0));
       let schedule=null;
       try{schedule=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
       const today=Date.now();
-      const localItems=(schedule?.items||[]).filter(item=>{
+      const localItems=(Number(schedule?.user_id||0)===Number(owner?.id||0)?(schedule?.items||[]):[]).filter(item=>{
         const date=new Date(item.ts*1000);
         return date.toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'})===new Date(today).toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'});
       }).map(item=>({id:item.request_id,request_id:item.request_id,random:true,sent_time:item.slot,status:local[item.request_id]?.status||(item.ts*1000>today?'pending':today<item.ts*1000+item.window_minutes*60000?'pending':'missed')}));
