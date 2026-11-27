@@ -7,12 +7,15 @@ class Db {
   static $writes = [];
   static $failWrite = false;
   static $sessionActive = true;
+  static $randomDailyCount = 0;
   static function one($query, $params=[]) {
     if(str_contains($query,'information_schema.COLUMNS'))return ['COLUMN_NAME'=>$params[0]??'selfie_path'];
     if(str_contains($query,'GET_LOCK('))return ['acquired'=>1];
     if(str_contains($query,'RELEASE_LOCK('))return ['released'=>1];
     if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
-    if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive?['id'=>31]:null;
+    if(str_contains($query,'LEFT(request_id,6)'))return ['n'=>self::$randomDailyCount];
+    if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive
+      ?['id'=>31,'check_in'=>isset($GLOBALS['randomSessionStart'])?date('Y-m-d H:i:s',$GLOBALS['randomSessionStart']):null,'check_out'=>null]:null;
     if(str_contains($query,'FROM presence_checks')&&isset(self::$existing['request_id'])&&self::$existing['request_id']!==($params[1]??''))return null;
     return self::$existing;
   }
@@ -108,4 +111,19 @@ try {
     throw $error;
 }
 Db::$sessionActive=true;
+$randomStart=time()-3600;
+$randomAt=time()-95;
+$GLOBALS['randomSessionStart']=$randomStart;
+$randomTime=(new DateTimeImmutable('@'.$randomAt))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('H:i');
+$randomBody=[...$body,'slot'=>$randomTime,'request_id'=>'local_1_'.$randomStart.'_'.$randomAt,'random'=>true];
+Db::$randomDailyCount=6;Db::$writes=[];Media::$deleted=[];Media::$results=['random-1.jpg','random-2.jpg'];
+try{
+  $handler([],$randomBody,['id'=>1]);
+  throw new LogicException('Seventh random challenge accepted in the same day');
+}catch(RuntimeException $error){
+  if($error->getCode()!==422||Db::$writes!==[]||Media::$deleted!==[]||count(Media::$results)!==2)
+    throw $error;
+}
+Db::$randomDailyCount=0;
+echo "PASS random presence six-per-day cap enforced before storing images\\n";
 echo "PASS presence insert/update: both photos required, failed saves rejected, partial files cleaned up\n";
