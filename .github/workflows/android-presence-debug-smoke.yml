@@ -12,6 +12,7 @@ on:
       - 'mobile/src/presenceAlarm.js'
       - 'mobile/src/presenceDeadlineClock.js'
       - 'mobile/scripts/test-presence-response-flow.cjs'
+      - 'mobile/scripts/test-presence-wizard-lifecycle.cjs'
       - 'mobile/scripts/test-presence-local-scheduling.cjs'
       - 'mobile/package.json'
       - 'mobile/package-lock.json'
