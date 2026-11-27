@@ -12820,7 +12820,7 @@ function SubstituteCalendar() {
     var _a, _b, _c, _e, _f, _g;
     const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
     const [year, setYear] = useState(Number(todayParts.year)), [month, setMonth] = useState(Number(todayParts.month));
-    const [reload, setReload] = useState(0);
+    const [reload, setReload] = useState(0), [selectedDay, setSelectedDay] = useState(null);
     const [holidays, setHolidays] = useState({}), [holidayError, setHolidayError] = useState('');
     useEffect(() => { let live = true; db.holidays().then(rows => { if (live)
         setHolidays(Object.fromEntries((rows || []).map(v => [String(v.jdate).replaceAll('/', '-'), v.title]))); }).catch(() => { if (live)
@@ -12845,7 +12845,7 @@ function SubstituteCalendar() {
         throw Error('دریافت نیروها ناموفق بود'); return r.json(); }).then(v => { if (live)
         setUsers(Array.isArray(v) ? v : []); }).catch(e => { if (live)
         setError(e.message); }); return () => { live = false; }; }, [reload]);
-    useEffect(() => { setData({}); setSelected(null); if (!uid) {
+    useEffect(() => { setData({}); setSelected(null); setSelectedDay(null); if (!uid) {
         setBusy(false);
         return;
     } const controller = new AbortController(); setBusy(true); setError(''); fetch(API_BASE + '/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), { headers: tok(), cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok)
@@ -12868,6 +12868,9 @@ function SubstituteCalendar() {
             && (locationFilter === 'all' || ((_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
     });
     const all = days.flatMap(d => entries(d.date));
+    const resetFilters = () => { setStatus('all'); setLineFilter('all'); setLocationFilter('all'); setAbsentFilter('all'); setTypeFilter('all'); setSearch(''); };
+    const stateLabel = v => v.conflict ? 'تداخل' : v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'آزادشده' : 'لغو یا رد شده') : 'در انتظار تأیید';
+    const stateColor = v => v.conflict ? '#b91c1c' : v.status === 'history' ? '#64748b' : v.status === 'pending' ? '#a16207' : v.completion_status === 'completed' ? '#475569' : '#087f5b';
     const confirmed = days.flatMap(d => entries(d.date).filter(v => v.status === 'confirmed').map(v => ({ ...v, date: d.date })));
     const pendingCount = all.filter(v => v.status === 'pending').length;
     const confirmedDuty = confirmed.reduce((n, v) => { var _a, _b; return n + (Number((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.duty_minutes) !== null && _b !== void 0 ? _b : 0) || 0); }, 0);
@@ -12939,9 +12942,21 @@ function SubstituteCalendar() {
     }
     else
         setMonth(next); };
-    return React.createElement("div", { dir: "rtl" },
-        React.createElement("style", null, `@media(max-width:700px){.sub-calendar-grid{grid-template-columns:1fr!important;min-width:0!important}.sub-calendar-heading,.sub-calendar-blank{display:none}.sub-calendar-grid>div{min-height:0!important}}`),
-        React.createElement("div", { className: "sm-toolbar" },
+    return React.createElement("div", { dir: "rtl", className: "kh-sub-calendar" },
+        React.createElement("style", null, ".kh-sub-calendar{font-family:Vazirmatn,Tahoma,sans-serif}.kh-sub-calendar .sc-header,.kh-sub-calendar .sc-actions,.kh-sub-calendar .sc-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.kh-sub-calendar .sc-header{justify-content:space-between;margin-bottom:16px}.kh-sub-calendar .sc-header h3{margin:0 0 4px;font-size:18px}.kh-sub-calendar .sc-header p{margin:0;color:#475569;font-size:12px}.kh-sub-calendar .sc-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0}.kh-sub-calendar .sc-filters .input{width:100%;min-width:0;box-sizing:border-box;min-height:44px}.kh-sub-calendar .sc-advanced{border:1px solid var(--border,#dbe5e2);border-radius:10px;padding:8px 12px;margin-bottom:12px}.kh-sub-calendar summary{cursor:pointer;padding:12px 0;font-weight:600}.kh-sub-calendar .btn{min-height:44px}.kh-sub-calendar button:focus-visible,.kh-sub-calendar select:focus-visible,.kh-sub-calendar summary:focus-visible{outline:3px solid #0d9488;outline-offset:2px}.kh-sub-calendar .sub-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.kh-sub-calendar .sub-calendar-heading{text-align:center;padding:8px 0;font-size:12px}.kh-sub-calendar .sc-day{display:flex;flex-direction:column;text-align:start;align-items:stretch;min-height:96px;min-width:0;gap:6px;padding:8px;background:var(--surface,#fff);border:1px solid var(--border,#dbe5e2);border-radius:9px;color:inherit;font:inherit;cursor:pointer}.kh-sub-calendar .sc-day[aria-pressed=true]{border:2px solid #087f5b;padding:7px;background:#ecfdf5}.kh-sub-calendar .sc-today{box-shadow:inset 0 0 0 2px #0d9488}.kh-sub-calendar .sc-holiday{background:#fff7f5}.kh-sub-calendar .sc-marker{font-size:11px;line-height:1.5;overflow-wrap:anywhere;border-inline-start:3px solid currentColor;padding-inline-start:4px}.kh-sub-calendar .sc-body{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}.kh-sub-calendar .sc-body.sc-open{grid-template-columns:minmax(0,1fr) minmax(240px,30%)}.kh-sub-calendar .sc-day-detail,.kh-sub-calendar .sc-shift-card{border:1px solid var(--border,#dbe5e2);border-radius:10px;padding:12px;align-self:start}.kh-sub-calendar .sc-shift-card{margin-top:8px;overflow-wrap:anywhere}.kh-sub-calendar .sc-shift-card p{margin:6px 0;font-size:13px}@media(max-width:1100px){.kh-sub-calendar .sc-body.sc-open{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sc-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.kh-sub-calendar .sc-filters{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sub-calendar-grid{gap:3px}.kh-sub-calendar .sc-day{min-height:64px;padding:4px;gap:3px}.kh-sub-calendar .sc-day[aria-pressed=true]{padding:3px}.kh-sub-calendar .sc-marker{font-size:10px;padding-inline-start:2px}.kh-sub-calendar .sub-calendar-heading{font-size:10px}.kh-sub-calendar .sc-holiday-label{display:none}}"),
+        React.createElement("header", { className: "sc-header" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+                React.createElement("p", null, "\u0628\u0631\u0646\u0627\u0645\u0647 \u0645\u0627\u0647\u0627\u0646\u0647\u060C \u0631\u0632\u0631\u0648\u0647\u0627 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u062E\u0635\u06CC\u0635 \u0645\u0639\u062A\u0628\u0631 \u0647\u0631 \u0646\u06CC\u0631\u0648")),
+            React.createElement("div", { className: "sc-nav" },
+                React.createElement("button", { className: "btn g", onClick: () => move(-1) }, "\u0645\u0627\u0647 \u0642\u0628\u0644"),
+                React.createElement("strong", null,
+                    fa(year),
+                    " / ",
+                    fa(month)),
+                React.createElement("button", { className: "btn g", onClick: () => move(1) }, "\u0645\u0627\u0647 \u0628\u0639\u062F"),
+                React.createElement("button", { className: "btn g", onClick: () => { setYear(Number(todayParts.year)); setMonth(Number(todayParts.month)); } }, "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC"))),
+        React.createElement("div", { className: "sc-filters" },
             React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", value: search, onChange: e => setSearch(e.target.value) }),
             React.createElement("select", { className: "input", "aria-label": "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", value: uid, onChange: e => setUid(e.target.value) },
                 React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
@@ -12949,41 +12964,39 @@ function SubstituteCalendar() {
                     u.name,
                     Number(u.is_active) ? '' : ' (سوابق)'))),
             React.createElement("select", { className: "input", "aria-label": "\u0633\u0627\u0644 \u0634\u0645\u0633\u06CC", value: year, onChange: e => setYear(Number(e.target.value)) }, Array.from({ length: 21 }, (_, i) => Number(todayParts.year) - 10 + i).map(v => React.createElement("option", { key: v, value: v }, fa(v)))),
-            React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC", value: month, onChange: e => setMonth(Number(e.target.value)) }, ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'].map((v, i) => React.createElement("option", { key: v, value: i + 1 }, v))),
-            React.createElement("button", { className: "btn g", onClick: () => move(-1) }, "\u0645\u0627\u0647 \u0642\u0628\u0644"),
-            React.createElement("span", null,
-                fa(year),
-                " / ",
-                fa(month)),
-            React.createElement("button", { className: "btn g", onClick: () => move(1) }, "\u0645\u0627\u0647 \u0628\u0639\u062F"),
-            React.createElement("button", { className: "btn g", onClick: () => { setYear(Number(todayParts.year)); setMonth(Number(todayParts.month)); } }, "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC"),
-            React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635", value: status, onChange: e => setStatus(e.target.value) },
-                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
-                React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
-                React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
-                React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC")),
-            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
-                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
-                React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u062A\u0627\u0631\u06CC\u062E\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
-                knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
-            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
-                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
-                knownLocations.map(v => React.createElement("option", { key: v, value: v }, v))),
-            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC", value: absentFilter, onChange: e => setAbsentFilter(e.target.value) },
-                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC"),
-                knownAbsents.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
-            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0634\u06CC\u0641\u062A", value: typeFilter, onChange: e => setTypeFilter(e.target.value) },
-                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0627\u0646\u0648\u0627\u0639 \u0634\u06CC\u0641\u062A"),
-                knownShiftTypes.map(v => React.createElement("option", { key: v, value: v }, v)))),
-        React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: () => { try {
-                exportXlsx(exportRows(), 'برنامه جایگزینی', 'substitute-calendar-' + year + '-' + month + '.xlsx');
-            }
-            catch (e) {
-                setError(e.message);
-            } } }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0641\u06CC\u0644\u062A\u0631\u0634\u062F\u0647"),
-        React.createElement("button", { className: "btn g", disabled: !uid || busy, onClick: () => setReload(v => v + 1) }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062A\u0642\u0648\u06CC\u0645"),
-        React.createElement("button", { className: "btn p", disabled: !uid || busy || !all.length, onClick: pdfDownload }, "\u062F\u0627\u0646\u0644\u0648\u062F PDF \u0645\u0633\u062A\u0642\u0644"),
-        React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: printReport }, "\u0686\u0627\u067E / \u0630\u062E\u06CC\u0631\u0647 PDF"),
+            React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC", value: month, onChange: e => setMonth(Number(e.target.value)) }, ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'].map((v, i) => React.createElement("option", { key: v, value: i + 1 }, v)))),
+        React.createElement("details", { className: "sc-advanced" },
+            React.createElement("summary", null, "\u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
+            React.createElement("div", { className: "sc-filters" },
+                React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635", value: status, onChange: e => setStatus(e.target.value) },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
+                    React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
+                    React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
+                    React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC")),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
+                    React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u062A\u0627\u0631\u06CC\u062E\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                    knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
+                    knownLocations.map(v => React.createElement("option", { key: v, value: v }, v))),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC", value: absentFilter, onChange: e => setAbsentFilter(e.target.value) },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC"),
+                    knownAbsents.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0634\u06CC\u0641\u062A", value: typeFilter, onChange: e => setTypeFilter(e.target.value) },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0627\u0646\u0648\u0627\u0639 \u0634\u06CC\u0641\u062A"),
+                    knownShiftTypes.map(v => React.createElement("option", { key: v, value: v }, v))),
+                React.createElement("button", { className: "btn g", onClick: resetFilters }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"))),
+        React.createElement("div", { className: "sc-actions" },
+            React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: () => { try {
+                    exportXlsx(exportRows(), 'برنامه جایگزینی', 'substitute-calendar-' + year + '-' + month + '.xlsx');
+                }
+                catch (e) {
+                    setError(e.message);
+                } } }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0641\u06CC\u0644\u062A\u0631\u0634\u062F\u0647"),
+            React.createElement("button", { className: "btn g", disabled: !uid || busy, onClick: () => setReload(v => v + 1) }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062A\u0642\u0648\u06CC\u0645"),
+            React.createElement("button", { className: "btn p", disabled: !uid || busy || !all.length, onClick: pdfDownload }, "\u062F\u0627\u0646\u0644\u0648\u062F PDF \u0645\u0633\u062A\u0642\u0644"),
+            React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: printReport }, "\u0686\u0627\u067E / \u0630\u062E\u06CC\u0631\u0647 PDF")),
         holidayError && React.createElement("p", { role: "status" }, holidayError),
         " ",
         error && React.createElement("p", { role: "alert", className: "sm-status-error" },
@@ -12996,31 +13009,43 @@ function SubstituteCalendar() {
                 React.createElement("div", { style: { fontSize: 12, opacity: .75 } }, label),
                 React.createElement("strong", { style: { display: 'block', fontSize: 19, marginTop: 6 } }, typeof value === 'number' ? fa(value) : value)))),
             !all.length && React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0648 \u0641\u06CC\u0644\u062A\u0631\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
-            React.createElement("div", { style: { overflowX: 'auto' } },
-                React.createElement("div", { className: "sub-calendar-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(7,minmax(120px,1fr))', minWidth: 840, gap: 6 } },
+            React.createElement("div", { className: 'sc-body' + (selectedDay ? ' sc-open' : '') },
+                React.createElement("div", { className: "sub-calendar-grid" },
                     ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'].map(v => React.createElement("strong", { className: "sub-calendar-heading", key: v }, v)),
                     Array.from({ length: ((_a = days[0]) === null || _a === void 0 ? void 0 : _a.weekday) || 0 }, (_, i) => React.createElement("div", { className: "sub-calendar-blank", key: 'blank' + i })),
-                    days.map(d => React.createElement("div", { key: d.date, style: { border: '1px solid var(--border,#ddd)', borderRadius: 8, padding: 8, minHeight: 120 } },
+                    days.map(d => { const items = entries(d.date); const isToday = d.date === todayParts.year + '-' + todayParts.month + '-' + todayParts.day; const holiday = d.weekday === 6 || Boolean(holidays[d.date]); return React.createElement("button", { type: "button", key: d.date, className: 'sc-day' + (isToday ? ' sc-today' : '') + (holiday ? ' sc-holiday' : ''), "aria-label": fa(d.date) + '، ' + fa(items.length) + ' شیفت' + (isToday ? '، امروز' : '') + (holidays[d.date] ? '، ' + holidays[d.date] : ''), "aria-pressed": selectedDay === d.date, onClick: () => setSelectedDay(d.date) },
                         React.createElement("strong", null,
                             fa(d.day),
-                            d.weekday === 6 ? ' · جمعه' : '',
-                            holidays[d.date] ? ' · ' + holidays[d.date] : '',
-                            d.date === todayParts.year + '-' + todayParts.month + '-' + todayParts.day ? ' · امروز' : ''),
-                        entries(d.date).map((v, i) => { var _a, _b; return React.createElement("button", { className: "btn g", key: v.request_id + '-' + i, style: { display: 'block', whiteSpace: 'normal', width: '100%', marginTop: 8, borderInlineStart: '4px solid ' + (v.conflict ? '#b91c1c' : v.status === 'confirmed' ? (v.completion_status === 'completed' ? '#065f46' : '#15803d') : v.status === 'history' ? '#64748b' : '#b45309') }, onClick: () => openDetails(v, d.date) },
-                            "\u0628\u0647\u200C\u062C\u0627\u06CC: ",
-                            v.absent_name,
-                            v.conflict ? ' · هشدار تداخل' : '',
-                            React.createElement("br", null),
-                            ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.title) || 'برنامه ساعت ثبت نشده',
-                            React.createElement("br", null),
-                            (((_b = v.shift) === null || _b === void 0 ? void 0 : _b.segments) || []).map((segment, index) => { var _a, _b, _c; return React.createElement("span", { key: index },
-                                fa(segment.s || '—'),
-                                " \u062A\u0627 ",
-                                fa(segment.e || '—'),
-                                " \u00B7 ",
-                                ((_c = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.line_name) || 'محل خدمت تاریخی ثبت نشده',
-                                React.createElement("br", null)); }),
-                            v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت؛ در انتظار تأیید'); })))))),
+                            isToday ? ' · امروز' : ''),
+                        holidays[d.date] && React.createElement("small", { className: "sc-holiday-label" }, holidays[d.date]),
+                        items.length > 0 && React.createElement(React.Fragment, null,
+                            React.createElement("small", null,
+                                fa(items.length),
+                                " \u0634\u06CC\u0641\u062A"),
+                            [...new Map(items.map(v => [stateLabel(v), v])).values()].slice(0, 3).map(v => React.createElement("span", { className: "sc-marker", key: stateLabel(v), style: { color: stateColor(v) } }, stateLabel(v))))); })),
+                selectedDay && React.createElement("section", { className: "sc-day-detail", "aria-label": "\u0634\u06CC\u0641\u062A\u200C\u0647\u0627\u06CC \u0631\u0648\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647" },
+                    React.createElement("div", { className: "sc-header" },
+                        React.createElement("strong", null, fa(selectedDay)),
+                        React.createElement("button", { className: "btn g", onClick: () => setSelectedDay(null) }, "\u0628\u0633\u062A\u0646")),
+                    !entries(selectedDay).length && React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u0634\u06CC\u0641\u062A\u06CC \u0645\u0637\u0627\u0628\u0642 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+                    entries(selectedDay).map((v, i) => { var _a, _b, _c; return React.createElement("article", { className: "sc-shift-card", key: v.request_id + '-' + i, style: { borderInlineStart: '4px solid ' + stateColor(v) } },
+                        React.createElement("strong", { style: { color: stateColor(v) } }, stateLabel(v)),
+                        React.createElement("p", null,
+                            React.createElement("b", null, "\u0628\u0647\u200C\u062C\u0627\u06CC:"),
+                            " ",
+                            v.absent_name || 'ثبت نشده'),
+                        React.createElement("p", null,
+                            React.createElement("b", null, "\u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646:"),
+                            " ",
+                            ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || 'ثبت نشده'),
+                        React.createElement("p", null, ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || 'برنامه ساعت ثبت نشده'),
+                        (((_c = v.shift) === null || _c === void 0 ? void 0 : _c.segments) || []).map((segment, index) => { var _a, _b, _c, _e, _f, _g; return React.createElement("p", { key: index },
+                            fa(segment.s || '—'),
+                            " \u062A\u0627 ",
+                            fa(segment.e || '—'),
+                            " \u00B7 ",
+                            ((_c = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.service_location) || ((_g = (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[index]) === null || _g === void 0 ? void 0 : _g.line_name) || 'محل خدمت ثبت نشده'); }),
+                        React.createElement("button", { className: "btn g", onClick: () => openDetails(v, selectedDay) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u062C\u0632\u0626\u06CC\u0627\u062A")); })))),
         selected && React.createElement("dialog", { ref: detailRef, onCancel: () => setSelected(null), "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", className: "panel" },
             React.createElement("h4", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
             React.createElement("p", null,
