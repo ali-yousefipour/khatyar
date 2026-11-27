@@ -307,7 +307,7 @@ $calendar=runRoute('GET','/api/my/shift-cover-status');
 check($calendar['days']['1405-10-01']['cover'][0]['conflict_check_complete']===false,'missing duty bounds explicitly mark conflict check incomplete');
 echo "PASS advisory conflict warnings and unknown-schedule limitation\n";
 
-\n// Verified line-scoped completion must not treat an exit on another line as proof.
+// Verified line-scoped completion must not treat an exit on another line as proof.
 $completionMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'completedByAttendance');
 $day='1405-09-02';$base=ShiftCalc::jdateToTs($day);
 check($base!==null,'completion regression has valid Jalali date');
