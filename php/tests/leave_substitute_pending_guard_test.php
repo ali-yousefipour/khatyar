@@ -306,3 +306,28 @@ Db::$ownShifts=[];
 $calendar=runRoute('GET','/api/my/shift-cover-status');
 check($calendar['days']['1405-10-01']['cover'][0]['conflict_check_complete']===false,'missing duty bounds explicitly mark conflict check incomplete');
 echo "PASS advisory conflict warnings and unknown-schedule limitation\n";
+
+\n// Verified line-scoped completion must not treat an exit on another line as proof.
+$completionMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'completedByAttendance');
+$day='1405-09-02';$base=ShiftCalc::jdateToTs($day);
+check($base!==null,'completion regression has valid Jalali date');
+$shift=['type'=>'simple','segments'=>[['s'=>'06:00','e'=>'14:00']],
+    'segment_locations'=>[['line_id'=>7]]];
+$attendance=[['id'=>901,'check_in'=>date('Y-m-d H:i:s',$base+6*3600),
+    'check_out'=>date('Y-m-d H:i:s',$base+14*3600),
+    'method'=>'gps','line_id'=>7,'out_line_id'=>7]];
+$complete=$completionMethod->invoke(null,$day,$shift,$attendance);
+check($complete['completion_status']==='completed'&&$complete['attendance_ids']===[901],
+    'same-line actual closed attendance confirms covered shift');
+$attendance[0]['out_line_id']=8;
+$wrongLine=$completionMethod->invoke(null,$day,$shift,$attendance);
+check($wrongLine['completion_status']==='unverified',
+    'different confirmed checkout line does not complete substitute shift');
+$attendance[0]['out_line_id']=null;
+$legacy=$completionMethod->invoke(null,$day,$shift,$attendance);
+check($legacy['completion_status']==='completed',
+    'missing legacy checkout line does not invent a mismatch');
+$attendance[0]['method']='gps|auto_close';
+check($completionMethod->invoke(null,$day,$shift,$attendance)['completion_status']==='unverified',
+    'auto-closed session is not proof of completed shift');
+echo "PASS substitute completion evidence requires compatible known entry and exit line\\n";
