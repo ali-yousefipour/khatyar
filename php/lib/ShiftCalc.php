@@ -93,23 +93,70 @@ class ShiftCalc
         $parts=$dayRow['composite_parts']??[];
         $base=self::jdateToTs($jdate);
         if(!$parts||$base===null)throw new LogicException('Invalid composite shift without bounded parts');
+        // Scheduled intervals take precedence over discretionary overtime.
+        // A minute belongs to one source shift even at touching edges.
+        $regular=[];
+        foreach($parts as $index=>$part)foreach($part['day_row']['segments']??[] as $segment){
+            $window=self::segmentWindow($segment,$base);
+            if(!$window)throw new LogicException('Invalid composite source segment');
+            $regular[]=['part'=>$index,'start'=>$window[0],'end'=>$window[1]];
+        }
+        $subtract=static function(array $fragments,array $used): array {
+            $result=[];
+            foreach($fragments as $fragment){
+                [$a,$b]=$fragment;[$c,$d]=$used;
+                if($b<=$c||$d<=$a){$result[]=$fragment;continue;}
+                if($a<$c)$result[]=[$a,$c];
+                if($d<$b)$result[]=[$d,$b];
+            }
+            return $result;
+        };
+        $claimedOvertime=[];
         $totals=null;$attributed=0;
         $fields=['in_shift','expected','overtime','surplus','shortage','night','friday',
             'holiday','friday_work','holiday_work','friday_overtime','holiday_overtime',
             'total_overtime','holiday_friday_overtime','late_in','early_out'];
-        foreach($parts as $part){
+        foreach($parts as $index=>$part){
             $sourceShift=$part['shift'];$sourceDay=$part['day_row'];
-            $sourceSessions=[];
-            foreach($sourceDay['segments']??[] as $segment){
-                $win=self::segmentWindow($segment,$base);
-                if(!$win)throw new LogicException('Invalid composite source segment');
-                foreach($sessions as $session){
-                    if(empty($session['in']))continue;
-                    $piece=$session;
-                    $piece['clip_start']=max($win[0],(int)($session['clip_start']??0));
-                    $piece['clip_end']=min($win[1],(int)($session['clip_end']??PHP_INT_MAX));
-                    if($piece['clip_end']>$piece['clip_start'])$sourceSessions[]=$piece;
+            $cfg=self::parseJson($sourceDay['day_config']??null);
+            $windows=[];
+            foreach($regular as $window)if($window['part']===$index)
+                $windows[]=[$window['start'],$window['end']];
+            // OT only in explicit source-defined windows, outside every regular duty.
+            foreach($regular as $window){
+                if($window['part']!==$index)continue;
+                $extra=[];
+                if((int)($cfg['ot_begin']??0)>0)
+                    $extra[]=[$window['start']-max(0,(int)$cfg['ot_begin'])*60,$window['start']];
+                if((int)($cfg['ot_end']??0)>0)
+                    $extra[]=[$window['end'],$window['end']+max(0,(int)$cfg['ot_end'])*60];
+                foreach($extra as $candidate){
+                    $fragments=[$candidate];
+                    foreach($regular as $scheduled)
+                        $fragments=$subtract($fragments,[$scheduled['start'],$scheduled['end']]);
+                    foreach($claimedOvertime as $used)
+                        $fragments=$subtract($fragments,$used);
+                    foreach($fragments as $fragment){
+                        if($fragment[1]<=$fragment[0])continue;
+                        $windows[]=$fragment;$claimedOvertime[]=$fragment;
+                    }
                 }
+            }
+            usort($windows,static fn($x,$y)=>$x[0]<=>$y[0]);
+            $joined=[];
+            foreach($windows as $window){
+                $last=count($joined)-1;
+                if($last>=0&&$window[0]<=$joined[$last][1])
+                    $joined[$last][1]=max($joined[$last][1],$window[1]);
+                else $joined[]=$window;
+            }
+            $sourceSessions=[];
+            foreach($joined as $window)foreach($sessions as $session){
+                if(empty($session['in']))continue;
+                $piece=$session;
+                $piece['clip_start']=max($window[0],(int)($session['clip_start']??0));
+                $piece['clip_end']=min($window[1],(int)($session['clip_end']??PHP_INT_MAX));
+                if($piece['clip_end']>$piece['clip_start'])$sourceSessions[]=$piece;
             }
             $result=self::classifyDay($sourceShift,$jdate,$sourceDay,$sourceSessions,$fallbackHoliday);
             if($totals===null){
