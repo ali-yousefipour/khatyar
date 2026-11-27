@@ -30,6 +30,14 @@ $randomSlot=(new DateTimeImmutable('@'.$challenge))->setTimezone(new DateTimeZon
 $random=['slot'=>$randomSlot,'request_id'=>'local_19_'.$started.'_'.$challenge,'random'=>true];
 $session=static fn($uid,$start)=>$uid===19&&$start===$started?['id'=>54,'check_in'=>date('Y-m-d H:i:s',$start),'check_out'=>null]:null;
 checkChallenge(PresenceChallengeGuard::validate($random,19,$now,$policy,$noNotice,$session)['kind']==='random','User-scoped offline random challenge rejected');
+$zone=new DateTimeZone('Asia/Tehran');
+$tehranStored=(new DateTimeImmutable('@'.$started))->setTimezone($zone)->format('Y-m-d H:i:s');
+$serverZone=date_default_timezone_get();date_default_timezone_set('UTC');
+try {
+ $utcServer=static fn($uid,$start)=>['id'=>54,'check_in'=>$tehranStored,'check_out'=>null];
+ checkChallenge(PresenceChallengeGuard::validate($random,19,$now,$policy,$noNotice,$utcServer)['kind']==='random',
+  'UTC PHP default must not reinterpret Tehran attendance timestamps');
+}finally{date_default_timezone_set($serverZone);}
 rejectChallenge(static fn()=>PresenceChallengeGuard::validate($random,20,$now,$policy,$noNotice,$session),'cross-account random');
 rejectChallenge(static fn()=>PresenceChallengeGuard::validate($random,19,$now,$policy,$noNotice,$noSession),'random without attendance');
 $closed=static fn($uid,$start)=>['id'=>54,'check_in'=>date('Y-m-d H:i:s',$start),'check_out'=>date('Y-m-d H:i:s',$challenge-1)];
