@@ -1067,7 +1067,7 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
     if($ex&&!empty($ex['selfie_path'])&&!empty($ex['vehicles_photo_path']))
       return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];
     if(!$ex&&!empty($b['random'])){
-      $counts=Db::one("SELECT COUNT(*) AS n FROM presence_checks WHERE user_id=? AND slot_date=? AND request_id LIKE 'local\\_%' ESCAPE '\\\\'",[(int)$u['id'],$date]);
+      $counts=Db::one("SELECT COUNT(*) AS n FROM presence_checks WHERE user_id=? AND slot_date=? AND LEFT(request_id,6)='local_'",[(int)$u['id'],$date]);
       if((int)($counts['n']??0)>=6)Http::error('سقف شش صحت‌سنجی تصادفی روزانه تکمیل شده است.',422);
     }
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
