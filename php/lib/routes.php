@@ -1120,7 +1120,7 @@ route('GET', '/api/geo/reverse', function($p,$b,$u){
       curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>8,
         CURLOPT_HTTPHEADER=>["Api-Key: {$key}"],
-        CURLOPT_SSL_VERIFYPEER=>false,
+        CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2,
       ]);
       $resp = curl_exec($ch); curl_close($ch);
       if ($resp) { $j = json_decode($resp, true);
