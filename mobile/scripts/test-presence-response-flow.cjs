@@ -59,8 +59,8 @@ assert.match(gateSource,/completedForUser\(await localPresenceCompletions\(\),re
 assert.match(gateSource,/if\(!alive\|\|Date\.now\(\)>=deadlineMs\)return;/,
  'late delivered notifications must never bypass the original deadline');
 const alarmSource=fs.readFileSync(path.join(root,'src/presenceAlarm.js'),'utf8');
-assert.match(alarmSource,/try\{await NativeModules\?\.KhatyarRadio\?\.stopPresenceAlarm\?\.\(\);\}catch/,
- 'native MediaPlayer must stop even if notification dismissal is not requested');
+assert.match(alarmSource,/if\(dismissNotifications\)try\{await NativeModules\?\.KhatyarRadio\?\.stopPresenceAlarm/,
+ 'Native alarm survives JS hydration and stops only on explicit wizard acknowledgment');
 const policySource=fs.readFileSync(path.join(root,'src/presenceLocalSchedule.js'),'utf8');
 assert.match(policySource,/POLICY_REFRESH_MS=60\*1000/,'policy refreshes during the same day');
 assert.match(policySource,/request_id:'local_'\+Number\(userId\)/,'random requests require account-scoped IDs');
