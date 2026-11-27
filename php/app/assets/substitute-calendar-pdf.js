@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const WIDTH=1240,HEIGHT=1754,MARGIN=75,ROWS_PER_PAGE=15,MAX_PAGES=80;
+const WIDTH=1240,HEIGHT=1754,MARGIN=75,ROWS_PER_PAGE=8,MAX_PAGES=80;
 const fa=value=>String(value??'—').replace(/[0-9]/g,c=>'۰۱۲۳۴۵۶۷۸۹'[Number(c)]);
 const fields=['تاریخ','نیروی جایگزین','نیروی اصلی','شیفت','شروع','پایان','خط یا محل خدمت','وضعیت','رزروکننده'];
 function pdfDocument(pages){
@@ -34,34 +34,39 @@ function bytesOf(jpeg){
  for(let i=0;i<data.length;i++)bytes[i]=data.charCodeAt(i);
  return bytes;
 }
-function renderPage(rows,pageNumber,pagesCount,title,logo){
+function renderPage(rows,pageNumber,pagesCount,title,logo,summary){
  const canvas=document.createElement('canvas');canvas.width=WIDTH;canvas.height=HEIGHT;
  const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas PDF is unavailable');
- ctx.fillStyle='#fff';ctx.fillRect(0,0,WIDTH,HEIGHT);
+ const right=WIDTH-MARGIN, contentWidth=WIDTH-2*MARGIN;
+ const font=(size,bold=false)=>{ctx.font=(bold?'700 ':'400 ')+size+'px Vazirmatn, Tahoma, sans-serif';};
+ const text=(value,x,y,size,color='#173b32',bold=false,max=contentWidth)=>{font(size,bold);ctx.fillStyle=color;ctx.fillText(fa(value),x,y,max);};
+ const rect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
+ const wrap=(value,max,size)=>{font(size);const lines=[];let line='';for(const word of fa(value).split(/\s+/)){const candidate=line?line+' '+word:word;if(line&&ctx.measureText(candidate).width>max){lines.push(line);line=word;}else line=candidate;}if(line)lines.push(line);return lines;};
  ctx.direction='rtl';ctx.textAlign='right';ctx.textBaseline='middle';
- ctx.fillStyle='#064e3b';ctx.fillRect(0,0,WIDTH,220);
- if(logo)ctx.drawImage(logo,MARGIN,35,130,130);
- ctx.fillStyle='#fff';ctx.font='bold 44px Vazirmatn, Tahoma, sans-serif';
- ctx.fillText(title,WIDTH-MARGIN,76);
- ctx.font='26px Vazirmatn, Tahoma, sans-serif';
- ctx.fillText('سامانه هوشمند مدیریت و نظارت خطیار',WIDTH-MARGIN,145);
- let top=275;
- // A readable card per assignment/shift; long text wraps naturally in 3 rows.
+ rect(0,0,WIDTH,HEIGHT,'#ffffff');rect(0,0,WIDTH,206,'#064e3b');rect(0,206,WIDTH,9,'#0d9488');
+ if(logo){rect(MARGIN,37,130,130,'#ffffff');const ratio=Math.min(114/logo.naturalWidth,114/logo.naturalHeight);const w=logo.naturalWidth*ratio,h=logo.naturalHeight*ratio;ctx.drawImage(logo,MARGIN+65-w/2,102-h/2,w,h);}
+ text('خطیار | مدیریت هوشمند خطوط و ناوگان تاکسیرانی',right,48,24,'#d1fae5',true,900);
+ text('گزارش شیفت نیروهای جایگزین',right,106,43,'#ffffff',true,900);
+ text(title,right,164,27,'#ffffff',false,900);
+ const labels=[['تعداد نوبت‌ها',summary.total],['نوبت‌های قطعی',summary.confirmed],['در انتظار تأیید',summary.pending],['انجام‌شده',summary.completed]];
+ const gap=12,w=(contentWidth-3*gap)/4;
+ labels.forEach(([label,value],i)=>{const x=right-(i+1)*w-i*gap;rect(x,244,w,100,'#eef7f3');text(label,x+w-14,269,20,'#365b50',false,w-28);text(value,x+w-14,310,32,'#065f46',true,w-28);});
+ text('جزئیات نوبت‌های کاری • مطابق فیلترهای انتخاب‌شده',right,380,25,'#064e3b',true);
  rows.forEach((row,i)=>{
-  const y=top+i*88;
-  ctx.fillStyle=i%2===0?'#f0fdf4':'#f7faf9';ctx.fillRect(MARGIN,y,WIDTH-MARGIN*2,80);
-  ctx.fillStyle='#065f46';ctx.font='bold 25px Vazirmatn, Tahoma, sans-serif';
-  ctx.fillText(fa(row['تاریخ'])+'  |  '+fa(row['نیروی اصلی']||'نامشخص')+'  |  '+fa(row['وضعیت']),WIDTH-MARGIN-16,y+18,WIDTH-MARGIN*2-35);
-  ctx.fillStyle='#152d28';ctx.font='22px Vazirmatn, Tahoma, sans-serif';
-  ctx.fillText('جایگزین: '+fa(row['نیروی جایگزین']||'—')+'  ·  '+fa(row['شیفت']||'—')+
-   '  ·  '+fa(row['شروع']||'—')+' تا '+fa(row['پایان']||'—'),WIDTH-MARGIN-16,y+48,WIDTH-MARGIN*2-35);
-  ctx.fillStyle='#516b63';ctx.font='19px Vazirmatn, Tahoma, sans-serif';
-  ctx.fillText('خط/محل خدمت: '+fa(row['خط یا محل خدمت']||'محل خدمت تاریخی ثبت نشده'),WIDTH-MARGIN-16,y+69,WIDTH-MARGIN*2-35);
+  const y=410+i*149, inner=contentWidth-32;
+  const status=String(row['وضعیت']||'نامشخص'), color=status.includes('انتظار')||status.includes('موقت')?'#92400e':status.includes('لغو')||status.includes('آزاد')?'#b91c1c':status.includes('انجام')?'#475569':'#065f46';
+  rect(MARGIN,y,contentWidth,141,i%2?'#f7faf9':'#eff8f4');rect(right-6,y,6,141,color);
+  text(fa(row['تاریخ'])+'  |  '+status,right-18,y+22,23,color,true,inner);
+  text('نیروی اصلی: '+(row['نیروی اصلی']||'ثبت نشده')+'  |  جایگزین: '+(row['نیروی جایگزین']||'ثبت نشده'),right-18,y+50,23,'#173b32',true,inner);
+  text((row['شیفت']||'شیفت ثبت نشده')+'  |  '+fa(row['شروع'])+' تا '+fa(row['پایان'])+'  |  مدت: '+fa(row['مدت برنامه‌ریزی‌شده (دقیقه)'])+' دقیقه',right-18,y+77,20,'#173b32',false,inner);
+  const location=wrap('محل خدمت: '+(row['خط یا محل خدمت']||'ثبت نشده'),inner,20);
+  text(location[0]||'—',right-18,y+102,20,'#365b50',false,inner);
+  text('رزروکننده: '+(row['رزروکننده']||'ثبت نشده')+'  |  شماره درخواست: '+fa(row['شماره درخواست']),right-18,y+126,18,'#365b50',false,inner);
  });
- ctx.fillStyle='#33554c';ctx.font='23px Vazirmatn, Tahoma, sans-serif';
- ctx.fillText('صفحه '+fa(pageNumber)+' از '+fa(pagesCount),WIDTH-MARGIN,HEIGHT-75);
- ctx.fillText('تاریخ تولید: '+new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date()),WIDTH-MARGIN,HEIGHT-116);
- return bytesOf(canvas.toDataURL('image/jpeg',0.88));
+ rect(MARGIN,1622,contentWidth,2,'#0d9488');
+ text('تاریخ تولید: '+new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date()),right,1650,21,'#365b50');
+ text('صفحه '+fa(pageNumber)+' از '+fa(pagesCount),right,1690,22,'#064e3b',true);
+ return bytesOf(canvas.toDataURL('image/jpeg',0.94));
 }
 function loadLogo(){
  return new Promise(resolve=>{
@@ -76,8 +81,9 @@ async function download(rows,options={}){
  const logo=await loadLogo();
  const pagesCount=Math.ceil(rows.length/ROWS_PER_PAGE);
  const title=options.title||'گزارش شیفت نیروهای جایگزین';
+ const summary={total:rows.length,confirmed:rows.filter(r=>['تخصیص قطعی','انجام‌شده'].includes(r['وضعیت'])).length,pending:rows.filter(r=>r['وضعیت']==='رزرو موقت').length,completed:rows.filter(r=>r['وضعیت']==='انجام‌شده').length};
  const pages=[];
- for(let i=0;i<pagesCount;i++)pages.push(renderPage(rows.slice(i*ROWS_PER_PAGE,(i+1)*ROWS_PER_PAGE),i+1,pagesCount,title,logo));
+ for(let i=0;i<pagesCount;i++)pages.push(renderPage(rows.slice(i*ROWS_PER_PAGE,(i+1)*ROWS_PER_PAGE),i+1,pagesCount,title,logo,summary));
  const file=pdfDocument(pages);
  const url=URL.createObjectURL(file),link=document.createElement('a');
  link.href=url;link.download=options.filename||'substitute-calendar.pdf';
