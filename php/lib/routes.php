@@ -1035,7 +1035,7 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   // MySQL advisory lock is per account/date/slot: concurrent client retries
   // cannot race between the existence check and the insert.
   $requestId=(string)$b['request_id'];
-  $lockName='pc:'.hash('sha256',(int)$u['id'].'|'.$requestId);
+  $lockName='pc:'.substr(hash('sha256',(int)$u['id'].'|'.$requestId),0,60);
   $locked=Db::one("SELECT GET_LOCK(?,12) AS acquired",[$lockName]);
   if((int)($locked['acquired']??0)!==1)Http::error('ثبت قبلی در حال پردازش است؛ دوباره تلاش کنید.',503);
   try{
