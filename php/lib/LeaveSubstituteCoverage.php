@@ -275,6 +275,10 @@ final class LeaveSubstituteCoverage {
         return $windows;
     }
     private static array $syntheticDays=[];
+    private static array $unresolvedComposites=[];
+    public static function unresolvedComposite(int $uid,string $date): bool {
+        return !empty(self::$unresolvedComposites[$uid][$date]);
+    }
     public static function syntheticDay(int $id,string $date): ?array {return self::$syntheticDays[$id][$date]??null;}
     private static function fixedSource(int $uid,string $date): ?array {
         $shift=self::ownShift($uid,$date);if(!$shift||!in_array($shift['type']??'',['simple','advanced','rotating'],true))return null;
@@ -346,12 +350,15 @@ final class LeaveSubstituteCoverage {
         return null;
     }
     public static function composite(int $uid,string $date): ?array {
+        unset(self::$unresolvedComposites[$uid][$date]);
         if(function_exists('_db_table_exists_safe')&&!_db_table_exists_safe('substitute_assignments'))return null;
         $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active') AND sa.from_date<=? AND sa.to_date>=? AND REPLACE(TRIM(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,''))),'/','-')<=? AND REPLACE(TRIM(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.the_date,''),NULLIF(r.from_jdate,''))),'/','-')>=? ORDER BY sa.id",[$uid,$date,$date,$date,$date]);
         if(!$rows)return null;
         $primary=self::fixedSource($uid,$date);
         if($primary&&!empty($primary['segments']))array_unshift($rows,['request_id'=>0,'absent_user_id'=>$uid]);
         if(count($rows)<2)return null;
+        // A conflict/unknown schedule must never silently fall back to only the first cover.
+        self::$unresolvedComposites[$uid][$date]=true;
         $first=null;$segments=[];$seen=[];$windows=[];$parts=[];$explicitDuty=0;$hasExplicitDuty=false;
         foreach($rows as $row){
             if(isset($seen[$row['request_id']]))continue;$seen[$row['request_id']]=true;
@@ -371,6 +378,7 @@ final class LeaveSubstituteCoverage {
         }
         if($hasExplicitDuty)$first['config']['duty_min']=$explicitDuty;
         $id=-max(1,$uid);self::$syntheticDays[$id][$date]=['segments'=>$segments,'is_off'=>!$segments,'day_config'=>$first['config'],'composite_parts'=>$parts];
+        unset(self::$unresolvedComposites[$uid][$date]);
         $shift=$first['shift'];$shift['shift_id']=$id;$shift['id']=$id;$shift['type']='advanced';$shift['is_substitute_shift']=1;$shift['substitute_sources']=$rows;$shift['title']='شیفت‌های جایگزینی';return $shift;
     }
     public static function windowsOverlap(array $left,array $right): bool {
