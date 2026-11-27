@@ -121,6 +121,7 @@ jobs:
           php php/tests/substitute_lock_test.php
           php php/tests/substitute_reservation_notification_test.php
           php php/tests/substitute_jalali_date_validation_test.php
+          php php/tests/substitute_traffic_windows_test.php
           php php/tests/substitute_shift_schedule_api_test.php
           node mobile/scripts/test-request-substitute-scope.cjs
           php php/tests/live_map_query_test.php
