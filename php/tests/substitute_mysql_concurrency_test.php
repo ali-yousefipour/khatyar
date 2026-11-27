@@ -57,26 +57,28 @@ echo "PASS independent MySQL connections: advisory serialization, committed conf
 // Real database validation of the same latest-active replacement predicate used
 // by historical service-location writes. Temporary tables shadow production data
 // and disappear when this isolated CI connection closes.
-$primary->exec("CREATE TEMPORARY TABLE requests (
+$primary->exec("CREATE TABLE IF NOT EXISTS khatyar_snapshot_guard_requests_ci (
     id INT PRIMARY KEY,user_id INT NOT NULL,substitute_user_id INT,
     status VARCHAR(20) NOT NULL,type VARCHAR(20) NOT NULL,unit VARCHAR(20),
     from_jdate VARCHAR(10),to_jdate VARCHAR(10),the_date VARCHAR(10)
 ) ENGINE=InnoDB");
-$primary->exec("CREATE TEMPORARY TABLE substitute_assignments (
+$primary->exec("CREATE TABLE IF NOT EXISTS khatyar_snapshot_guard_assignments_ci (
     id INT PRIMARY KEY,request_id INT NOT NULL,absent_user_id INT NOT NULL,
     substitute_user_id INT NOT NULL,status VARCHAR(20) NOT NULL,
     from_date VARCHAR(10) NOT NULL,to_date VARCHAR(10) NOT NULL
 ) ENGINE=InnoDB");
-$primary->exec("INSERT INTO requests VALUES
+$primary->exec("DELETE FROM khatyar_snapshot_guard_requests_ci");
+$primary->exec("DELETE FROM khatyar_snapshot_guard_assignments_ci");
+$primary->exec("INSERT INTO khatyar_snapshot_guard_requests_ci VALUES
     (101,7,9,'approved','annual','daily','1405-09-02','1405-09-02',NULL)");
-$primary->exec("INSERT INTO substitute_assignments VALUES
+$primary->exec("INSERT INTO khatyar_snapshot_guard_assignments_ci VALUES
     (201,101,7,9,'active','1405-09-02','1405-09-02'),
     (202,101,7,9,'active','1405-09-02','1405-09-02')");
 $latest=$primary->prepare("SELECT sa.id,sa.absent_user_id,sa.substitute_user_id
-    FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id
+    FROM khatyar_snapshot_guard_assignments_ci sa JOIN khatyar_snapshot_guard_requests_ci r ON r.id=sa.request_id
     WHERE sa.id=? AND sa.status='active' AND r.status='approved'
       AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
-      AND sa.id=(SELECT MAX(newest.id) FROM substitute_assignments newest
+      AND sa.id=(SELECT MAX(newest.id) FROM khatyar_snapshot_guard_assignments_ci newest
           WHERE newest.request_id=sa.request_id AND newest.status='active') FOR UPDATE");
 $primary->beginTransaction();
 $latest->execute([201]);
@@ -85,7 +87,9 @@ $latest->execute([202]);
 $valid=$latest->fetch();
 if(!$valid||(int)$valid['id']!==202)throw new RuntimeException('Most recent valid assignment failed InnoDB guard');
 $primary->commit();
-$primary->exec("UPDATE requests SET status='rejected' WHERE id=101");
+$primary->exec("UPDATE khatyar_snapshot_guard_requests_ci SET status='rejected' WHERE id=101");
 $latest->execute([202]);
 if($latest->fetch())throw new RuntimeException('Rejected leave still permitted service snapshot editing');
+$primary->exec('DROP TABLE khatyar_snapshot_guard_assignments_ci');
+$primary->exec('DROP TABLE khatyar_snapshot_guard_requests_ci');
 echo "PASS real MySQL historical snapshot guard: latest assignment only and approved leave required\\n";
