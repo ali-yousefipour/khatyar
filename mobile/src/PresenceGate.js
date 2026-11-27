@@ -175,6 +175,14 @@ export default function PresenceGate({navigationRef}){
    const sl=data.slot||((cfg.slots||[])[0])||`${String(Math.floor(now.minutes/60)).padStart(2,'0')}:${String(now.minutes%60).padStart(2,'0')}`;
    const requestId=String(data.request_id||`${now.day}_${sl}`);
    const random=!!(data.random===true||data.random==='true'||data.random===1||data.random==='1');
+   if(!immediate){
+     const session=await localAttendanceSession(userId);
+     if(!session)return; // No active work session: ignore stale scheduled alerts.
+     if(random){
+       const match=/^local_(?:\\d+_)?(\\d{10})_\\d{10}$/.exec(requestId);
+       if(match && Number(match[1])!==Math.floor(session.start/1000))return;
+     }
+   }
    const key=scopedKey(immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`);
    const expiredKey=scopedKey(random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`);
    if(await AsyncStorage.getItem(key)||completedForUser(await localPresenceCompletions(),requestId))return;
