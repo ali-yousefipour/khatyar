@@ -12,6 +12,10 @@ const context={setInterval:()=>1,clearInterval:()=>{},db:{holidays:async()=>[]},
  useEffect(fn,deps){const i=cursor++;if(!depsEqual(effects[i]?.deps,deps)){pending.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}},
  fetch(url,options){let resolve;const promise=new Promise(r=>resolve=r);requests.push({url,options,resolve});return promise;}};
 vm.createContext(context);vm.runInContext(compiled,context);
+assert.equal(context.substituteSegmentPlannedMinutes({s:'22:00',e:'06:00'}),480,'overnight segment duration remains eight hours');
+assert.equal(context.substituteSegmentPlannedMinutes({s:'26:00',e:'29:00'}),180,'extended overnight hours are not double counted');
+assert.equal(context.substituteSegmentPlannedMinutes({s:'bad',e:'09:00'}),null,'unknown segment times never become a fabricated zero');
+assert.equal(context.substituteSegmentPlannedMinutes({s:'06:00',e:'14:00',planned_minutes:360}),360,'explicit planned segment duration wins over clock difference');
 function render(){let rounds=0;do{dirty=false;cursor=0;tree=context.SubstituteCalendar();const jobs=pending;pending=[];jobs.forEach(fn=>fn());assert(++rounds<15,'render settled');}while(dirty);return tree;}
 async function flush(){for(let i=0;i<8;i++)await Promise.resolve();render();}
 const nodes=(node=tree)=>node&&typeof node==='object'?[node,...node.children.flatMap(n=>nodes(n))]:[];
@@ -27,7 +31,9 @@ function choose(label,value){findLabel(label).props.onChange({target:{value}});r
  const shift={title:'صبح',segments:[{s:'06:00',e:'14:00'},{s:'16:00',e:'18:00'}],segment_locations:[{line_id:7,line_name:'خط ۷',service_location:'ایستگاه ثبت‌شده'},null],location_status:'partial'};
  second.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:1,absent_name:'<img src=x onerror=alert(1)>',shift},{request_id:2,absent_name:'دوم',shift}],history:[{request_id:3,absent_name:'منقضی',shift}]}}})});await flush();
  assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'multiple active cards; history hidden');
- button('خروجی Excel فیلترشده').props.onClick();assert.equal(exported.length,4,'each source segment exported');assert.equal(exported[0]['خط یا محل خدمت'],'ایستگاه ثبت‌شده','verified historical location exported');assert.equal(exported[1]['خط یا محل خدمت'],'محل خدمت تاریخی ثبت نشده','unknown historic line not fabricated');
+ button('خروجی Excel فیلترشده').props.onClick();assert.equal(exported.length,4,'each source segment exported');
+ assert.equal(exported[0]['مدت برنامه‌ریزی‌شده (دقیقه)'],'480','first segment gets own eight-hour duration');
+ assert.equal(exported[1]['مدت برنامه‌ریزی‌شده (دقیقه)'],'120','second segment gets own two-hour duration instead of duplicate full-shift duration');assert.equal(exported[0]['خط یا محل خدمت'],'ایستگاه ثبت‌شده','verified historical location exported');assert.equal(exported[1]['خط یا محل خدمت'],'محل خدمت تاریخی ثبت نشده','unknown historic line not fabricated');
  button('چاپ / ذخیره PDF').props.onClick();assert(printed.includes('&lt;img'));assert(!printed.includes('<img src=x'),'print content escaped');
  choose('فیلتر خط خدمت','7');assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'line filter keeps only matching verified shift records');choose('فیلتر خط خدمت','all');
  first.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:9,absent_name:'STALE',shift}]}}})});await flush();
