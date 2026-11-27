@@ -329,7 +329,7 @@ final class LeaveSubstituteCoverage {
     }
     public static function composite(int $uid,string $date): ?array {
         if(function_exists('_db_table_exists_safe')&&!_db_table_exists_safe('substitute_assignments'))return null;
-        $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active') AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id",[$uid,$date,$date]);
+        $rows=Db::all("SELECT sa.request_id,sa.absent_user_id FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id AND r.status='approved' AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') WHERE sa.substitute_user_id=? AND sa.status='active' AND r.substitute_user_id=sa.substitute_user_id AND r.user_id=sa.absent_user_id AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active') AND sa.from_date<=? AND sa.to_date>=? AND REPLACE(TRIM(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,''))),'/','-')<=? AND REPLACE(TRIM(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.the_date,''),NULLIF(r.from_jdate,''))),'/','-')>=? ORDER BY sa.id",[$uid,$date,$date,$date,$date]);
         if(!$rows)return null;
         $primary=self::fixedSource($uid,$date);
         if($primary&&!empty($primary['segments']))array_unshift($rows,['request_id'=>0,'absent_user_id'=>$uid]);
@@ -458,7 +458,7 @@ final class LeaveSubstituteCoverage {
             }
         }
         $covers=Db::all("SELECT sa.id assignment_id,sa.from_date,sa.to_date,r.id AS request_id,r.created_at request_created_at,
-                sa.absent_user_id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
+                sa.absent_user_id,r.from_jdate,r.to_jdate,r.the_date,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS absent_name
            FROM substitute_assignments sa
            JOIN requests r ON r.id=sa.request_id AND r.status='approved'
                AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
@@ -495,7 +495,10 @@ final class LeaveSubstituteCoverage {
         $seenCovers=[];
         foreach($covers as $cover){
             $a=self::day($cover['from_date']??'');$b=self::day($cover['to_date']??'');
-            if(!$a||!$b)continue;
+            $validRequest=self::range($cover);
+            if(!$a||!$b||!$validRequest)continue;
+            $a=max($a,$validRequest[0]);$b=min($b,$validRequest[1]);
+            if($a>$b)continue;
             foreach($keys as $day){
                 if($day<$a||$day>$b)continue;
                 $key=(int)$cover['request_id'].':'.$day;
