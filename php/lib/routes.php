@@ -6502,6 +6502,13 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
     $dr=$dayShift && ($dayShift['type']??'')==='advanced'
       ? _shift_day_row((int)($dayShift['shift_id']??$dayShift['id']??0),$j)
       : null;
+    $effectiveSegments=$dayShift?ShiftCalc::daySegments($dayShift,$j,$dr):[];
+    // The original permanent assignment is distinct from temporary replacement duty.
+    $permanent=class_exists('LeaveSubstituteCoverage')?LeaveSubstituteCoverage::ownShift($userId,$j):null;
+    $permanentId=(int)($permanent['shift_id']??$permanent['id']??0);
+    $permanentRow=$permanent&&($permanent['type']??'')==='advanced'&&$permanentId>0
+      ?_shift_day_row($permanentId,$j):null;
+    $permanentSegments=$permanent?ShiftCalc::daySegments($permanent,$j,$permanentRow):[];
     $mins=$dayShift ? max(0,(int)ShiftCalc::expectedMinutes($dayShift,$j,$dr)) : 0;
     $cal=ShiftCalc::calendarDay($j);
     $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
@@ -6511,6 +6518,11 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
       'weekday'=>_jweekday_name($y,$m,$d),
       'is_today'=>($j===$todayJ),
       'shift_title'=>$dayShift['title']??'',
+      'shift_type'=>$dayShift['type']??null,
+      'segments'=>$effectiveSegments,
+      'primary_segments'=>$permanentSegments,
+      'primary_shift_title'=>$permanent['title']??null,
+      'is_substitute_shift'=>!empty($dayShift['is_substitute_shift']),
       'minutes'=>$mins,
       'is_off'=>$noShift||(bool)($dr['is_off']??false)||$mins<=0,
       'is_no_shift'=>$noShift,
