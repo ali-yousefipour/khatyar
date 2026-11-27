@@ -738,7 +738,9 @@ final class LeaveSubstituteCoverage {
             if(function_exists('_db_table_exists_safe')&&_db_table_exists_safe('user_line_checkin_permissions')){
                 foreach(Db::all("SELECT cp.user_id,l.id,l.code,l.origin,l.destination FROM user_line_checkin_permissions cp JOIN user_lines ul ON ul.user_id=cp.user_id AND ul.line_id=cp.line_id JOIN `lines` l ON l.id=cp.line_id WHERE cp.user_id IN ($slots) ORDER BY l.code,l.id",$ids) as $line){
                     $uidLine=(int)($line['user_id']??0);$lid=(int)($line['id']??0);if($uidLine<=0||$lid<=0)continue;
-                    $name=trim((string)($line['code']??'').' '.trim((string)($line['origin']??'').' ـ '.(string)($line['destination']??''),' ـ'));
+                    $origin=trim((string)($line['origin']??''));$destination=trim((string)($line['destination']??''));
+                    $route=implode(' ـ ',array_filter([$origin,$destination],static fn($v)=>$v!==''));
+                    $name=trim((string)($line['code']??'').' '.$route);
                     $context['checkin_lines'][$uidLine][]=['line_id'=>$lid,'line_name'=>$name?:('خط '.$lid)];
                 }
             }
