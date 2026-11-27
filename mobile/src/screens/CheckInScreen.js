@@ -1465,20 +1465,21 @@ function CheckInShiftTab(){
     </View>
     {shiftType?<Text style={s.shiftTypeHint}>نوع شیفت: {String(data?.shift?.title??data?.shift_title??shiftType)}</Text>:null}
     {shiftMissing?<View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}><Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text><Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد.'}</Text></View>:days.map((d,index)=>{
-      const ownIntervals=shiftIntervals(d);
       const coverageDay=coverage[shiftCoverageJdate(d.date)]||{};
+      const hasConfirmedCoverage=!!coverageDay.cover?.length;
+      const ownIntervals=shiftIntervals(hasConfirmedCoverage?{segments:d.primary_segments||[]}:d).map(interval=>({...interval,label:hasConfirmedCoverage?(d.primary_shift_title||'شیفت اصلی'):'ساعت تردد'}));
       const leaveCaption=shiftCoverageCaption(coverageDay);
       const fullDayLeave=!!coverageDay.leave?.some(v=>v.unit!=='hourly');
       const coverNames=[...new Set((coverageDay.cover||[]).map(v=>v.absent_name).filter(Boolean))];
       const confirmedCovers=coverageDay.cover||[];
       const coverCaption=confirmedCovers.length?'حضور به‌جای: '+(coverNames.length?coverNames.join('، '):'نام نیروی اصلی در سرور ثبت نشده'):null;
       const sourceIntervals=confirmedCovers.flatMap(cover=>shiftIntervals(cover.shift).map(interval=>({...interval,label:cover.absent_name||'نیروی اصلی نامشخص'})));
-      const intervals=coverCaption?sourceIntervals:ownIntervals;
+      const intervals=coverCaption?[...ownIntervals,...sourceIntervals]:ownIntervals;
       const summary=summaries[index];
       const active=expanded[d.date]??!!d.is_today;
       const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
       const ownKind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
-      const kind=coverCaption?([...new Set(confirmedCovers.map(v=>v.shift?.title).filter(Boolean))].join('، ')||'شیفت جایگزینی؛ جزئیات نامشخص'):ownKind;
+      const kind=coverCaption?([d.primary_segments?.length?d.primary_shift_title:null,...confirmedCovers.map(v=>v.shift?.title)].filter(Boolean).join('، ')||'شیفت جایگزینی؛ جزئیات نامشخص'):ownKind;
       return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard,leaveCaption&&s.shiftLeaveCard,coverCaption&&s.shiftCoverCard]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${d.weekday}، ${shiftJalaliFa(d.date)}، ${leaveCaption||coverCaption||kind}`} accessibilityState={{expanded:active}} activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
           <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{leaveCaption||coverCaption||(d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind)}</Text></View>
