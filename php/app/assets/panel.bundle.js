@@ -12818,6 +12818,14 @@ function substituteSegmentPlannedMinutes(segment) {
 }
 function SubstituteCalendar() {
     var _a, _b, _c, _e, _f, _g;
+    const readCalendarJson = async (response, label) => { const body = await response.text(); if (!body.trim())
+        throw Error(label + '؛ پاسخ سرور خالی است (HTTP ' + response.status + ').'); let value; try {
+        value = JSON.parse(body);
+    }
+    catch (e) {
+        throw Error(label + '؛ پاسخ سرور نامعتبر است (HTTP ' + response.status + ').');
+    } if (!response.ok)
+        throw Error(typeof (value === null || value === void 0 ? void 0 : value.error) === 'string' ? value.error : label + ' (HTTP ' + response.status + ').'); return value; };
     const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
     const [year, setYear] = useState(Number(todayParts.year)), [month, setMonth] = useState(Number(todayParts.month));
     const [reload, setReload] = useState(0), [selectedDay, setSelectedDay] = useState(null);
@@ -12839,19 +12847,17 @@ function SubstituteCalendar() {
         return () => { var _a; (_a = detailRef.current) === null || _a === void 0 ? void 0 : _a.close(); };
     } }, [selected]);
     const days = useMemo(() => substituteMonthDays(year, month), [year, month]);
-    useEffect(() => { let mounted = true; fetch(API_BASE + '/admin/lines', { headers: tok(), cache: 'no-store' }).then(async (r) => { if (!r.ok)
-        throw Error('فهرست خطوط دریافت نشد'); return r.json(); }).then(v => { if (mounted)
+    useEffect(() => { let mounted = true; fetch(API_BASE + '/admin/lines', { headers: tok(), cache: 'no-store' }).then(async (r) => { return readCalendarJson(r, 'فهرست خطوط دریافت نشد'); }).then(v => { if (mounted)
         setLines(Array.isArray(v) ? v : []); }).catch(() => { if (mounted)
         setLines([]); }); return () => { mounted = false; }; }, []);
-    useEffect(() => { let live = true; fetch(API_BASE + '/admin/substitute-calendar/users', { headers: tok(), cache: 'no-store' }).then(async (r) => { if (!r.ok)
-        throw Error('دریافت نیروها ناموفق بود'); return r.json(); }).then(v => { if (live)
+    useEffect(() => { let live = true; fetch(API_BASE + '/admin/substitute-calendar/users', { headers: tok(), cache: 'no-store' }).then(async (r) => { return readCalendarJson(r, 'دریافت نیروها ناموفق بود'); }).then(v => { if (live)
         setUsers(Array.isArray(v) ? v : []); }).catch(e => { if (live)
         setError(e.message); }); return () => { live = false; }; }, [reload]);
     useEffect(() => { setData({}); setSelected(null); setSelectedDay(null); if (!uid) {
         setBusy(false);
         return;
-    } const controller = new AbortController(); setBusy(true); setError(''); fetch(API_BASE + '/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), { headers: tok(), cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok)
-        throw Error('دریافت تقویم ناموفق بود؛ دوباره تلاش کنید'); return r.json(); }).then(v => { if (!controller.signal.aborted)
+    } const controller = new AbortController(); setBusy(true); setError(''); fetch(API_BASE + '/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), { headers: tok(), cache: 'no-store', signal: controller.signal }).then(async (r) => { const value = await readCalendarJson(r, 'دریافت تقویم ناموفق بود'); if (!value || typeof value.days !== 'object' || value.days === null)
+        throw Error('ساختار پاسخ تقویم معتبر نیست'); return value; }).then(v => { if (!controller.signal.aborted)
         setData(v.days || {}); }).catch(e => { if (!controller.signal.aborted && e.name !== 'AbortError')
         setError(e.message); }).finally(() => { if (!controller.signal.aborted)
         setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload]);
