@@ -3,9 +3,9 @@ const ts=require(require.resolve('typescript',{paths:[path.join(__dirname,'..'),
 const source=fs.readFileSync(path.join(__dirname,'../tools/panel_source.jsx'),'utf8');
 const from=source.indexOf('function substituteMonthDays('),to=source.indexOf('\nfunction ShiftManager(',from);
 const compiled=ts.transpileModule(source.slice(from,to),{compilerOptions:{jsx:ts.JsxEmit.React,target:ts.ScriptTarget.ES2020}}).outputText;
-const slots=[],effects=[],requests=[];let cursor=0,pending=[],tree,dirty=false,printed='',exported;
+const slots=[],effects=[],requests=[];let cursor=0,pending=[],tree,dirty=false,printed='',exported,pdf;
 const depsEqual=(a,b)=>a&&b&&a.length===b.length&&a.every((v,i)=>Object.is(v,b[i]));
-const context={setInterval:()=>1,clearInterval:()=>{},db:{holidays:async()=>[]},Intl,Date,AbortController,encodeURIComponent,API_BASE:'/api',tok:()=>({}),fa:v=>String(v??''),exportXlsx:rows=>{exported=rows;},printLetterhead:(_title,html)=>{printed=html;},React:{createElement:(type,props,...children)=>({type,props:props||{},children:children.flat(Infinity)}),Fragment:'fragment'},
+const context={window:{KhatyarSubstitutePdf:{download:async(rows,options)=>{pdf={rows,options};}}},setInterval:()=>1,clearInterval:()=>{},db:{holidays:async()=>[]},Intl,Date,AbortController,encodeURIComponent,API_BASE:'/api',tok:()=>({}),fa:v=>String(v??''),exportXlsx:rows=>{exported=rows;},printLetterhead:(_title,html)=>{printed=html;},React:{createElement:(type,props,...children)=>({type,props:props||{},children:children.flat(Infinity)}),Fragment:'fragment'},
  useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],v=>{const next=typeof v==='function'?v(slots[i]):v;if(!Object.is(next,slots[i])){slots[i]=next;dirty=true;}}];},
  useRef(initial){const i=cursor++;if(!(i in slots))slots[i]={current:initial};return slots[i];},
  useMemo(fn){cursor++;return fn();},
@@ -22,6 +22,8 @@ const nodes=(node=tree)=>node&&typeof node==='object'?[node,...node.children.fla
 const findLabel=label=>nodes().find(n=>n.props['aria-label']===label);
 const text=node=>typeof node==='string'?node:node&&typeof node==='object'?node.children.map(text).join(''):'';
 const button=caption=>nodes().find(n=>n.type==='button'&&text(n)===caption);
+const dayButton=date=>nodes().find(n=>n.type==='button'&&String(n.props['aria-label']||'').startsWith(date+'،'));
+const cards=()=>nodes().filter(n=>n.type==='article'&&n.props.className==='sc-shift-card');
 function choose(label,value){findLabel(label).props.onChange({target:{value}});render();}
 (async()=>{
  render();requests.find(r=>r.url.includes('/admin/lines')).resolve({ok:true,json:async()=>[{id:7,code:'۷',origin:'مبدأ',destination:'مقصد'}]});requests.find(r=>r.url.includes('/admin/substitute-calendar/users')).resolve({ok:true,json:async()=>[{id:1,name:'اول'},{id:2,name:'دوم'}]});await flush();
@@ -30,14 +32,15 @@ function choose(label,value){findLabel(label).props.onChange({target:{value}});r
  choose('نیروی جایگزین','2');const second=requests.at(-1);const date=new URL('https://local'+second.url).searchParams.get('dates').split(',')[0];
  const shift={title:'صبح',segments:[{s:'06:00',e:'14:00'},{s:'16:00',e:'18:00'}],segment_locations:[{line_id:7,line_name:'خط ۷',service_location:'ایستگاه ثبت‌شده'},null],location_status:'partial'};
  second.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:1,absent_name:'<img src=x onerror=alert(1)>',shift},{request_id:2,absent_name:'دوم',shift}],history:[{request_id:3,absent_name:'منقضی',shift}]}}})});await flush();
- assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'multiple active cards; history hidden');
+ dayButton(date).props.onClick();render();assert.equal(cards().length,2,'multiple active cards; history hidden');
+ await button('دانلود PDF مستقل').props.onClick();assert.equal(pdf.options.person,'دوم');const monthDates=new URL('https://local'+second.url).searchParams.get('dates').split(',');assert.equal(new Set(pdf.rows.map(r=>r['تاریخ'])).size,monthDates.length);assert.equal(pdf.rows.filter(r=>r['روز خالی']).length,monthDates.length-1);assert(pdf.rows.every(r=>r['روز هفته']&&r['نیروی جایگزین']==='دوم'));assert.equal(pdf.rows.filter(r=>!r['روز خالی']).length,4);
  button('خروجی Excel فیلترشده').props.onClick();assert.equal(exported.length,4,'each source segment exported');
  assert.equal(exported[0]['مدت برنامه‌ریزی‌شده (دقیقه)'],'480','first segment gets own eight-hour duration');
  assert.equal(exported[1]['مدت برنامه‌ریزی‌شده (دقیقه)'],'120','second segment gets own two-hour duration instead of duplicate full-shift duration');assert.equal(exported[0]['خط یا محل خدمت'],'ایستگاه ثبت‌شده','verified historical location exported');assert.equal(exported[1]['خط یا محل خدمت'],'محل خدمت تاریخی ثبت نشده','unknown historic line not fabricated');
  button('چاپ / ذخیره PDF').props.onClick();assert(printed.includes('&lt;img'));assert(!printed.includes('<img src=x'),'print content escaped');
- choose('فیلتر خط خدمت','7');assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,2,'line filter keeps only matching verified shift records');choose('فیلتر خط خدمت','all');
+ choose('فیلتر خط خدمت','7');assert.equal(cards().length,2,'line filter keeps only matching verified shift records');choose('فیلتر خط خدمت','all');
  first.resolve({ok:true,json:async()=>({days:{[date]:{cover:[{request_id:9,absent_name:'STALE',shift}]}}})});await flush();
  assert(!nodes().some(n=>text(n).includes('STALE')),'aborted stale response cannot replace selected user');
- choose('وضعیت تخصیص','history');assert.equal(nodes().filter(n=>n.type==='button'&&text(n).startsWith('به‌جای:')).length,1,'history filter shows historical row');
+ choose('وضعیت تخصیص','history');assert.equal(cards().length,1,'history filter shows historical row');
  console.log('PASS component behavior: selection/loading, stale response, multi-card/history filtering, Excel segments and escaped print');
 })().catch(e=>{console.error(e);process.exitCode=1;});
