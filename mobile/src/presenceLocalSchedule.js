@@ -135,6 +135,9 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(schedule));
   return schedule;
 }
+export async function clearFixedPresenceNotifications() {
+  await scheduleFixedAlerts({enabled:false,assigned:false,random_enabled:false,slots:[]});
+}
 export async function suspendLocalRandomSchedule() {
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
