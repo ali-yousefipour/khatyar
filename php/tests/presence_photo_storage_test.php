@@ -6,11 +6,13 @@ class Db {
   static $existing = null;
   static $writes = [];
   static $failWrite = false;
+  static $sessionActive = true;
   static function one($query, $params=[]) {
     if(str_contains($query,'information_schema.COLUMNS'))return ['COLUMN_NAME'=>$params[0]??'selfie_path'];
     if(str_contains($query,'GET_LOCK('))return ['acquired'=>1];
     if(str_contains($query,'RELEASE_LOCK('))return ['released'=>1];
     if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
+    if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive?['id'=>31]:null;
     return self::$existing;
   }
   static function all($query, $params=[]) {
@@ -81,4 +83,14 @@ foreach ([null,['id'=>7]] as $existing) {
   }
 }
 Db::$failWrite=false;
+Db::$sessionActive=false;
+Media::$results=['selfie.jpg','vehicles.jpg'];Media::$deleted=[];Db::$writes=[];
+try {
+  $handler([], $body, ['id'=>1]);
+  throw new LogicException('Presence without attendance was accepted');
+}catch(RuntimeException $error){
+  if($error->getCode()!==422 || Db::$writes!==[] || Media::$deleted!==[])
+    throw $error;
+}
+Db::$sessionActive=true;
 echo "PASS presence insert/update: both photos required, failed saves rejected, partial files cleaned up\n";
