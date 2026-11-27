@@ -981,7 +981,7 @@ function _presence_photo_columns_ready(): bool {
 }
 
 // Challenge windows are checked by the backend even for offline replay.
-require_once __DIR__.'/PresenceChallengeGuard.php';
+require_once dirname(__DIR__).'/lib/PresenceChallengeGuard.php';
 
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
