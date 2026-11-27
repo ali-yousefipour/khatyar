@@ -23,9 +23,9 @@ class ShiftCalc
     static function daySegments($shift,$jdate,$dayRow=null){$type=$shift['type']??'simple';if($type==='advanced'){if(!$dayRow||!empty($dayRow['is_off']))return[];$segs=self::parseJson($dayRow['segments']??null);return is_array($segs)?$segs:[];}if($type==='floating')return[];if($type==='rotating')return self::rotationSegments($shift,$jdate);$weekly=self::parseJson($shift['weekly']??null);if(!is_array($weekly))return[];$wd=self::jweekday($jdate);$segs=$weekly[(string)$wd]??$weekly[$wd]??[];return is_array($segs)?$segs:[];}
     static function overlapMinutes($a1,$a2,$b1,$b2){if(!$a1||!$a2||!$b1||!$b2||$a2<=$a1||$b2<=$b1)return 0;return max(0,(int)floor((min($a2,$b2)-max($a1,$b1))/60));}
     static function nightMinutes($inTs,$outTs,$nightStart='22:00',$nightEnd='06:00'){if(!$inTs||!$outTs||$outTs<=$inTs)return 0;$ns=self::hm($nightStart?:'22:00');$ne=self::hm($nightEnd?:'06:00');if($ns===null)$ns=1320;if($ne===null)$ne=360;if($ne<=$ns)$ne+=1440;$total=0;$cursor=strtotime(date('Y-m-d 00:00:00',$inTs))-86400;$endDay=strtotime(date('Y-m-d 00:00:00',$outTs))+86400;for($d=$cursor;$d<=$endDay;$d+=86400)$total+=self::overlapMinutes($inTs,$outTs,$d+$ns*60,$d+$ne*60);return $total;}
-    static function expectedMinutes($shift,$jdate,$dayRow=null){$cal=self::calendarDay($jdate);if(self::isFriday($jdate)||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']))return 0;$cfg=self::parseJson($dayRow['day_config']??null);if(isset($cfg['duty_min'])&&$cfg['duty_min']!=='')return max(0,(int)$cfg['duty_min']);if(($shift['type']??'')==='floating')return(int)($shift['float_minutes']??0);$expected=0;foreach(self::daySegments($shift,$jdate,$dayRow) as $seg)$expected+=self::segmentLength($seg);return $expected;}
+    static function expectedMinutes($shift,$jdate,$dayRow=null){if(!empty($dayRow['composite_parts'])){ $sum=0;foreach($dayRow['composite_parts'] as $part)$sum+=self::expectedMinutes($part['shift'],$jdate,$part['day_row']);return $sum; }$cal=self::calendarDay($jdate);if(self::isFriday($jdate)||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']))return 0;$cfg=self::parseJson($dayRow['day_config']??null);if(isset($cfg['duty_min'])&&$cfg['duty_min']!=='')return max(0,(int)$cfg['duty_min']);if(($shift['type']??'')==='floating')return(int)($shift['float_minutes']??0);$expected=0;foreach(self::daySegments($shift,$jdate,$dayRow) as $seg)$expected+=self::segmentLength($seg);return $expected;}
     // موظفی سپری‌شدهٔ روز جاری؛ برای شیفت‌های بدون ساعت شروع/پایان قابل استنتاج نیست.
-    static function elapsedExpectedMinutes($shift,$jdate,$dayRow=null,$asOfTs=null){$type=$shift['type']??'simple';if(in_array($type,['auto','floating'],true))return null;$expected=max(0,(int)self::expectedMinutes($shift,$jdate,$dayRow));if($expected===0)return 0;$base=self::jdateToTs($jdate);if($base===null)return null;$segments=self::daySegments($shift,$jdate,$dayRow);if(!$segments)return null;$asOfTs=$asOfTs===null?time():(int)$asOfTs;$elapsed=0;foreach($segments as $seg){$win=self::segmentWindow($seg,$base);if(!$win)continue;[$start,$end]=$win;$elapsed+=self::overlapMinutes($start,min($end,$asOfTs),$start,$end);}return min($expected,$elapsed);}
+    static function elapsedExpectedMinutes($shift,$jdate,$dayRow=null,$asOfTs=null){if(!empty($dayRow['composite_parts'])){$sum=0;foreach($dayRow['composite_parts'] as $part){$n=self::elapsedExpectedMinutes($part['shift'],$jdate,$part['day_row'],$asOfTs);if($n===null)return null;$sum+=$n;}return $sum;}$type=$shift['type']??'simple';if(in_array($type,['auto','floating'],true))return null;$expected=max(0,(int)self::expectedMinutes($shift,$jdate,$dayRow));if($expected===0)return 0;$base=self::jdateToTs($jdate);if($base===null)return null;$segments=self::daySegments($shift,$jdate,$dayRow);if(!$segments)return null;$asOfTs=$asOfTs===null?time():(int)$asOfTs;$elapsed=0;foreach($segments as $seg){$win=self::segmentWindow($seg,$base);if(!$win)continue;[$start,$end]=$win;$elapsed+=self::overlapMinutes($start,min($end,$asOfTs),$start,$end);}return min($expected,$elapsed);}
     static function roleOtCap($shift){$cap=$shift['auto_ot_cap_min']??null;if($cap!==null&&$cap!=='')return max(0,(int)$cap);$txt=trim((string)($shift['role_key']??'').' '.trim((string)($shift['role_title']??$shift['role']??'')));if(preg_match('/اداری|niroo|office/i',$txt))return 240;if(preg_match('/بازرس|سربازرس|inspector/i',$txt))return 147;return 27;}
     // تردد شبانه: اگر خروج از نظر ساعت قبل/مساوی ورود باشد، خروج متعلق به روز بعد است.
     // این نرمال‌سازی در هسته محاسبه انجام می‌شود تا تردد دستی، اصلاح‌شده و تردد عادی
@@ -83,7 +83,58 @@ class ShiftCalc
         return [$worked,$night,$inMin,$outMax,$now,$todayJ];
     }
 
-    static function classifyDay($shift,$jdate,$dayRow,$sessions,$fallbackHoliday=false){$cal=self::calendarDay($jdate);if($shift===null){
+    /**
+     * Each temporary cover has its own shift, accounting rules and attendance window.
+     * Clipping to non-overlapping windows prevents counting the same punch twice.
+     * Extra time outside proven assigned windows remains visible as raw work,
+     * but cannot be attributed to an arbitrary replacement policy.
+     */
+    static function classifyCompositeDay($shift,$jdate,$dayRow,$sessions,$fallbackHoliday=false){
+        $parts=$dayRow['composite_parts']??[];
+        $base=self::jdateToTs($jdate);
+        if(!$parts||$base===null)throw new LogicException('Invalid composite shift without bounded parts');
+        $totals=null;$attributed=0;
+        $fields=['in_shift','expected','overtime','surplus','shortage','night','friday',
+            'holiday','friday_work','holiday_work','friday_overtime','holiday_overtime',
+            'total_overtime','holiday_friday_overtime','late_in','early_out'];
+        foreach($parts as $part){
+            $sourceShift=$part['shift'];$sourceDay=$part['day_row'];
+            $sourceSessions=[];
+            foreach($sourceDay['segments']??[] as $segment){
+                $win=self::segmentWindow($segment,$base);
+                if(!$win)throw new LogicException('Invalid composite source segment');
+                foreach($sessions as $session){
+                    if(empty($session['in']))continue;
+                    $piece=$session;
+                    $piece['clip_start']=max($win[0],(int)($session['clip_start']??0));
+                    $piece['clip_end']=min($win[1],(int)($session['clip_end']??PHP_INT_MAX));
+                    if($piece['clip_end']>$piece['clip_start'])$sourceSessions[]=$piece;
+                }
+            }
+            $result=self::classifyDay($sourceShift,$jdate,$sourceDay,$sourceSessions,$fallbackHoliday);
+            if($totals===null){
+                $totals=$result;
+                foreach($fields as $key)$totals[$key]=0;
+                $totals['composite_parts']=[];
+                $totals['is_off']=true;
+            }
+            foreach($fields as $key)$totals[$key]+=(int)($result[$key]??0);
+            $attributed+=(int)($result['worked']??0);
+            $totals['is_off']=$totals['is_off']&&($result['is_off']??false);
+            $totals['composite_parts'][]=['request_id'=>$part['request_id']??0,
+                'absent_user_id'=>$part['absent_user_id']??null,'work'=>$result];
+        }
+        [$worked,$rawNight,$inMin,$outMax]=self::sessionTotals($shift,$jdate,$sessions);
+        $totals['worked']=$worked;
+        $totals['unattributed_work_minutes']=max(0,$worked-$attributed);
+        $totals['in']=$inMin?date('H:i',$inMin):null;
+        $totals['out']=$outMax?date('H:i',$outMax):null;
+        $totals['friday_workday']=$totals['friday_work']>0?1:0;
+        return $totals;
+    }
+    static function classifyDay($shift,$jdate,$dayRow,$sessions,$fallbackHoliday=false){
+        if(!empty($dayRow['composite_parts']))return self::classifyCompositeDay($shift,$jdate,$dayRow,$sessions,$fallbackHoliday);
+        $cal=self::calendarDay($jdate);if($shift===null){
             [$worked,$night,$inMin,$outMax]=self::sessionTotals([],$jdate,$sessions);
             $metrics=array_fill_keys(['in_shift','expected','overtime','surplus','shortage','night','friday','holiday','friday_work','holiday_work','friday_overtime','holiday_overtime','total_overtime','holiday_friday_overtime','friday_workday','late_in','early_out'],0);
             return array_merge($metrics,['jdate'=>$jdate,'worked'=>$worked,'in'=>$inMin?date('H:i',$inMin):null,'out'=>$outMax?date('H:i',$outMax):null,'is_off'=>true,'is_friday'=>self::isFriday($jdate),'is_holiday'=>(bool)$fallbackHoliday||!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']),'holiday_title'=>$cal['title']??'','holiday_source'=>$cal['source']??'']);
@@ -193,5 +244,5 @@ class ShiftCalc
         if($start!==null&&$end!==null&&!self::minuteInWindow($minutes,$start,$end))return ['ok'=>false,'reason'=>'ثبت تردد خارج از بازه مجاز تقویمی است.'];
         return ['ok'=>true];
     }
-    static function checkThreshold($shift,$jdate,$dayRow,$ts,$kind){$type=$shift['type']??'simple';$cfg=self::parseJson($dayRow['day_config']??null);$mins=(int)date('G',$ts)*60+(int)date('i',$ts);$traffic=self::checkTrafficWindow($dayRow,$ts);if(empty($traffic['ok']))return $traffic;if($type==='floating'||($type==='advanced'&&($cfg['type']??'')==='floating'))return['ok'=>true];$segs=self::daySegments($shift,$jdate,$dayRow);if(!$segs){if(!empty($shift['allow_offday']))return['ok'=>true];return['ok'=>false,'reason'=>'امروز برای شما شیفتی تعریف نشده است.'];}foreach($segs as $seg){$s=self::hm($seg['s']??null);$e=self::hm($seg['e']??null);if($kind==='in'){$es=self::hm($seg['es']??null);$ls=self::hm($seg['ls']??null);if($es===null)$es=$s!==null?max(0,$s-60):null;if($es!==null&&!empty($cfg['float_before']))$es=($es-max(0,(int)$cfg['float_before'])%1440+1440)%1440;if($ls===null)$ls=$s!==null?$s+60:null;if(self::minuteInWindow($mins,$es,$ls))return['ok'=>true,'seg'=>$seg];}else{$ee=self::hm($seg['ee']??null);$le=self::hm($seg['le']??null);if($ee===null)$ee=$e!==null?max(0,$e-60):null;if($le===null)$le=$e!==null?$e+60:null;if($ee!==null)$ee%=1440;if($le!==null)$le%=1440;if(self::minuteInWindow($mins,$ee,$le))return['ok'=>true,'seg'=>$seg];}}return['ok'=>false,'reason'=>"ثبت ".($kind==='in'?'ورود':'خروج')." خارج از بازهٔ مجاز شیفت است."];}
+    static function checkThreshold($shift,$jdate,$dayRow,$ts,$kind){if(!empty($dayRow['composite_parts'])){foreach($dayRow['composite_parts'] as $part){$result=self::checkThreshold($part['shift'],$jdate,$part['day_row'],$ts,$kind);if(!empty($result['ok'])){$result['request_id']=$part['request_id'];$result['absent_user_id']=$part['absent_user_id'];return $result;}}return ['ok'=>false,'reason'=>'زمان ثبت تردد با هیچ‌یک از نوبت‌های معتبر جایگزینی مطابقت ندارد.'];}$type=$shift['type']??'simple';$cfg=self::parseJson($dayRow['day_config']??null);$mins=(int)date('G',$ts)*60+(int)date('i',$ts);$traffic=self::checkTrafficWindow($dayRow,$ts);if(empty($traffic['ok']))return $traffic;if($type==='floating'||($type==='advanced'&&($cfg['type']??'')==='floating'))return['ok'=>true];$segs=self::daySegments($shift,$jdate,$dayRow);if(!$segs){if(!empty($shift['allow_offday']))return['ok'=>true];return['ok'=>false,'reason'=>'امروز برای شما شیفتی تعریف نشده است.'];}foreach($segs as $seg){$s=self::hm($seg['s']??null);$e=self::hm($seg['e']??null);if($kind==='in'){$es=self::hm($seg['es']??null);$ls=self::hm($seg['ls']??null);if($es===null)$es=$s!==null?max(0,$s-60):null;if($es!==null&&!empty($cfg['float_before']))$es=($es-max(0,(int)$cfg['float_before'])%1440+1440)%1440;if($ls===null)$ls=$s!==null?$s+60:null;if(self::minuteInWindow($mins,$es,$ls))return['ok'=>true,'seg'=>$seg];}else{$ee=self::hm($seg['ee']??null);$le=self::hm($seg['le']??null);if($ee===null)$ee=$e!==null?max(0,$e-60):null;if($le===null)$le=$e!==null?$e+60:null;if($ee!==null)$ee%=1440;if($le!==null)$le%=1440;if(self::minuteInWindow($mins,$ee,$le))return['ok'=>true,'seg'=>$seg];}}return['ok'=>false,'reason'=>"ثبت ".($kind==='in'?'ورود':'خروج')." خارج از بازهٔ مجاز شیفت است."];}
 }
