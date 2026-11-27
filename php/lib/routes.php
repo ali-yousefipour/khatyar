@@ -7173,22 +7173,26 @@ unset($policyRoute);
 
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
-  $req=Db::one("SELECT id,type,status,pending_on,approver_id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  $req=Db::one("SELECT id,type,unit,user_id,substitute_user_id,from_jdate,to_jdate,the_date,status,pending_on,approver_id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
   if(!_req_admin_can_view_request($u,$req))Http::error('این درخواست در دسترس شما نیست',403);
   // MySQL DDL implicitly commits even with CREATE TABLE IF NOT EXISTS.
   // Prepare storage before starting the deletion transaction.
   if(($req['type']??'')==='manual')_manual_provisional_schema();
+  $releaseNotice=null;
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
-    $locked=Db::one("SELECT id,type,status,pending_on,approver_id FROM requests WHERE id=? FOR UPDATE",[$id]);
+    $locked=Db::one("SELECT id,type,unit,user_id,substitute_user_id,from_jdate,to_jdate,the_date,status,pending_on,approver_id FROM requests WHERE id=? FOR UPDATE",[$id]);
     if(!$locked)Http::error('درخواست یافت نشد',404);
     if(!_req_admin_can_view_request($u,$locked))Http::error('این درخواست در دسترس شما نیست',403);
     if($locked['type']!==$req['type']||$locked['status']!==$req['status'])Http::error('وضعیت درخواست تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if(_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=?",[$id]);
+    if(_req_substitute_eligible($locked)&&!empty($locked['substitute_user_id']))
+      $releaseNotice=LeaveSubstituteCoverage::recordRelease($id,(int)$locked['user_id'],(int)$locked['substitute_user_id'],(int)$u['id'],$locked);
     if(($locked['type']??'')==='manual')_manual_provisional_revert($id);
     Db::run("DELETE FROM requests WHERE id=?",[$id]);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+  if($releaseNotice)LeaveSubstituteCoverage::sendRelease($releaseNotice);
   return ['id'=>$id,'deleted'=>true];
 }, false, ADMIN);
 
