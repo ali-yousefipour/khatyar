@@ -12795,7 +12795,7 @@ function substituteMonthDays(year, month) {
     return result;
 }
 function SubstituteCalendar() {
-    var _a, _b, _c, _e;
+    var _a, _b, _c, _e, _f, _g;
     const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
     const [year, setYear] = useState(Number(todayParts.year)), [month, setMonth] = useState(Number(todayParts.month));
     const [reload, setReload] = useState(0);
@@ -12804,6 +12804,8 @@ function SubstituteCalendar() {
         setHolidays(Object.fromEntries((rows || []).map(v => [String(v.jdate).replaceAll('/', '-'), v.title]))); }).catch(() => { if (live)
         setHolidayError('تعطیلات رسمی دریافت نشد؛ برای دریافت دوباره صفحه را باز کنید.'); }); return () => { live = false; }; }, []);
     const [users, setUsers] = useState([]), [uid, setUid] = useState(''), [search, setSearch] = useState(''), [status, setStatus] = useState('all');
+    const [lineFilter, setLineFilter] = useState('all'), [locationFilter, setLocationFilter] = useState('all'), [absentFilter, setAbsentFilter] = useState('all');
+    const [lines, setLines] = useState([]), [locationSegment, setLocationSegment] = useState(0), [locationLine, setLocationLine] = useState(''), [locationName, setLocationName] = useState(''), [locationReason, setLocationReason] = useState(''), [savingLocation, setSavingLocation] = useState(false);
     useEffect(() => { if (!uid)
         return; const timer = setInterval(() => setReload(v => v + 1), 60000); return () => clearInterval(timer); }, [uid]);
     const [data, setData] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState(''), [selected, setSelected] = useState(null);
@@ -12813,6 +12815,10 @@ function SubstituteCalendar() {
         return () => { var _a; (_a = detailRef.current) === null || _a === void 0 ? void 0 : _a.close(); };
     } }, [selected]);
     const days = useMemo(() => substituteMonthDays(year, month), [year, month]);
+    useEffect(() => { let mounted = true; fetch(API_BASE + '/admin/lines', { headers: tok(), cache: 'no-store' }).then(async (r) => { if (!r.ok)
+        throw Error('فهرست خطوط دریافت نشد'); return r.json(); }).then(v => { if (mounted)
+        setLines(Array.isArray(v) ? v : []); }).catch(() => { if (mounted)
+        setLines([]); }); return () => { mounted = false; }; }, []);
     useEffect(() => { let live = true; fetch(API_BASE + '/admin/substitute-calendar/users', { headers: tok(), cache: 'no-store' }).then(async (r) => { if (!r.ok)
         throw Error('دریافت نیروها ناموفق بود'); return r.json(); }).then(v => { if (live)
         setUsers(Array.isArray(v) ? v : []); }).catch(e => { if (live)
@@ -12825,10 +12831,53 @@ function SubstituteCalendar() {
         setData(v.days || {}); }).catch(e => { if (!controller.signal.aborted && e.name !== 'AbortError')
         setError(e.message); }).finally(() => { if (!controller.signal.aborted)
         setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload]);
-    const entries = date => { var _a, _b, _c; return [...(((_a = data[date]) === null || _a === void 0 ? void 0 : _a.cover) || []).map(v => ({ ...v, status: 'confirmed' })), ...(((_b = data[date]) === null || _b === void 0 ? void 0 : _b.reservations) || []).map(v => ({ ...v, status: 'pending' })), ...(((_c = data[date]) === null || _c === void 0 ? void 0 : _c.history) || []).map(v => ({ ...v, history_status: v.status, status: 'history' }))].filter(v => status === 'all' ? v.status !== 'history' : v.status === status); };
+    const rawEntries = date => { var _a, _b, _c; return [...(((_a = data[date]) === null || _a === void 0 ? void 0 : _a.cover) || []).map(v => ({ ...v, status: 'confirmed' })), ...(((_b = data[date]) === null || _b === void 0 ? void 0 : _b.reservations) || []).map(v => ({ ...v, status: 'pending' })), ...(((_c = data[date]) === null || _c === void 0 ? void 0 : _c.history) || []).map(v => ({ ...v, history_status: v.status, status: 'history' }))]; };
+    const knownEntries = days.flatMap(d => rawEntries(d.date));
+    const knownLocations = [...new Set(knownEntries.flatMap(v => { var _a; return (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).map(x => x === null || x === void 0 ? void 0 : x.service_location).filter(Boolean); }))].sort();
+    const knownLines = [...new Map(knownEntries.flatMap(v => { var _a; return (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).filter(Boolean).map(x => [String(x.line_id), { id: x.line_id, name: x.line_name }]); })).values()];
+    const knownAbsents = [...new Map(knownEntries.filter(v => v.absent_user_id).map(v => [String(v.absent_user_id), { id: v.absent_user_id, name: v.absent_name }])).values()];
+    const entries = date => rawEntries(date).filter(v => {
+        var _a, _b, _c, _e, _f, _g;
+        return (status === 'all' ? v.status !== 'history' : v.status === status)
+            && (absentFilter === 'all' || String(v.absent_user_id) === absentFilter)
+            && (lineFilter === 'all' || (lineFilter === 'unknown' ? !((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b.some(x => x === null || x === void 0 ? void 0 : x.line_id)) : (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e.some(x => String(x === null || x === void 0 ? void 0 : x.line_id) === lineFilter)))
+            && (locationFilter === 'all' || ((_g = (_f = v.shift) === null || _f === void 0 ? void 0 : _f.segment_locations) === null || _g === void 0 ? void 0 : _g.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
+    });
     const all = days.flatMap(d => entries(d.date));
-    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map(segment => { var _a, _b, _c, _e, _f; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? 'تخصیص قطعی' : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_c = v.shift) === null || _c === void 0 ? void 0 : _c.service_location) || ((_e = v.shift) === null || _e === void 0 ? void 0 : _e.line_name) || 'در منبع تخصیص ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': ((_f = v.shift) === null || _f === void 0 ? void 0 : _f.minutes) == null ? 'نامشخص' : fa(v.shift.minutes), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j, _k; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? 'تخصیص قطعی' : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': ((_k = v.shift) === null || _k === void 0 ? void 0 : _k.minutes) == null ? 'نامشخص' : fa(v.shift.minutes), 'شماره درخواست': fa(v.request_id) }); }); }));
     const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
+    const saveLocation = async () => {
+        if (!(selected === null || selected === void 0 ? void 0 : selected.assignment_id) || savingLocation)
+            return;
+        setSavingLocation(true);
+        setError('');
+        try {
+            const response = await fetch(API_BASE + '/admin/substitute-calendar/service-location', { method: 'PUT', headers: { ...tok(), 'Content-Type': 'application/json' }, body: JSON.stringify({
+                    assignment_id: selected.assignment_id, jdate: selected.date, segment_index: locationSegment, line_id: Number(locationLine),
+                    service_location: locationName, reason: locationReason
+                }) });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw Error(payload.message || payload.error || 'ثبت محل خدمت تاریخی ناموفق بود');
+            }
+            setSelected(null);
+            setReload(v => v + 1);
+        }
+        catch (e) {
+            setError(e.message || 'ثبت محل خدمت ناموفق بود');
+        }
+        finally {
+            setSavingLocation(false);
+        }
+    };
+    const openDetails = (v, date) => {
+        var _a, _b, _c, _e, _f, _g;
+        setLocationSegment(0);
+        setLocationLine(String(((_c = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.line_id) || ''));
+        setLocationName(((_g = (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[0]) === null || _g === void 0 ? void 0 : _g.service_location) || '');
+        setLocationReason('');
+        setSelected({ ...v, date });
+    };
     const move = delta => { const next = month + delta; if (next < 1) {
         setYear(year - 1);
         setMonth(12);
@@ -12861,7 +12910,17 @@ function SubstituteCalendar() {
                 React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
                 React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
                 React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
-                React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC"))),
+                React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC")),
+            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
+                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
+                React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u062A\u0627\u0631\u06CC\u062E\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
+            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
+                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
+                knownLocations.map(v => React.createElement("option", { key: v, value: v }, v))),
+            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC", value: absentFilter, onChange: e => setAbsentFilter(e.target.value) },
+                React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC"),
+                knownAbsents.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name)))),
         React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: () => { try {
                 exportXlsx(exportRows(), 'برنامه جایگزینی', 'substitute-calendar-' + year + '-' + month + '.xlsx');
             }
@@ -12900,7 +12959,7 @@ function SubstituteCalendar() {
                             d.weekday === 6 ? ' · جمعه' : '',
                             holidays[d.date] ? ' · ' + holidays[d.date] : '',
                             d.date === todayParts.year + '-' + todayParts.month + '-' + todayParts.day ? ' · امروز' : ''),
-                        entries(d.date).map((v, i) => { var _a, _b; return React.createElement("button", { className: "btn g", key: v.request_id + '-' + i, style: { display: 'block', whiteSpace: 'normal', width: '100%', marginTop: 8, borderInlineStart: '4px solid ' + (v.conflict ? '#b91c1c' : v.status === 'confirmed' ? '#15803d' : v.status === 'history' ? '#64748b' : '#b45309') }, onClick: () => setSelected({ ...v, date: d.date }) },
+                        entries(d.date).map((v, i) => { var _a, _b; return React.createElement("button", { className: "btn g", key: v.request_id + '-' + i, style: { display: 'block', whiteSpace: 'normal', width: '100%', marginTop: 8, borderInlineStart: '4px solid ' + (v.conflict ? '#b91c1c' : v.status === 'confirmed' ? '#15803d' : v.status === 'history' ? '#64748b' : '#b45309') }, onClick: () => openDetails(v, d.date) },
                             "\u0628\u0647\u200C\u062C\u0627\u06CC: ",
                             v.absent_name,
                             v.conflict ? ' · هشدار تداخل' : '',
@@ -12937,16 +12996,50 @@ function SubstituteCalendar() {
                 "\u0631\u0632\u0631\u0648\u06A9\u0646\u0646\u062F\u0647: ",
                 selected.reserved_by_name || 'ثبت نشده'),
             React.createElement("p", null,
-                "\u062E\u0637 \u06CC\u0627 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A: ",
-                ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.service_location) || ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.line_name) || 'در منبع تخصیص ثبت نشده'),
+                "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC: ",
+                ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.location_status) === 'verified' ? 'ثبت و تأییدشده' : ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.location_status) === 'partial' ? 'ناقص' : 'ثبت نشده'),
+            (((_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segments) || []).map((seg, i) => { var _a, _b, _c, _e, _f, _g; return React.createElement("p", { key: 'loc-' + i },
+                "\u0646\u0648\u0628\u062A ",
+                fa(i + 1),
+                ": ",
+                ((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[i]) === null || _c === void 0 ? void 0 : _c.line_name) || 'خط تاریخی ثبت نشده',
+                " \u00B7 ",
+                ((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[i]) === null || _g === void 0 ? void 0 : _g.service_location) || 'محل خدمت تاریخی ثبت نشده'); }),
             React.createElement("p", null,
                 "\u0632\u0645\u0627\u0646 \u0631\u0632\u0631\u0648: ",
                 selected.reserved_at ? fa(selected.reserved_at) : 'ثبت نشده'),
             React.createElement("p", null, selected.status === 'confirmed' ? 'تخصیص قطعی' : selected.status === 'history' ? (selected.history_status === 'released' ? 'رزرو آزادشده؛ برنامه فعال نیست' : 'لغو یا رد شده؛ برنامه فعال نیست') : 'رزرو موقت؛ الزام حضور نیست'),
-            (((_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segments) || []).map((v, i) => React.createElement("p", { key: i },
+            (((_f = selected.shift) === null || _f === void 0 ? void 0 : _f.segments) || []).map((v, i) => React.createElement("p", { key: i },
                 fa(v.s || '—'),
                 " \u062A\u0627 ",
                 fa(v.e || '—'))),
+            selected.status === 'confirmed' && selected.assignment_id && React.createElement("section", { "aria-label": "\u062B\u0628\u062A \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", style: { borderTop: '1px solid var(--border,#ddd)', paddingTop: 12 } },
+                React.createElement("h5", null, "\u0627\u0635\u0644\u0627\u062D \u0645\u062C\u0627\u0632 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC (\u0628\u0627 \u062B\u0628\u062A \u0633\u0627\u0628\u0642\u0647)"),
+                React.createElement("label", null,
+                    "\u0646\u0648\u0628\u062A \u06A9\u0627\u0631\u06CC ",
+                    React.createElement("select", { className: "input", value: locationSegment, onChange: e => { var _a, _b, _c, _e, _f, _g; const index = Number(e.target.value); setLocationSegment(index); setLocationLine(String(((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.line_id) || '')); setLocationName(((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[index]) === null || _g === void 0 ? void 0 : _g.service_location) || ''); } }, (((_g = selected.shift) === null || _g === void 0 ? void 0 : _g.segments) || []).map((v, i) => React.createElement("option", { key: i, value: i },
+                        fa(i + 1),
+                        " \u00B7 ",
+                        fa(v.s || '—'),
+                        " \u062A\u0627 ",
+                        fa(v.e || '—'))))),
+                React.createElement("label", null,
+                    "\u062E\u0637 \u062E\u062F\u0645\u062A ",
+                    React.createElement("select", { className: "input", "aria-label": "\u062E\u0637 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", value: locationLine, onChange: e => setLocationLine(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0637 \u0645\u0639\u062A\u0628\u0631"),
+                        lines.map(v => React.createElement("option", { key: v.id, value: v.id },
+                            v.code,
+                            " ",
+                            v.origin || '',
+                            " \u0640 ",
+                            v.destination || '')))),
+                React.createElement("label", null,
+                    "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A ",
+                    React.createElement("input", { className: "input", "aria-label": "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", maxLength: 255, value: locationName, onChange: e => setLocationName(e.target.value) })),
+                React.createElement("label", null,
+                    "\u0639\u0644\u062A \u062B\u0628\u062A \u06CC\u0627 \u0627\u0635\u0644\u0627\u062D ",
+                    React.createElement("textarea", { className: "input", "aria-label": "\u0639\u0644\u062A \u0627\u0635\u0644\u0627\u062D \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", maxLength: 500, value: locationReason, onChange: e => setLocationReason(e.target.value) })),
+                React.createElement("button", { className: "btn p", disabled: savingLocation || !locationLine || locationName.trim().length < 2 || locationReason.trim().length < 3, onClick: saveLocation }, savingLocation ? 'در حال ثبت…' : 'ذخیره محل خدمت و تاریخچه')),
             React.createElement("button", { className: "btn g", autoFocus: true, onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")));
 }
 function ShiftManager() {
