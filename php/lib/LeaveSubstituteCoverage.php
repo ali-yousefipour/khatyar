@@ -9,8 +9,11 @@ final class LeaveSubstituteCoverage {
         $v=str_replace('/','-',trim((string)$raw));
         if(!preg_match('/^(1[34][0-9]{2})-([0-9]{1,2})-([0-9]{1,2})$/D',$v,$m))return null;
         $month=(int)$m[2];$day=(int)$m[3];
-        if($month<1||$month>12||$day<1||$day>31)return null;
-        return sprintf('%04d-%02d-%02d',(int)$m[1],$month,$day);
+        if($month<1||$month>12||$day<1)return null;
+        // A bad Jalali day must never reserve a shift or expand an effective assignment.
+        // Use the shared authoritative calendar rather than treating every month as 31 days.
+        require_once __DIR__.'/IranCalendar.php';
+        return IranCalendar::normalize(sprintf('%04d-%02d-%02d',(int)$m[1],$month,$day));
     }
     private static function range(array $body): ?array {
         $from=self::day($body['from_jdate']??$body['the_date']??null);
