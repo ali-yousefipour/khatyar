@@ -885,6 +885,14 @@ route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
     if($rid!=='')$completedByRequest[$rid]=$check['captured_at'];
     else $legacyBySlot[(string)($check['slot']??'')]=$check['captured_at'];
   }
+  $slotRequestCount=[];
+  foreach($rows as $noticeRow){
+    $noticeData=json_decode((string)($noticeRow['data']??''),true);
+    if(($noticeData['type']??'')!=='presence_check')continue;
+    $noticeSlot=(string)($noticeData['slot']??'');
+    if(!preg_match('/^\\d{2}:\\d{2}$/',$noticeSlot))continue;
+    $slotRequestCount[$noticeSlot]=($slotRequestCount[$noticeSlot]??0)+1;
+  }
   $items=[];
   foreach($rows as $row){
     $data=json_decode($row['data'],true);
@@ -894,7 +902,9 @@ route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
     if(isset($items[$id]))continue;
     $sent=strtotime($row['created_at']);
     $challengeStart=(int)($data['ts']??$sent);
-    $doneAt=$completedByRequest[$id]??($legacyBySlot[$slot]??null);
+    // A legacy photo with no request ID cannot prove which of multiple
+    // simultaneous challenges it fulfilled; do not mark an arbitrary one done.
+    $doneAt=$completedByRequest[$id]??((($slotRequestCount[$slot]??0)===1)?($legacyBySlot[$slot]??null):null);
     $done=$doneAt && strtotime($doneAt)>=$challengeStart;
     if($done){
       unset($completedByRequest[$id]);
