@@ -1055,7 +1055,10 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   // MySQL advisory lock is per account/date/slot: concurrent client retries
   // cannot race between the existence check and the insert.
   $requestId=(string)$b['request_id'];
-  $lockName='pc:'.substr(hash('sha256',(int)$u['id'].'|'.$requestId),0,60);
+  // Serialize all random captures for the same user/day as one scope so
+  // the six-per-day cap cannot be bypassed by parallel distinct request IDs.
+  $lockScope=!empty($b['random'])?'random:'.$date:$requestId;
+  $lockName='pc:'.substr(hash('sha256',(int)$u['id'].'|'.$lockScope),0,60);
   $locked=Db::one("SELECT GET_LOCK(?,12) AS acquired",[$lockName]);
   if((int)($locked['acquired']??0)!==1)Http::error('ثبت قبلی در حال پردازش است؛ دوباره تلاش کنید.',503);
   try{
@@ -1063,6 +1066,10 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
     $ex=Db::one("SELECT id,selfie_path,vehicles_photo_path FROM presence_checks WHERE user_id=? AND request_id=?",[(int)$u['id'],$requestId]);
     if($ex&&!empty($ex['selfie_path'])&&!empty($ex['vehicles_photo_path']))
       return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];
+    if(!$ex&&!empty($b['random'])){
+      $counts=Db::one("SELECT COUNT(*) AS n FROM presence_checks WHERE user_id=? AND slot_date=? AND request_id LIKE 'local\\_%' ESCAPE '\\\\'",[(int)$u['id'],$date]);
+      if((int)($counts['n']??0)>=6)Http::error('سقف شش صحت‌سنجی تصادفی روزانه تکمیل شده است.',422);
+    }
     $selfiePath=Media::saveBase64($selfie,'presence',960,65);
     if (!$selfiePath)throw new RuntimeException('selfie file persistence failed');
     $vehiclePath=Media::saveBase64($veh,'presence',1280,68);
