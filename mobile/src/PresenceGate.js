@@ -54,6 +54,7 @@ export default function PresenceGate({navigationRef}){
  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;dueRef.current=null}},[]);
  useEffect(()=>{
    if(previousUserRef.current!==userId){
+     const previousUserId=previousUserRef.current;
      previousUserRef.current=userId;
      const stale=dueRef.current;
      if(stale)clearPresenceClock(stale.requestId);
@@ -63,7 +64,9 @@ export default function PresenceGate({navigationRef}){
      openedRef.current=false;
      wizardReadyRef.current=false;
      wizardWasActiveRef.current=false;
-     stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+     // Initial 0 -> authenticated hydration is not an account switch.
+     // A notification-started native alarm must survive that transition.
+     if(previousUserId>0)stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
    }
  },[userId]);
  useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
