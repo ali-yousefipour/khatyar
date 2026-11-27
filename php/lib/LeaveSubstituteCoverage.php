@@ -421,6 +421,7 @@ final class LeaveSubstituteCoverage {
         $config=ShiftCalc::parseJson($row['day_config']??null);
         if(($config['type']??'')==='floating')return null;
         $segments=ShiftCalc::daySegments($shift,$date,$row);
+        $allowed=$context['checkin_lines'][$userId]??[];
         $minutes=0;
         foreach($segments as &$segment){
             $minutes+=ShiftCalc::segmentLength($segment);
@@ -438,7 +439,7 @@ final class LeaveSubstituteCoverage {
             'planned_minutes'=>($shift['type']??'')==='floating'?null:$minutes,
             'duty_minutes'=>$segments?ShiftCalc::expectedMinutes($shift,$date,$row):null,
             // No historical service-location field exists on this assignment source.
-            'line_id'=>null,'line_name'=>null,'service_location'=>null];
+            'line_id'=>null,'line_name'=>null,'service_location'=>null,'allowed_service_lines'=>$allowed];
     }
     /** Immutable-at-capture line name; never reconstruct historic service from today's profile. */
     private static function attendanceEvidence(int $uid,string $from,string $to): array {
@@ -729,9 +730,18 @@ final class LeaveSubstituteCoverage {
         $owners=[];
         foreach($covers as $r)$owners[(int)$r['absent_user_id']]=true;
         foreach($pending as $r)$owners[(int)$r['user_id']]=true;
-        $context=['assignments'=>[],'days'=>[],'auto'=>[]];
+        $context=['assignments'=>[],'days'=>[],'auto'=>[],'checkin_lines'=>[]];
         if($owners){
             $ids=array_keys($owners);$slots=implode(',',array_fill(0,count($ids),'?'));
+            // Only explicit attendance permissions, never view-only user_lines.
+            // This describes current configuration, not historical attendance evidence.
+            if(function_exists('_db_table_exists_safe')&&_db_table_exists_safe('user_line_checkin_permissions')){
+                foreach(Db::all("SELECT cp.user_id,l.id,l.code,l.origin,l.destination FROM user_line_checkin_permissions cp JOIN user_lines ul ON ul.user_id=cp.user_id AND ul.line_id=cp.line_id JOIN `lines` l ON l.id=cp.line_id WHERE cp.user_id IN ($slots) ORDER BY l.code,l.id",$ids) as $line){
+                    $uidLine=(int)($line['user_id']??0);$lid=(int)($line['id']??0);if($uidLine<=0||$lid<=0)continue;
+                    $name=trim((string)($line['code']??'').' '.trim((string)($line['origin']??'').' ـ '.(string)($line['destination']??''),' ـ'));
+                    $context['checkin_lines'][$uidLine][]=['line_id'=>$lid,'line_name'=>$name?:('خط '.$lid)];
+                }
+            }
             $assignments=Db::all("SELECT us.user_id,us.shift_id,us.from_jdate,us.to_jdate,s.* FROM user_shifts us LEFT JOIN shifts s ON s.id=us.shift_id WHERE us.user_id IN ($slots) AND (us.shift_id=0 OR s.is_active=1) ORDER BY us.id DESC",$ids);
             $shiftIds=[];
             foreach($assignments as $row){$context['assignments'][(int)$row['user_id']][]=$row;if((int)$row['shift_id']>0)$shiftIds[(int)$row['shift_id']]=true;}
@@ -756,7 +766,7 @@ final class LeaveSubstituteCoverage {
                 $seenCovers[$key]=true;
                 $shift=self::requesterShift((int)$cover['absent_user_id'],$day,$context);
                 if($shift&&$shift['type']!=='floating'&&!$shift['segments'])continue;
-                $shift=self::attachServiceLocation($shift,$serviceSnapshots[(int)$cover['assignment_id']][$day]??[]);
+                $shift=self::attachServiceLocation($shift,$serviceSnapshots[(int)($cover['assignment_id']??0)][$day]??[]);
                 $completion=self::completedByAttendance($day,$shift,$attendance);
                 $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],
                     'assignment_id'=>isset($cover['assignment_id'])?(int)$cover['assignment_id']:null,
