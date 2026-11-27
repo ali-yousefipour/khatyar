@@ -7614,7 +7614,7 @@ function substituteSegmentPlannedMinutes(segment){
   const numeric=Number(explicit);return Number.isFinite(numeric)&&numeric>=0?numeric:null;
  }
  const clock=value=>{
-  const match=/^(\\d{1,2}):([0-5]\\d)$/.exec(String(value??''));
+  const match=/^(\d{1,2}):([0-5]\d)$/.exec(String(value??''));
   if(!match)return null;
   const hour=Number(match[1]);return hour<=47?hour*60+Number(match[2]):null;
  };
