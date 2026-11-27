@@ -38,6 +38,7 @@ assert.equal(summarize({is_off:true,minutes:0},{cover:[cover.cover[0],cover.cove
 assert.equal(summarize({is_off:true,minutes:0},{cover:[{request_id:3,shift:null}]}).unknown,true,'unknown duty not represented as known zero');
 assert.equal(summarize({is_off:true,minutes:0},{reservations:cover.cover}).working,false,'pending reservations do not create duty');
 assert.ok(src.includes('shiftMissing=days.length===0'),'temporary substitute shift days display even without permanent shift');
+for(const marker of ['setScheduleFromCache(true)','setScheduleFromCache(false)','زمان آخرین همگام‌سازی این کش مشخص نیست','آخرین دریافت موفق برنامه'])assert.ok(src.includes(marker),'explicit stale/offline calendar metadata: '+marker);
 assert.ok(request.includes('setSub(prev=>'),'selection must be checked after a date change');
 assert.ok(request.includes('available:false,reason:'),'stale substitute selection must be disabled');
 console.log('PASS shift calendar: approved leave, named substitute, authoritative requester shift and dates');
