@@ -877,8 +877,14 @@ route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
   $rows=Db::all("SELECT id,data,created_at FROM notifications
     WHERE user_id=? AND created_at>=? AND created_at<? AND data LIKE ?
     ORDER BY created_at DESC,id DESC",[(int)$u['id'],$start,$end,'%"presence_check"%']);
-  $checks=Db::all("SELECT slot,captured_at FROM presence_checks WHERE user_id=? AND slot_date=?",[(int)$u['id'],$today]);
-  $completed=array_column($checks,'captured_at','slot');
+  try{$checks=Db::all("SELECT slot,captured_at,request_id FROM presence_checks WHERE user_id=? AND slot_date=?",[(int)$u['id'],$today]);}
+  catch(Throwable $schemaNotMigrated){$checks=Db::all("SELECT slot,captured_at FROM presence_checks WHERE user_id=? AND slot_date=?",[(int)$u['id'],$today]);}
+  $completedByRequest=[];$legacyBySlot=[];
+  foreach($checks as $check){
+    $rid=(string)($check['request_id']??'');
+    if($rid!=='')$completedByRequest[$rid]=$check['captured_at'];
+    else $legacyBySlot[(string)($check['slot']??'')]=$check['captured_at'];
+  }
   $items=[];
   foreach($rows as $row){
     $data=json_decode($row['data'],true);
@@ -887,10 +893,14 @@ route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
     $id=$data['request_id']??('slot_'.$slot);
     if(isset($items[$id]))continue;
     $sent=strtotime($row['created_at']);
-    $doneAt=$completed[$slot]??null;
-    $done=$doneAt && strtotime($doneAt)>=$sent;
-    if($done)unset($completed[$slot]);
-    $deadline=(int)($data['ts']??$sent)+max(1,(int)($data['window_minutes']??1))*60;
+    $challengeStart=(int)($data['ts']??$sent);
+    $doneAt=$completedByRequest[$id]??($legacyBySlot[$slot]??null);
+    $done=$doneAt && strtotime($doneAt)>=$challengeStart;
+    if($done){
+      unset($completedByRequest[$id]);
+      if(!empty($legacyBySlot[$slot]))unset($legacyBySlot[$slot]);
+    }
+    $deadline=$challengeStart+max(1,(int)($data['window_minutes']??1))*60;
     $items[$id]=['id'=>(string)$id,'slot'=>$slot,'sent_time'=>date('H:i',$sent),
       'immediate'=>!empty($data['immediate']),
       'status'=>$done?'done':(time()<$deadline?'pending':'missed')];
