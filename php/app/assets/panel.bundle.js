@@ -12844,6 +12844,21 @@ function SubstituteCalendar() {
             && (locationFilter === 'all' || ((_g = (_f = v.shift) === null || _f === void 0 ? void 0 : _f.segment_locations) === null || _g === void 0 ? void 0 : _g.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
     });
     const all = days.flatMap(d => entries(d.date));
+    const confirmed = days.flatMap(d => entries(d.date).filter(v => v.status === 'confirmed').map(v => ({ ...v, date: d.date })));
+    const pendingCount = all.filter(v => v.status === 'pending').length;
+    const confirmedDuty = confirmed.reduce((n, v) => { var _a, _b; return n + (Number((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.duty_minutes) !== null && _b !== void 0 ? _b : 0) || 0); }, 0);
+    const unknownDuty = confirmed.some(v => { var _a; return ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.duty_minutes) == null; });
+    const plannedMinutes = confirmed.reduce((n, v) => { var _a, _b, _c, _e; return n + (Number((_e = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.planned_minutes) !== null && _b !== void 0 ? _b : (_c = v.shift) === null || _c === void 0 ? void 0 : _c.minutes) !== null && _e !== void 0 ? _e : 0) || 0); }, 0);
+    const statCards = [
+        ['روزهای دارای شیفت', new Set(confirmed.map(v => v.date)).size],
+        ['شیفت قطعی', confirmed.length],
+        ['رزرو در انتظار', pendingCount],
+        ['نیروهای اصلی', new Set(confirmed.map(v => v.absent_user_id).filter(Boolean)).size],
+        ['موظفی (ساعت)', unknownDuty ? (fa((confirmedDuty / 60).toFixed(1)) + ' + نامشخص') : fa((confirmedDuty / 60).toFixed(1))],
+        ['برنامه‌ریزی‌شده (ساعت)', fa((plannedMinutes / 60).toFixed(1))],
+        ['تداخل‌ها', all.filter(v => v.conflict).length],
+        ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length]
+    ];
     const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j, _k; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': ((_k = v.shift) === null || _k === void 0 ? void 0 : _k.minutes) == null ? 'نامشخص' : fa(v.shift.minutes), 'شماره درخواست': fa(v.request_id) }); }); }));
     const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
     const saveLocation = async () => {
@@ -12937,19 +12952,9 @@ function SubstituteCalendar() {
             React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
         busy && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062A\u0642\u0648\u06CC\u0645\u2026"),
         uid && !busy && React.createElement(React.Fragment, null,
-            React.createElement("p", null,
-                "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC: ",
-                fa(all.filter(v => v.status === 'confirmed').length),
-                " \u00B7 \u0631\u0632\u0631\u0648 \u0645\u0648\u0642\u062A: ",
-                fa(all.filter(v => v.status === 'pending').length),
-                " \u00B7 \u0631\u0648\u0632\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0628\u0631\u0646\u0627\u0645\u0647: ",
-                fa(days.filter(d => entries(d.date).length).length),
-                " \u00B7 \u0645\u062C\u0645\u0648\u0639 \u0633\u0627\u0639\u0627\u062A \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC\u200C\u0634\u062F\u0647: ",
-                fa((all.filter(v => v.status !== 'history').reduce((sum, v) => { var _a; return sum + (Number((_a = v.shift) === null || _a === void 0 ? void 0 : _a.minutes) || 0); }, 0) / 60).toFixed(1)),
-                " (\u062D\u0636\u0648\u0631 \u0648\u0627\u0642\u0639\u06CC \u0646\u06CC\u0633\u062A) \u00B7 \u0634\u06CC\u0641\u062A\u200C\u0647\u0627\u06CC \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647: ",
-                fa(all.filter(v => v.status === 'confirmed' && v.completion_status === 'completed').length),
-                " \u00B7 \u0647\u0634\u062F\u0627\u0631 \u062A\u062F\u0627\u062E\u0644 \u0631\u0632\u0631\u0648\u0647\u0627: ",
-                fa(all.filter(v => v.conflict).length)),
+            React.createElement("div", { className: "sub-calendar-stat-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, margin: '12px 0' } }, statCards.map(([label, value]) => React.createElement("div", { key: label, style: { border: '1px solid var(--border,#ddd)', borderRadius: 12, padding: 12, background: 'var(--surface,#fff)' } },
+                React.createElement("div", { style: { fontSize: 12, opacity: .75 } }, label),
+                React.createElement("strong", { style: { display: 'block', fontSize: 19, marginTop: 6 } }, typeof value === 'number' ? fa(value) : value)))),
             !all.length && React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0648 \u0641\u06CC\u0644\u062A\u0631\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
             React.createElement("div", { style: { overflowX: 'auto' } },
                 React.createElement("div", { className: "sub-calendar-grid", style: { display: 'grid', gridTemplateColumns: 'repeat(7,minmax(120px,1fr))', minWidth: 840, gap: 6 } },
