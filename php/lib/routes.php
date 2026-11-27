@@ -6283,12 +6283,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
   }
   if ($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
   if($reservationNotification)LeaveSubstituteCoverage::sendReservation($reservationNotification);
-   // اطلاع به نیروی جایگزین معرفی‌شده
-  if ($sub) {
-    try {
-      Push::notify([$sub], 'معرفی به‌عنوان جایگزین', trim(($u['first_name']??'').' '.($u['last_name']??'')).' شما را به‌عنوان نیروی جایگزین در یک درخواست مرخصی/ماموریت معرفی کرده است.', ['type'=>'substitute_assigned','request_id'=>$id]);
-    } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  }
+  // The authenticated requester and substitute are notified once via sendReservation after commit.
   return ['id'=>$id,'minutes'=>$minutes,'provisional_attendance_id'=>$provisionalAttendanceId];
 });
 
