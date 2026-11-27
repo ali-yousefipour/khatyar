@@ -12794,6 +12794,28 @@ function substituteMonthDays(year, month) {
     }
     return result;
 }
+function substituteSegmentPlannedMinutes(segment) {
+    var _a;
+    if (!segment || typeof segment !== 'object')
+        return null;
+    const explicit = (_a = segment.planned_minutes) !== null && _a !== void 0 ? _a : segment.duration_min;
+    if (explicit !== null && explicit !== undefined && explicit !== '') {
+        const numeric = Number(explicit);
+        return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+    }
+    const clock = value => {
+        const match = /^(\d{1,2}):([0-5]\d)$/.exec(String(value !== null && value !== void 0 ? value : ''));
+        if (!match)
+            return null;
+        const hour = Number(match[1]);
+        return hour <= 47 ? hour * 60 + Number(match[2]) : null;
+    };
+    const from = clock(segment.s), to = clock(segment.e);
+    if (from === null || to === null)
+        return null;
+    const length = to >= from ? to - from : to + 1440 - from;
+    return length > 0 && length <= 1440 ? length : null;
+}
 function SubstituteCalendar() {
     var _a, _b, _c, _e, _f, _g;
     const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
@@ -12861,7 +12883,7 @@ function SubstituteCalendar() {
         ['تداخل‌ها', all.filter(v => v.conflict).length],
         ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length]
     ];
-    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j, _k; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': ((_k = v.shift) === null || _k === void 0 ? void 0 : _k.minutes) == null ? 'نامشخص' : fa(v.shift.minutes), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
     const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
     const saveLocation = async () => {
         if (!(selected === null || selected === void 0 ? void 0 : selected.assignment_id) || savingLocation)
