@@ -68,8 +68,8 @@ export default function PresenceGate({navigationRef}){
      // A notification-started native alarm must survive that transition.
      if(previousUserId>0){
        stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
-       suspendLocalRandomSchedule().catch(()=>{});
-       clearFixedPresenceNotifications().catch(()=>{});
+       suspendLocalRandomSchedule(previousUserId).catch(()=>{});
+       clearFixedPresenceNotifications(previousUserId).catch(()=>{});
      }
    }
  },[userId]);
