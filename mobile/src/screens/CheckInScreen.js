@@ -1491,6 +1491,7 @@ function CheckInShiftTab(){
                 ?'خط خدمت: '+cover.shift.segment_locations[i].line_name+' · '+cover.shift.segment_locations[i].service_location
                 :'محل خدمت تاریخی این نوبت ثبت نشده است.'}</Text>
             </View>):<Text style={s.shiftCoverNoticeText}>ساعت معتبر این تخصیص در پاسخ سرور مشخص نشده است.</Text>}
+            <Text style={s.shiftCoverNoticeText}>{cover.completion_status==='completed'?'این نوبت بر اساس تردد واقعی انجام شده است.':'انجام این نوبت هنوز با شواهد کامل تردد تأیید نشده است.'}</Text>
             {cover.reserved_by_name?<Text style={s.shiftCoverNoticeText}>رزروکننده: {cover.reserved_by_name}</Text>:null}
           </View>)}
           {(coverageDay.reservations||[]).map(reservation=><View key={'reservation-'+reservation.request_id} style={s.shiftLeaveNotice}>
