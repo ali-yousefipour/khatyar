@@ -151,10 +151,31 @@ export async function clearLocalRandomSchedule() {
   if(raw){try{for(const item of JSON.parse(raw)?.items||[])if(item.notification_id)await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{})}catch{}}
   await AsyncStorage.removeItem(PRESENCE_LOCAL_SCHEDULE_KEY);
 }
-export async function localPresenceCompletions() {
-  try{return JSON.parse(await AsyncStorage.getItem('presence_local_completions_v1')||'{}')}catch{return {}}
+export async function localPresenceCompletions(userId=0) {
+  let stored={};
+  try{stored=JSON.parse(await AsyncStorage.getItem('presence_local_completions_v1')||'{}')}catch{return {}}
+  if(!stored||typeof stored!=='object'||Array.isArray(stored))return {};
+  if(!Number(userId))return stored;
+  const uid=Number(userId),prefix='user:'+uid+':',owned={};
+  for(const [key,item] of Object.entries(stored)){
+    if(Number(item?.user_id||0)!==uid)continue;
+    if(!key.startsWith('user:'))owned[key]=item; // Legacy single-user records
+  }
+  for(const [key,item] of Object.entries(stored)){
+    if(key.startsWith(prefix)&&Number(item?.user_id||0)===uid)
+      owned[key.slice(prefix.length)]=item;
+  }
+  return owned;
 }
 export async function markLocalPresenceCompleted(requestId,state='done',metadata={}) {
-  const all=await localPresenceCompletions();all[String(requestId)]={...metadata,status:state,time:Date.now()};
+  const all=await localPresenceCompletions(),uid=Number(metadata?.user_id||0);
+  const key=uid>0?'user:'+uid+':'+String(requestId):String(requestId);
+  const now=Date.now();
+  all[key]={...metadata,status:state,time:now};
+  // Completed records older than three months are backed by the server. Never
+  // prune queued/failed evidence that still requires offline synchronization.
+  for(const [id,item] of Object.entries(all)){
+    if(item?.status==='done'&&Number(item.time||0)<now-90*86400000)delete all[id];
+  }
   await AsyncStorage.setItem('presence_local_completions_v1',JSON.stringify(all));
 }
