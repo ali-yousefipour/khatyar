@@ -6991,7 +6991,7 @@ function _req_edit_approved($id,array $body,array $actor){
   $pdo=Db::pdo();
   try{
     _zone_leave_requirement_storage();_req_edit_storage();_req_prepare_approval_storage(array_replace($before,['substitute_user_id'=>$body['substitute_user_id']??$before['substitute_user_id']??null]));
-    $reservationNotification=null;
+    $reservationNotification=null;$releaseNotification=null;
     if(_req_substitute_eligible($before))LeaveSubstituteCoverage::prepareReservationAudit();
     $pdo->beginTransaction();
     $before=Db::one('SELECT * FROM requests WHERE id=? FOR UPDATE',[$id]);
@@ -7025,10 +7025,14 @@ function _req_edit_approved($id,array $body,array $actor){
         $reservationNotification=LeaveSubstituteCoverage::recordReservation($id,(int)$after['user_id'],(int)$after['substitute_user_id'],(int)$actor['id'],$after,'changed');
       }
     }
+    if($domain&&_req_substitute_eligible($before)&&!empty($before['substitute_user_id'])
+      &&(int)$before['substitute_user_id']!==(int)($after['substitute_user_id']??0))
+      $releaseNotification=LeaveSubstituteCoverage::recordRelease($id,(int)$before['user_id'],(int)$before['substitute_user_id'],(int)$actor['id'],$before);
     $prior=_req_edit_state($before);$next=_req_edit_state($after);if($attendance){$prior['attendance']=$attendance['before'];$next['attendance']=$attendance['after'];}
     $audit=Db::insert('INSERT INTO request_edit_history(request_id,actor_id,edit_reason,before_json,after_json) VALUES(?,?,?,?,?)',[$id,(int)$actor['id'],$why,json_encode($prior,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),json_encode($next,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
     $pdo->commit();
     if($reservationNotification)LeaveSubstituteCoverage::sendReservation($reservationNotification);
+    if($releaseNotification)LeaveSubstituteCoverage::sendRelease($releaseNotification);
     return ['id'=>$id,'status'=>'approved','minutes'=>$after['minutes'],'edit_id'=>$audit,'message'=>'درخواست تأییدشده اصلاح شد.'];
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
 }
