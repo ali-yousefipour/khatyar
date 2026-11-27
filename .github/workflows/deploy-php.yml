@@ -40,6 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           cd php
+          bash -n ../.github/scripts/publish-local-vendor.sh
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
@@ -340,10 +341,23 @@ jobs:
           # Match the proven FTPS transport used by publish-local-vendor.sh.
           # Reject a wrong account or certificate before staging any private modules.
           FTP_CERT="${RUNNER_TEMP}/khatyar-deploy-ftp-cert.pem"
-          timeout 20s openssl s_client -starttls ftp -connect "${FTP_HOST}:21" -servername "${FTP_HOST}" -showcerts </dev/null 2>/dev/null | openssl x509 -out "${FTP_CERT}"
-          ACTUAL_FINGERPRINT="$(openssl x509 -in "${FTP_CERT}" -noout -fingerprint -sha1 | cut -d= -f2)"
           EXPECTED_FINGERPRINT="89:D1:FA:62:43:86:94:55:EC:ED:41:A3:7C:82:D1:6C:DF:40:07:34"
-          [ "${ACTUAL_FINGERPRINT}" = "${EXPECTED_FINGERPRINT}" ] || { echo "::error::Unexpected FTPS certificate; upload aborted"; exit 1; }
+          ftps_verified=false
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "${FTP_CERT}"
+            echo "Verifying pinned FTPS endpoint: attempt ${attempt}/6"
+            if timeout 20s openssl s_client -starttls ftp -connect "${FTP_HOST}:21" -servername "${FTP_HOST}" -showcerts </dev/null 2>/dev/null | openssl x509 -out "${FTP_CERT}" 2>/dev/null; then
+              ACTUAL_FINGERPRINT="$(openssl x509 -in "${FTP_CERT}" -noout -fingerprint -sha1 | cut -d= -f2)"
+              if [ "${ACTUAL_FINGERPRINT}" != "${EXPECTED_FINGERPRINT}" ]; then
+                echo "::error::Unexpected FTPS certificate; upload aborted"
+                exit 1
+              fi
+              ftps_verified=true
+              break
+            fi
+            if [ "${attempt}" -lt 6 ]; then sleep $((attempt * 5)); fi
+          done
+          [ "${ftps_verified}" = true ] || { echo "::error::Pinned FTPS endpoint was unreachable after retries; upload aborted"; exit 1; }
           timeout 35s lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
             set cmd:fail-exit yes;
             set ftp:ssl-force true;
