@@ -31,7 +31,19 @@ foreach ([0, 5, 3000] as $count) {
             if ($a->numFiles!==$b->numFiles) throw new RuntimeException('ZIP entry count changed');
             for ($i=0;$i<$a->numFiles;$i++) {
                 $name=$a->getNameIndex($i);
-                if ($b->locateName($name)===false || $a->getFromName($name)!==$b->getFromName($name)) throw new RuntimeException('Changed archive entry: '.$name);
+                if ($b->locateName($name)===false) throw new RuntimeException('Missing archive entry: '.$name);
+                $baselinePart=$a->getFromName($name);
+                $currentPart=$b->getFromName($name);
+                if ($name==='[Content_Types].xml') {
+                    // PNG media support was added after the baseline. This exact OPC
+                    // MIME declaration is the only allowed structural difference.
+                    $pngType='<Default Extension="png" ContentType="image/png"/>';
+                    if (substr_count($currentPart,$pngType)!==1 || str_contains($baselinePart,$pngType)) {
+                        throw new RuntimeException('Invalid or duplicate PNG media content type');
+                    }
+                    $currentPart=str_replace($pngType,'',$currentPart);
+                }
+                if ($baselinePart!==$currentPart) throw new RuntimeException('Changed archive entry: '.$name);
             }
             echo "PASS exact archive equivalence for $count rows\n";
         } finally { $a->close();$b->close(); }
