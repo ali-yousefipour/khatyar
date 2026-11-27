@@ -206,6 +206,9 @@ final class LeaveSubstituteCoverage {
             if(empty($user['is_admin']))Http::error('دسترسی مدیریتی لازم است',403);
             return Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS name,u.is_active FROM users u WHERE (u.can_be_substitute=1 AND u.is_active=1) OR EXISTS(SELECT 1 FROM requests r WHERE r.substitute_user_id=u.id AND r.type='annual' AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')) ORDER BY name,u.id");
         },false,3);
+        route('PUT','/api/admin/substitute-calendar/service-location',static function($params,$body,$user){
+            return self::saveServiceLocation($body,$user);
+        },false,3);
         route('GET','/api/my/shift-cover-status',static function($params,$body,$user){
             return self::status((int)$user['id']);
         });
@@ -383,6 +386,105 @@ final class LeaveSubstituteCoverage {
             // No historical service-location field exists on this assignment source.
             'line_id'=>null,'line_name'=>null,'service_location'=>null];
     }
+    /** Immutable-at-capture line name; never reconstruct historic service from today's profile. */
+    private static function locationSnapshots(array $covers,string $from,string $to): array {
+        if(!$covers||!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('substitute_shift_service_snapshots'))return [];
+        $ids=array_values(array_unique(array_filter(array_map(static fn($c)=>(int)($c['assignment_id']??0),$covers))));
+        if(!$ids)return [];
+        $slots=implode(',',array_fill(0,count($ids),'?'));
+        $rows=Db::all("SELECT assignment_id,jdate,segment_index,line_id,line_name,service_location
+            FROM substitute_shift_service_snapshots
+            WHERE assignment_id IN ($slots) AND jdate>=? AND jdate<=?",array_merge($ids,[$from,$to]));
+        $result=[];
+        foreach($rows as $row)$result[(int)$row['assignment_id']][$row['jdate']][(int)$row['segment_index']]=$row;
+        return $result;
+    }
+    private static function attachServiceLocation(?array $shift,array $snapshots): ?array {
+        if(!$shift)return null;
+        $segments=$shift['segments']??[];
+        $known=[];$locations=[];
+        foreach($segments as $i=>$segment){
+            $row=$snapshots[$i]??null;
+            $loc=$row?['line_id'=>(int)$row['line_id'],'line_name'=>$row['line_name'],
+                'service_location'=>$row['service_location']]:null;
+            $locations[]=$loc;
+            if($loc)$known[]=$loc;
+        }
+        $complete=count($segments)>0&&count($known)===count($segments);
+        $same=$complete&&count(array_unique(array_column($known,'line_id'))===1;
+        $shift['segment_locations']=$locations;
+        $shift['location_status']=$complete?'verified':($known?'partial':'unrecorded');
+        $shift['line_id']=$same?$known[0]['line_id']:null;
+        $shift['line_name']=$same?$known[0]['line_name']:null;
+        $shift['service_location']=$same&&count(array_unique(array_column($known,'service_location'))===1)
+            ?$known[0]['service_location']:null;
+        return $shift;
+    }
+    private static function saveServiceLocation(array $body,array $actor): array {
+        if(empty($actor['is_admin'])||(int)($actor['id']??0)<=0)Http::error('دسترسی مدیریتی لازم است',403);
+        if(!function_exists('_db_table_exists_safe')||
+           !_db_table_exists_safe('substitute_shift_service_snapshots')||
+           !_db_table_exists_safe('substitute_shift_service_audit'))
+            Http::error('ساختار ثبت محل خدمت تاریخی نصب نشده است',503);
+        $assignment=filter_var($body['assignment_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $lineId=filter_var($body['line_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $segment=filter_var($body['segment_index']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+        $date=self::day($body['jdate']??'');
+        $location=trim((string)($body['service_location']??''));
+        $reason=trim((string)($body['reason']??''));
+        if(!$assignment||!$lineId||$segment===false||$date===null||
+           ShiftCalc::jdateToTs($date)===null||mb_strlen($location)<2||mb_strlen($location)>255||
+           mb_strlen($reason)<3||mb_strlen($reason)>500)Http::error('اطلاعات محل خدمت یا علت اصلاح معتبر نیست',422);
+        if(function_exists('_final_work_month')){
+            [$year,$month]=array_map('intval',explode('-',substr($date,0,7)));
+            if(_final_work_month($year,$month))Http::error('ماه نهایی‌شده قابل اصلاح نیست',409);
+        }
+        $lookup=Db::one("SELECT sa.substitute_user_id FROM substitute_assignments sa WHERE sa.id=?",[$assignment]);
+        if(!$lookup)Http::error('تخصیص یافت نشد',404);
+        $subId=(int)$lookup['substitute_user_id'];
+        self::lock($subId);
+        $pdo=Db::pdo();
+        try{
+            $pdo->beginTransaction();
+            $assignmentRow=Db::one("SELECT sa.id,sa.absent_user_id,sa.substitute_user_id,sa.from_date,sa.to_date,
+                    r.user_id,r.substitute_user_id request_substitute_id,r.from_jdate,r.to_jdate,r.the_date
+                FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id
+                WHERE sa.id=? AND sa.status='active' AND r.status='approved' AND r.type='annual'
+                  AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') FOR UPDATE",[$assignment]);
+            $requestRange=$assignmentRow?self::range($assignmentRow):null;
+            if(!$assignmentRow||!$requestRange||$assignmentRow['user_id']!=$assignmentRow['absent_user_id']||
+                $assignmentRow['request_substitute_id']!=$assignmentRow['substitute_user_id']||
+                $date<max($assignmentRow['from_date'],$requestRange[0])||
+                $date>min($assignmentRow['to_date'],$requestRange[1]))
+                Http::error('تخصیص در این تاریخ معتبر نیست',409);
+            $shift=self::ownShift((int)$assignmentRow['absent_user_id'],$date);
+            $shiftId=(int)($shift['shift_id']??$shift['id']??0);
+            $dayRow=$shiftId>0&&function_exists('_shift_day_row')?_shift_day_row($shiftId,$date):null;
+            $segments=$shift?ShiftCalc::daySegments($shift,$date,$dayRow):[];
+            if(!isset($segments[$segment]))Http::error('نوبت شیفت نامعتبر یا فاقد ساعت قطعی است',422);
+            $line=Db::one("SELECT id,code,origin,destination FROM `lines` WHERE id=?",[$lineId]);
+            if(!$line)Http::error('خط خدمت معتبر نیست',422);
+            $lineName=trim((string)($line['code']??''));
+            if($lineName==='')Http::error('شناسه خط فاقد عنوان معتبر است',422);
+            $previous=Db::one("SELECT line_id,line_name,service_location FROM substitute_shift_service_snapshots
+                WHERE assignment_id=? AND jdate=? AND segment_index=? FOR UPDATE",[$assignment,$date,$segment]);
+            $next=['line_id'=>(int)$line['id'],'line_name'=>$lineName,'service_location'=>$location];
+            Db::run("INSERT INTO substitute_shift_service_snapshots
+                (assignment_id,jdate,segment_index,line_id,line_name,service_location,recorded_by)
+                VALUES(?,?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE line_id=VALUES(line_id),line_name=VALUES(line_name),
+                service_location=VALUES(service_location),recorded_by=VALUES(recorded_by),recorded_at=NOW()",
+                [$assignment,$date,$segment,$lineId,$lineName,$location,(int)$actor['id']]);
+            Db::insert("INSERT INTO substitute_shift_service_audit
+                (assignment_id,jdate,segment_index,actor_id,previous_json,next_json,reason)
+                VALUES(?,?,?,?,?,?,?)",[$assignment,$date,$segment,(int)$actor['id'],
+                $previous?json_encode($previous,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR):null,
+                json_encode($next,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$reason]);
+            $pdo->commit();
+            return ['ok'=>true,'assignment_id'=>$assignment,'jdate'=>$date,'segment_index'=>$segment]+$next;
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+        finally{self::unlock($subId);}
+    }
     private static function reservationMetadata(array $ids,int $uid): array {
         if(!$ids||!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('leave_reservation_audit'))return [];
         $slots=implode(',',array_fill(0,count($ids),'?'));
@@ -468,6 +570,7 @@ final class LeaveSubstituteCoverage {
              AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')
              AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC",
            [$uid,$to,$from]);
+        $serviceSnapshots=self::locationSnapshots($covers,$from,$to);
         // Pending reservations are advisory and never enter the confirmed cover list.
         $pending=Db::all("SELECT r.id,r.user_id,r.from_jdate,r.to_jdate,r.the_date,
             TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) AS absent_name
@@ -506,6 +609,7 @@ final class LeaveSubstituteCoverage {
                 $seenCovers[$key]=true;
                 $shift=self::requesterShift((int)$cover['absent_user_id'],$day,$context);
                 if($shift&&$shift['type']!=='floating'&&!$shift['segments'])continue;
+                $shift=self::attachServiceLocation($shift,$serviceSnapshots[(int)$cover['assignment_id']][$day]??[]);
                 $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],
                     'assignment_id'=>isset($cover['assignment_id'])?(int)$cover['assignment_id']:null,
                     'request_created_at'=>$cover['request_created_at']??null,'absent_name'=>$cover['absent_name'],
