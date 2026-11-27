@@ -383,6 +383,8 @@ final class LeaveSubstituteCoverage {
         return ['id'=>$sid,'title'=>trim((string)($shift['title']??$shift['shift_title']??$shift['type']??'')),
             'type'=>(string)($shift['type']??''),'segments'=>array_values($segments),
             'minutes'=>($shift['type']??'')==='floating'?null:$minutes,
+            'planned_minutes'=>($shift['type']??'')==='floating'?null:$minutes,
+            'duty_minutes'=>$segments?ShiftCalc::expectedMinutes($shift,$date,$row):null,
             // No historical service-location field exists on this assignment source.
             'line_id'=>null,'line_name'=>null,'service_location'=>null];
     }
