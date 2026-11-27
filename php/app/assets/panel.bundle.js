@@ -12884,6 +12884,18 @@ function SubstituteCalendar() {
         ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length]
     ];
     const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j; return ({ 'تاریخ': fa(d.date), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': fa(segment.s || '—'), 'پایان': fa(segment.e || '—'), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? fa(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const pdfDownload = async () => {
+        var _a;
+        setError('');
+        try {
+            if (!((_a = window.KhatyarSubstitutePdf) === null || _a === void 0 ? void 0 : _a.download))
+                throw Error('موتور خروجی PDF مستقل بارگذاری نشده است؛ صفحه را تازه‌سازی کنید.');
+            await window.KhatyarSubstitutePdf.download(exportRows(), { title: 'گزارش تقویم نیروهای جایگزین ' + year + '/' + month, filename: 'khatyar-substitute-' + year + '-' + month + '.pdf' });
+        }
+        catch (e) {
+            setError(e.message || 'ساخت PDF مستقل ناموفق بود');
+        }
+    };
     const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
     const saveLocation = async () => {
         if (!(selected === null || selected === void 0 ? void 0 : selected.assignment_id) || savingLocation)
@@ -12970,6 +12982,7 @@ function SubstituteCalendar() {
                 setError(e.message);
             } } }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0641\u06CC\u0644\u062A\u0631\u0634\u062F\u0647"),
         React.createElement("button", { className: "btn g", disabled: !uid || busy, onClick: () => setReload(v => v + 1) }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062A\u0642\u0648\u06CC\u0645"),
+        React.createElement("button", { className: "btn p", disabled: !uid || busy || !all.length, onClick: pdfDownload }, "\u062F\u0627\u0646\u0644\u0648\u062F PDF \u0645\u0633\u062A\u0642\u0644"),
         React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: printReport }, "\u0686\u0627\u067E / \u0630\u062E\u06CC\u0631\u0647 PDF"),
         holidayError && React.createElement("p", { role: "status" }, holidayError),
         " ",
