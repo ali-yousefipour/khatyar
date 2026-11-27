@@ -6509,6 +6509,7 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
     $permanentRow=$permanent&&($permanent['type']??'')==='advanced'&&$permanentId>0
       ?_shift_day_row($permanentId,$j):null;
     $permanentSegments=$permanent?ShiftCalc::daySegments($permanent,$j,$permanentRow):[];
+    $permanentMinutes=$permanent?max(0,(int)ShiftCalc::expectedMinutes($permanent,$j,$permanentRow)):null;
     $mins=$dayShift ? max(0,(int)ShiftCalc::expectedMinutes($dayShift,$j,$dr)) : 0;
     $cal=ShiftCalc::calendarDay($j);
     $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
@@ -6521,6 +6522,7 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
       'shift_type'=>$dayShift['type']??null,
       'segments'=>$effectiveSegments,
       'primary_segments'=>$permanentSegments,
+      'primary_minutes'=>$permanentMinutes,
       'primary_shift_title'=>$permanent['title']??null,
       'is_substitute_shift'=>!empty($dayShift['is_substitute_shift']),
       'minutes'=>$mins,
