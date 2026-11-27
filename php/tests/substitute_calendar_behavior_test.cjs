@@ -18,7 +18,9 @@ assert.equal(context.substituteSegmentPlannedMinutes({s:'bad',e:'09:00'}),null,'
 assert.equal(context.substituteSegmentPlannedMinutes({s:'06:00',e:'14:00',planned_minutes:360}),360,'explicit planned segment duration wins over clock difference');
 function render(){let rounds=0;do{dirty=false;cursor=0;tree=context.SubstituteCalendar();const jobs=pending;pending=[];jobs.forEach(fn=>fn());assert(++rounds<15,'render settled');}while(dirty);return tree;}
 async function flush(){for(let i=0;i<8;i++)await Promise.resolve();render();}
-const nodes=(node=tree)=>node&&typeof node==='object'?[node,...node.children.flatMap(n=>nodes(n))]:[];
+// Undefined JSX children must not reset traversal to the root.
+function nodes(node){if(arguments.length===0)node=tree;return node&&typeof node==='object'&&Array.isArray(node.children)?[node,...node.children.flatMap(n=>nodes(n))]:[];}
+assert.deepEqual(nodes(undefined),[],'undefined child never restarts traversal');
 const findLabel=label=>nodes().find(n=>n.props['aria-label']===label);
 const text=node=>typeof node==='string'?node:node&&typeof node==='object'?node.children.map(text).join(''):'';
 const button=caption=>nodes().find(n=>n.type==='button'&&text(n)===caption);
