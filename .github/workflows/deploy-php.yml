@@ -697,7 +697,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for asset in identity-banking-audit.js identity-banking-inputs.js users-full-report-config.js; do
+          for asset in identity-banking-audit.js identity-banking-inputs.js users-full-report-config.js substitute-calendar-pdf.js; do
             target="${RUNNER_TEMP}/${asset}"
             headers="${RUNNER_TEMP}/${asset}.headers"
             curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --max-time 35 \
@@ -711,6 +711,10 @@ jobs:
               exit 1
             fi
             node --check "${target}"
+            if [ "${asset}" = substitute-calendar-pdf.js ]; then
+              cmp -s "${target}" "deploy-payload/app/assets/${asset}" || { echo "ERROR: public PDF renderer differs from deployed payload"; exit 1; }
+              grep -Fq "/MediaBox [0 0 841.89 595.28]" "${target}" || { echo "ERROR: public PDF renderer is not landscape A4"; exit 1; }
+            fi
             echo "Public JS smoke check passed: ${asset} (${mime})"
           done
 
