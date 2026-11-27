@@ -30,6 +30,7 @@ class Db {
     throw new LogicException('Unexpected read: '.$sql);
   }
   static function all($sql,$params=[]){
+    if(str_contains($sql,'FROM users u LEFT JOIN roles'))return [['id'=>$params[0],'name'=>'نیروی جایگزین آزمون'],['id'=>$params[1],'name'=>'رزروکننده آزمون']];
     if(str_contains($sql,'FROM staff_attendance'))return array_values(array_filter(self::$punches,static function($p)use($sql,$params){
       if($p['user_id']!=$params[0])return false;
       if(str_contains($sql,"method='manual'"))return ($p['method']==='manual'||str_starts_with($p['method'],'manual|'))&&$p['check_in']===$params[1]&&(!str_contains($sql,'AND check_out=?')||$p['check_out']===$params[2]);
@@ -55,6 +56,7 @@ class Db {
   }
   static function insert($sql,$params=[]){if(self::$failAudit)throw new RuntimeException('audit storage failure');self::$history[]=$params;return count(self::$history);}
 }
+require_once __DIR__.'/../lib/LeaveSubstituteCoverage.php';
 function _db_table_exists_safe($name){return true;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
 function _zone_leave_requirement_storage(){}
