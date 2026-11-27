@@ -551,6 +551,12 @@ final class LeaveSubstituteCoverage {
         $pdo=Db::pdo();
         try{
             $pdo->beginTransaction();
+            // Recheck after obtaining the substitute lock: the month might
+            // have been finalized while this operation waited for the lock.
+            if(function_exists('_final_work_month')){
+                [$lockedYear,$lockedMonth]=array_map('intval',explode('-',substr($date,0,7)));
+                if(_final_work_month($lockedYear,$lockedMonth))Http::error('ماه نهایی‌شده قابل اصلاح نیست',409);
+            }
             $assignmentRow=Db::one("SELECT sa.id,sa.absent_user_id,sa.substitute_user_id,sa.from_date,sa.to_date,
                     r.user_id,r.substitute_user_id request_substitute_id,r.from_jdate,r.to_jdate,r.the_date
                 FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id
