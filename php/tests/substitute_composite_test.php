@@ -21,7 +21,7 @@ class Db {
 function _shift_day_row($id,$date){
  if($id<0)return LeaveSubstituteCoverage::syntheticDay($id,$date);
  if($id===9&&Db::$ownAdjacent)return ['segments'=>[['s'=>'00:00','e'=>'06:00']],'day_config'=>[]];
- return ['segments'=>[['s'=>$id===1?'06:00':($id===2?'14:00':'12:00'),'e'=>$id===1?'14:00':'22:00']],'day_config'=>Db::$explicitDuty?['duty_min'=>480]:[]];
+ return ['segments'=>[['s'=>$id===1?'06:00':(($id===2||$id===4)?'14:00':'12:00'),'e'=>$id===1?'14:00':'22:00']],'day_config'=>Db::$explicitDuty?['duty_min'=>480]:[]];
 }
 function ok($test,$label){if(!$test)throw new RuntimeException($label);echo 'PASS '.$label."\n";}
 $a=['id'=>1,'user_id'=>1,'from_jdate'=>'1405-09-10','to_jdate'=>'1405-09-10'];
@@ -53,7 +53,7 @@ ok(LeaveSubstituteCoverage::preciseConflict(9,$a)===null,'adjacent hourly absenc
 Db::$hourly[0]['from_time']='13:59';
 ok(LeaveSubstituteCoverage::preciseConflict(9,$a)!==null,'overlapping hourly absence rejected');
 $d=array_replace($b,['user_id'=>4]);
-ok(!LeaveSubstituteCoverage::compatibleRequests($a,$d),'different financial policies fail closed');
+ok(LeaveSubstituteCoverage::compatibleRequests($a,$d),'independent financial policies are allowed when shift windows are adjacent');
 
 Db::$hourly=[];Db::$requests=[];Db::$ownDuty=true;Db::$ownAdjacent=true;
 ok(LeaveSubstituteCoverage::preciseConflict(9,$a)===null,'matching adjacent own duty can coexist');
@@ -82,3 +82,19 @@ $runtimeDay=_shift_day_row($runtime['shift_id'],'1405-09-10');
 ok(count($runtimeDay['segments'])===2,'runtime day row retains both assignments');
 $result=ShiftCalc::dayWork($runtime,'1405-09-10',$runtimeDay,[['in'=>strtotime('2026-12-01 06:00:00'),'out'=>strtotime('2026-12-01 22:00:00')]],false);
 ok($result['expected']===960&&$result['shortage']===0,'runtime composite dayWork preserves complete financial duty');
+
+Db::$ownDuty=false;Db::$explicitDuty=true;Db::$hourly=[];Db::$requests=[];
+Db::$assignments=[['request_id'=>1,'absent_user_id'=>1],['request_id'=>4,'absent_user_id'=>4]];
+$mixed=LeaveSubstituteCoverage::composite(9,'1405-09-10');
+ok($mixed!==null,'different compatible financial policies yield independent composite');
+$mixedDay=LeaveSubstituteCoverage::syntheticDay($mixed['shift_id'],'1405-09-10');
+ok(count($mixedDay['composite_parts'])===2,'each source retains its shift policy in canonical synthetic day');
+ok(ShiftCalc::expectedMinutes($mixed,'1405-09-10',$mixedDay)===960,'independent mixed-policy duty totals exactly');
+$mixedResult=ShiftCalc::dayWork($mixed,'1405-09-10',$mixedDay,[
+ ['in'=>strtotime('2026-12-01 06:00:00'),'out'=>strtotime('2026-12-01 22:00:00')]
+],false);
+ok($mixedResult['expected']===960&&$mixedResult['worked']===960&&$mixedResult['shortage']===0,'independent shift classification does not double-count one continuous session');
+ok(count($mixedResult['composite_parts'])===2&&$mixedResult['composite_parts'][0]['work']['expected']===480&&$mixedResult['composite_parts'][1]['work']['expected']===480,'different source calculation outputs are preserved separately');
+$firstPolicy=ShiftCalc::checkThreshold($mixed,'1405-09-10',$mixedDay,strtotime('2026-12-01 07:00:00'),'in');
+$secondPolicy=ShiftCalc::checkThreshold($mixed,'1405-09-10',$mixedDay,strtotime('2026-12-01 15:00:00'),'in');
+ok(!empty($firstPolicy['ok'])&&$firstPolicy['request_id']===1&&!empty($secondPolicy['ok'])&&$secondPolicy['request_id']===4,'attendance threshold selects source request identity per shift');
