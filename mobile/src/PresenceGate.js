@@ -10,7 +10,7 @@ import{useAuth}from'./auth';
 import{startPresenceAlarm,stopPresenceAlarm}from'./presenceAlarm';
 import*as Notifications from'expo-notifications';
 import{tehranGregorianParts}from'./jdate';
-import {currentPresencePolicy, localAttendanceSession, ensureLocalRandomSchedule, localPresenceCompletions} from './presenceLocalSchedule';
+import {currentPresencePolicy, localAttendanceSession, ensureLocalRandomSchedule, localPresenceCompletions, suspendLocalRandomSchedule, clearFixedPresenceNotifications} from './presenceLocalSchedule';
 
 function tehranNow(){const p=tehranGregorianParts(new Date());if(!p){const d=new Date();return{day:d.toISOString().slice(0,10),minutes:d.getHours()*60+d.getMinutes()};}return{day:`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`,minutes:p.hour*60+p.minute};}
 function slotToMinutes(s){const m=/^(\d{2}):(\d{2})$/.exec(s);return m?(+m[1])*60+(+m[2]):-1;}
@@ -66,7 +66,11 @@ export default function PresenceGate({navigationRef}){
      wizardWasActiveRef.current=false;
      // Initial 0 -> authenticated hydration is not an account switch.
      // A notification-started native alarm must survive that transition.
-     if(previousUserId>0)stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+     if(previousUserId>0){
+       stopPresenceAlarm({dismissNotifications:true}).catch(()=>{});
+       suspendLocalRandomSchedule().catch(()=>{});
+       clearFixedPresenceNotifications().catch(()=>{});
+     }
    }
  },[userId]);
  useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
