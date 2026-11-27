@@ -6786,9 +6786,21 @@ function _req_notify_decision(array $request,string $status,string $note,int $id
   try{Push::send([(int)$request['user_id']],$status==='approved'?'درخواست شما تأیید شد':'درخواست شما رد شد',$note,['type'=>'request','request_id'=>$id]);}catch(Throwable $e){error_log('request decision push failed');}
   try{_req_notify_sms($request,$status,$note);}catch(Throwable $e){error_log('request decision sms failed');}
 }
-function _req_notify_substitute(array $request,int $id){
-  if(!_req_substitute_eligible($request)||empty($request['substitute_user_id']))return;
-  try{Push::send([(int)$request['substitute_user_id']],'شیفت جایگزینی','جایگزینی شما برای درخواست مرخصی تأیید شد.',['type'=>'substitute_shift','request_id'=>$id]);}catch(Throwable $e){error_log('substitute shift notification failed');}
+function _req_notify_substitute(array $request,int $id,string $status='approved'){
+  if(!_req_substitute_eligible($request)||empty($request['substitute_user_id'])||!in_array($status,['approved','rejected'],true))return;
+  // This helper is called only after the request transition has committed.
+  // The absent person's name is resolved from the server, not supplied by a client.
+  try{
+    $owner=Db::one("SELECT TRIM(CONCAT_WS(' ',first_name,last_name)) AS name FROM users WHERE id=?",[(int)$request['user_id']]);
+    $name=trim((string)($owner['name']??''))?:'نام ثبت نشده';
+    $from=str_replace('/','-',(string)($request['from_jdate']??$request['the_date']??''));
+    $to=str_replace('/','-',(string)($request['to_jdate']??$request['the_date']??$from));
+    $dates=$from!==''?($from.($to!==''&&$to!==$from?' تا '.$to:'')):'تاریخ ثبت نشده';
+    $approved=$status==='approved';
+    $title=$approved?'شیفت جایگزینی تأیید شد':'رزرو جایگزینی رد و آزاد شد';
+    $message='حضور به‌جای: '.$name.'؛ تاریخ: '.$dates.'؛ '.($approved?'تخصیص شما تأیید نهایی شد.':'درخواست رد شد و رزرو دیگر معتبر نیست.');
+    Push::notify([(int)$request['substitute_user_id']],$title,$message,['type'=>'substitute_shift','request_id'=>$id,'status'=>$status]);
+  }catch(Throwable $e){error_log('substitute shift decision notification failed: request_id='.$id);}
 }
 
 // دسترسی کامل به همهٔ مراحل صرفاً متعلق به سمت «مدیر کل» است، نه نام کاربری admin.
@@ -7132,7 +7144,7 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
     _req_record_approval_step($id,(int)$u['id'],$status,$note);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
-  if($status==='approved')_req_notify_substitute($req,$id);
+  _req_notify_substitute($req,$id,$status);
   _req_notify_decision($req,$status,$note??'',$id);
   return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
 }, false, ADMIN);
