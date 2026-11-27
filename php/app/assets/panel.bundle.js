@@ -12857,17 +12857,21 @@ function SubstituteCalendar() {
         setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload]);
     const rawEntries = date => { var _a, _b, _c; return [...(((_a = data[date]) === null || _a === void 0 ? void 0 : _a.cover) || []).map(v => ({ ...v, status: 'confirmed' })), ...(((_b = data[date]) === null || _b === void 0 ? void 0 : _b.reservations) || []).map(v => ({ ...v, status: 'pending' })), ...(((_c = data[date]) === null || _c === void 0 ? void 0 : _c.history) || []).map(v => ({ ...v, history_status: v.status, status: 'history' }))]; };
     const knownEntries = days.flatMap(d => rawEntries(d.date));
+    const allowedLines = v => { var _a; return ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.allowed_service_lines) || []; };
+    const allowedLabel = v => allowedLines(v).map(l => display(l.line_name)).join('، ');
+    const serviceLabel = (v, index) => { var _a, _b; const allowed = allowedLabel(v); const historical = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]; return allowed ? (allowedLines(v).length > 1 ? 'خطوط مجاز: ' : 'خط مجاز: ') + allowed : (historical === null || historical === void 0 ? void 0 : historical.service_location) || (historical === null || historical === void 0 ? void 0 : historical.line_name) || 'محل خدمت تاریخی ثبت نشده'; };
+    const effectiveLines = v => { var _a; return allowedLines(v).length ? allowedLines(v) : (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).filter(Boolean); };
     const knownLocations = [...new Set(knownEntries.flatMap(v => { var _a; return (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).map(x => x === null || x === void 0 ? void 0 : x.service_location).filter(Boolean); }))].sort();
-    const knownLines = [...new Map(knownEntries.flatMap(v => { var _a; return (((_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) || []).filter(Boolean).map(x => [String(x.line_id), { id: x.line_id, name: x.line_name }]); })).values()];
+    const knownLines = [...new Map(knownEntries.flatMap(v => effectiveLines(v).map(x => [String(x.line_id), { id: x.line_id, name: display(x.line_name) }]))).values()];
     const knownAbsents = [...new Map(knownEntries.filter(v => v.absent_user_id).map(v => [String(v.absent_user_id), { id: v.absent_user_id, name: v.absent_name }])).values()];
     const knownShiftTypes = [...new Set(knownEntries.map(v => { var _a; return (_a = v.shift) === null || _a === void 0 ? void 0 : _a.type; }).filter(Boolean))].sort();
     const baseEntries = date => rawEntries(date).filter(v => {
-        var _a, _b, _c, _e, _f, _g, _h;
+        var _a, _b, _c;
         return true
             && (absentFilter === 'all' || String(v.absent_user_id) === absentFilter)
             && (typeFilter === 'all' || ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.type) === typeFilter)
-            && (lineFilter === 'all' || (lineFilter === 'unknown' ? !((_c = (_b = v.shift) === null || _b === void 0 ? void 0 : _b.segment_locations) === null || _c === void 0 ? void 0 : _c.some(x => x === null || x === void 0 ? void 0 : x.line_id)) : (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f.some(x => String(x === null || x === void 0 ? void 0 : x.line_id) === lineFilter)))
-            && (locationFilter === 'all' || ((_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
+            && (lineFilter === 'all' || (lineFilter === 'unknown' ? !effectiveLines(v).some(x => x === null || x === void 0 ? void 0 : x.line_id) : effectiveLines(v).some(x => String(x === null || x === void 0 ? void 0 : x.line_id) === lineFilter)))
+            && (locationFilter === 'all' || ((_c = (_b = v.shift) === null || _b === void 0 ? void 0 : _b.segment_locations) === null || _c === void 0 ? void 0 : _c.some(x => (x === null || x === void 0 ? void 0 : x.service_location) === locationFilter)));
     });
     const entries = date => baseEntries(date).filter(v => status === 'all' ? v.status !== 'history' : status === 'completed' ? v.status === 'confirmed' && v.completion_status === 'completed' : status === 'conflict' ? Boolean(v.conflict) : v.status === status);
     const all = days.flatMap(d => entries(d.date));
@@ -12891,7 +12895,7 @@ function SubstituteCalendar() {
         ['شیفت انجام‌شده', confirmed.filter(v => v.completion_status === 'completed').length, 'completed'],
         ['سوابق لغو و آزادسازی', statsBase.filter(v => v.status === 'history').length, 'history']
     ];
-    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b, _c, _e, _f, _g, _h, _j; return ({ 'تاریخ': String(d.date).replace(/[0-9]/g, n => '۰۱۲۳۴۵۶۷۸۹'[Number(n)]), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': clock(segment.s), 'پایان': clock(segment.e), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'تداخل': v.conflict ? 'دارای تداخل' : '—', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? display(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': ((_f = (_e = (_c = v.shift) === null || _c === void 0 ? void 0 : _c.segment_locations) === null || _e === void 0 ? void 0 : _e[index]) === null || _f === void 0 ? void 0 : _f.service_location) || ((_j = (_h = (_g = v.shift) === null || _g === void 0 ? void 0 : _g.segment_locations) === null || _h === void 0 ? void 0 : _h[index]) === null || _j === void 0 ? void 0 : _j.line_name) || 'محل خدمت تاریخی ثبت نشده', 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
+    const exportRows = () => days.flatMap(d => entries(d.date).flatMap(v => { var _a, _b; const segments = ((_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segments) === null || _b === void 0 ? void 0 : _b.length) ? v.shift.segments : [{}]; return segments.map((segment, index) => { var _a, _b; return ({ 'تاریخ': String(d.date).replace(/[0-9]/g, n => '۰۱۲۳۴۵۶۷۸۹'[Number(n)]), 'نیروی جایگزین': ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || '', 'نیروی اصلی': v.absent_name, 'شیفت': ((_b = v.shift) === null || _b === void 0 ? void 0 : _b.title) || '', 'شروع': clock(segment.s), 'پایان': clock(segment.e), 'وضعیت': v.status === 'confirmed' ? (v.completion_status === 'completed' ? 'انجام‌شده' : 'تخصیص قطعی') : v.status === 'history' ? (v.history_status === 'released' ? 'رزرو آزادشده' : 'لغو یا رد شده') : 'رزرو موقت', 'تداخل': v.conflict ? 'دارای تداخل' : '—', 'رزروکننده': v.reserved_by_name || 'ثبت نشده', 'زمان رزرو': v.reserved_at ? display(v.reserved_at) : 'ثبت نشده', 'خط یا محل خدمت': serviceLabel(v, index), 'مدت برنامه‌ریزی‌شده (دقیقه)': substituteSegmentPlannedMinutes(segment) == null ? 'نامشخص' : fa(substituteSegmentPlannedMinutes(segment)), 'شماره درخواست': fa(v.request_id) }); }); }));
     const pdfRows = () => { var _a; const selectedName = ((_a = users.find(u => String(u.id) === String(uid))) === null || _a === void 0 ? void 0 : _a.name) || ''; const records = exportRows(); const week = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه']; return days.flatMap(d => { const date = d.date.replace(/[0-9]/g, n => '۰۱۲۳۴۵۶۷۸۹'[Number(n)]); const matches = records.filter(row => String(row['تاریخ']) === date || String(row['تاریخ']) === d.date); const common = { 'تاریخ': date, 'روز هفته': week[d.weekday], 'تعطیلی': holidays[d.date] || (d.weekday === 6 ? 'جمعه' : ''), 'نیروی جایگزین': selectedName }; return matches.length ? matches.map(row => ({ ...row, ...common })) : [{ ...common, 'روز خالی': true, 'وضعیت': rawEntries(d.date).length ? 'بدون شیفت مطابق فیلتر' : 'بدون شیفت جایگزینی' }]; }); };
     const pdfDownload = async () => {
         var _a;
@@ -12986,7 +12990,7 @@ function SubstituteCalendar() {
                     React.createElement("option", { value: "conflict" }, "\u062F\u0627\u0631\u0627\u06CC \u062A\u062F\u0627\u062E\u0644")),
                 React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
                     React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
-                    React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u062A\u0627\u0631\u06CC\u062E\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                    React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u0645\u0634\u062E\u0635"),
                     knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
                 React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
                     React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
@@ -13040,13 +13044,13 @@ function SubstituteCalendar() {
                                 v.absent_name || 'ثبت نشده'),
                             v.absent_role && React.createElement("p", null, v.absent_role),
                             React.createElement("p", null, ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.title) || 'شیفت ثبت نشده'),
-                            (((_c = (_b = v.shift) === null || _b === void 0 ? void 0 : _b.segments) === null || _c === void 0 ? void 0 : _c.length) ? v.shift.segments : [{}]).map((segment, index) => { var _a, _b, _c, _e, _f, _g; return React.createElement("div", { key: index },
+                            (((_c = (_b = v.shift) === null || _b === void 0 ? void 0 : _b.segments) === null || _c === void 0 ? void 0 : _c.length) ? v.shift.segments : [{}]).map((segment, index) => React.createElement("div", { key: index },
                                 React.createElement("p", { dir: "rtl" },
                                     "\u0633\u0627\u0639\u062A: ",
                                     React.createElement("bdi", null, clock(segment.s)),
                                     " \u062A\u0627 ",
                                     React.createElement("bdi", null, clock(segment.e))),
-                                React.createElement("p", null, ((_c = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.service_location) || ((_g = (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[index]) === null || _g === void 0 ? void 0 : _g.line_name) || 'محل خدمت ثبت نشده')); }),
+                                React.createElement("p", null, serviceLabel(v, index)))),
                             React.createElement("button", { type: "button", className: "btn g", onClick: () => openDetails(v, d.date) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u062C\u0632\u0626\u06CC\u0627\u062A")); })); })))),
         selected && React.createElement("dialog", { ref: detailRef, onCancel: () => setSelected(null), "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", className: "panel" },
             React.createElement("h4", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
@@ -13071,6 +13075,9 @@ function SubstituteCalendar() {
             React.createElement("p", null,
                 "\u0631\u0632\u0631\u0648\u06A9\u0646\u0646\u062F\u0647: ",
                 selected.reserved_by_name || 'ثبت نشده'),
+            React.createElement("p", null,
+                "\u062E\u0637 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC: ",
+                allowedLabel(selected) || 'خط مجاز مشخص نشده'),
             React.createElement("p", null,
                 "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC: ",
                 ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.location_status) === 'verified' ? 'ثبت و تأییدشده' : ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.location_status) === 'partial' ? 'ناقص' : 'ثبت نشده'),
