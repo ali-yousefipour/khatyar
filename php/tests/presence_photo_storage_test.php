@@ -8,6 +8,9 @@ class Db {
   static $failWrite = false;
   static function one($query, $params=[]) {
     if(str_contains($query,'information_schema.COLUMNS'))return ['COLUMN_NAME'=>$params[0]??'selfie_path'];
+    if(str_contains($query,'GET_LOCK('))return ['acquired'=>1];
+    if(str_contains($query,'RELEASE_LOCK('))return ['released'=>1];
+    if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
     return self::$existing;
   }
   static function all($query, $params=[]) {
@@ -26,6 +29,7 @@ class Media {
   static function delete($path) { self::$deleted[] = $path; }
 }
 
+require_once __DIR__.'/../lib/PresenceChallengeGuard.php';
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
 $schemaStart = strpos($source, 'function _presence_photo_columns_ready()');
 $schemaEnd = strpos($source, '// ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت', $schemaStart);
@@ -37,7 +41,12 @@ $start += strlen("route('POST', '/api/my/presence-check', ");
 $end = strpos($source, "\n});", $start);
 if ($end === false) throw new RuntimeException('Presence route end not found');
 $handler = eval('return '.substr($source, $start, $end - $start)."\n};");
-$body = ['slot'=>'10:30', 'selfie'=>'data:image/jpeg;base64,selfie', 'vehicles_photo'=>'data:image/jpeg;base64,vehicles'];
+$capturedTs=time()-40;
+$day=(new DateTimeImmutable('@'.$capturedTs))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d');
+$GLOBALS['testSlot']=(new DateTimeImmutable('@'.$capturedTs))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('H:i');
+$body=['slot'=>$GLOBALS['testSlot'],'request_id'=>$day.'_'.$GLOBALS['testSlot'],
+ 'captured_at'=>date('c',$capturedTs),'selfie'=>'data:image/jpeg;base64,selfie',
+ 'vehicles_photo'=>'data:image/jpeg;base64,vehicles'];
 
 foreach ([null, ['id'=>7]] as $existing) {
   foreach ([[null, 'vehicles.jpg'], ['selfie.jpg', null], [null, null], ['selfie.jpg', 'vehicles.jpg']] as $results) {
