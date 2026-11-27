@@ -99,6 +99,8 @@ jobs:
           php -l lib/SchoolComplaintNotifications.php
           php -l lib/LeaveSubstituteCoverage.php
           php tests/leave_substitute_pending_guard_test.php
+          php tests/substitute_reservation_notification_test.php
+          php tests/substitute_jalali_date_validation_test.php
           php tests/request_substitute_scope_test.php
           php tests/substitute_interval_test.php
           php tests/substitute_composite_test.php
