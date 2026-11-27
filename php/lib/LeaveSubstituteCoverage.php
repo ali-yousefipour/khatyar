@@ -82,16 +82,28 @@ final class LeaveSubstituteCoverage {
         $range=self::range($body);
         if(!$range||$id<=0||$owner<=0||$sub<=0||$actor<=0)throw new InvalidArgumentException('Invalid reservation audit');
         Db::run("INSERT INTO leave_reservation_audit(request_id,absent_user_id,substitute_user_id,actor_id,event,from_date,to_date) VALUES(?,?,?,?,?,?,?)",[$id,$owner,$sub,$actor,$event,$range[0],$range[1]]);
-        $people=Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) name,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id IN (?,?)",[$sub,$actor]);
-        $names=[];foreach($people as $person)$names[(int)$person['id']]=$person['name'];
-        $message='نیروی جایگزین: '.($names[$sub]??'—').'؛ رزروکننده: '.($names[$actor]??'—').'؛ بازه: '.$range[0].' تا '.$range[1].'؛ '.($event==='changed'?'جایگزینی اصلاح شد.':'در انتظار تأیید نهایی.');
+        // Names are resolved from authenticated database records, never supplied by the request body.
+        $people=Db::all("SELECT u.id,TRIM(CONCAT_WS(' ',u.first_name,u.last_name)) name,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id IN (?,?,?)",[$owner,$sub,$actor]);
+        $names=[];foreach($people as $person)$names[(int)$person['id']]=trim((string)($person['name']??''));
+        $ownerName=$names[$owner]??'';$subName=$names[$sub]??'';$actorName=$names[$actor]??'';
+        $dates=$range[0].' تا '.$range[1];
+        $changed=$event==='changed';
+        $ownerMessage='نیروی جایگزین: '.($subName?:'نام ثبت نشده').'؛ رزروکننده: '.($actorName?:'نام ثبت نشده').'؛ بازه: '.$dates.'؛ '.($changed?'جایگزینی اصلاح شد.':'در انتظار تأیید نهایی.');
+        $subMessage='حضور به‌جای: '.($ownerName?:'نام ثبت نشده').'؛ رزروکننده: '.($actorName?:'نام ثبت نشده').'؛ بازه: '.$dates.'؛ '.($changed?'تخصیص شما تغییر کرد.':'رزرو در انتظار تأیید نهایی است.').' ساعت و خط خدمت را از تقویم شیفت معتبر مشاهده کنید.';
         $data=['type'=>'substitute_assigned','request_id'=>$id,'substitute_user_id'=>$sub,'reserved_by_user_id'=>$actor];
-        Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES (?,?,?,?)",[$owner,'اطلاعات رزرو نیروی جایگزین',$message,json_encode($data,JSON_UNESCAPED_UNICODE)]);
-        return ['owner'=>$owner,'message'=>$message,'data'=>$data];
+        // Both rows participate in the caller's transaction. Push is deferred until commit.
+        Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES (?,?,?,?)",[$owner,'اطلاعات رزرو نیروی جایگزین',$ownerMessage,json_encode($data+['recipient'=>'requester'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        Db::run("INSERT INTO notifications(user_id,title,body,data) VALUES (?,?,?,?)",[$sub,'رزرو شیفت جایگزینی',$subMessage,json_encode($data+['recipient'=>'substitute'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        return ['owner'=>$owner,'substitute'=>$sub,'message'=>$ownerMessage,'substitute_message'=>$subMessage,'data'=>$data];
     }
     public static function sendReservation(array $notification): void {
+        // This method is called strictly after successful transaction completion.
         try{Push::send([$notification['owner']],'اطلاعات رزرو نیروی جایگزین',$notification['message'],$notification['data']);}
-        catch(Throwable $e){error_log('leave reservation delivery failed: request_id='.(int)$notification['data']['request_id']);}
+        catch(Throwable $e){error_log('leave requester reservation delivery failed: request_id='.(int)$notification['data']['request_id']);}
+        if(!empty($notification['substitute'])){
+            try{Push::send([(int)$notification['substitute']],'رزرو شیفت جایگزینی',(string)$notification['substitute_message'],$notification['data']);}
+            catch(Throwable $e){error_log('leave substitute reservation delivery failed: request_id='.(int)$notification['data']['request_id']);}
+        }
     }
     private static function enrichReservations($answer): array {
         if(!is_array($answer))return [];
