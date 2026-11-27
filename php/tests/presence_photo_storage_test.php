@@ -13,6 +13,7 @@ class Db {
     if(str_contains($query,'RELEASE_LOCK('))return ['released'=>1];
     if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
     if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive?['id'=>31]:null;
+    if(str_contains($query,'FROM presence_checks')&&isset(self::$existing['request_id'])&&self::$existing['request_id']!==($params[1]??''))return null;
     return self::$existing;
   }
   static function all($query, $params=[]) {
@@ -83,6 +84,20 @@ foreach ([null,['id'=>7]] as $existing) {
   }
 }
 Db::$failWrite=false;
+Db::$existing=['id'=>7,'request_id'=>$body['request_id'],
+ 'selfie_path'=>'existing-selfie.jpg','vehicles_photo_path'=>'existing-vehicles.jpg'];
+Db::$writes=[];Media::$deleted=[];Media::$results=['unused-selfie.jpg','unused-vehicles.jpg'];
+$duplicate=$handler([],$body,['id'=>1]);
+if(empty($duplicate['duplicate'])||(int)$duplicate['id']!==7||
+   Db::$writes!==[]||Media::$deleted!==[]||count(Media::$results)!==2)
+    throw new LogicException('Idempotent retry changed an existing verified image record');
+Db::$existing=['id'=>7,'request_id'=>'another-immediate-request',
+ 'selfie_path'=>'other-selfie.jpg','vehicles_photo_path'=>'other-vehicles.jpg'];
+Db::$writes=[];Media::$deleted=[];Media::$results=['new-selfie.jpg','new-vehicles.jpg'];
+$other=$handler([],$body,['id'=>1]);
+if(empty($other['ok'])||!empty($other['duplicate'])||(int)$other['id']!==12||
+   count(Db::$writes)!==1)throw new LogicException('Distinct challenges in the same slot were merged');
+Db::$existing=null;Db::$writes=[];
 Db::$sessionActive=false;
 Media::$results=['selfie.jpg','vehicles.jpg'];Media::$deleted=[];Db::$writes=[];
 try {
