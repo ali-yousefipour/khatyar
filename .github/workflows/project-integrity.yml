@@ -179,6 +179,10 @@ jobs:
           node mobile/scripts/test-offline-official-visit.cjs
           php -l php/lib/school_service_routes_extra.php
           php -l php/lib/complaints_routes_extra.php
+      - name: Install isolated JSX test compiler
+        run: |
+          cd php
+          npm install --no-save --no-package-lock typescript@5.9.3
       - name: Panel bundle syntax
         run: |
           node php/tests/android_web_navigation_test.cjs
