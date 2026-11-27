@@ -1022,6 +1022,13 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
         return Db::one("SELECT id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in BETWEEN ? AND ? ORDER BY id DESC LIMIT 1",[$uid,$from,$to]);
       });
   }catch(DomainException $error){Http::error($error->getMessage(),422);}
+  // A fixed or random verification is evidence of an actual work session;
+  // posting an arbitrary photo without an attendance session is not valid.
+  if(empty($b['immediate'])){
+    $session=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_in<=? AND check_in>=DATE_SUB(?,INTERVAL 14 HOUR) AND (check_out IS NULL OR check_out>=?) ORDER BY id DESC LIMIT 1",
+      [(int)$u['id'],$capturedAt,$capturedAt,$capturedAt]);
+    if(!$session)Http::error('در زمان صحت‌سنجی جلسه حضور معتبر یافت نشد.',422);
+  }
   $selfiePath=null;$vehiclePath=null;
   // Storage and database writes are separate failure domains. Never leave
   // orphan files or replace a successful prior check when a retry fails.
