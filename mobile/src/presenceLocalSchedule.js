@@ -135,13 +135,17 @@ export async function ensureLocalRandomSchedule(userId,open,windowMinutes=DEFAUL
   await AsyncStorage.setItem(PRESENCE_LOCAL_SCHEDULE_KEY,JSON.stringify(schedule));
   return schedule;
 }
-export async function clearFixedPresenceNotifications() {
+export async function clearFixedPresenceNotifications(expectedUserId=0) {
+  let existing=null;
+  try{existing=JSON.parse(await AsyncStorage.getItem(FIXED_KEY)||'null')}catch{}
+  if(expectedUserId&&Number(existing?.user_id||0)!==Number(expectedUserId))return;
   await scheduleFixedAlerts({enabled:false,assigned:false,random_enabled:false,slots:[]});
 }
-export async function suspendLocalRandomSchedule() {
+export async function suspendLocalRandomSchedule(expectedUserId=0) {
   let existing=null;
   try{existing=JSON.parse(await AsyncStorage.getItem(PRESENCE_LOCAL_SCHEDULE_KEY)||'null')}catch{}
   if(!existing?.items?.length)return;
+  if(expectedUserId&&Number(existing.user_id||0)!==Number(expectedUserId))return;
   for(const item of existing.items)if(item.notification_id){
     await Notifications.cancelScheduledNotificationAsync(item.notification_id).catch(()=>{});
     delete item.notification_id;
