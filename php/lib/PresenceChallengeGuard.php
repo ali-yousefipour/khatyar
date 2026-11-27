@@ -42,9 +42,9 @@ final class PresenceChallengeGuard {
             // generated challenge's chronological 8-hour session boundary.
             if(!preg_match('/^local_(?:(\d+)_)?(\d{10})_(\d{10})$/D',$requestId,$m))
                 throw new DomainException('شناسه صحت‌سنجی تصادفی معتبر نیست.');
-            $encodedUser=isset($m[3])?(int)$m[1]:$userId;
-            $sessionStart=(int)(isset($m[3])?$m[2]:$m[1]);
-            $challengeAt=(int)(isset($m[3])?$m[3]:$m[2]);
+            $encodedUser=($m[1]??'')!==''?(int)$m[1]:$userId;
+            $sessionStart=(int)$m[2];
+            $challengeAt=(int)$m[3];
             if($encodedUser!==$userId || abs($captured-$challengeAt)>600
                 || $challengeAt<$sessionStart || $challengeAt>=$sessionStart+8*3600
                 || self::localDate($challengeAt,'H:i')!==$slot) {
