@@ -13,6 +13,15 @@ final class PresenceChallengeGuard {
         return (new DateTimeImmutable('@'.$timestamp))->setTimezone(new DateTimeZone(self::ZONE))->format($format);
     }
 
+    private static function attendanceEpoch(?string $value): ?int {
+        if(!$value)return null;
+        $dt=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$value,new DateTimeZone(self::ZONE));
+        if($dt instanceof DateTimeImmutable && $dt->format('Y-m-d H:i:s')===$value)
+            return $dt->getTimestamp();
+        try{return (new DateTimeImmutable($value,new DateTimeZone(self::ZONE)))->getTimestamp();}
+        catch(Throwable $e){return null;}
+    }
+
     private static function requireWindow(int $captured, int $start, int $minutes): void {
         if ($captured < $start || $captured >= $start + $minutes * 60) {
             throw new DomainException('تصاویر خارج از مهلت معتبر صحت‌سنجی ثبت شده‌اند.');
@@ -51,11 +60,11 @@ final class PresenceChallengeGuard {
                 throw new DomainException('زمان یا مالک صحت‌سنجی تصادفی معتبر نیست.');
             }
             $attendance=$findAttendance($userId,$sessionStart);
-            if(!$attendance || abs(strtotime((string)($attendance['check_in']??''))-$sessionStart)>2) {
+            if(!$attendance || abs((self::attendanceEpoch((string)($attendance['check_in']??''))??0)-$sessionStart)>2) {
                 throw new DomainException('جلسه حضور مرتبط با صحت‌سنجی یافت نشد.');
             }
             $checkOut=(string)($attendance['check_out']??'');
-            if($checkOut!=='' && ($out=strtotime($checkOut))!==false && $challengeAt>=$out) {
+            if($checkOut!=='' && ($out=self::attendanceEpoch($checkOut))!==null && $challengeAt>=$out) {
                 throw new DomainException('درخواست صحت‌سنجی پس از پایان حضور ثبت شده است.');
             }
             $window=min(10,max(3,(int)($policy['window_minutes']??3)));
