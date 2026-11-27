@@ -39,6 +39,8 @@ class Db {
     }));
     if(str_contains($sql,'FROM substitute_assignments'))return array_values(array_filter(self::$assignments,fn($a)=>$a['status']==='active'&&$a['substitute_user_id']==$params[0]&&$a['request_id']!=($params[1]??0)));
     if(str_contains($sql,'substitute_user_id=?'))return [];
+    if(str_contains($sql,'FROM requests WHERE substitute_user_id=?'))return [];
+    if(str_contains($sql,"FROM requests WHERE user_id=? AND status='approved' AND unit='hourly'"))return [];
     if(str_contains($sql,'FROM requests')){
       if(!str_contains($sql,'id<>?'))throw new LogicException('Editing must exclude its own request');
       return array_values(array_filter(self::$rows,fn($r)=>$r['user_id']==$params[0]&&$r['type']===$params[1]&&$r['id']!=$params[2]&&in_array($r['status'],['pending','approved'],true)));
