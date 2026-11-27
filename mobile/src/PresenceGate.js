@@ -31,6 +31,8 @@ export default function PresenceGate({navigationRef}){
  const wizardReadyRef=useRef(false);
  const wizardWasActiveRef=useRef(false);
  const RANDOM_CACHE_KEY='presence_local_schedule_v2';
+ const scopedKey=key=>'presence_user:'+userId+':'+key;
+ const completedForUser=(entries,requestId)=>{const entry=entries?.[requestId];return !!entry&&Number(entry.user_id||0)===userId;};
  const checkingRef=useRef(false);
  const openNotificationRef=useRef(null);
  const userId=Number(user?.id||0);
@@ -102,10 +104,10 @@ export default function PresenceGate({navigationRef}){
         const nowMs=Date.now();
         if(nowMs<at||nowMs>=at+itemWin*60000)continue;
         const requestId=String(item.request_id||('rnd_'+schedule.attendance_id+'_'+item.ts));
-        const key='presence_random_done:'+requestId;
-        const expiredKey='presence_random_expired:'+requestId;
-        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)||(await localPresenceCompletions())[requestId])continue;
-        const notifKey='presence_random_notified:'+requestId;
+        const key=scopedKey('presence_random_done:'+requestId);
+        const expiredKey=scopedKey('presence_random_expired:'+requestId);
+        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)||completedForUser(await localPresenceCompletions(),requestId))continue;
+        const notifKey=scopedKey('presence_random_notified:'+requestId);
         if(!await AsyncStorage.getItem(notifKey)){
           await AsyncStorage.setItem(notifKey,'1');
           notify('صحت‌سنجی حضور','لطفاً ظرف '+itemWin+' دقیقه سلفی و عکس خودروهای خط را ارسال کنید.',{type:'presence_check',slot:item.slot||'',window_minutes:itemWin,random:true,request_id:requestId});
@@ -120,9 +122,9 @@ export default function PresenceGate({navigationRef}){
     for(const sl of cfg.slots){
      const sm=slotToMinutes(sl);
      if(sm<0||now.minutes<sm||now.minutes>=sm+win)continue;
-     const key=`presence_done:${now.day}:${sl}`,expiredKey=`presence_expired:${now.day}:${sl}`;
+     const key=scopedKey(`presence_done:${now.day}:${sl}`),expiredKey=scopedKey(`presence_expired:${now.day}:${sl}`);
      if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey))continue;
-     const notifKey=`presence_notified:${now.day}:${sl}`;
+     const notifKey=scopedKey(`presence_notified:${now.day}:${sl}`);
      if(!await AsyncStorage.getItem(notifKey)){
       await AsyncStorage.setItem(notifKey,'1');
       notify('صحت‌سنجی حضور',`لطفاً ظرف ${win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.`,{type:'presence_check',slot:sl,window_minutes:win});
@@ -158,9 +160,9 @@ export default function PresenceGate({navigationRef}){
    const sl=data.slot||((cfg.slots||[])[0])||`${String(Math.floor(now.minutes/60)).padStart(2,'0')}:${String(now.minutes%60).padStart(2,'0')}`;
    const requestId=String(data.request_id||`${now.day}_${sl}`);
    const random=!!(data.random===true||data.random==='true'||data.random===1||data.random==='1');
-   const key=immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`;
-   const expiredKey=random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`;
-   if(await AsyncStorage.getItem(key)||(await localPresenceCompletions())[requestId])return;
+   const key=scopedKey(immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`);
+   const expiredKey=scopedKey(random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`);
+   if(await AsyncStorage.getItem(key)||completedForUser(await localPresenceCompletions(),requestId))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
    const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
    const randomTimestamp= random ? /^rnd_\d+_(\d{10})$/.exec(requestId)?.[1] : null;
@@ -173,7 +175,7 @@ export default function PresenceGate({navigationRef}){
    // notification or late tap must never restart or extend the response window.
    const deadlineAnchorMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:deliveredAtMs;
    const deadlineMs=deadlineAnchorMs+notificationWindow*60000;
-   if(!alive||(!data.delivered_at_ms&&Date.now()>=deadlineMs))return;
+   if(!alive||Date.now()>=deadlineMs)return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
   };
   openNotificationRef.current=openFromNotification;
