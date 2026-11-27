@@ -582,6 +582,15 @@ final class LeaveSubstituteCoverage {
             $previous=Db::one("SELECT line_id,line_name,service_location FROM substitute_shift_service_snapshots
                 WHERE assignment_id=? AND jdate=? AND segment_index=? FOR UPDATE",[$assignment,$date,$segment]);
             $next=['line_id'=>(int)$line['id'],'line_name'=>$lineName,'service_location'=>$location];
+            if($previous&&(int)($previous['line_id']??0)===$next['line_id']&&
+                (string)($previous['line_name']??'')===$next['line_name']&&
+                (string)($previous['service_location']??'')===$next['service_location']){
+                // An identical retry is not a new historical correction. Avoid
+                // duplicating the audit trail or changing its recorded_by stamp.
+                $pdo->commit();
+                return ['ok'=>true,'unchanged'=>true,'assignment_id'=>$assignment,
+                    'jdate'=>$date,'segment_index'=>$segment]+$next;
+            }
             Db::run("INSERT INTO substitute_shift_service_snapshots
                 (assignment_id,jdate,segment_index,line_id,line_name,service_location,recorded_by)
                 VALUES(?,?,?,?,?,?,?)
