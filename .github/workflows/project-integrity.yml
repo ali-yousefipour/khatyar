@@ -116,6 +116,7 @@ jobs:
           php php/tests/request_substitute_scope_test.php
           php -l php/lib/LeaveSubstituteCoverage.php
           php php/tests/leave_substitute_pending_guard_test.php
+          php php/tests/substitute_reservation_notification_test.php
           php php/tests/substitute_shift_schedule_api_test.php
           node mobile/scripts/test-request-substitute-scope.cjs
           php php/tests/live_map_query_test.php
