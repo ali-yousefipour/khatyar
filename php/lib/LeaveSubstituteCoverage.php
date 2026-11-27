@@ -462,6 +462,10 @@ final class LeaveSubstituteCoverage {
             if(!$window)return ['completion_status'=>'unverified','attendance_ids'=>[]];
             [$start,$end]=$window;
             $lineId=(int)($shift['segment_locations'][$index]['line_id']??0);
+            // Without a verified historic line, attendance from another station
+            // cannot establish that this specific substitution was fulfilled.
+            // Unknown is distinct from completed: do not infer a past line.
+            if($lineId<=0)return ['completion_status'=>'unverified','attendance_ids'=>array_keys($used)];
             $parts=[];
             foreach($attendance as $punch){
                 if(empty($punch['check_in'])||empty($punch['check_out'])||
