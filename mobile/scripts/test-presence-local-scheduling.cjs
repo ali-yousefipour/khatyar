@@ -85,8 +85,15 @@ const localModule=new Function('AsyncStorage','Notifications','ensurePresenceCha
   try{
     const remote=await localModule.currentPresencePolicy(42,async()=>({enabled:false,assigned:true,random_enabled:false,slots:[],window_minutes:3}));
     assert.equal(remote.enabled,false,'Management policy changes must refresh in the same day');
-    assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null,'Disabled random mode revokes obsolete random notifications');
+    const suspended=JSON.parse(await AsyncStorage.getItem('presence_local_schedule_v2'));
+    assert.equal(suspended.suspended,true,'Disabled random mode cancels alarms without forgetting the six per-session challenges');
+    assert.deepEqual(suspended.items.map(item=>item.request_id),schedule.items.map(item=>item.request_id),
+      'Admin disable/re-enable cannot regenerate another six random challenges');
   }finally{Date.now=oldNow;}
+  const restored=await localModule.ensureLocalRandomSchedule(42,open,3);
+  assert.deepEqual(restored.items.map(item=>item.request_id),schedule.items.map(item=>item.request_id),
+    'Resuming verification preserves original randomized schedule');
+  assert.equal(restored.suspended,false,'Pending future notifications resume without new challenge IDs');
   await localModule.clearLocalRandomSchedule();
   assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null);
   console.log('PASS local random presence: daily config, offline clock-in, 3+3 checks, dedupe, completion and cleanup');
