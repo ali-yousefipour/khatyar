@@ -72,6 +72,21 @@ const localModule=new Function('AsyncStorage','Notifications','ensurePresenceCha
   const fixedBefore=notifications.length;
   await localModule.scheduleFixedAlerts({user_id:42,day:'2099-01-01',enabled:true,assigned:true,random_enabled:false,slots:['09:30','25:99'],window_minutes:3});
   assert.equal(notifications.length,fixedBefore+1,'Valid fixed time schedules a notification; invalid times are rejected');
+  // Updating the policy must revoke old Android alarms rather than leave
+  // yesterday's fixed/random notifications active until they fire.
+  await localModule.scheduleFixedAlerts({user_id:42,day:'2099-01-01',enabled:false,
+    assigned:true,random_enabled:false,slots:['09:30'],window_minutes:3});
+  assert.ok(notifications.some(item=>item.cancel),'Disabled policy must cancel previously scheduled fixed notification');
+  const changed=await localModule.ensureLocalRandomSchedule(42,open,5);
+  assert.ok(changed.items.every(item=>item.window_minutes===5),'Existing random challenges inherit updated window');
+  assert.deepEqual(changed.items.map(item=>item.request_id),schedule.items.map(item=>item.request_id),
+    'Changing window must preserve identity of already-generated random challenges');
+  const oldNow=Date.now;Date.now=()=>oldNow()+61000;
+  try{
+    const remote=await localModule.currentPresencePolicy(42,async()=>({enabled:false,assigned:true,random_enabled:false,slots:[],window_minutes:3}));
+    assert.equal(remote.enabled,false,'Management policy changes must refresh in the same day');
+    assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null,'Disabled random mode revokes obsolete random notifications');
+  }finally{Date.now=oldNow;}
   await localModule.clearLocalRandomSchedule();
   assert.equal(await AsyncStorage.getItem('presence_local_schedule_v2'),null);
   console.log('PASS local random presence: daily config, offline clock-in, 3+3 checks, dedupe, completion and cleanup');
