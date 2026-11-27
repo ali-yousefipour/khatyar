@@ -1499,6 +1499,12 @@ function CheckInShiftTab(){
             <Text style={s.shiftCoverNoticeText}>{cover.shift?.title||'عنوان شیفت ثبت نشده'}</Text>
             {shiftIntervals(cover.shift).length?shiftIntervals(cover.shift).map((interval,i)=><View key={i}>
               <Text style={s.shiftCoverNoticeText}>ورود {shiftTimeFa(interval.start)} تا خروج {shiftTimeFa(interval.end)}</Text>
+              {cover.shift?.segments?.[i]?.allowed_entry_from&&cover.shift?.segments?.[i]?.allowed_entry_until
+                ?<Text style={s.shiftCoverNoticeText}>زمان مجاز ثبت ورود: {shiftTimeFa(cover.shift.segments[i].allowed_entry_from)} تا {shiftTimeFa(cover.shift.segments[i].allowed_entry_until)}</Text>
+                :<Text style={s.shiftCoverNoticeText}>پنجره مجاز ورود این نوبت مشخص نشده است.</Text>}
+              {cover.shift?.segments?.[i]?.allowed_exit_from&&cover.shift?.segments?.[i]?.allowed_exit_until
+                ?<Text style={s.shiftCoverNoticeText}>زمان مجاز ثبت خروج: {shiftTimeFa(cover.shift.segments[i].allowed_exit_from)} تا {shiftTimeFa(cover.shift.segments[i].allowed_exit_until)}</Text>
+                :<Text style={s.shiftCoverNoticeText}>پنجره مجاز خروج این نوبت مشخص نشده است.</Text>}
               <Text style={s.shiftCoverNoticeText}>{cover.shift?.segment_locations?.[i]
                 ?'خط خدمت: '+cover.shift.segment_locations[i].line_name+' · '+cover.shift.segment_locations[i].service_location
                 :'محل خدمت تاریخی این نوبت ثبت نشده است.'}</Text>
