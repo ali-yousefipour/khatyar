@@ -551,7 +551,9 @@ final class LeaveSubstituteCoverage {
                     r.user_id,r.substitute_user_id request_substitute_id,r.from_jdate,r.to_jdate,r.the_date
                 FROM substitute_assignments sa JOIN requests r ON r.id=sa.request_id
                 WHERE sa.id=? AND sa.status='active' AND r.status='approved' AND r.type='annual'
-                  AND (r.unit='daily' OR r.unit IS NULL OR r.unit='') FOR UPDATE",[$assignment]);
+                  AND (r.unit='daily' OR r.unit IS NULL OR r.unit='')
+                   AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest
+                       WHERE latest.request_id=sa.request_id AND latest.status='active') FOR UPDATE",[$assignment]);
             $requestRange=$assignmentRow?self::range($assignmentRow):null;
             if(!$assignmentRow||!$requestRange||$assignmentRow['user_id']!=$assignmentRow['absent_user_id']||
                 $assignmentRow['request_substitute_id']!=$assignmentRow['substitute_user_id']||
