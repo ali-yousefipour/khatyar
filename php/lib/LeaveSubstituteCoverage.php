@@ -280,7 +280,7 @@ final class LeaveSubstituteCoverage {
         for($date=$from,$n=0;$date<=$to;$date=ShiftCalc::jdateAddDays($date,1),$n++){
             if(!$date||$n>366)return false;
             $x=self::fixedSource((int)$left['user_id'],$date);$y=self::fixedSource((int)$right['user_id'],$date);
-            if(!$x||!$y||$x['signature']!==$y['signature'])return false;
+            if(!$x||!$y)return false;
         }
         $x=self::requestWindows($left);$y=self::requestWindows($right);
         return $x!==null&&$y!==null&&!self::windowsOverlap($x,$y);
@@ -312,7 +312,7 @@ final class LeaveSubstituteCoverage {
             if($own===null||($own&&($requested===null||self::windowsOverlap($requested,$own))))return ['id'=>0,'conflict_type'=>'own_shift'];
             if($own){
                 $source=self::fixedSource((int)$request['user_id'],$date);$primary=self::fixedSource($sub,$date);
-                if(!$source||!$primary||$source['signature']!==$primary['signature'])return ['id'=>0,'conflict_type'=>'own_policy'];
+                if(!$source||!$primary)return ['id'=>0,'conflict_type'=>'own_policy'];
             }
         }
 
@@ -337,12 +337,14 @@ final class LeaveSubstituteCoverage {
         $primary=self::fixedSource($uid,$date);
         if($primary&&!empty($primary['segments']))array_unshift($rows,['request_id'=>0,'absent_user_id'=>$uid]);
         if(count($rows)<2)return null;
-        $signature=null;$first=null;$segments=[];$seen=[];$windows=[];$explicitDuty=0;$hasExplicitDuty=false;
+        $first=null;$segments=[];$seen=[];$windows=[];$parts=[];$explicitDuty=0;$hasExplicitDuty=false;
         foreach($rows as $row){
             if(isset($seen[$row['request_id']]))continue;$seen[$row['request_id']]=true;
             $source=self::fixedSource((int)$row['absent_user_id'],$date);
-            if(!$source||($signature!==null&&$signature!==$source['signature']))return null;
-            $signature=$source['signature'];$first=$first??$source;
+            if(!$source)return null;
+            $first=$first??$source;
+            $parts[]=['request_id'=>(int)$row['request_id'],'absent_user_id'=>(int)$row['absent_user_id'],
+                'shift'=>$source['shift'],'day_row'=>['segments'=>$source['segments'],'is_off'=>!$source['segments'],'day_config'=>$source['config']]];
             if(isset($source['config']['duty_min'])&&$source['config']['duty_min']!==''){
                 $hasExplicitDuty=true;$explicitDuty+=max(0,(int)$source['config']['duty_min']);
             }
@@ -353,7 +355,7 @@ final class LeaveSubstituteCoverage {
             }
         }
         if($hasExplicitDuty)$first['config']['duty_min']=$explicitDuty;
-        $id=-max(1,$uid);self::$syntheticDays[$id][$date]=['segments'=>$segments,'is_off'=>!$segments,'day_config'=>$first['config']];
+        $id=-max(1,$uid);self::$syntheticDays[$id][$date]=['segments'=>$segments,'is_off'=>!$segments,'day_config'=>$first['config'],'composite_parts'=>$parts];
         $shift=$first['shift'];$shift['shift_id']=$id;$shift['id']=$id;$shift['type']='advanced';$shift['is_substitute_shift']=1;$shift['substitute_sources']=$rows;$shift['title']='شیفت‌های جایگزینی';return $shift;
     }
     public static function windowsOverlap(array $left,array $right): bool {
