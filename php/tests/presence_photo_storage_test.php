@@ -8,10 +8,11 @@ class Db {
   static $failWrite = false;
   static $sessionActive = true;
   static $randomDailyCount = 0;
+  static $locks = 0;
   static function one($query, $params=[]) {
     if(str_contains($query,'information_schema.COLUMNS'))return ['COLUMN_NAME'=>$params[0]??'selfie_path'];
-    if(str_contains($query,'GET_LOCK('))return ['acquired'=>1];
-    if(str_contains($query,'RELEASE_LOCK('))return ['released'=>1];
+    if(str_contains($query,'GET_LOCK(')){self::$locks++;return ['acquired'=>1];}
+    if(str_contains($query,'RELEASE_LOCK(')){self::$locks=max(0,self::$locks-1);return ['released'=>1];}
     if(str_contains($query,'FROM app_settings'))return ['value'=>json_encode(['enabled'=>true,'random_enabled'=>false,'slots'=>[$GLOBALS['testSlot']],'window_minutes'=>3])];
     if(str_contains($query,'LEFT(request_id,6)'))return ['n'=>self::$randomDailyCount];
     if(str_contains($query,'FROM staff_attendance'))return self::$sessionActive
@@ -125,5 +126,6 @@ try{
     throw $error;
 }
 Db::$randomDailyCount=0;
+if(Db::$locks!==0)throw new LogicException('MySQL presence lock leaked during validation or failed image storage');
 echo "PASS random presence six-per-day cap enforced before storing images\\n";
 echo "PASS presence insert/update: both photos required, failed saves rejected, partial files cleaned up\n";
