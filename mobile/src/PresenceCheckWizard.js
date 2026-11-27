@@ -30,6 +30,7 @@ export default function PresenceCheckWizard(){
  const expiredKey=String(p.expiredKey||'');
  const immediate=!!p.immediate;
  const requestId=String(p.requestId||'');
+ const ownerUserId=Number(p.ownerUserId||0);
  const deadlineMs=Number(p.deadlineMs)||Date.now()+windowMinutes*60000;
  const[step,setStep]=useState('intro');
  const[selfie,setSelfie]=useState(null);
@@ -98,6 +99,10 @@ export default function PresenceCheckWizard(){
  };
 
  async function submit(vehiclesUrl,coords){
+   if(ownerUserId>0&&ownerUserId!==Number(user?.id||0)){
+     setError('این درخواست متعلق به حساب کاربری دیگری است.');
+     return false;
+   }
    if(finishedRef.current)return true;
    if(submissionBusyRef.current)return false;
    if(presenceRemainingMs(requestId,deadlineMs)<=0){
@@ -176,6 +181,10 @@ export default function PresenceCheckWizard(){
    if(isFocused&&layoutReported.current&&!readyReported.current)acknowledgeVisible();
  },[isFocused]);
 
+ if(ownerUserId>0&&ownerUserId!==Number(user?.id||0))
+   return <View style={s.page}><Text style={[s.title,{marginTop:80}]}>حساب کاربری تغییر کرده است</Text>
+     <Text style={s.body}>برای حفظ حریم خصوصی، درخواست صحت‌سنجی حساب قبلی قابل ارسال نیست.</Text>
+     <TouchableOpacity style={s.btn} onPress={closeWizard}><Text style={s.btnTxt}>بازگشت</Text></TouchableOpacity></View>;
  if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst={false} onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/><View pointerEvents="none" style={[s.cameraTimer,{top:Math.max(60,insets.top+48)}]}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
  if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst={false} onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/><View pointerEvents="none" style={[s.cameraTimer,{top:Math.max(60,insets.top+48)}]}><Text style={s.cameraTimerText}>مهلت: {timeFa}</Text></View></View>;
 
