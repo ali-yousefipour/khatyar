@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const WIDTH=1240,HEIGHT=1754,MARGIN=75,ROWS_PER_PAGE=6,MAX_PAGES=80;
+const WIDTH=2480,HEIGHT=1754,MARGIN=65,ROWS_PER_PAGE=31,MAX_PAGES=80;
 const fa=value=>String(value??'—').replace(/[0-9]/g,c=>'۰۱۲۳۴۵۶۷۸۹'[Number(c)]);
 const fields=['تاریخ','نیروی جایگزین','نیروی اصلی','شیفت','شروع','پایان','خط یا محل خدمت','وضعیت','رزروکننده'];
 function pdfDocument(pages){
@@ -15,8 +15,8 @@ function pdfDocument(pages){
  const ids=pages.map((_,i)=>3+i*3);
  object(2,'<< /Type /Pages /Count '+pages.length+' /Kids ['+ids.map(n=>n+' 0 R').join(' ')+'] >>');
  pages.forEach((bytes,i)=>{
-  const id=ids[i],stream='q 595.28 0 0 841.89 0 0 cm /Im0 Do Q\n';
-  object(id,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 '+(id+1)+' 0 R >> >> /Contents '+(id+2)+' 0 R >>');
+  const id=ids[i],stream='q 841.89 0 0 595.28 0 0 cm /Im0 Do Q\n';
+  object(id,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /XObject << /Im0 '+(id+1)+' 0 R >> >> /Contents '+(id+2)+' 0 R >>');
   table[id+1]=offset;
   write((id+1)+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+WIDTH+' /Height '+HEIGHT+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+bytes.length+' >>\nstream\n');
   write(bytes);write('\nendstream\nendobj\n');
@@ -37,38 +37,27 @@ function bytesOf(jpeg){
 function renderPage(rows,pageNumber,pagesCount,title,logo,summary,person){
  const canvas=document.createElement('canvas');canvas.width=WIDTH;canvas.height=HEIGHT;
  const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas PDF is unavailable');
- const right=WIDTH-MARGIN, contentWidth=WIDTH-2*MARGIN;
- const font=(size,bold=false)=>{ctx.font=(bold?'700 ':'400 ')+size+'px Vazirmatn, Tahoma, sans-serif';};
- const text=(value,x,y,size,color='#173b32',bold=false,max=contentWidth)=>{font(size,bold);ctx.fillStyle=color;ctx.fillText(fa(value),x,y,max);};
+ const right=WIDTH-MARGIN, cw=WIDTH-2*MARGIN;
  const rect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
- const wrap=(value,max,size)=>{font(size);const lines=[];let line='';for(const word of fa(value).split(/\s+/)){const candidate=line?line+' '+word:word;if(line&&ctx.measureText(candidate).width>max){lines.push(line);line=word;}else line=candidate;}if(line)lines.push(line);return lines;};
+ const text=(value,x,y,size,color='#173b32',bold=false,max=cw)=>{ctx.font=(bold?'700 ':'400 ')+size+'px Vazirmatn, Tahoma, sans-serif';ctx.fillStyle=color;ctx.fillText(fa(value),x,y,max);};
  ctx.direction='rtl';ctx.textAlign='right';ctx.textBaseline='middle';
- rect(0,0,WIDTH,HEIGHT,'#ffffff');rect(0,0,WIDTH,206,'#064e3b');rect(0,206,WIDTH,9,'#0d9488');
- if(logo){rect(MARGIN,37,130,130,'#ffffff');const ratio=Math.min(114/logo.naturalWidth,114/logo.naturalHeight);const w=logo.naturalWidth*ratio,h=logo.naturalHeight*ratio;ctx.drawImage(logo,MARGIN+65-w/2,102-h/2,w,h);}
- text('خطیار | مدیریت هوشمند خطوط و ناوگان تاکسیرانی',right,48,24,'#d1fae5',true,900);
- text('گزارش شیفت نیروهای جایگزین',right,106,43,'#ffffff',true,900);
- text('نیروی جایگزین: '+person+'  |  '+title,right,164,27,'#ffffff',true,900);
- const labels=[['روزهای ماه',summary.days],['روزهای بدون شیفت',summary.empty],['تعداد نوبت‌ها',summary.total],['نوبت‌های قطعی',summary.confirmed]];
- const gap=12,w=(contentWidth-3*gap)/4;
- labels.forEach(([label,value],i)=>{const x=right-(i+1)*w-i*gap;rect(x,244,w,100,'#eef7f3');text(label,x+w-14,269,20,'#365b50',false,w-28);text(value,x+w-14,310,32,'#065f46',true,w-28);});
- text('جزئیات نوبت‌های کاری • مطابق فیلترهای انتخاب‌شده',right,380,25,'#064e3b',true);
+ rect(0,0,WIDTH,HEIGHT,'#fff');rect(0,0,WIDTH,125,'#064e3b');rect(0,125,WIDTH,6,'#0d9488');
+ if(logo){const ratio=Math.min(92/logo.naturalWidth,92/logo.naturalHeight);ctx.drawImage(logo,MARGIN,16,logo.naturalWidth*ratio,logo.naturalHeight*ratio);}
+ text('گزارش ماهانه شیفت نیروهای جایگزین',right,36,39,'#fff',true);
+ text('نیروی جایگزین: '+person+' | '+title,right,88,31,'#fff',true);
+ text('روزهای ماه: '+summary.days+'  |  روزهای بدون شیفت: '+summary.empty+'  |  نوبت‌ها: '+summary.total+'  |  قطعی: '+summary.confirmed,right,165,29,'#064e3b',true);
+ const cols=[['تاریخ / روز',380],['نیروی اصلی',440],['شیفت',220],['ساعت شروع و پایان',390],['خط مجاز / محل خدمت',650],['وضعیت',260]];
+ const widths=cols.map(c=>c[1]*cw/2340);let y=200;
+ const draw=(values,background,color,bold=false)=>{rect(MARGIN,y,cw,45,background);let x=right;values.forEach((v,i)=>{text(v,x-12,y+22,26,color,bold,widths[i]-24);x-=widths[i];rect(x,y,1,45,'#dbe5e2');});y+=45;};
+ draw(cols.map(c=>c[0]),'#087f5b','#fff',true);
  rows.forEach((row,i)=>{
-  const y=410+i*199, inner=contentWidth-32;
-  const status=String(row['وضعیت']||'نامشخص'), heading=fa(row['تاریخ'])+'  |  '+(row['روز هفته']||'')+(row['تعطیلی']&&row['تعطیلی']!=='جمعه'?'  |  '+row['تعطیلی']:''), conflict=row['تداخل']==='دارای تداخل', color=conflict?'#b91c1c':status.includes('انتظار')||status.includes('موقت')?'#92400e':status.includes('لغو')||status.includes('آزاد')?'#b91c1c':status.includes('انجام')?'#475569':'#065f46';
-  rect(MARGIN,y,contentWidth,190,i%2?'#f7faf9':'#eff8f4');rect(right-6,y,6,190,color);
-  if(row['روز خالی']){rect(MARGIN,y,contentWidth,190,'#f5f7f7');text(heading,right-18,y+32,25,'#475569',true,inner);text(status,right-18,y+95,25,'#475569',false,inner);return;}
-  text(heading,right-18,y+22,23,row['تعطیلی']?'#b91c1c':color,true,inner);
-  text('به‌جای: '+(row['نیروی اصلی']||'ثبت نشده')+'  |  '+status+(conflict?'  |  دارای تداخل':''),right-18,y+50,23,'#173b32',true,inner);
-  text((row['شیفت']||'شیفت ثبت نشده')+'  |  '+fa(row['شروع'])+' تا '+fa(row['پایان'])+'  |  مدت: '+fa(row['مدت برنامه‌ریزی‌شده (دقیقه)'])+' دقیقه',right-18,y+77,20,'#173b32',false,inner);
-  const location=wrap('محل خدمت: '+(row['خط یا محل خدمت']||'ثبت نشده'),inner,20);
-  const locationLines=location.length<=3?location:[...location.slice(0,2),location.slice(2).join(' ')];
-  (locationLines.length?locationLines:['—']).forEach((line,j)=>text(line,right-18,y+102+j*22,20,'#365b50',false,inner));
-  text('رزروکننده: '+(row['رزروکننده']||'ثبت نشده')+'  |  شماره درخواست: '+fa(row['شماره درخواست']),right-18,y+169,18,'#365b50',false,inner);
+  const status=String(row['وضعیت']||'نامشخص'), empty=row['روز خالی'], conflict=row['تداخل']==='دارای تداخل';
+  const color=conflict||row['تعطیلی']?'#991b1b':empty?'#475569':'#173b32';
+  draw([row['تاریخ']+' | '+(row['روز هفته']||''),empty?'—':row['نیروی اصلی']||'ثبت نشده',empty?'—':row['شیفت']||'ثبت نشده',empty?'—':'\u2066'+fa(row['شروع'])+'\u2069 تا \u2066'+fa(row['پایان'])+'\u2069',empty?'—':row['خط یا محل خدمت']||'ثبت نشده',status+(conflict?' / تداخل':'')],empty?'#f4f6f6':i%2?'#fff':'#edf7f3',color);
  });
- rect(MARGIN,1622,contentWidth,2,'#0d9488');
- text('تاریخ تولید: '+new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date()),right,1650,21,'#365b50');
- text('صفحه '+fa(pageNumber)+' از '+fa(pagesCount),right,1690,22,'#064e3b',true);
- return bytesOf(canvas.toDataURL('image/jpeg',0.94));
+ rect(MARGIN,1680,cw,2,'#0d9488');
+ text('خط مجاز: تنظیم فعلی نیروی اصلی؛ نه سند حضور تاریخی.  |  تاریخ تولید: '+new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date())+'  |  صفحه '+pageNumber+' از '+pagesCount,right,1712,23,'#365b50');
+ return bytesOf(canvas.toDataURL('image/jpeg',0.95));
 }
 function loadLogo(){
  return new Promise(resolve=>{
