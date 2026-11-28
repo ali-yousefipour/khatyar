@@ -12865,9 +12865,14 @@ function SubstituteCalendar() {
     useEffect(() => { if (!uid || selected || selectedDay)
         return; const timer = setInterval(() => setReload(v => v + 1), 60000); return () => clearInterval(timer); }, [uid, selected, selectedDay]);
     const detailRef = useRef(null);
+    const [locationError, setLocationError] = useState('');
+    const normalizeSearch = value => String(value !== null && value !== void 0 ? value : '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\u200c\s]+/g, ' ').trim();
     useEffect(() => { if (selected && detailRef.current) {
-        detailRef.current.showModal();
-        return () => { var _a; (_a = detailRef.current) === null || _a === void 0 ? void 0 : _a.close(); };
+        const dialog = detailRef.current;
+        if (!dialog.open)
+            dialog.showModal();
+        return () => { if (dialog.open)
+            dialog.close(); };
     } }, [selected]);
     const days = useMemo(() => substituteMonthDays(year, month), [year, month]);
     useEffect(() => { let mounted = true; fetch(API_BASE + '/admin/lines', { headers: tok(), cache: 'no-store' }).then(async (r) => { return readCalendarJson(r, 'فهرست خطوط دریافت نشد'); }).then(v => { if (mounted)
@@ -12943,10 +12948,11 @@ function SubstituteCalendar() {
     };
     const printReport = () => { const rows = exportRows(); const escape = value => String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const columns = Object.keys(rows[0] || {}); printLetterhead('برنامه ماهانه نیروهای جایگزین', '<table style="width:100%;border-collapse:collapse" border="1"><thead><tr>' + columns.map(c => '<th>' + escape(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => '<tr>' + columns.map(c => '<td>' + escape(row[c]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'); };
     const saveLocation = async () => {
+        var _a, _b;
         if (!(selected === null || selected === void 0 ? void 0 : selected.assignment_id) || savingLocation)
             return;
         setSavingLocation(true);
-        setError('');
+        setLocationError('');
         try {
             const response = await fetch(API_BASE + '/admin/substitute-calendar/service-location', { method: 'PUT', headers: { ...tok(), 'Content-Type': 'application/json' }, body: JSON.stringify({
                     assignment_id: selected.assignment_id, jdate: selected.date, segment_index: locationSegment, line_id: Number(locationLine),
@@ -12958,9 +12964,11 @@ function SubstituteCalendar() {
             }
             setSelected(null);
             setReload(v => v + 1);
+            (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('محل خدمت و تاریخچه ذخیره شد.');
         }
         catch (e) {
-            setError(e.message || 'ثبت محل خدمت ناموفق بود');
+            setLocationError(e.message || 'ثبت محل خدمت ناموفق بود');
+            (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.error(e.message || 'ثبت محل خدمت ناموفق بود');
         }
         finally {
             setSavingLocation(false);
@@ -12968,6 +12976,7 @@ function SubstituteCalendar() {
     };
     const openDetails = (v, date) => {
         var _a, _b, _c, _e, _f, _g;
+        setLocationError('');
         setLocationSegment(0);
         setLocationLine(String(((_c = (_b = (_a = v.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.line_id) || ''));
         setLocationName(((_g = (_f = (_e = v.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[0]) === null || _g === void 0 ? void 0 : _g.service_location) || '');
@@ -12986,6 +12995,7 @@ function SubstituteCalendar() {
         setMonth(next); };
     return React.createElement("div", { dir: "rtl", className: "kh-sub-calendar" },
         React.createElement("style", null, ".kh-sub-calendar{font-family:Vazirmatn,Tahoma,sans-serif}.kh-sub-calendar .sc-header,.kh-sub-calendar .sc-actions,.kh-sub-calendar .sc-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.kh-sub-calendar .sc-header{justify-content:space-between;margin-bottom:16px}.kh-sub-calendar .sc-header h3{margin:0 0 4px;font-size:18px}.kh-sub-calendar .sc-header h3{color:#fff}.kh-sub-calendar .sc-header p{margin:0;color:#e5f5ef;font-size:12px}.kh-sub-calendar .sc-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0}.kh-sub-calendar .sc-filters .input{width:100%;min-width:0;box-sizing:border-box;min-height:44px}.kh-sub-calendar .sc-advanced{border:1px solid var(--border,#dbe5e2);border-radius:10px;padding:8px 12px;margin-bottom:12px}.kh-sub-calendar summary{cursor:pointer;padding:12px 0;font-weight:600}.kh-sub-calendar .btn{min-height:44px}.kh-sub-calendar button:focus-visible,.kh-sub-calendar select:focus-visible,.kh-sub-calendar summary:focus-visible{outline:3px solid #0d9488;outline-offset:2px}.kh-sub-calendar .sub-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.kh-sub-calendar .sub-calendar-heading{text-align:center;padding:8px 0;font-size:12px}.kh-sub-calendar .sc-day{overflow-wrap:anywhere;display:flex;flex-direction:column;text-align:start;align-items:stretch;min-height:96px;min-width:0;gap:6px;padding:8px;background:var(--surface,#fff);border:1px solid var(--border,#dbe5e2);border-radius:9px;color:inherit;font:inherit;cursor:pointer}.kh-sub-calendar .sc-day[aria-pressed=true]{border:2px solid #087f5b;padding:7px;background:#ecfdf5}.kh-sub-calendar .sc-today{box-shadow:inset 0 0 0 2px #0d9488}.kh-sub-calendar .sc-holiday{background:#fff7f5}.kh-sub-calendar .sc-marker{font-size:11px;line-height:1.5;overflow-wrap:anywhere;border-inline-start:3px solid currentColor;padding-inline-start:4px}.kh-sub-calendar .sc-body{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}.kh-sub-calendar .sc-body.sc-open{grid-template-columns:minmax(0,1fr) minmax(240px,30%)}.kh-sub-calendar .sc-day-detail,.kh-sub-calendar .sc-shift-card{border:1px solid var(--border,#dbe5e2);border-radius:10px;padding:12px;align-self:start}.kh-sub-calendar .sc-shift-card{margin-top:4px;overflow-wrap:anywhere;padding:6px;background:#f4faf7;font-size:12px;min-width:0}.kh-sub-calendar .sc-shift-card .btn{width:100%;white-space:normal;font-size:11px}.kh-sub-calendar .sc-shift-card p{margin:6px 0;font-size:13px}@media(max-width:1100px){.kh-sub-calendar .sc-body.sc-open{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sc-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:900px){.kh-sub-calendar .sub-calendar-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kh-sub-calendar .sub-calendar-heading,.kh-sub-calendar .sub-calendar-blank{display:none}}@media(max-width:600px){.kh-sub-calendar .sub-calendar-grid{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sc-filters{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sub-calendar-grid{gap:3px}.kh-sub-calendar .sc-day{min-height:64px;padding:4px;gap:3px}.kh-sub-calendar .sc-day[aria-pressed=true]{padding:3px}.kh-sub-calendar .sc-marker{font-size:10px;padding-inline-start:2px}.kh-sub-calendar .sub-calendar-heading{font-size:10px}.kh-sub-calendar .sc-holiday-label{display:none}}"),
+        React.createElement("style", null, ".kh-sub-calendar .sc-filters{grid-template-columns:minmax(0,1.4fr) minmax(0,1.4fr) repeat(2,minmax(0,.7fr));gap:12px;padding:14px;background:var(--surface,#fff);border:1px solid var(--border,#dbe5e2);border-radius:14px}.kh-sub-calendar .sc-advanced .sc-filters{grid-template-columns:repeat(3,minmax(0,1fr));border:0;padding:4px 0;background:transparent}.kh-sub-calendar .sc-field,.kh-sub-calendar .sc-dialog label{display:flex;flex-direction:column;gap:6px;min-width:0;font-weight:600;font-size:13px}.kh-sub-calendar .sc-dialog{position:fixed!important;inset:0!important;margin:auto!important;transform:none!important;width:min(760px,calc(100% - 32px))!important;max-width:calc(100% - 32px)!important;max-height:calc(100dvh - 32px)!important;height:fit-content!important;box-sizing:border-box;padding:0!important;border:1px solid #c5dcd4;border-radius:18px;background:var(--surface,#fff);color:var(--text,#173c35);overflow:auto;box-shadow:0 20px 70px #002d2540;direction:rtl;text-align:start;font:inherit}.kh-sub-calendar .sc-dialog::backdrop{background:rgba(10,35,30,.52)}.kh-sub-calendar .sc-dialog-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;background:#075e50;color:white}.kh-sub-calendar .sc-dialog-head h4{margin:0;color:white;font-size:17px}.kh-sub-calendar .sc-dialog-head p{margin:4px 0 0;color:#d5ede5;font-size:12px}.kh-sub-calendar .sc-dialog-head button{background:transparent;color:white;border:1px solid #ffffff80;border-radius:9px;min-width:44px;font-size:20px;cursor:pointer}.kh-sub-calendar .sc-dialog-body{padding:20px;display:grid;gap:14px}.kh-sub-calendar .sc-info-grid,.kh-sub-calendar .sc-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kh-sub-calendar .sc-info-grid>p,.kh-sub-calendar .sc-info-grid>div{margin:0;padding:12px;border:1px solid var(--border,#dbe5e2);border-radius:10px;line-height:1.8;overflow-wrap:anywhere}.kh-sub-calendar .sc-edit{border:1px solid var(--border,#dbe5e2);border-radius:12px;padding:14px}.kh-sub-calendar .sc-edit h5{font-size:14px;margin:0 0 12px}.kh-sub-calendar .sc-edit-grid .input{width:100%;box-sizing:border-box;min-height:44px;font:inherit;font-weight:400}.kh-sub-calendar .sc-edit-grid textarea{min-height:86px;resize:vertical}.kh-sub-calendar .sc-edit-grid label:last-child{grid-column:1/-1}.kh-sub-calendar .sc-dialog-foot{position:sticky;bottom:0;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:12px 20px;background:var(--surface,#fff);border-top:1px solid var(--border,#dbe5e2)}.kh-sub-calendar .sc-dialog .sc-warning{grid-column:1/-1;border-color:#efb8b8;color:#a52727;background:#fff5f5}.kh-sub-calendar .sc-dialog .sc-error{color:#a52727;margin:0}@media(max-width:950px){.kh-sub-calendar .sc-filters,.kh-sub-calendar .sc-advanced .sc-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.kh-sub-calendar .sc-filters,.kh-sub-calendar .sc-advanced .sc-filters,.kh-sub-calendar .sc-info-grid,.kh-sub-calendar .sc-edit-grid{grid-template-columns:minmax(0,1fr)}.kh-sub-calendar .sc-dialog-body{padding:12px}.kh-sub-calendar .sc-dialog-head{padding:12px}.kh-sub-calendar .sc-dialog-foot{padding:10px}.kh-sub-calendar .sc-dialog-foot .btn{flex:1}}"),
         React.createElement("header", { className: "sc-header" },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
@@ -12993,43 +13003,61 @@ function SubstituteCalendar() {
             React.createElement("div", { className: "sc-nav" },
                 React.createElement("button", { className: "btn g", onClick: () => move(-1) }, "\u0645\u0627\u0647 \u0642\u0628\u0644"),
                 React.createElement("strong", null,
-                    fa(year),
+                    display(year),
                     " / ",
-                    fa(month)),
+                    display(month)),
                 React.createElement("button", { className: "btn g", onClick: () => move(1) }, "\u0645\u0627\u0647 \u0628\u0639\u062F"),
                 React.createElement("button", { className: "btn g", onClick: () => { setYear(Number(todayParts.year)); setMonth(Number(todayParts.month)); } }, "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC"))),
         React.createElement("div", { className: "sc-filters" },
-            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", value: search, onChange: e => setSearch(e.target.value) }),
-            React.createElement("select", { className: "input", "aria-label": "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", value: uid, onChange: e => setUid(e.target.value) },
-                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
-                users.filter(u => u.name.includes(search)).map(u => React.createElement("option", { key: u.id, value: u.id },
-                    u.name,
-                    Number(u.is_active) ? '' : ' (سوابق)'))),
-            React.createElement("select", { className: "input", "aria-label": "\u0633\u0627\u0644 \u0634\u0645\u0633\u06CC", value: year, onChange: e => setYear(Number(e.target.value)) }, Array.from({ length: 21 }, (_, i) => Number(todayParts.year) - 10 + i).map(v => React.createElement("option", { key: v, value: v }, fa(v)))),
-            React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC", value: month, onChange: e => setMonth(Number(e.target.value)) }, ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'].map((v, i) => React.createElement("option", { key: v, value: i + 1 }, v)))),
+            React.createElement("label", { className: "sc-field" },
+                "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648",
+                React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", value: search, onChange: e => setSearch(e.target.value) })),
+            React.createElement("label", { className: "sc-field" },
+                "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646",
+                React.createElement("select", { className: "input", "aria-label": "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", value: uid, onChange: e => setUid(e.target.value) },
+                    React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+                    users.filter(u => String(u.id) === String(uid) || normalizeSearch(u.name).includes(normalizeSearch(search))).map(u => React.createElement("option", { key: u.id, value: u.id },
+                        u.name,
+                        Number(u.is_active) ? '' : ' (سوابق)')))),
+            React.createElement("label", { className: "sc-field" },
+                "\u0633\u0627\u0644 \u0634\u0645\u0633\u06CC",
+                React.createElement("select", { className: "input", "aria-label": "\u0633\u0627\u0644 \u0634\u0645\u0633\u06CC", value: year, onChange: e => setYear(Number(e.target.value)) }, Array.from({ length: 21 }, (_, i) => Number(todayParts.year) - 10 + i).map(v => React.createElement("option", { key: v, value: v }, display(v))))),
+            React.createElement("label", { className: "sc-field" },
+                "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC",
+                React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0634\u0645\u0633\u06CC", value: month, onChange: e => setMonth(Number(e.target.value)) }, ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'].map((v, i) => React.createElement("option", { key: v, value: i + 1 }, v))))),
         React.createElement("details", { className: "sc-advanced" },
             React.createElement("summary", null, "\u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
             React.createElement("div", { className: "sc-filters" },
-                React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635", value: status, onChange: e => setStatus(e.target.value) },
-                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
-                    React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
-                    React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
-                    React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC"),
-                    React.createElement("option", { value: "completed" }, "\u0634\u06CC\u0641\u062A \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
-                    React.createElement("option", { value: "conflict" }, "\u062F\u0627\u0631\u0627\u06CC \u062A\u062F\u0627\u062E\u0644")),
-                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
-                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
-                    React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u0645\u0634\u062E\u0635"),
-                    knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
-                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
-                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
-                    knownLocations.map(v => React.createElement("option", { key: v, value: v }, v))),
-                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC", value: absentFilter, onChange: e => setAbsentFilter(e.target.value) },
-                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC"),
-                    knownAbsents.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name))),
-                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0634\u06CC\u0641\u062A", value: typeFilter, onChange: e => setTypeFilter(e.target.value) },
-                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0627\u0646\u0648\u0627\u0639 \u0634\u06CC\u0641\u062A"),
-                    knownShiftTypes.map(v => React.createElement("option", { key: v, value: v }, v))),
+                React.createElement("label", { className: "sc-field" },
+                    "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635",
+                    React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u062E\u0635\u06CC\u0635", value: status, onChange: e => setStatus(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
+                        React.createElement("option", { value: "confirmed" }, "\u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC"),
+                        React.createElement("option", { value: "pending" }, "\u0631\u0632\u0631\u0648 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F"),
+                        React.createElement("option", { value: "history" }, "\u0633\u0648\u0627\u0628\u0642 \u0644\u063A\u0648\u060C \u0631\u062F \u0648 \u0622\u0632\u0627\u062F\u0633\u0627\u0632\u06CC"),
+                        React.createElement("option", { value: "completed" }, "\u0634\u06CC\u0641\u062A \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
+                        React.createElement("option", { value: "conflict" }, "\u062F\u0627\u0631\u0627\u06CC \u062A\u062F\u0627\u062E\u0644"))),
+                React.createElement("label", { className: "sc-field" },
+                    "\u062E\u0637 \u062E\u062F\u0645\u062A",
+                    React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u062E\u0637 \u062E\u062F\u0645\u062A", value: lineFilter, onChange: e => setLineFilter(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u062E\u0637\u0648\u0637"),
+                        React.createElement("option", { value: "unknown" }, "\u0628\u062F\u0648\u0646 \u062E\u0637 \u0645\u0634\u062E\u0635"),
+                        knownLines.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name)))),
+                React.createElement("label", { className: "sc-field" },
+                    "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A",
+                    React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", value: locationFilter, onChange: e => setLocationFilter(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0645\u062D\u0644\u200C\u0647\u0627"),
+                        knownLocations.map(v => React.createElement("option", { key: v, value: v }, v)))),
+                React.createElement("label", { className: "sc-field" },
+                    "\u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC",
+                    React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC", value: absentFilter, onChange: e => setAbsentFilter(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC"),
+                        knownAbsents.map(v => React.createElement("option", { key: v.id, value: v.id }, v.name)))),
+                React.createElement("label", { className: "sc-field" },
+                    "\u0646\u0648\u0639 \u0634\u06CC\u0641\u062A",
+                    React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0634\u06CC\u0641\u062A", value: typeFilter, onChange: e => setTypeFilter(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0627\u0646\u0648\u0627\u0639 \u0634\u06CC\u0641\u062A"),
+                        knownShiftTypes.map(v => React.createElement("option", { key: v, value: v }, v)))),
                 React.createElement("button", { className: "btn g", onClick: resetFilters }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"))),
         React.createElement("div", { className: "sc-actions" },
             React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: () => { try {
@@ -13081,78 +13109,87 @@ function SubstituteCalendar() {
                                     React.createElement("bdi", null, clock(segment.e))),
                                 React.createElement("p", null, serviceLabel(v, index)))),
                             React.createElement("button", { type: "button", className: "btn g", onClick: () => openDetails(v, d.date) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u062C\u0632\u0626\u06CC\u0627\u062A")); })); })))),
-        selected && React.createElement("dialog", { ref: detailRef, onCancel: () => setSelected(null), "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", className: "panel" },
-            React.createElement("h4", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
-            React.createElement("p", null,
-                display(selected.date),
-                " \u00B7 \u0628\u0647\u200C\u062C\u0627\u06CC ",
-                selected.absent_name),
-            React.createElement("p", null,
-                "\u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A: ",
-                fa(selected.request_id)),
-            selected.conflict && React.createElement("div", { role: "alert" },
-                React.createElement("strong", null, "\u062A\u062F\u0627\u062E\u0644 \u0645\u06CC\u0627\u0646 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0647\u0627\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC"),
-                (selected.conflicts || []).map((conflict, i) => React.createElement("p", { key: i },
-                    "\u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
-                    fa(conflict.request_id),
-                    " \u00B7 ",
-                    conflict.absent_name,
-                    " \u00B7 ",
-                    display(conflict.date),
-                    " ",
-                    (conflict.intervals || []).map(interval => display(interval.start) + ' تا ' + display(interval.end)).join('، ')))),
-            React.createElement("p", null,
-                "\u0631\u0632\u0631\u0648\u06A9\u0646\u0646\u062F\u0647: ",
-                selected.reserved_by_name || 'ثبت نشده'),
-            React.createElement("p", null,
-                "\u062E\u0637 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC: ",
-                allowedLabel(selected) || 'خط مجاز مشخص نشده'),
-            React.createElement("p", null,
-                "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC: ",
-                ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.location_status) === 'verified' ? 'ثبت و تأییدشده' : ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.location_status) === 'partial' ? 'ناقص' : 'ثبت نشده'),
-            (((_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segments) || []).map((seg, i) => { var _a, _b, _c, _e, _f, _g; return React.createElement("p", { key: 'loc-' + i },
-                "\u0646\u0648\u0628\u062A ",
-                fa(i + 1),
-                ": ",
-                ((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[i]) === null || _c === void 0 ? void 0 : _c.line_name) || 'خط تاریخی ثبت نشده',
-                " \u00B7 ",
-                ((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[i]) === null || _g === void 0 ? void 0 : _g.service_location) || 'محل خدمت تاریخی ثبت نشده'); }),
-            React.createElement("p", null,
-                "\u0632\u0645\u0627\u0646 \u0631\u0632\u0631\u0648: ",
-                selected.reserved_at ? display(selected.reserved_at) : 'ثبت نشده'),
-            React.createElement("p", null, selected.status === 'confirmed' ? (selected.completion_status === 'completed' ? 'انجام‌شده بر اساس تردد ثبت‌شده' : 'تخصیص قطعی؛ انجام شیفت هنوز تأیید نشده') : selected.status === 'history' ? (selected.history_status === 'released' ? 'رزرو آزادشده؛ برنامه فعال نیست' : 'لغو یا رد شده؛ برنامه فعال نیست') : 'رزرو موقت؛ الزام حضور نیست'),
-            (((_f = selected.shift) === null || _f === void 0 ? void 0 : _f.segments) || []).map((v, i) => React.createElement("p", { key: i },
-                clock(v.s),
-                " \u062A\u0627 ",
-                clock(v.e))),
-            selected.status === 'confirmed' && selected.assignment_id && React.createElement("section", { "aria-label": "\u062B\u0628\u062A \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", style: { borderTop: '1px solid var(--border,#ddd)', paddingTop: 12 } },
-                React.createElement("h5", null, "\u0627\u0635\u0644\u0627\u062D \u0645\u062C\u0627\u0632 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC (\u0628\u0627 \u062B\u0628\u062A \u0633\u0627\u0628\u0642\u0647)"),
-                React.createElement("label", null,
-                    "\u0646\u0648\u0628\u062A \u06A9\u0627\u0631\u06CC ",
-                    React.createElement("select", { className: "input", value: locationSegment, onChange: e => { var _a, _b, _c, _e, _f, _g; const index = Number(e.target.value); setLocationSegment(index); setLocationLine(String(((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.line_id) || '')); setLocationName(((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[index]) === null || _g === void 0 ? void 0 : _g.service_location) || ''); } }, (((_g = selected.shift) === null || _g === void 0 ? void 0 : _g.segments) || []).map((v, i) => React.createElement("option", { key: i, value: i },
+        selected && React.createElement("dialog", { ref: detailRef, onCancel: e => { e.preventDefault(); if (!savingLocation)
+                setSelected(null); }, "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", className: "sc-dialog" },
+            React.createElement("header", { className: "sc-dialog-head" },
+                React.createElement("div", null,
+                    React.createElement("h4", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+                    React.createElement("p", null,
+                        display(selected.date),
+                        " \u00B7 \u0628\u0647\u200C\u062C\u0627\u06CC ",
+                        selected.absent_name)),
+                React.createElement("button", { type: "button", "aria-label": "\u0628\u0633\u062A\u0646", disabled: savingLocation, onClick: () => setSelected(null) }, "\u00D7")),
+            React.createElement("div", { className: "sc-dialog-body" },
+                React.createElement("div", { className: "sc-info-grid" },
+                    React.createElement("p", null,
+                        "\u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A: ",
+                        fa(selected.request_id)),
+                    selected.conflict && React.createElement("div", { role: "alert", className: "sc-warning" },
+                        React.createElement("strong", null, "\u062A\u062F\u0627\u062E\u0644 \u0645\u06CC\u0627\u0646 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0647\u0627\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC"),
+                        (selected.conflicts || []).map((conflict, i) => React.createElement("p", { key: i },
+                            "\u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
+                            fa(conflict.request_id),
+                            " \u00B7 ",
+                            conflict.absent_name,
+                            " \u00B7 ",
+                            display(conflict.date),
+                            " ",
+                            (conflict.intervals || []).map(interval => display(interval.start) + ' تا ' + display(interval.end)).join('، ')))),
+                    React.createElement("p", null,
+                        "\u0631\u0632\u0631\u0648\u06A9\u0646\u0646\u062F\u0647: ",
+                        selected.reserved_by_name || 'ثبت نشده'),
+                    React.createElement("p", null,
+                        "\u062E\u0637 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC: ",
+                        allowedLabel(selected) || 'خط مجاز مشخص نشده'),
+                    React.createElement("p", null,
+                        "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC: ",
+                        ((_b = selected.shift) === null || _b === void 0 ? void 0 : _b.location_status) === 'verified' ? 'ثبت و تأییدشده' : ((_c = selected.shift) === null || _c === void 0 ? void 0 : _c.location_status) === 'partial' ? 'ناقص' : 'ثبت نشده'),
+                    (((_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segments) || []).map((seg, i) => { var _a, _b, _c, _e, _f, _g; return React.createElement("p", { key: 'loc-' + i },
+                        "\u0646\u0648\u0628\u062A ",
                         fa(i + 1),
+                        ": ",
+                        ((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[i]) === null || _c === void 0 ? void 0 : _c.line_name) || 'خط تاریخی ثبت نشده',
                         " \u00B7 ",
+                        ((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[i]) === null || _g === void 0 ? void 0 : _g.service_location) || 'محل خدمت تاریخی ثبت نشده'); }),
+                    React.createElement("p", null,
+                        "\u0632\u0645\u0627\u0646 \u0631\u0632\u0631\u0648: ",
+                        selected.reserved_at ? display(selected.reserved_at) : 'ثبت نشده'),
+                    React.createElement("p", null, selected.status === 'confirmed' ? (selected.completion_status === 'completed' ? 'انجام‌شده بر اساس تردد ثبت‌شده' : 'تخصیص قطعی؛ انجام شیفت هنوز تأیید نشده') : selected.status === 'history' ? (selected.history_status === 'released' ? 'رزرو آزادشده؛ برنامه فعال نیست' : 'لغو یا رد شده؛ برنامه فعال نیست') : 'رزرو موقت؛ الزام حضور نیست'),
+                    (((_f = selected.shift) === null || _f === void 0 ? void 0 : _f.segments) || []).map((v, i) => React.createElement("p", { key: i },
                         clock(v.s),
                         " \u062A\u0627 ",
-                        clock(v.e))))),
-                React.createElement("label", null,
-                    "\u062E\u0637 \u062E\u062F\u0645\u062A ",
-                    React.createElement("select", { className: "input", "aria-label": "\u062E\u0637 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", value: locationLine, onChange: e => setLocationLine(e.target.value) },
-                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0637 \u0645\u0639\u062A\u0628\u0631"),
-                        lines.map(v => React.createElement("option", { key: v.id, value: v.id },
-                            v.code,
-                            " ",
-                            v.origin || '',
-                            " \u0640 ",
-                            v.destination || '')))),
-                React.createElement("label", null,
-                    "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A ",
-                    React.createElement("input", { className: "input", "aria-label": "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", maxLength: 255, value: locationName, onChange: e => setLocationName(e.target.value) })),
-                React.createElement("label", null,
-                    "\u0639\u0644\u062A \u062B\u0628\u062A \u06CC\u0627 \u0627\u0635\u0644\u0627\u062D ",
-                    React.createElement("textarea", { className: "input", "aria-label": "\u0639\u0644\u062A \u0627\u0635\u0644\u0627\u062D \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", maxLength: 500, value: locationReason, onChange: e => setLocationReason(e.target.value) })),
-                React.createElement("button", { className: "btn p", disabled: savingLocation || !locationLine || locationName.trim().length < 2 || locationReason.trim().length < 3, onClick: saveLocation }, savingLocation ? 'در حال ثبت…' : 'ذخیره محل خدمت و تاریخچه')),
-            React.createElement("button", { className: "btn g", autoFocus: true, onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A")));
+                        clock(v.e)))),
+                selected.status === 'confirmed' && selected.assignment_id && React.createElement("section", { "aria-label": "\u062B\u0628\u062A \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", className: "sc-edit" },
+                    React.createElement("h5", null, "\u0627\u0635\u0644\u0627\u062D \u0645\u062C\u0627\u0632 \u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC (\u0628\u0627 \u062B\u0628\u062A \u0633\u0627\u0628\u0642\u0647)"),
+                    React.createElement("div", { className: "sc-edit-grid" },
+                        React.createElement("label", null,
+                            "\u0646\u0648\u0628\u062A \u06A9\u0627\u0631\u06CC ",
+                            React.createElement("select", { className: "input", value: locationSegment, onChange: e => { var _a, _b, _c, _e, _f, _g; const index = Number(e.target.value); setLocationSegment(index); setLocationLine(String(((_c = (_b = (_a = selected.shift) === null || _a === void 0 ? void 0 : _a.segment_locations) === null || _b === void 0 ? void 0 : _b[index]) === null || _c === void 0 ? void 0 : _c.line_id) || '')); setLocationName(((_g = (_f = (_e = selected.shift) === null || _e === void 0 ? void 0 : _e.segment_locations) === null || _f === void 0 ? void 0 : _f[index]) === null || _g === void 0 ? void 0 : _g.service_location) || ''); } }, (((_g = selected.shift) === null || _g === void 0 ? void 0 : _g.segments) || []).map((v, i) => React.createElement("option", { key: i, value: i },
+                                fa(i + 1),
+                                " \u00B7 ",
+                                clock(v.s),
+                                " \u062A\u0627 ",
+                                clock(v.e))))),
+                        React.createElement("label", null,
+                            "\u062E\u0637 \u062E\u062F\u0645\u062A ",
+                            React.createElement("select", { className: "input", "aria-label": "\u062E\u0637 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", value: locationLine, onChange: e => setLocationLine(e.target.value) },
+                                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0637 \u0645\u0639\u062A\u0628\u0631"),
+                                lines.map(v => React.createElement("option", { key: v.id, value: v.id },
+                                    v.code,
+                                    " ",
+                                    v.origin || '',
+                                    " \u0640 ",
+                                    v.destination || '')))),
+                        React.createElement("label", null,
+                            "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A ",
+                            React.createElement("input", { className: "input", "aria-label": "\u0645\u062D\u0644 \u062E\u062F\u0645\u062A \u062A\u0627\u0631\u06CC\u062E\u06CC", maxLength: 255, value: locationName, onChange: e => setLocationName(e.target.value) })),
+                        React.createElement("label", null,
+                            "\u0639\u0644\u062A \u062B\u0628\u062A \u06CC\u0627 \u0627\u0635\u0644\u0627\u062D ",
+                            React.createElement("textarea", { className: "input", "aria-label": "\u0639\u0644\u062A \u0627\u0635\u0644\u0627\u062D \u0645\u062D\u0644 \u062E\u062F\u0645\u062A", maxLength: 500, value: locationReason, onChange: e => setLocationReason(e.target.value) })))),
+                locationError && React.createElement("p", { role: "alert", className: "sc-error" }, locationError)),
+            React.createElement("footer", { className: "sc-dialog-foot" },
+                React.createElement("button", { className: "btn g", autoFocus: true, disabled: savingLocation, onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
+                selected.status === 'confirmed' && selected.assignment_id && React.createElement("button", { className: "btn p", disabled: savingLocation || !locationLine || locationName.trim().length < 2 || locationReason.trim().length < 3, onClick: saveLocation }, savingLocation ? 'در حال ثبت…' : 'ذخیره محل خدمت و تاریخچه'))));
 }
 function ShiftManager() {
     const [tab, setTab] = useState("shifts");
