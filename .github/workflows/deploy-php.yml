@@ -44,6 +44,7 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          node tests/request_report_ui_test.cjs
           node --check app/assets/identity-banking-audit.js
           node --check app/assets/identity-banking-inputs.js
           node --check app/assets/users-full-report-config.js
