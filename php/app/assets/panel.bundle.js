@@ -12849,15 +12849,22 @@ function SubstituteCalendar() {
         throw Error(label + '؛ پاسخ سرور نامعتبر است (HTTP ' + response.status + ').');
     } if (!response.ok)
         throw Error(typeof (value === null || value === void 0 ? void 0 : value.error) === 'string' ? value.error : label + ' (HTTP ' + response.status + ').'); return value; };
+    const calendarFetch = async (path, signal) => { for (let attempt = 0;; attempt++) {
+        const response = await _fetchWithAuth(API_BASE + path, { cache: 'no-store', signal });
+        if (response.status !== 503 || attempt >= 2)
+            return response;
+        await response.text();
+        const seconds = Number(response.headers.get('Retry-After')) || 3;
+        await new Promise(resolve => setTimeout(resolve, Math.min(10, Math.max(1, seconds)) * 1000 + Math.random() * 400));
+        if (signal.aborted)
+            throw new DOMException('Aborted', 'AbortError');
+    } };
     const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).formatToParts(new Date()).map(p => [p.type, p.value]));
     const [year, setYear] = useState(Number(todayParts.year)), [month, setMonth] = useState(Number(todayParts.month));
     const [reload, setReload] = useState(0), [selectedDay, setSelectedDay] = useState(null);
     const display = value => String(value !== null && value !== void 0 ? value : '—').replace(/[0-9]/g, n => '۰۱۲۳۴۵۶۷۸۹'[Number(n)]);
     const clock = value => typeof value === 'string' && /^(?:[0-3]?\d|4[0-7]):[0-5]\d(?::[0-5]\d)?$/.test(value) ? display(value.split(':').slice(0, 2).map(n => n.padStart(2, '0')).join(':')) : 'ثبت نشده';
     const [holidays, setHolidays] = useState({}), [holidayError, setHolidayError] = useState('');
-    useEffect(() => { let live = true; db.holidays().then(rows => { if (live)
-        setHolidays(Object.fromEntries((rows || []).map(v => [String(v.jdate).replaceAll('/', '-'), v.title]))); }).catch(() => { if (live)
-        setHolidayError('تعطیلات رسمی دریافت نشد؛ برای دریافت دوباره صفحه را باز کنید.'); }); return () => { live = false; }; }, []);
     const [users, setUsers] = useState([]), [uid, setUid] = useState(''), [search, setSearch] = useState(''), [status, setStatus] = useState('all');
     const [lineFilter, setLineFilter] = useState('all'), [locationFilter, setLocationFilter] = useState('all'), [absentFilter, setAbsentFilter] = useState('all'), [typeFilter, setTypeFilter] = useState('all');
     const [lines, setLines] = useState([]), [locationSegment, setLocationSegment] = useState(0), [locationLine, setLocationLine] = useState(''), [locationName, setLocationName] = useState(''), [locationReason, setLocationReason] = useState(''), [savingLocation, setSavingLocation] = useState(false);
@@ -12875,20 +12882,48 @@ function SubstituteCalendar() {
             dialog.close(); };
     } }, [selected]);
     const days = useMemo(() => substituteMonthDays(year, month), [year, month]);
-    useEffect(() => { let mounted = true; fetch(API_BASE + '/admin/lines', { headers: tok(), cache: 'no-store' }).then(async (r) => { return readCalendarJson(r, 'فهرست خطوط دریافت نشد'); }).then(v => { if (mounted)
-        setLines(Array.isArray(v) ? v : []); }).catch(() => { if (mounted)
-        setLines([]); }); return () => { mounted = false; }; }, []);
-    useEffect(() => { let live = true; fetch(API_BASE + '/admin/substitute-calendar/users', { headers: tok(), cache: 'no-store' }).then(async (r) => { return readCalendarJson(r, 'دریافت نیروها ناموفق بود'); }).then(v => { if (live)
-        setUsers(Array.isArray(v) ? v : []); }).catch(e => { if (live)
-        setError(e.message); }); return () => { live = false; }; }, [reload]);
-    useEffect(() => { setData({}); setSelected(null); setSelectedDay(null); if (!uid) {
+    const [metadataReady, setMetadataReady] = useState(-1), [metadataError, setMetadataError] = useState('');
+    useEffect(() => {
+        const controller = new AbortController(), signal = controller.signal;
+        setMetadataError('');
+        setHolidayError('');
+        (async () => {
+            try {
+                const people = await readCalendarJson(await calendarFetch('/admin/substitute-calendar/users', signal), 'دریافت نیروها ناموفق بود');
+                if (signal.aborted)
+                    return;
+                if (!Array.isArray(people))
+                    throw Error('ساختار فهرست نیروها معتبر نیست');
+                setUsers(people);
+                const holidays = await readCalendarJson(await calendarFetch('/admin/holidays', signal), 'تعطیلات رسمی دریافت نشد');
+                if (signal.aborted)
+                    return;
+                if (!Array.isArray(holidays))
+                    throw Error('ساختار تعطیلات معتبر نیست');
+                setHolidays(Object.fromEntries(holidays.map(v => [String(v.jdate).replaceAll('/', '-'), v.title])));
+                const lines = await readCalendarJson(await calendarFetch('/admin/lines', signal), 'فهرست خطوط دریافت نشد');
+                if (signal.aborted)
+                    return;
+                if (!Array.isArray(lines))
+                    throw Error('ساختار فهرست خطوط معتبر نیست');
+                setLines(lines);
+                setMetadataReady(reload);
+            }
+            catch (e) {
+                if (!signal.aborted)
+                    setMetadataError(e.message || 'دریافت اطلاعات پایه ناموفق بود');
+            }
+        })();
+        return () => controller.abort();
+    }, [reload]);
+    useEffect(() => { setData({}); setSelected(null); setSelectedDay(null); if (!uid || metadataReady !== reload) {
         setBusy(false);
         return;
-    } const controller = new AbortController(); setBusy(true); setError(''); fetch(API_BASE + '/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), { headers: tok(), cache: 'no-store', signal: controller.signal }).then(async (r) => { const value = await readCalendarJson(r, 'دریافت تقویم ناموفق بود'); if (!value || typeof value.days !== 'object' || value.days === null)
+    } const controller = new AbortController(); setBusy(true); setError(''); calendarFetch('/admin/substitute-calendar?include_history=1&user_id=' + encodeURIComponent(uid) + '&dates=' + encodeURIComponent(days.map(d => d.date).join(',')), controller.signal).then(async (r) => { const value = await readCalendarJson(r, 'دریافت تقویم ناموفق بود'); if (!value || typeof value.days !== 'object' || value.days === null)
         throw Error('ساختار پاسخ تقویم معتبر نیست'); return value; }).then(v => { if (!controller.signal.aborted)
         setData(v.days || {}); }).catch(e => { if (!controller.signal.aborted && e.name !== 'AbortError')
         setError(e.message); }).finally(() => { if (!controller.signal.aborted)
-        setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload]);
+        setBusy(false); }); return () => controller.abort(); }, [uid, year, month, reload, metadataReady]);
     const rawEntries = date => { var _a, _b, _c; return [...(((_a = data[date]) === null || _a === void 0 ? void 0 : _a.cover) || []).map(v => ({ ...v, status: 'confirmed' })), ...(((_b = data[date]) === null || _b === void 0 ? void 0 : _b.reservations) || []).map(v => ({ ...v, status: 'pending' })), ...(((_c = data[date]) === null || _c === void 0 ? void 0 : _c.history) || []).map(v => ({ ...v, history_status: v.status, status: 'history' }))]; };
     const knownEntries = days.flatMap(d => rawEntries(d.date));
     const allowedLines = v => { var _a; return ((_a = v.shift) === null || _a === void 0 ? void 0 : _a.allowed_service_lines) || []; };
@@ -13069,6 +13104,11 @@ function SubstituteCalendar() {
             React.createElement("button", { className: "btn g", disabled: !uid || busy, onClick: () => setReload(v => v + 1) }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062A\u0642\u0648\u06CC\u0645"),
             React.createElement("button", { className: "btn p", disabled: !uid || busy || !days.length || Boolean(error), onClick: pdfDownload }, "\u062F\u0627\u0646\u0644\u0648\u062F PDF \u0645\u0633\u062A\u0642\u0644"),
             React.createElement("button", { className: "btn g", disabled: !uid || busy || !all.length, onClick: printReport }, "\u0686\u0627\u067E / \u0630\u062E\u06CC\u0631\u0647 PDF")),
+        metadataReady !== reload && !metadataError && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0627\u06CC\u0647 \u062A\u0642\u0648\u06CC\u0645\u2026"),
+        metadataError && React.createElement("p", { role: "alert", className: "sm-status-error" },
+            metadataError,
+            " ",
+            React.createElement("button", { className: "btn g", onClick: () => setReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
         holidayError && React.createElement("p", { role: "status" }, holidayError),
         " ",
         error && React.createElement("p", { role: "alert", className: "sm-status-error" },
