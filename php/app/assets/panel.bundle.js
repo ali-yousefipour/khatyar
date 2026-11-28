@@ -18347,7 +18347,8 @@ function AdminRequests() {
     const del = id => prepare([id], 'delete');
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
     useEffect(() => { setSelected([]); load(); }, [fStatus]);
-    const qs = () => { const p = []; if (fFrom || fTo) p.push("date_basis=" + dateBasis); if (fUser)
+    const qs = () => { const p = []; if (fFrom || fTo)
+        p.push("date_basis=" + dateBasis); if (fUser)
         p.push("user_id=" + fUser); if (fReviewer)
         p.push("pending_on=" + encodeURIComponent(fReviewer)); if (fType)
         p.push("type=" + fType); if (fStatus)
@@ -18370,7 +18371,8 @@ function AdminRequests() {
         if (version === loadVersion.current) {
             setRows([]);
             setSelected([]);
-            setLoadError(error.message || 'دریافت درخواست‌ها ناموفق بود'); setActionMessage(error.message || 'دریافت درخواست‌ها ناموفق بود');
+            setLoadError(error.message || 'دریافت درخواست‌ها ناموفق بود');
+            setActionMessage(error.message || 'دریافت درخواست‌ها ناموفق بود');
         }
     }
     finally {
@@ -18537,7 +18539,11 @@ function AdminRequests() {
                     React.createElement("select", { className: "input", value: fType, onChange: e => { setFType(e.target.value); setSelected([]); } },
                         React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0627\u0646\u0648\u0627\u0639"),
                         Object.entries(TY).map(([k, t]) => React.createElement("option", { key: k, value: k }, t)))),
-                React.createElement("label", null, "مبنای تاریخ", React.createElement("select", { className: "input", value: dateBasis, onChange: e => { setDateBasis(e.target.value); setSelected([]); } }, React.createElement("option", { value: "effective" }, "تاریخ اجرای درخواست"), React.createElement("option", { value: "created" }, "تاریخ ثبت درخواست"))),
+                React.createElement("label", null,
+                    "\u0645\u0628\u0646\u0627\u06CC \u062A\u0627\u0631\u06CC\u062E",
+                    React.createElement("select", { className: "input", value: dateBasis, onChange: e => { setDateBasis(e.target.value); setSelected([]); } },
+                        React.createElement("option", { value: "effective" }, "\u062A\u0627\u0631\u06CC\u062E \u0627\u062C\u0631\u0627\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                        React.createElement("option", { value: "created" }, "\u062A\u0627\u0631\u06CC\u062E \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"))),
                 React.createElement("label", null,
                     "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E ",
                     React.createElement(JDate, { value: fFrom, onChange: value => { setFFrom(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639" })),
