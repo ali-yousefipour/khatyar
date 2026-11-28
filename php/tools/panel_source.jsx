@@ -199,11 +199,15 @@ function exportXlsx(rows, sheetName, filename){
   XLSX.utils.book_append_sheet(wb,ws,String(sheetName||'گزارش').slice(0,31)); XLSX.writeFile(wb,filename);
 }
 async function SEND(method,p,body){
-  const r = await _fetchWithAuth(API_BASE+p,{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
-  const v = await _readJsonResponse(r);
-  if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
-  _invalidateCache(); // بعد از هر تغییر، کش پاک شود تا داده‌ها تازه بماند
-  return v;
+  const mutation=/^(PUT|PATCH|DELETE|POST)$/i.test(method)&&!/(?:\/session\/|\/check-leave-window|\/preview(?:\/|$)|\/validate(?:\/|$)|\/search(?:\/|$)|\/test(?:\/|$)|\/export(?:\/|$))/i.test(p);
+  try{
+    const r = await _fetchWithAuth(API_BASE+p,{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+    const v = await _readJsonResponse(r);
+    if(!r.ok||v?.ok===false||v?.success===false) throw new Error(v?.error||v?.message||'خطای سرور');
+    _invalidateCache();
+    if(mutation&&v&&(v.ok===true||v.success===true||v.id!=null))window.KhatyarToast?.success(method==='DELETE'?'حذف با موفقیت انجام شد.':'عملیات با موفقیت انجام شد.');
+    return v;
+  }catch(error){if(mutation)window.KhatyarToast?.error(error.message||'ذخیره‌سازی ناموفق بود.');throw error;}
 }
 // باز کردن تصویر؛ اگر مسیر فایل فیزیکی (/api/media) باشد با توکن دریافت و در تب جدید باز می‌شود؛
 // اگر data URI (base64 قدیمی) باشد مستقیماً باز می‌شود.
@@ -3374,7 +3378,7 @@ function MissionTemplatesAdmin(){
     if(!title.trim()){setMsg("عنوان الگو را وارد کنید");return;}
     if(!targets.length){setMsg("حداقل یک هدف تعریف کنید");return;}
     try{ await SEND("POST","/admin/mission-templates",{title:title.trim(),role_key:roleKey,period,is_default:isDefault,is_active:true,targets});
-      setMsg("✓ الگو ذخیره شد"); setTitle(""); setTargets([]); loadTemplates(); }
+      (setMsg("✓ الگو ذخیره شد"),window.KhatyarToast?.success("✓ الگو ذخیره شد")); setTitle(""); setTargets([]); loadTemplates(); }
     catch(e){ setMsg(e.message||"خطا در ذخیره"); } };
   const delTemplate=async(id)=>{ if(!confirm("این الگوی مأموریت حذف شود؟"))return; await SEND("DELETE","/admin/mission-templates/"+id); loadTemplates(); };
 
@@ -3382,13 +3386,13 @@ function MissionTemplatesAdmin(){
     if(!ovUser){setMsg("کاربر را انتخاب کنید");return;}
     if(!ovTargets.length){setMsg("حداقل یک هدف تعریف کنید");return;}
     try{ await SEND("PUT","/admin/user-mission-overrides/"+ovUser,{period:"daily",is_active:true,targets:ovTargets});
-      setMsg("✓ مأموریت اختصاصی ذخیره شد"); setOvTargets([]); loadOverrides(); }
+      (setMsg("✓ مأموریت اختصاصی ذخیره شد"),window.KhatyarToast?.success("✓ مأموریت اختصاصی ذخیره شد")); setOvTargets([]); loadOverrides(); }
     catch(e){ setMsg(e.message||"خطا در ذخیره"); } };
   const delOverride=async(uid)=>{ if(!confirm("مأموریت اختصاصی این کاربر حذف شود؟"))return; await SEND("DELETE","/admin/user-mission-overrides/"+uid+"?period=daily"); loadOverrides(); };
 
   const saveSettings=async()=>{ setMsg("");
     try{ const items=Object.entries(settings).map(([setting_key,setting_value])=>({setting_key,setting_value:String(setting_value)}));
-      await SEND("PUT","/admin/mission-execution-settings",{items}); setMsg("✓ تنظیمات ذخیره شد"); }
+      await SEND("PUT","/admin/mission-execution-settings",{items}); (setMsg("✓ تنظیمات ذخیره شد"),window.KhatyarToast?.success("✓ تنظیمات ذخیره شد")); }
     catch(e){ setMsg(e.message||"خطا در ذخیره"); } };
 
   const SETTINGS_LABELS={visit_min_duration_minutes:"حداقل مدت بازدید (دقیقه)",visit_min_checked_percent:"حداقل درصد چک‌لیست‌شده برای تأیید بازدید",
@@ -3620,13 +3624,13 @@ function ScoreEngineAdmin(){
   useEffect(()=>{ if(tab==="leaderboard") loadLeaderboard(); },[lbPeriod]);
 
   const saveRules=async()=>{ setMsg("");
-    try{ await SEND("PUT","/admin/score-rules",{items:rules.map(r=>({rule_key:r.rule_key,base_points:r.base_points,is_active:r.is_active}))}); setMsg("✓ ذخیره شد"); }
+    try{ await SEND("PUT","/admin/score-rules",{items:rules.map(r=>({rule_key:r.rule_key,base_points:r.base_points,is_active:r.is_active}))}); (setMsg("✓ ذخیره شد"),window.KhatyarToast?.success("✓ ذخیره شد")); }
     catch(e){ setMsg(e.message||"خطا"); } };
   const saveRoleCo=async()=>{ setMsg("");
-    try{ await SEND("PUT","/admin/role-score-coefficients",{items:roleCo}); setMsg("✓ ذخیره شد"); }
+    try{ await SEND("PUT","/admin/role-score-coefficients",{items:roleCo}); (setMsg("✓ ذخیره شد"),window.KhatyarToast?.success("✓ ذخیره شد")); }
     catch(e){ setMsg(e.message||"خطا"); } };
   const saveLineCo=async()=>{ setMsg("");
-    try{ await SEND("PUT","/admin/line-score-coefficients",{items:lineCo}); setMsg("✓ ذخیره شد"); }
+    try{ await SEND("PUT","/admin/line-score-coefficients",{items:lineCo}); (setMsg("✓ ذخیره شد"),window.KhatyarToast?.success("✓ ذخیره شد")); }
     catch(e){ setMsg(e.message||"خطا"); } };
 
   return(<div className="panel admin-workspace-page"><h3>🏆 موتور امتیازدهی نیروهای میدانی</h3>
@@ -4277,12 +4281,12 @@ function InventoryAdmin(){
   useEffect(()=>{ loadTypes(); db.users({}).then(d=>setUsers(Array.isArray(d)?d:(d.rows||d.items||[]))).catch(e=>setError(e.message||"دریافت کاربران ناموفق بود.")); },[]);
   const saveType=async()=>{
     if(!typeForm.name?.trim()){alert("نام قلم را وارد کنید");return;}
-    setBusy(true);setError("");try{ if(typeForm.id) await db.invUpdItemType(typeForm.id,typeForm); else await db.invAddItemType(typeForm); setTypeForm(null); await loadTypes();setNotice("اطلاعات قلم ذخیره شد."); }catch(e){setError(e.message||"ذخیره نوع قلم ناموفق بود.");}finally{setBusy(false);}
+    setBusy(true);setError("");try{ if(typeForm.id) await db.invUpdItemType(typeForm.id,typeForm); else await db.invAddItemType(typeForm); setTypeForm(null); await loadTypes();(setNotice("اطلاعات قلم ذخیره شد."),window.KhatyarToast?.success("اطلاعات قلم ذخیره شد.")); }catch(e){setError(e.message||"ذخیره نوع قلم ناموفق بود.");}finally{setBusy(false);}
   };
   const toggleType=async(t)=>{ try{ await db.invUpdItemType(t.id,{is_active:t.is_active?0:1}); loadTypes(); }catch(e){alert(e.message);} };
   const doAssign=async()=>{
     if(!assignForm.item_type_id||!assignForm.to_user_id||!Number.isSafeInteger(Number(assignForm.quantity))||Number(assignForm.quantity)<=0){setError("نوع قلم، تحویل‌گیرنده و تعداد صحیح و مثبت را وارد کنید.");return;}
-    setBusy(true);setError("");try{ await db.invAssign({...assignForm,quantity:+assignForm.quantity});setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود.");setAssignForm({item_type_id:"",to_user_id:"",quantity:"",note:"",transferable:true}); }catch(e){setError(e.message||"واگذاری ناموفق بود.");}finally{setBusy(false);}
+    setBusy(true);setError("");try{ await db.invAssign({...assignForm,quantity:+assignForm.quantity});(setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود."),window.KhatyarToast?.success("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود."));setAssignForm({item_type_id:"",to_user_id:"",quantity:"",note:"",transferable:true}); }catch(e){setError(e.message||"واگذاری ناموفق بود.");}finally{setBusy(false);}
   };
   const loadLedger=async()=>{
     if(filt.from&&filt.to&&filt.from>filt.to){setError("تاریخ شروع نباید بعد از تاریخ پایان باشد.");return;}
@@ -5243,7 +5247,7 @@ function UserProfileFormDesigner(){
     setBusy(true);setError("");setMessage("");
     try{
       const r=await SEND('PUT','/admin/user-profile-form',{schema:model,revision});
-      setRevision(Number(r.revision));setDirty(false);setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد.");
+      setRevision(Number(r.revision));setDirty(false);(setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد."),window.KhatyarToast?.success("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد."));
     }catch(e){setError(e.message||"ثبت پیش‌نویس ناموفق بود.");}finally{setBusy(false);}
   };
   const publish=async()=>{
@@ -5410,7 +5414,7 @@ function Settings(){
   useEffect(()=>{let active=true;db.settings().then(value=>{if(active)setV(value);}).catch(error=>{if(active)setSettingsError(error.message||'دریافت تنظیمات ناموفق بود');});return()=>{active=false;};},[]);
   if(!v)return <div role={settingsError?'alert':'status'}>{settingsError||'در حال بارگذاری…'}</div>;
   const set=(k,val)=>{setSettingsNotice('');setV(previous=>({...previous,[k]:val}));};
-  const save=async()=>{if(settingsLock.current)return;settingsLock.current=true;setSettingsSaving(true);setSettingsError('');setSettingsNotice('');try{await db.saveSettings(v);setSettingsNotice('تنظیمات با موفقیت ذخیره شد.');}catch(error){setSettingsError(error.message||'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');}finally{settingsLock.current=false;setSettingsSaving(false);}};
+  const save=async()=>{if(settingsLock.current)return;settingsLock.current=true;setSettingsSaving(true);setSettingsError('');setSettingsNotice('');try{await db.saveSettings(v);(setSettingsNotice('تنظیمات با موفقیت ذخیره شد.'),window.KhatyarToast?.success('تنظیمات با موفقیت ذخیره شد.'));}catch(error){setSettingsError(error.message||'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');}finally{settingsLock.current=false;setSettingsSaving(false);}};
   const TABS=[["general","⚙️","سازمان و هویت"],["subscription","💳","اشتراک"],["monitoring","⏱️","موقعیت، نظارت و هشدارها"],["dashboard","📊","داشبورد و محاسبهٔ عملکرد"],["hr","👥","منابع انسانی"],["fields","🧩","فیلدهای پرسنل"],["appitems","📱","آیتم‌های اپ هر سمت"],["sms","💬","پیامک"],["bale","🤖","ربات‌ها"],["security","🔐","امنیت و نسخه اپ"],["radio","📻","تنظیمات بی‌سیم"],["files","📎","تصاویر و پیوست‌ها"],["drivers","🚕","خطوط و رانندگان"],["print","🖨️","قالب چاپ"],["access","🛡️","دسترسی‌ها"],["backup","💾","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><label className="settings-field"> <span>{l}</span>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)}/></label>;
@@ -6796,7 +6800,7 @@ function AdminPrivateProfileAttachment({field,userId,readOnly=false,onStatus}){
       onStatus?.(field.id,true);setSelected(null);
       try{const updated=await GET(path+"/status",{ttl:0});
         setStatus(updated);onStatus?.(field.id,!!updated?.exists);
-      }catch(_){setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست.");}
+      }catch(_){(setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست."),window.KhatyarToast?.success("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست."));}
     }catch(e){setError(e.message||"ارسال مدرک ناموفق بود");}
     finally{uploadLock.current=false;setBusy(false);}
   };
@@ -6895,7 +6899,7 @@ function CustomFieldsFiller({userId,profile,saveRef=null,onDirtyChange=null}){
     setBusy(true);setError("");setSuccess("");
     try{
       await db.saveUserCustomValues(userId,changed);
-      setOriginalVals({...vals});setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد.");
+      setOriginalVals({...vals});(setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد."),window.KhatyarToast?.success("اطلاعات تکمیلی با موفقیت ذخیره شد."));
       return true;
     }catch(e){setError(e.message||"ذخیره اطلاعات تکمیلی ناموفق بود.");return false;}
     finally{setBusy(false);}
@@ -7296,7 +7300,7 @@ function WorkPolicy(){
   const editPolicy=async(id)=>{ const wp=await GET("/admin/work-policies/"+id); setEditing({...wp, apply_time_limit_on_approve:!!wp.apply_time_limit_on_approve, config:wp.config||emptyPolicyConfig()}); setReqTab("annual"); setMsg(""); };
   const save=async()=>{
     if(!editing.title.trim()){setMsg("نام سیاست کاری را وارد کنید");return;}
-    try{ const r=await SEND("POST","/admin/work-policies",editing); setMsg("✓ ذخیره شد"); if(!editing.id)setEditing({...editing,id:r.id}); load(); }
+    try{ const r=await SEND("POST","/admin/work-policies",editing); (setMsg("✓ ذخیره شد"),window.KhatyarToast?.success("✓ ذخیره شد")); if(!editing.id)setEditing({...editing,id:r.id}); load(); }
     catch(e){ setMsg(e.message||"خطا"); }
   };
   const del=async(id)=>{ if(!confirm("حذف این سیاست کاری؟"))return; await SEND("DELETE","/admin/work-policies/"+id); if(editing&&editing.id===id)setEditing(null); load(); };
@@ -7450,7 +7454,7 @@ function LeaveBlockedDates(){
   useEffect(()=>{load();},[]);
   const add=async()=>{
     if(!jdate){setMsg("تاریخ را انتخاب کنید");return;}
-    try{ await SEND("POST","/admin/leave-blocked-dates",{jdate,reason}); setJdate("");setReason("");setMsg("✓ روز ممنوعه ثبت شد"); load(); }
+    try{ await SEND("POST","/admin/leave-blocked-dates",{jdate,reason}); setJdate("");setReason("");(setMsg("✓ روز ممنوعه ثبت شد"),window.KhatyarToast?.success("✓ روز ممنوعه ثبت شد")); load(); }
     catch(e){ setMsg(e.message||"خطا در ثبت"); }
   };
   const del=async(id)=>{if(!confirm("حذف این روز ممنوعه؟"))return;try{await SEND("DELETE","/admin/leave-blocked-dates/"+id);await load();setMsg("✓ روز ممنوعه حذف شد.");}catch(e){setMsg(e.message||"حذف روز ممنوعه ناموفق بود.");}};
@@ -7485,7 +7489,7 @@ function LeaveBalanceInit(){
   const setCell=(id,k,v)=>setRows(rs=>rs.map(r=>r.id===id?{...r,[k]:Math.max(0,Math.min(k==="m"?59:9999,+v||0))}:r));
   const save=async()=>{ setBusy(true); setMsg("");
     try{ const items=rows.map(r=>({user_id:r.id,minutes:(+r.h||0)*60+(+r.m||0)}));
-      await db.leaveBalanceInitSave(items); setMsg("✓ ماندهٔ مرخصی ذخیره شد"); }
+      await db.leaveBalanceInitSave(items); (setMsg("✓ ماندهٔ مرخصی ذخیره شد"),window.KhatyarToast?.success("✓ ماندهٔ مرخصی ذخیره شد")); }
     catch(e){ setMsg(e.message||"خطا در ذخیره"); }
     finally{ setBusy(false); }
   };
@@ -7789,7 +7793,7 @@ function AutoShiftRules(){
     }
     setSaving(r.role_key);setMsg('');
     const body={...r,duty_minutes:hmInputToMin(r._d.h,r._d.m),overtime_limit_minutes:hmInputToMin(r._o.h,r._o.m),surplus_after_minutes:hmInputToMin(r._s.h,r._s.m)};
-    try{await db.saveRuleEngineRole(r.role_key,body);await load();setMsg('✓ قانون سمت ذخیره شد.');}
+    try{await db.saveRuleEngineRole(r.role_key,body);await load();(setMsg('✓ قانون سمت ذخیره شد.'),window.KhatyarToast?.success('✓ قانون سمت ذخیره شد.'));}
     catch(e){setMsg(e.message||'ذخیره قانون سمت ناموفق بود.');}finally{setSaving(null);}
   };
   if(rows===null)return <p className="muted">در حال بارگذاری…</p>;
@@ -7826,7 +7830,7 @@ function UserRuleOverrides(){
   const patch=(k,v)=>setRow(r=>({...r,[k]:v})); const patchHM=(key,k,v)=>setRow(r=>({...r,[key]:{...r[key],[k]:v}}));
   const save=async()=>{if(!uid||!row||busy)return;setBusy(true);setMsg('');
     const body={...row,duty_minutes:hmInputToMin(row._d.h,row._d.m),overtime_limit_minutes:hmInputToMin(row._o.h,row._o.m),surplus_after_minutes:hmInputToMin(row._s.h,row._s.m)};
-    try{await db.saveUserRuleOverride(uid,body);setMsg('✓ قانون اختصاصی ذخیره شد.');}
+    try{await db.saveUserRuleOverride(uid,body);(setMsg('✓ قانون اختصاصی ذخیره شد.'),window.KhatyarToast?.success('✓ قانون اختصاصی ذخیره شد.'));}
     catch(e){setMsg(e.message||'ذخیره قانون اختصاصی ناموفق بود.');}finally{setBusy(false);}
   };
   const del=async()=>{if(!uid||busy||!confirm('قانون اختصاصی این کاربر حذف شود؟'))return;setBusy(true);setMsg('');
@@ -9971,12 +9975,12 @@ function PayrollEditor({userId,userName}){
     // Store the exact imported figures without inferring or calculating percentages.
     const merged={...(existing||{}),...patch};
     await db.saveUserPayroll(userId,merged);setBase(merged);
-    setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.');
+    (setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.'),window.KhatyarToast?.success('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.'));
    }else setMessage('برای این کاربر هنوز فیش تطبیق‌یافته‌ای در فایل شرکت موجود نیست.');
   }catch(e){setMessage(e.message||'دریافت اطلاعات حقوق ممکن نشد.')}finally{setBusy(false);}
  };
  const show=async()=>{if(!selected)return;setBusy(true);try{const row=await GET('/admin/payroll/'+selected);if(Number(row.row?.user_id)!==Number(userId))throw Error('فیش انتخاب‌شده متعلق به این کاربر نیست.');setDetail(row);}catch(e){setMessage(e.message||'دریافت فیش ناموفق بود.')}finally{setBusy(false)}};
- const save=async()=>{try{await db.saveUserPayroll(userId,base);setMessage('اطلاعات پایهٔ حقوق ذخیره شد.')}catch(e){setMessage(e.message||'ذخیره ناموفق بود.')}};
+ const save=async()=>{try{await db.saveUserPayroll(userId,base);(setMessage('اطلاعات پایهٔ حقوق ذخیره شد.'),window.KhatyarToast?.success('اطلاعات پایهٔ حقوق ذخیره شد.'))}catch(e){setMessage(e.message||'ذخیره ناموفق بود.')}};
  if(!userId)return null;
  return <div className="card-p" style={{marginTop:12}}>
   <button type="button" className="btn g" onClick={()=>{setOpen(!open);if(!open)latest()}}>حقوق و دستمزد و فیش حقوقی</button>
@@ -10964,7 +10968,7 @@ function TempDriversPanel(){
   const chosenDriverIds=()=> vehicleFound?.drivers ? Object.keys(selectedDrivers).filter(k=>selectedDrivers[k]).map(k=>+k) : (found?.driver?[+found.driver.id]:[]);
   const add=async()=>{ const ids=chosenDriverIds(); if(!ids.length){setMsg("ابتدا راننده یا خودرو را جستجو و راننده‌های موردنظر را انتخاب کنید");return;} if(!lineId){setMsg("خط ویژه را انتخاب کنید");return;}
     try{ await SEND("POST","/temp-drivers",{driver_ids:ids,national_id:found?.driver?.national_id||null,line_id:+lineId,line_code_in_line:codeInLine||null,note:note||null});
-      setMsg("✓ تخصیص موقت ثبت شد"); setLineId("");setCodeInLine("");setNote(""); if(found)lookup(); if(vehicleFound)lookupVehicle(); load(); }
+      (setMsg("✓ تخصیص موقت ثبت شد"),window.KhatyarToast?.success("✓ تخصیص موقت ثبت شد")); setLineId("");setCodeInLine("");setNote(""); if(found)lookup(); if(vehicleFound)lookupVehicle(); load(); }
     catch(e){ setMsg(e.message||"خطا در افزودن"); } };
   const endTemp=async(id)=>{ if(!confirm("پایان این تخصیص موقت؟"))return; await SEND("DELETE","/temp-drivers/"+id); load(); if(found)lookup(); };
   const exportExcel=()=>{ if(!list||!list.length)return;
@@ -11083,7 +11087,7 @@ function Commitments(){
     const finalTitle=(title.trim()||rTitle).trim();
     if(!finalTitle){setMsg("عنوان تعهد را وارد کنید یا یک دلیل انتخاب کنید");return;}
     try{ await SEND("POST","/admin/user-commitments",{user_id:+uid,title:finalTitle,reason_id:reasonId?+reasonId:null,description:desc,commit_jdate:cdate,attachment_name:att?att.name:null,attachment_data:att?att.data:null});
-      setMsg("✓ تعهد ثبت شد"); setTitle("");setDesc("");setAtt(null);setReasonId("");
+      (setMsg("✓ تعهد ثبت شد"),window.KhatyarToast?.success("✓ تعهد ثبت شد")); setTitle("");setDesc("");setAtt(null);setReasonId("");
       if(tab==="list")loadAll(); }
     catch(e){ setMsg(e.message||"خطا در ثبت"); }
   };
@@ -11483,7 +11487,7 @@ function PlateTrainingPanel(){
   const [busy,setBusy]=useState(false);
   const load=async()=>{ setBusy(true); setMsg(''); try{ const qs='?status='+encodeURIComponent(status||'')+'&q='+encodeURIComponent(q||'')+'&limit=500'; const d=await db.plateTrainingSamples(qs); setRows(d.items||[]); setSt(d.status||null); }catch(e){ setMsg(e.message||'خطا در دریافت نمونه‌ها'); } finally{ setBusy(false); } };
   useEffect(()=>{ load(); },[status]);
-  const review=async(r,newStatus)=>{ const d2=prompt('دو رقم اول پلاک:', r.corrected_digits_2||'')||''; const d3=prompt('سه رقم آخر پلاک:', r.corrected_digits_3||'')||''; if((d2+d3).replace(/\D/g,'').length<5) return; const note=prompt('یادداشت بررسی:', r.review_note||'')||''; try{ await db.plateTrainingReview(r.id,{status:newStatus,corrected_digits_2:d2,corrected_digits_3:d3,review_note:note}); setMsg('✓ نمونه ثبت شد'); if(status==='pending') setRows(xs=>xs.filter(x=>x.id!==r.id)); else load(); }catch(e){ setMsg(e.message||'خطا در ثبت بررسی'); } };
+  const review=async(r,newStatus)=>{ const d2=prompt('دو رقم اول پلاک:', r.corrected_digits_2||'')||''; const d3=prompt('سه رقم آخر پلاک:', r.corrected_digits_3||'')||''; if((d2+d3).replace(/\D/g,'').length<5) return; const note=prompt('یادداشت بررسی:', r.review_note||'')||''; try{ await db.plateTrainingReview(r.id,{status:newStatus,corrected_digits_2:d2,corrected_digits_3:d3,review_note:note}); (setMsg('✓ نمونه ثبت شد'),window.KhatyarToast?.success('✓ نمونه ثبت شد')); if(status==='pending') setRows(xs=>xs.filter(x=>x.id!==r.id)); else load(); }catch(e){ setMsg(e.message||'خطا در ثبت بررسی'); } };
   const quick=async(r,newStatus)=>{ try{ const body={status:newStatus,review_note:r.review_note||''}; if(r.corrected_plate) body.corrected_plate=r.corrected_plate; await db.plateTrainingReview(r.id,body); setMsg('✓ وضعیت نمونه تغییر کرد'); if(status==='pending' && newStatus!=='pending') setRows(xs=>xs.filter(x=>x.id!==r.id)); else load(); }catch(e){ setMsg(e.message||'خطا در تغییر وضعیت'); } };
   const stat=st?.samples||{};
   return(<div className="panel admin-workspace-page">
@@ -11724,7 +11728,7 @@ function SystemHealthDashboard(){
   const [componentStatus,setComponentStatus]=useState('all'); const [deviceError,setDeviceError]=useState(''); const [devicesLoading,setDevicesLoading]=useState(false);
   const busyRef=useRef(false); const deviceRequestRef=useRef(0);
   const loadDevices=async(q=dq)=>{const request=++deviceRequestRef.current;setDevicesLoading(true);setDeviceError('');try{const x=await db.deviceHealth(q);if(request===deviceRequestRef.current){setDevices(x.items||[]);setDeviceStats(x.stats||{});}}catch(e){if(request===deviceRequestRef.current)setDeviceError(e.message||'دریافت وضعیت دستگاه‌ها ناموفق بود');}finally{if(request===deviceRequestRef.current)setDevicesLoading(false);} };
-  const load=async(run)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setMsg('');try{const r=run?await db.systemHealthRunChecks():await db.systemHealthDashboard();setD(r);await loadDevices();if(run)setMsg('✓ چک سلامت اجرا و ثبت شد');}catch(e){setMsg(e.message||'خطا در دریافت سلامت سامانه');}finally{busyRef.current=false;setBusy(false);} };
+  const load=async(run)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setMsg('');try{const r=run?await db.systemHealthRunChecks():await db.systemHealthDashboard();setD(r);await loadDevices();if(run)(setMsg('✓ چک سلامت اجرا و ثبت شد'),window.KhatyarToast?.success('✓ چک سلامت اجرا و ثبت شد'));}catch(e){setMsg(e.message||'خطا در دریافت سلامت سامانه');}finally{busyRef.current=false;setBusy(false);} };
   useEffect(()=>{ load(false); },[]);
   useEffect(()=>{ if(!auto)return; const t=setInterval(()=>load(false),30000); return()=>clearInterval(t); },[auto]);
   const badge=(st)=>{ const c=st==='ok'?'var(--ok)':(st==='warning'?'#d18b00':'var(--danger)'); const t=st==='ok'?'سالم':(st==='warning'?'هشدار':'خطا'); return <span className="badge" style={{color:c,borderColor:c}}>{t}</span>; };
