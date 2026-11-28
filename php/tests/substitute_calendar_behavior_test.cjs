@@ -11,6 +11,8 @@ const context={window:{KhatyarSubstitutePdf:{download:async(rows,options)=>{pdf=
  useMemo(fn){cursor++;return fn();},
  useEffect(fn,deps){const i=cursor++;if(!depsEqual(effects[i]?.deps,deps)){pending.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}},
  fetch(url,options){let resolve;const promise=new Promise(r=>resolve=r);requests.push({url,options,resolve(response){resolve({...response,status:response.status??200,text:response.text??(async()=>JSON.stringify(await response.json()))});}});return promise;}};
+context._fetchWithAuth=(url,options)=>context.fetch(url,options);
+context.setTimeout=(fn)=>{fn();return 1;};context.DOMException=DOMException;
 vm.createContext(context);vm.runInContext(compiled,context);
 assert.equal(context.substituteSegmentPlannedMinutes({s:'22:00',e:'06:00'}),480,'overnight segment duration remains eight hours');
 assert.equal(context.substituteSegmentPlannedMinutes({s:'26:00',e:'29:00'}),180,'extended overnight hours are not double counted');
@@ -28,7 +30,9 @@ const dayButton=date=>nodes().find(n=>n.type==='button'&&String(n.props['aria-la
 const cards=()=>nodes().filter(n=>n.type==='article'&&n.props.className==='sc-shift-card');
 function choose(label,value){findLabel(label).props.onChange({target:{value}});render();}
 (async()=>{
- render();requests.find(r=>r.url.includes('/admin/lines')).resolve({ok:true,json:async()=>[{id:7,code:'۷',origin:'مبدأ',destination:'مقصد'}]});requests.find(r=>r.url.includes('/admin/substitute-calendar/users')).resolve({ok:true,json:async()=>[{id:1,name:'اول'},{id:2,name:'دوم'}]});await flush();
+ render();assert.equal(requests.length,1,'only one initial metadata read');assert(requests[0].url.includes('/admin/substitute-calendar/users'));requests[0].resolve({ok:true,json:async()=>[{id:1,name:'اول'},{id:2,name:'دوم'}]});await flush();
+ assert.equal(requests.length,2);assert(requests[1].url.includes('/admin/holidays'));requests[1].resolve({ok:true,json:async()=>[]});await flush();
+ assert.equal(requests.length,3);assert(requests[2].url.includes('/admin/lines'));requests[2].resolve({ok:true,json:async()=>[{id:7,code:'۷',origin:'مبدأ',destination:'مقصد'}]});await flush();
  choose('نیروی جایگزین','1');const first=requests.at(-1);assert(nodes().some(n=>n.props.role==='status'),'loading visible');
  choose('نیروی جایگزین','');assert(first.options.signal.aborted);assert(!nodes().some(n=>n.props.role==='status'),'clearing selection clears loading');
  choose('نیروی جایگزین','2');const second=requests.at(-1);const date=new URL('https://local'+second.url).searchParams.get('dates').split(',')[0];
