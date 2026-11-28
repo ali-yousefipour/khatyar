@@ -9599,19 +9599,19 @@ function VehicleDutyReport(){
   const download=async()=>{
     if(!matches||lock.current||!data.rows?.length)return;
     lock.current=true;setExporting(true);setError('');
-    const op=window.KhatyarLongOperation?.begin('در حال ساخت اکسل محاسبه خودرویی',{stage:'ساخت فایل گزارش…',delay:0});
+    const op=window.KhatyarLongOperation?.begin('در حال ساخت اکسل محاسبه خودرویی و موتوری',{stage:'ساخت فایل گزارش…',delay:0});
     try{
       const response=await _fetchWithAuth('/api/admin/shift-report/vehicle-duty?'+query()+'&export=1',{cache:'no-store'});
       if(!response.ok){const d=await response.json().catch(()=>({}));throw Error(d.error||'ساخت اکسل ناموفق بود.');}
       const blob=await response.blob();if(new Uint8Array(await blob.slice(0,4).arrayBuffer()).join(',')!=='80,75,3,4')throw Error('فایل اکسل معتبر نیست.');
-      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='گزارش_محاسبه_خودرویی_'+data.from+'_'+data.to+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='گزارش_محاسبه_خودرویی_و_موتوری_'+data.from+'_'+data.to+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
     }catch(e){setError(e.message||'خطا در دانلود اکسل');}finally{lock.current=false;setExporting(false);if(op!=null)window.KhatyarLongOperation?.end(op);}
   };
   const cols=[['ordinary','روز عادی'],['fridays','جمعه'],['holidays','تعطیل غیرجمعه'],['days','جمع روز حضور']];
   return <div className="admin-workspace-page">
     <div className="card-p" style={{marginBottom:12}}>
-      <h3>گزارش محاسبه خودرویی</h3>
-      <p className="muted">ویژه گشت خودرویی، سربازرس و سربازرس ارشد. هر تاریخ ورود ثبت‌شده یک روز حضور است؛ ورود بدون خروج نیز شمرده می‌شود. جمعه و تعطیل هم‌زمان تنها یک‌بار محاسبه می‌شود.</p>
+      <h3>گزارش محاسبه خودرویی و موتوری</h3>
+      <p className="muted">ویژه گشت خودرویی، گشت موتوری، سربازرس و سربازرس ارشد. هر تاریخ ورود ثبت‌شده یک روز حضور است؛ ورود بدون خروج نیز شمرده می‌شود. جمعه و تعطیل هم‌زمان تنها یک‌بار محاسبه می‌شود.</p>
       <div className="row" style={{gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
@@ -9625,14 +9625,14 @@ function VehicleDutyReport(){
     {matches&&<div className="card-p">
       <div className="row" style={{gap:12,flexWrap:'wrap',marginBottom:12}}>{cols.map(([key,label])=><div key={key} style={{padding:12,border:'1px solid var(--line)',borderRadius:10,minWidth:110}}><small>{label}</small><div style={{fontWeight:800,color:'#0d7a5f'}}>{fa(data.totals[key])}</div></div>)}</div>
       {(data.unknown_role_count>0||data.rows.some(r=>r.missing_source))&&<p role="alert">بخشی از اطلاعات ماه‌های نهایی‌شده ناقص است؛ مجموع فقط داده‌های موجود را نشان می‌دهد.</p>}
-      {!data.rows.length?<p role="status">نیروی مشمول در این بازه یافت نشد.</p>:<div role="region" aria-label="جدول محاسبه خودرویی" tabIndex={0} style={{overflow:'auto',maxHeight:'70vh'}}><table style={{width:'100%',minWidth:800,textAlign:'center'}}><thead><tr>{['ردیف','نام و نام خانوادگی','سمت',...cols.map(c=>c[1]),'وضعیت داده'].map(label=><th key={label} style={{position:'sticky',top:0,background:'#e8f3ed',color:'#164e3e',padding:10}}>{label}</th>)}</tr></thead><tbody>{data.rows.map((r,i)=><tr key={r.user_id+'|'+r.role} style={{background:i%2?'#f5faf7':undefined}}><td>{fa(i+1)}</td><td>{r.name}</td><td>{r.role}</td>{cols.map(([key])=><td key={key} style={{fontWeight:key==='days'?800:400}}>{fa(r[key])}</td>)}<td>{r.missing_source?'ناقص؛ حداقل ثبت‌شده':'کامل'}</td></tr>)}</tbody><tfoot><tr><th colSpan={3}>جمع داده‌های موجود</th>{cols.map(([key])=><th key={key}>{fa(data.totals[key])}</th>)}<td/></tr></tfoot></table></div>}
+      {!data.rows.length?<p role="status">نیروی مشمول در این بازه یافت نشد.</p>:<div role="region" aria-label="جدول محاسبه خودرویی و موتوری" tabIndex={0} style={{overflow:'auto',maxHeight:'70vh'}}><table style={{width:'100%',minWidth:800,textAlign:'center'}}><thead><tr>{['ردیف','نام و نام خانوادگی','سمت',...cols.map(c=>c[1]),'وضعیت داده'].map(label=><th key={label} style={{position:'sticky',top:0,background:'#e8f3ed',color:'#164e3e',padding:10}}>{label}</th>)}</tr></thead><tbody>{data.rows.map((r,i)=><tr key={r.user_id+'|'+r.role} style={{background:i%2?'#f5faf7':undefined}}><td>{fa(i+1)}</td><td>{r.name}</td><td>{r.role}</td>{cols.map(([key])=><td key={key} style={{fontWeight:key==='days'?800:400}}>{fa(r[key])}</td>)}<td>{r.missing_source?'ناقص؛ حداقل ثبت‌شده':'کامل'}</td></tr>)}</tbody><tfoot><tr><th colSpan={3}>جمع داده‌های موجود</th>{cols.map(([key])=><th key={key}>{fa(data.totals[key])}</th>)}<td/></tr></tfoot></table></div>}
     </div>}
   </div>;
 }
 
 function AttendanceReport(props){
   const [tab,setTab]=useState('daily');
-  return <div><div className="tabbar" role="tablist" aria-label="بخش‌های گزارش تردد" style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}><button type="button" role="tab" aria-selected={tab==='daily'} className={'tabbtn'+(tab==='daily'?' on':'')} onClick={()=>setTab('daily')}>گزارش تردد</button><button type="button" role="tab" aria-selected={tab==='work'} className={'tabbtn'+(tab==='work'?' on':'')} onClick={()=>setTab('work')}>بررسی کارکرد</button><button type="button" role="tab" aria-selected={tab==='vehicle'} className={'tabbtn'+(tab==='vehicle'?' on':'')} onClick={()=>setTab('vehicle')}>گزارش محاسبه خودرویی</button></div>{tab==='daily'?<AttendanceDailyReport {...props}/>:tab==='vehicle'?<VehicleDutyReport/>:<WorkReviewReport/>}</div>;
+  return <div><div className="tabbar" role="tablist" aria-label="بخش‌های گزارش تردد" style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}><button type="button" role="tab" aria-selected={tab==='daily'} className={'tabbtn'+(tab==='daily'?' on':'')} onClick={()=>setTab('daily')}>گزارش تردد</button><button type="button" role="tab" aria-selected={tab==='work'} className={'tabbtn'+(tab==='work'?' on':'')} onClick={()=>setTab('work')}>بررسی کارکرد</button><button type="button" role="tab" aria-selected={tab==='vehicle'} className={'tabbtn'+(tab==='vehicle'?' on':'')} onClick={()=>setTab('vehicle')}>گزارش محاسبه خودرویی و موتوری</button></div>{tab==='daily'?<AttendanceDailyReport {...props}/>:tab==='vehicle'?<VehicleDutyReport/>:<WorkReviewReport/>}</div>;
 }
 
 function MonthlyMetricDetails({detail,onClose}){

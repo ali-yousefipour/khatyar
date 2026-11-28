@@ -4411,6 +4411,7 @@ function _vehicle_duty_role($value){
   $v=trim(preg_replace('/\s+/u',' ',str_replace(['ي','ك','‌'],['ی','ک',' '],(string)$value)));
   $v=str_replace(' ','',$v);
   if(in_array($v,['گشتخودرویی','گشتخودروئی','گشتهایخودرویی'],true))return 'گشت خودرویی';
+  if(in_array($v,['گشتموتوری','گشتهایموتوری'],true))return 'گشت موتوری';
   if(in_array($v,['سربازرس','سربازرسین','سربازرسان'],true))return 'سربازرس';
   if(in_array($v,['سربازرسارشد','سربازرسینارشد','سربازرسانارشد'],true))return 'سربازرس ارشد';
   return null;
@@ -4497,11 +4498,11 @@ route('GET','/api/admin/shift-report/vehicle-duty',function($p,$b,$u){
   if(($_GET['export']??'')==='1'){
     $xw=new XlsxWriter(['ردیف','نام و نام خانوادگی','سمت','روز عادی','جمعه','تعطیل غیرجمعه','جمع روز حضور','وضعیت داده']);
     $xw->setProfessionalStyle();
-    $xw->setReportHeading('گزارش محاسبه خودرویی','از '.$report['from'].' تا '.$report['to'],'هر تاریخ ورود یک روز؛ جمعه و تعطیل هم‌زمان فقط یک بار شمرده می‌شود.');
+    $xw->setReportHeading('گزارش محاسبه خودرویی و موتوری','از '.$report['from'].' تا '.$report['to'],'هر تاریخ ورود یک روز؛ جمعه و تعطیل هم‌زمان فقط یک بار شمرده می‌شود.');
     foreach([8,30,24,15,15,20,20,24] as $col=>$width)$xw->setColWidth($col,$width);
     foreach($report['rows'] as $i=>$r)$xw->addRow([$i+1,$r['name'],$r['role'],$r['ordinary'],$r['fridays'],$r['holidays'],$r['days'],$r['missing_source']?'ناقص؛ حداقل ثبت‌شده':'کامل']);
     $t=$report['totals'];$xw->addRow(['','جمع داده‌های موجود','',$t['ordinary'],$t['fridays'],$t['holidays'],$t['days'],'']);
-    $xw->output('گزارش_محاسبه_خودرویی_'.$report['from'].'_'.$report['to'].'.xlsx','محاسبه خودرویی');
+    $xw->output('گزارش_محاسبه_خودرویی_و_موتوری_'.$report['from'].'_'.$report['to'].'.xlsx','محاسبه خودرویی و موتوری');
   }
   return $report;
 },false,ADMIN);
