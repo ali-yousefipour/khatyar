@@ -18420,13 +18420,7 @@ function AdminRequests() {
             setActionMessage('از موارد انتخاب‌شده، درخواستی برای این عملیات وجود ندارد.');
             return;
         }
-        let note = '';
-        if (status === 'rejected') {
-            const answer = prompt('علت رد درخواست‌ها (اختیاری):', '');
-            if (answer === null)
-                return;
-            note = answer;
-        }
+        const note = '';
         setReviewLoading(true);
         setActionMessage('');
         setReviewError('');
@@ -18594,7 +18588,12 @@ function AdminRequests() {
                                 React.createElement("td", null, faPlain(item.to_jdate || item.the_date)),
                                 React.createElement("td", null, ((_a = ST[item.status]) === null || _a === void 0 ? void 0 : _a[0]) || item.status)); })))),
                     !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
-                React.createElement("button", { className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : 'تأیید نهایی عملیات')),
+                review.status === 'rejected' && React.createElement("label", { style: { display: 'grid', gap: 8, margin: '16px 0' } },
+                    "\u0639\u0644\u062A \u0631\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)",
+                    React.createElement("textarea", { className: "input", rows: 3, value: review.note || '', disabled: !!busyId, onChange: event => setReview(previous => previous ? { ...previous, note: event.target.value } : previous), placeholder: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0645\u0633\u0626\u0648\u0644 \u0628\u0631\u0631\u0633\u06CC" })),
+                React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', marginTop: 16 } },
+                    React.createElement("button", { type: "button", className: "btn g", disabled: !!busyId, onClick: () => setReview(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+                    React.createElement("button", { type: "button", className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : review.status === 'delete' ? 'حذف نهایی' : review.status === 'rejected' ? 'رد درخواست' : 'تأیید نهایی'))),
             React.createElement("div", { className: "request-filter-shell" },
                 React.createElement("div", { className: "request-filter-heading" },
                     React.createElement("div", null,
