@@ -6003,7 +6003,7 @@ function _date_ranges_overlap($from1,$to1,$from2,$to2){
 function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=null,$prepareStorage=true,$ownerId=null){
   if($ownerId && class_exists('LeaveSubstituteCoverage')){
     $conflict=LeaveSubstituteCoverage::preciseConflict((int)$subId,['user_id'=>(int)$ownerId,'from_jdate'=>$fromDate,'to_jdate'=>$toDate],(int)$excludeRequestId);
-    return ['available'=>!$conflict,'reason'=>$conflict?'نیروی جایگزین در این بازه رزرو یا تخصیص متداخل دارد':null];
+    return ['available'=>!$conflict,'reason'=>$conflict?LeaveSubstituteCoverage::conflictReason($conflict):null];
   }
   // اطمینان از وجود جدول
   if($prepareStorage){try { Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }}
