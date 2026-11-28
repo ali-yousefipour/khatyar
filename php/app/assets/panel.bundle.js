@@ -14467,8 +14467,14 @@ function ShiftAssign() {
         return false;
     } };
     const createSmart = async () => { var _a, _b; setCreatingSmart(true); setError(''); try {
-        await POST('/admin/shifts/smart-substitute', {});
-        setShifts(await db.shifts() || []);
+        const created = await POST('/admin/shifts/smart-substitute', {});
+        const response = await fetch(API_BASE + '/admin/shifts', { headers: tok(), cache: 'no-store' });
+        if (!response.ok)
+            throw Error('دریافت شیفت‌ها ناموفق بود');
+        const fresh = await response.json();
+        if (!Array.isArray(fresh) || !fresh.some(s => Number(s.id) === Number(created.id) && isSmart(s)))
+            throw Error('تعریف شیفت در فهرست سرور تأیید نشد');
+        setShifts(fresh);
         (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('شیفت هوشمند آماده تخصیص است.');
     }
     catch (e) {
@@ -14531,7 +14537,8 @@ function ShiftAssign() {
                             React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? String(c.shift_id) : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
                                 React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A \u2014"),
                                 React.createElement("option", { value: "0" }, "\u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631"),
-                                shifts.map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
+                                shifts.filter(isSmart).map(s => React.createElement("option", { key: s.id, value: s.id }, s.title)),
+                                shifts.filter(s => !isSmart(s)).map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
                 }))),
             !filtered.length && React.createElement("p", { className: "sm-empty" }, "\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0628\u0627 \u0639\u0628\u0627\u0631\u062A \u062C\u0633\u062A\u062C\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F."))));
 }
