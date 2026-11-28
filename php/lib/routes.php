@@ -6939,13 +6939,24 @@ function _req_report_filter(array $query,?array $viewer=null){
     if(!in_array($value,$allowed,true))Http::error('فیلتر درخواست نامعتبر است',422);
     $cond[]="r.$key=?";$args[]=$value;
   }
+  $basis=(string)($query['date_basis']??'created');
+  if(!in_array($basis,['created','effective'],true))Http::error('مبنای تاریخ نامعتبر است',422);
+  // Effective dates overlap the selected inclusive Jalali interval.
+  $start="CASE WHEN r.unit='hourly' OR r.type='manual' THEN COALESCE(NULLIF(r.the_date,''),NULLIF(r.from_jdate,'')) ELSE COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,'')) END";
+  $end="CASE WHEN r.unit='hourly' OR r.type='manual' THEN ($start) ELSE COALESCE(NULLIF(r.to_jdate,''),($start)) END";
   foreach(['from','to'] as $key){
     $value=trim((string)($query[$key]??''));
     if($value==='')continue;
     $date=DateTimeImmutable::createFromFormat('!Y-m-d',$value);
-    if(!$date||$date->format('Y-m-d')!==$value)Http::error('تاریخ ثبت نامعتبر است',422);
-    $cond[]=$key==='from'?'r.created_at>=?':'r.created_at<?';
-    $args[]=$key==='from'?$value.' 00:00:00':$date->modify('+1 day')->format('Y-m-d').' 00:00:00';
+    if(!$date||$date->format('Y-m-d')!==$value)Http::error('تاریخ فیلتر نامعتبر است',422);
+    if($basis==='effective'){
+      [$jy,$jm,$jd]=gregorian_to_jalali((int)$date->format('Y'),(int)$date->format('n'),(int)$date->format('j'));
+      $cond[]=$key==='from'?"($end)>=?":"($start)<=?";
+      $args[]=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+    }else{
+      $cond[]=$key==='from'?'r.created_at>=?':'r.created_at<?';
+      $args[]=$key==='from'?$value.' 00:00:00':$date->modify('+1 day')->format('Y-m-d').' 00:00:00';
+    }
   }
   if(!empty($query['from'])&&!empty($query['to'])&&$query['from']>$query['to'])Http::error('ابتدای بازه باید قبل از پایان آن باشد',422);
   $q=trim((string)($query['q']??''));
@@ -7302,7 +7313,7 @@ route('GET', '/api/admin/requests/export', function($p,$b,$u){
   require_once __DIR__.'/XlsxWriter.php';
   $xw=new XlsxWriter(['شماره درخواست','نام پرسنل','نوع درخواست','واحد','از تاریخ','تا تاریخ','روز','شروع / ورود','پایان / خروج','مدت','وضعیت','بررسی‌کننده','توضیحات درخواست','پاسخ بررسی‌کننده','زمان ثبت']);
   $xw->setProfessionalStyle(true);
-  $xw->setReportHeading('درخواست‌های پرسنل','خطیار · خروجی مدیریتی · '.fa_datetime(date('Y-m-d H:i:s')),'تعداد: '.count($rows).' | وضعیت: '.($ST[$_GET['status']??'']??'همه').' | ثبت از: '.(!empty($_GET['from'])?_app_jdate_from_time($_GET['from'].' 00:00:00'):'—').' تا: '.(!empty($_GET['to'])?_app_jdate_from_time($_GET['to'].' 00:00:00'):'—'));
+  $xw->setReportHeading('درخواست‌های پرسنل','خطیار · خروجی مدیریتی · '.fa_datetime(date('Y-m-d H:i:s')),'تعداد: '.count($rows).' | وضعیت: '.($ST[$_GET['status']??'']??'همه').' | '.(($_GET['date_basis']??'created')==='effective'?'تاریخ اجرای درخواست از: ':'ثبت از: ').(!empty($_GET['from'])?_app_jdate_from_time($_GET['from'].' 00:00:00'):'—').' تا: '.(!empty($_GET['to'])?_app_jdate_from_time($_GET['to'].' 00:00:00'):'—'));
   foreach([12,26,22,12,16,16,16,15,15,16,16,24,58,48,23] as $i=>$width){$xw->setColWidth($i,$width);$xw->setTextCol($i);}
   $hm=fn($m)=>$m===null?'—':sprintf('%02d:%02d',intdiv((int)$m,60),(int)$m%60);
   foreach($rows as $r){$rowIndex=$xw->addRow([$r['id'],$r['requester'],$TY[$r['type']]??$r['type'],$r['type']==='manual'?'تردد دستی':($r['unit']==='hourly'?'ساعتی':'روزانه'),

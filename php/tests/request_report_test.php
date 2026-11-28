@@ -54,6 +54,10 @@ check(str_contains($where,'r.created_at<?'),'inclusive end date uses next midnig
 check(in_array('2026-10-23 00:00:00',$args,true),'end date boundary');
 check(!str_contains($where,"O'Reilly"),'search stays parameterized');
 foreach([['from'=>'2026-02-30'],['from'=>'2026-10-22','to'=>'2026-10-01'],['status'=>'bad']] as $bad)denied(fn()=>_req_report_filter($bad),422);
+[$effectiveWhere,$effectiveArgs]=_req_report_filter(['from'=>'2026-10-23','to'=>'2026-11-28','type'=>'annual','status'=>'approved','date_basis'=>'effective']);
+check(str_contains($effectiveWhere,'r.to_jdate')&&str_contains($effectiveWhere,'r.the_date')&&!str_contains($effectiveWhere,'r.created_at'),'effective filter checks request interval rather than submission');
+check($effectiveArgs===['annual','approved','1405-08-01','1405-09-07'],'effective bounds use inclusive Jalali dates');
+denied(fn()=>_req_report_filter(['date_basis'=>'invalid']),422);
 check(_req_report_csv_cell('=1+1')==="'=1+1",'CSV formula escaped');
 check(_req_report_csv_cell('متن عادی')==='متن عادی','CSV normal text unchanged');
 $leave=['type'=>'annual','unit'=>'daily','from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-02','status'=>'approved'];
