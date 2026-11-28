@@ -18327,10 +18327,10 @@ function ApprovedRequestEditor({ requestId, users, onClose, onSaved }) {
 }
 function AdminRequests() {
     var _a;
-    const [calendarTab, setCalendarTab] = useState(false);
     const [users, setUsers] = useState([]);
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [calendarTab, setCalendarTab] = useState(false);
     const [fUser, setFUser] = useState("");
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("pending");
