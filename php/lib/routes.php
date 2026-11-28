@@ -4417,6 +4417,13 @@ function _vehicle_duty_role($value){
   if(in_array($v,['سربازرسارشد','سربازرسینارشد','سربازرسانارشد'],true))return 'سربازرس ارشد';
   return null;
 }
+function _vehicle_duty_eligible_role($role,$assetType){
+  $canonical=_vehicle_duty_role($role);
+  if($canonical!==null)return $canonical;
+  if(!in_array($assetType,['car','motorcycle'],true))return null;
+  $title=trim((string)$role);
+  return $title!==''?$title:'بدون سمت ثبت‌شده';
+}
 function _vehicle_duty_add_day(array &$row,array &$seen,$date,$friday,$holiday){
   if(isset($seen[$date]))return;
   $seen[$date]=true;
@@ -4438,7 +4445,12 @@ function _vehicle_duty_report($from,$to){
   $today=sprintf('%04d-%02d-%02d',...gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j')));
   if($to>$today)Http::error('تاریخ پایان نباید در آینده باشد',422);
   $people=Db::all("SELECT u.id,CONCAT_WS(' ',u.first_name,u.last_name) name,r.title role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1");
-  $live=[];foreach($people as $person)if($role=_vehicle_duty_role($person['role'])){$person['role']=$role;$live[(int)$person['id']]=$person;}
+  // Explicit machinery assignments are authoritative; stale vehicle dossiers alone do not qualify.
+  $assets=[];
+  if(Db::one("SHOW TABLES LIKE 'personnel_vehicle_assignments'")){
+    foreach(Db::all("SELECT user_id,asset_type FROM personnel_vehicle_assignments WHERE asset_type IN ('car','motorcycle')") as $asset)$assets[(int)$asset['user_id']]=$asset['asset_type'];
+  }
+  $live=[];foreach($people as $person){$id=(int)$person['id'];$role=_vehicle_duty_eligible_role($person['role'],$assets[$id]??null);if($role!==null){$person['role']=$role;$live[$id]=$person;}}
   $rows=[];$seen=[];$unknown=0;$calendar=[];
   $ensure=static function($id,$name,$role)use(&$rows,&$seen){
     $key=$id.'|'.$role;
@@ -4451,8 +4463,8 @@ function _vehicle_duty_report($from,$to){
     if($final){
       $monthly=_work_snapshot_decode($final['monthly_json']);$daily=_work_snapshot_decode($final['daily_json']);
       foreach($monthly as $person){
-        $id=(int)($person['user_id']??0);$role=_vehicle_duty_role($person['role']??'');
-        if(!$role){if(empty($person['role']))$unknown++;continue;}
+        $id=(int)($person['user_id']??0);$role=_vehicle_duty_eligible_role($person['role']??'', $assets[$id]??null);
+        if($role===null){if(empty($person['role']))$unknown++;continue;}
         $key=$ensure($id,$person['name']??'',$role);
         $days=$daily[$id]['days']??null;
         if(!is_array($days)||!$days){$rows[$key]['missing_source']=true;continue;}
@@ -4499,7 +4511,7 @@ route('GET','/api/admin/shift-report/vehicle-duty',function($p,$b,$u){
   if(($_GET['export']??'')==='1'){
     $xw=new XlsxWriter(['ردیف','نام و نام خانوادگی','سمت','روز عادی','جمعه','تعطیل غیرجمعه','جمع روز حضور','وضعیت داده']);
     $xw->setProfessionalStyle();
-    $xw->setReportHeading('گزارش محاسبه خودرویی و موتوری','از '.$report['from'].' تا '.$report['to'],'هر تاریخ ورود یک روز؛ جمعه و تعطیل هم‌زمان فقط یک بار شمرده می‌شود.');
+    $xw->setReportHeading('گزارش محاسبه خودرویی و موتوری','از '.$report['from'].' تا '.$report['to'],'هر تاریخ ورود یک روز؛ جمعه و تعطیل هم‌زمان فقط یک بار شمرده می‌شود. سمت‌های مشمول یا تخصیص فعلی ماشین‌آلات ملاک شمول است.');
     foreach([8,30,24,15,15,20,20,24] as $col=>$width)$xw->setColWidth($col,$width);
     foreach($report['rows'] as $i=>$r)$xw->addRow([$i+1,$r['name'],$r['role'],$r['ordinary'],$r['fridays'],$r['holidays'],$r['days'],$r['missing_source']?'ناقص؛ حداقل ثبت‌شده':'کامل']);
     $t=$report['totals'];$xw->addRow(['','جمع داده‌های موجود','',$t['ordinary'],$t['fridays'],$t['holidays'],$t['days'],'']);

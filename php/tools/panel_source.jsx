@@ -9617,7 +9617,7 @@ function VehicleDutyReport(){
   return <div className="admin-workspace-page">
     <div className="card-p" style={{marginBottom:12}}>
       <h3>گزارش محاسبه خودرویی و موتوری</h3>
-      <p className="muted">ویژه گشت خودرویی، گشت موتوری، سربازرس و سربازرس ارشد. هر تاریخ ورود ثبت‌شده یک روز حضور است؛ ورود بدون خروج نیز شمرده می‌شود. جمعه و تعطیل هم‌زمان تنها یک‌بار محاسبه می‌شود.</p>
+      <p className="muted">شامل گشت خودرویی، گشت موتوری، سربازرس، سربازرس ارشد و سایر نیروهای دارای تخصیص فعلی خودرو یا موتورسیکلت در ماشین‌آلات. هر تاریخ ورود ثبت‌شده یک روز حضور است؛ ورود بدون خروج نیز شمرده می‌شود. جمعه و تعطیل هم‌زمان تنها یک‌بار محاسبه می‌شود.</p>
       <div className="row" style={{gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>

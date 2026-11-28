@@ -135,6 +135,7 @@ jobs:
           php tests/request_edit_test.php
           node tests/request_edit_ui_test.cjs
           php tests/shift_rotation_test.php
+          php tests/vehicle_duty_assignment_test.php
           node tests/shift_rotation_ui_test.cjs
           node tests/shift_manager_tabs_ui_test.cjs
           node tests/shift_rotation_xlsx_test.cjs
