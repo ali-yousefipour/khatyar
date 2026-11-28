@@ -8453,7 +8453,7 @@ function gregToJalaliWeekday(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd);
 function ShiftAssign(){
   const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState(""); const [error,setError]=useState(""); const [busyUser,setBusyUser]=useState(null); const [creatingSmart,setCreatingSmart]=useState(false);
   const isSmart=s=>{try{return s.type==='advanced'&&Boolean((typeof s.advanced==='string'?JSON.parse(s.advanced):s.advanced)?.smart_substitute);}catch(e){return false;}};
-  const createSmart=async()=>{setCreatingSmart(true);setError('');try{await POST('/admin/shifts/smart-substitute',{});setShifts(await db.shifts()||[]);window.KhatyarToast?.success('شیفت هوشمند آماده تخصیص است.');}catch(e){setError(e.message||'تعریف شیفت هوشمند ناموفق بود.');window.KhatyarToast?.error(e.message||'تعریف شیفت هوشمند ناموفق بود.');}finally{setCreatingSmart(false);}};
+  const createSmart=async()=>{setCreatingSmart(true);setError('');try{const created=await POST('/admin/shifts/smart-substitute',{});const response=await fetch(API_BASE+'/admin/shifts',{headers:tok(),cache:'no-store'});if(!response.ok)throw Error('دریافت شیفت‌ها ناموفق بود');const fresh=await response.json();if(!Array.isArray(fresh)||!fresh.some(s=>Number(s.id)===Number(created.id)&&isSmart(s)))throw Error('تعریف شیفت در فهرست سرور تأیید نشد');setShifts(fresh);window.KhatyarToast?.success('شیفت هوشمند آماده تخصیص است.');}catch(e){setError(e.message||'تعریف شیفت هوشمند ناموفق بود.');window.KhatyarToast?.error(e.message||'تعریف شیفت هوشمند ناموفق بود.');}finally{setCreatingSmart(false);}};
   const load=async()=>{try{setAssigns(await db.userShifts()||[]);}catch(e){setError(e.message||'دریافت تخصیص‌های شیفت ناموفق بود.');}};
   useEffect(()=>{db.usersLite().then(u=>setUsers(u||[])).catch(e=>setError(e.message||'دریافت فهرست نیروها ناموفق بود.'));db.shifts().then(s=>setShifts(s||[])).catch(e=>setError(e.message||'دریافت شیفت‌ها ناموفق بود.'));load();},[]);
   const cur=(uid)=>assigns.find(a=>Number(a.user_id)===Number(uid));
@@ -8469,7 +8469,8 @@ function ShiftAssign(){
         <td><select className="input" style={{maxWidth:240}} value={c?String(c.shift_id):""} disabled={Number(busyUser)===Number(u.id)} onChange={e=>setShift(u.id,e.target.value)}>
           <option value="">— بدون شیفت —</option>
           <option value="0">شیفت خودکار</option>
-          {shifts.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
+          {shifts.filter(isSmart).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
+          {shifts.filter(s=>!isSmart(s)).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
         </select></td>
       </tr>); })}
     </tbody></table>{!filtered.length&&<p className="sm-empty">نیرویی با عبارت جستجو پیدا نشد.</p>}</div>

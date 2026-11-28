@@ -1012,7 +1012,7 @@ function _presence_photo_columns_ready(): bool {
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
   try {
-    require_once __DIR__.'/PresenceChallengeGuard.php';
+    if(!class_exists('PresenceChallengeGuard',false))require_once __DIR__.'/PresenceChallengeGuard.php';
     if (!class_exists('PresenceChallengeGuard', false)) throw new RuntimeException('presence challenge guard missing');
   } catch (Throwable $error) {
     error_log('presence challenge guard unavailable: '.get_class($error));
@@ -3331,7 +3331,7 @@ route('GET', '/api/admin/shifts', fn($p,$b,$u) => Db::all(
    FROM shifts WHERE is_active=1 ORDER BY id DESC"), false, ADMIN);
 
 // Explicit admin action; idempotent and serialized, no automatic personnel changes.
-route('POST','/api/admin/shifts/smart-substitute',function($p,$b,$u){
+function _ensure_smart_substitute_definition(): array {
   $lock='khatyar:smart-substitute-shift';
   if((int)(Db::one('SELECT GET_LOCK(?,8) AS ok',[$lock])['ok']??0)!==1)Http::error('تعریف شیفت در حال انجام است؛ دوباره تلاش کنید',409);
   try{
@@ -3340,7 +3340,8 @@ route('POST','/api/admin/shifts/smart-substitute',function($p,$b,$u){
     $id=Db::insert("INSERT INTO shifts(title,type,advanced,allow_offday,night_calc,friday_calc,holiday_calc,is_active) VALUES(?,'advanced',?,1,1,1,1,1)",['شیفت هوشمند نیروی جایگزین',json_encode(['smart_substitute'=>true])]);
     return ['id'=>$id,'created'=>true];
   }finally{Db::one('SELECT RELEASE_LOCK(?) AS ok',[$lock]);}
-},false,ADMIN);
+}
+route('POST','/api/admin/shifts/smart-substitute',fn($p,$b,$u)=>_ensure_smart_substitute_definition(),false,ADMIN);
 
 // یک شیفت + روزهای پیشرفته‌اش
 route('GET', '/api/admin/shifts/{id}', function($p,$b,$u){

@@ -78,6 +78,9 @@ class Db {
 }
 function _auto_shift_for_user($userId){return ['type'=>'auto','title'=>'automatic','id'=>0];}
 require_once __DIR__.'/../lib/WorkReportReadScope.php';
+$smartStart=strpos($source,'function _is_smart_substitute_shift(');
+$smartEnd=strpos($source,"route('GET', '/api/admin/shifts'",$smartStart);
+eval(substr($source,$smartStart,$smartEnd-$smartStart));
 $start=strpos($source,'function _active_user_shift_assignment(');
 $end=strpos($source,'function _shift_day_row(',$start);
 eval(substr($source,$start,$end-$start));
@@ -98,6 +101,13 @@ Db::$auto=['from_jdate'=>'1404-01-01','to_jdate'=>'1404-01-31'];
 same('own expired automatic shift is inactive',null,_active_user_shift_assignment(1,$date));
 Db::$auto=['from_jdate'=>null,'to_jdate'=>null];
 same('explicit indefinite automatic shift is active','auto',_active_user_shift_assignment(1,$date)['type']);
+Db::$byUser=[1=>[['id'=>77,'shift_id'=>77,'type'=>'advanced','title'=>'smart','advanced'=>'{"smart_substitute":true}']]];
+$smart=_active_user_shift_assignment(1,$date);
+same('smart fallback retains automatic calculation','auto',$smart['type']);
+same('smart fallback preserves assignment identity',77,$smart['assignment_shift_id']);
+Db::$substitute=true;Db::$byUser[2]=[['id'=>17,'shift_id'=>17,'type'=>'advanced','title'=>'cover']];
+same('approved cover overrides smart baseline',17,_active_user_shift_assignment(1,$date)['shift_id']);
+Db::$substitute=false;Db::$byUser=[];
 class Http {static function error($message,$status){throw new RuntimeException($message,$status);}}
 function _shift_day_row($shiftId,$date){return Db::$dayRow;}
 $start=strpos($source,'function _attendance_checkin_traffic(');

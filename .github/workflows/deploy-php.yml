@@ -860,6 +860,10 @@ jobs:
               if(!class_exists('PresenceChallengeGuard',false)||!is_callable(['PresenceChallengeGuard','validate']))throw new RuntimeException('Presence challenge guard unavailable in canonical PHP lib');
               $stage = 'discipline_cache_smoke';
               require_once $libRoot.'/routes.php';
+              $stage = 'smart_substitute_shift_seed';
+              $smartDefinition=_ensure_smart_substitute_definition();
+              if((int)($smartDefinition['id']??0)<=0)throw new RuntimeException('Smart substitute shift definition unavailable');
+              $stage = 'discipline_cache_smoke';
               require_once $libRoot.'/DashboardDiscipline.php';
               $viewer=Db::one("SELECT u.id,u.role_id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.is_admin=1 ORDER BY r.level,u.id LIMIT 1");
               if(!$viewer)throw new RuntimeException('No active administrative scope for discipline smoke test');
