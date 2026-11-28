@@ -16747,7 +16747,7 @@ function VehicleDutyReport() {
         lock.current = true;
         setExporting(true);
         setError('');
-        const op = (_b = window.KhatyarLongOperation) === null || _b === void 0 ? void 0 : _b.begin('در حال ساخت اکسل محاسبه خودرویی', { stage: 'ساخت فایل گزارش…', delay: 0 });
+        const op = (_b = window.KhatyarLongOperation) === null || _b === void 0 ? void 0 : _b.begin('در حال ساخت اکسل محاسبه خودرویی و موتوری', { stage: 'ساخت فایل گزارش…', delay: 0 });
         try {
             const response = await _fetchWithAuth('/api/admin/shift-report/vehicle-duty?' + query() + '&export=1', { cache: 'no-store' });
             if (!response.ok) {
@@ -16759,7 +16759,7 @@ function VehicleDutyReport() {
                 throw Error('فایل اکسل معتبر نیست.');
             const url = URL.createObjectURL(blob), a = document.createElement('a');
             a.href = url;
-            a.download = 'گزارش_محاسبه_خودرویی_' + data.from + '_' + data.to + '.xlsx';
+            a.download = 'گزارش_محاسبه_خودرویی_و_موتوری_' + data.from + '_' + data.to + '.xlsx';
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -16778,8 +16778,8 @@ function VehicleDutyReport() {
     const cols = [['ordinary', 'روز عادی'], ['fridays', 'جمعه'], ['holidays', 'تعطیل غیرجمعه'], ['days', 'جمع روز حضور']];
     return React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "card-p", style: { marginBottom: 12 } },
-            React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC"),
-            React.createElement("p", { className: "muted" }, "\u0648\u06CC\u0698\u0647 \u06AF\u0634\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0648 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F. \u0647\u0631 \u062A\u0627\u0631\u06CC\u062E \u0648\u0631\u0648\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u06CC\u06A9 \u0631\u0648\u0632 \u062D\u0636\u0648\u0631 \u0627\u0633\u062A\u061B \u0648\u0631\u0648\u062F \u0628\u062F\u0648\u0646 \u062E\u0631\u0648\u062C \u0646\u06CC\u0632 \u0634\u0645\u0631\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062C\u0645\u0639\u0647 \u0648 \u062A\u0639\u0637\u06CC\u0644 \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u062A\u0646\u0647\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC \u0648 \u0645\u0648\u062A\u0648\u0631\u06CC"),
+            React.createElement("p", { className: "muted" }, "\u0648\u06CC\u0698\u0647 \u06AF\u0634\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC\u060C \u06AF\u0634\u062A \u0645\u0648\u062A\u0648\u0631\u06CC\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0648 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0627\u0631\u0634\u062F. \u0647\u0631 \u062A\u0627\u0631\u06CC\u062E \u0648\u0631\u0648\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u06CC\u06A9 \u0631\u0648\u0632 \u062D\u0636\u0648\u0631 \u0627\u0633\u062A\u061B \u0648\u0631\u0648\u062F \u0628\u062F\u0648\u0646 \u062E\u0631\u0648\u062C \u0646\u06CC\u0632 \u0634\u0645\u0631\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062C\u0645\u0639\u0647 \u0648 \u062A\u0639\u0637\u06CC\u0644 \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u062A\u0646\u0647\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("div", { className: "row", style: { gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' } },
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
@@ -16797,7 +16797,7 @@ function VehicleDutyReport() {
                 React.createElement("small", null, label),
                 React.createElement("div", { style: { fontWeight: 800, color: '#0d7a5f' } }, fa(data.totals[key]))))),
             (data.unknown_role_count > 0 || data.rows.some(r => r.missing_source)) && React.createElement("p", { role: "alert" }, "\u0628\u062E\u0634\u06CC \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0627\u0647\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647 \u0646\u0627\u0642\u0635 \u0627\u0633\u062A\u061B \u0645\u062C\u0645\u0648\u0639 \u0641\u0642\u0637 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F."),
-            !data.rows.length ? React.createElement("p", { role: "status" }, "\u0646\u06CC\u0631\u0648\u06CC \u0645\u0634\u0645\u0648\u0644 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC", tabIndex: 0, style: { overflow: 'auto', maxHeight: '70vh' } },
+            !data.rows.length ? React.createElement("p", { role: "status" }, "\u0646\u06CC\u0631\u0648\u06CC \u0645\u0634\u0645\u0648\u0644 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC \u0648 \u0645\u0648\u062A\u0648\u0631\u06CC", tabIndex: 0, style: { overflow: 'auto', maxHeight: '70vh' } },
                 React.createElement("table", { style: { width: '100%', minWidth: 800, textAlign: 'center' } },
                     React.createElement("thead", null,
                         React.createElement("tr", null, ['ردیف', 'نام و نام خانوادگی', 'سمت', ...cols.map(c => c[1]), 'وضعیت داده'].map(label => React.createElement("th", { key: label, style: { position: 'sticky', top: 0, background: '#e8f3ed', color: '#164e3e', padding: 10 } }, label)))),
@@ -16819,7 +16819,7 @@ function AttendanceReport(props) {
         React.createElement("div", { className: "tabbar", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F", style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 } },
             React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'daily', className: 'tabbtn' + (tab === 'daily' ? ' on' : ''), onClick: () => setTab('daily') }, "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F"),
             React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'work', className: 'tabbtn' + (tab === 'work' ? ' on' : ''), onClick: () => setTab('work') }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F"),
-            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'vehicle', className: 'tabbtn' + (tab === 'vehicle' ? ' on' : ''), onClick: () => setTab('vehicle') }, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC")),
+            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'vehicle', className: 'tabbtn' + (tab === 'vehicle' ? ' on' : ''), onClick: () => setTab('vehicle') }, "\u06AF\u0632\u0627\u0631\u0634 \u0645\u062D\u0627\u0633\u0628\u0647 \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC \u0648 \u0645\u0648\u062A\u0648\u0631\u06CC")),
         tab === 'daily' ? React.createElement(AttendanceDailyReport, { ...props }) : tab === 'vehicle' ? React.createElement(VehicleDutyReport, null) : React.createElement(WorkReviewReport, null));
 }
 function MonthlyMetricDetails({ detail, onClose }) {
