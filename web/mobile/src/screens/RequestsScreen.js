@@ -93,13 +93,14 @@ function NewRequest({ onDone }) {
   const [sub, setSub] = useState(null);          // جایگزین انتخاب‌شده
   const [subOpen, setSubOpen] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
+  const [subExempt,setSubExempt]=useState(null);
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
-  const needsSubstitute = ['annual', 'sick', 'mission'].includes(type);
+  const needsSubstitute = subExempt===false && type === 'annual' && unit === 'daily';
 
   // بارگذاری تنظیم الزام جایگزین
   useEffect(() => {
-    request('/my/app-config').then((c) => setReqSub(!!c.leave_require_substitute)).catch(() => {});
+    request('/my/app-config').then((c) => {setReqSub(!!c.leave_require_substitute);setSubExempt(!!c.leave_substitute_exempt);}).catch(() => {});
   }, []);
 
   // وقتی بازهٔ تاریخ مشخص شد، نیروهای جایگزینِ در دسترس را برای آن بازه می‌گیریم
@@ -114,7 +115,7 @@ function NewRequest({ onDone }) {
     } catch (e) { setSubs([]); }
     finally { setSubLoading(false); }
   };
-  useEffect(() => { loadSubs(); /* eslint-disable-next-line */ }, [type, unit, fromJ, toJd, theDate]);
+  useEffect(() => { if(!needsSubstitute){setSub(null);setSubs([]);setSubOpen(false);return;}loadSubs(); /* eslint-disable-next-line */ }, [type, unit, fromJ, toJd, theDate, needsSubstitute]);
 
   const pickAttach = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });

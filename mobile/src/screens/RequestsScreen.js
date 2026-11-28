@@ -212,11 +212,12 @@ function NewRequest({ onDone, initialType, initialDate }) {
     catch (e) { setLeaveBalance(null); setLeaveBalanceError(e.message || 'دریافت وضعیت مرخصی ناموفق بود.'); }
     finally { setLeaveBalanceLoading(false); }
   };
+  const [subExempt,setSubExempt]=useState(null);
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
   // Hourly leave never needs a substitute. Daily leave uses the user-specific
   // server rule (substitute employees exempt, except Samen / entry-gateway zones).
-  const needsSubstitute = type === 'annual' && unit === 'daily';
+  const needsSubstitute = subExempt===false && type === 'annual' && unit === 'daily';
 
   // وقتی صفحه از «عملکرد روزانه» باز می‌شود، همان روز و نوع درخواست را مستقیماً آماده کن.
   useEffect(() => {
@@ -227,7 +228,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   // بارگذاری تنظیم الزام جایگزین
   useEffect(() => {
     request('/my/app-config', { noStore: true, forceNetwork: true, queueIfOffline: false })
-      .then((c) => setReqSub(!!c.leave_require_substitute))
+      .then((c) => {setReqSub(!!c.leave_require_substitute);setSubExempt(!!c.leave_substitute_exempt);})
       .catch(() => setReqSub(false)); // Do not block an exempt user; server enforces required coverage.
   }, []);
 
@@ -252,7 +253,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
     finally { if(seq===substituteLoadEpoch.current)setSubLoading(false); }
   };
   useEffect(() => {
-    if (!needsSubstitute) { substituteLoadEpoch.current++;setSub(null); setSubs([]); setSubOpen(false); return; }
+    if (!needsSubstitute) { substituteLoadEpoch.current++;setSub(null); setSubs([]); setSubOpen(false);setSubLoading(false); return; }
     loadSubs(); /* eslint-disable-next-line */
   }, [type, unit, fromJ, toJd, theDate, needsSubstitute]);
 

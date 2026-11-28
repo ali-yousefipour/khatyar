@@ -4,7 +4,7 @@ class Db {
   static $insert=[];
   static function pdo(){return new class {function beginTransaction(){} function commit(){} function inTransaction(){return false;} function rollBack(){}};}
   static function one($sql,$args=[]){
-    if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7];
+    if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7,'can_be_substitute'=>$GLOBALS['canBeSubstitute']??0];
     return ['Field'=>'substitute_user_id'];
   }
   static function all($sql,$args=[]){if(str_contains($sql,'FROM staff_attendance'))return [];if(str_contains($sql,'FROM users u LEFT JOIN roles'))return [['id'=>7,'name'=>'جایگزین'],['id'=>12,'name'=>'درخواست‌کننده']];throw new LogicException('Unexpected read: '.$sql);}
@@ -38,6 +38,11 @@ foreach(range(1,6) as $level){
   check(Db::$insert[17]===null,'level '.$level.' must submit daily annual leave without a substitute');
 }
 $GLOBALS['roleLevel']=7;
+$GLOBALS['canBeSubstitute']=1;
+check(!_req_leave_substitute_required(12),'designated substitute exempt in required region');
+$GLOBALS['submit']([],['type'=>'annual','unit'=>'daily','from_jdate'=>'1405-07-30','to_jdate'=>'1405-07-30'],['id'=>12]);
+check(Db::$insert[17]===null,'designated substitute may submit without replacement');
+$GLOBALS['canBeSubstitute']=0;
 check(_req_leave_substitute_required(12),'level 7 must follow the required region');
 foreach(['annual','sick','mission','overtime','manual'] as $type)foreach(['daily','hourly'] as $unit){
   $GLOBALS['regionRequired']=1;

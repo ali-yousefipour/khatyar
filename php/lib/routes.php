@@ -2775,7 +2775,8 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
-    'leave_require_substitute' => _req_leave_substitute_required($u['id']), // only daily annual leave; substitute staff exempt except specified zones
+    'leave_require_substitute' => _req_leave_substitute_required($u['id']), // daily annual leave; designated substitutes always exempt
+    'leave_substitute_exempt' => !empty(Db::one('SELECT can_be_substitute FROM users WHERE id=?',[(int)$u['id']])['can_be_substitute']),
     'manual_attendance_selfie' => !empty(_req_policy_options($u['id'],false)['manual_attendance_selfie']),
     // حالت فعالیت: always (همیشه) یا shift_only (فقط در ساعات شیفت کاری)
     'activity_mode'         => $g('activity_mode', 'always'), // always | shift_only
@@ -5528,8 +5529,9 @@ function _req_leave_substitute_required($uid){
   $uid=(int)$uid;
   if($uid<=0)return true; // fail closed if the caller identity is unavailable
   _zone_leave_requirement_storage();
-  $row=Db::one("SELECT r.level role_level, COALESCE(z.leave_requires_substitute,0) leave_requires_substitute FROM users u LEFT JOIN roles r ON r.id=u.role_id LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
+  $row=Db::one("SELECT r.level role_level, COALESCE(u.can_be_substitute,0) can_be_substitute, COALESCE(z.leave_requires_substitute,0) leave_requires_substitute FROM users u LEFT JOIN roles r ON r.id=u.role_id LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
   if(!$row)return true;
+  if(!empty($row['can_be_substitute']))return false;
   $level=isset($row['role_level'])?(int)$row['role_level']:0;
   if($level>=1 && $level<=6)return false;
   return !empty($row['leave_requires_substitute']);
