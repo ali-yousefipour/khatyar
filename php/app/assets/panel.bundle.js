@@ -302,12 +302,23 @@ function exportXlsx(rows, sheetName, filename) {
     XLSX.writeFile(wb, filename);
 }
 async function SEND(method, p, body) {
-    const r = await _fetchWithAuth(API_BASE + p, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-    const v = await _readJsonResponse(r);
-    if (!r.ok)
-        throw new Error(v.error || v.message || 'خطای سرور');
-    _invalidateCache(); // بعد از هر تغییر، کش پاک شود تا داده‌ها تازه بماند
-    return v;
+    var _a, _b;
+    const mutation = /^(PUT|PATCH|DELETE|POST)$/i.test(method) && !/(?:\/session\/|\/check-leave-window|\/preview(?:\/|$)|\/validate(?:\/|$)|\/search(?:\/|$)|\/test(?:\/|$)|\/export(?:\/|$))/i.test(p);
+    try {
+        const r = await _fetchWithAuth(API_BASE + p, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+        const v = await _readJsonResponse(r);
+        if (!r.ok || (v === null || v === void 0 ? void 0 : v.ok) === false || (v === null || v === void 0 ? void 0 : v.success) === false)
+            throw new Error((v === null || v === void 0 ? void 0 : v.error) || (v === null || v === void 0 ? void 0 : v.message) || 'خطای سرور');
+        _invalidateCache();
+        if (mutation && v && (v.ok === true || v.success === true || v.id != null))
+            (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success(method === 'DELETE' ? 'حذف با موفقیت انجام شد.' : 'عملیات با موفقیت انجام شد.');
+        return v;
+    }
+    catch (error) {
+        if (mutation)
+            (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.error(error.message || 'ذخیره‌سازی ناموفق بود.');
+        throw error;
+    }
 }
 // باز کردن تصویر؛ اگر مسیر فایل فیزیکی (/api/media) باشد با توکن دریافت و در تب جدید باز می‌شود؛
 // اگر data URI (base64 قدیمی) باشد مستقیماً باز می‌شود.
@@ -6018,6 +6029,7 @@ function MissionTemplatesAdmin() {
         loadSettings(); if (tab === "visits")
         loadVisits(); }, [tab]);
     const saveTemplate = async () => {
+        var _a;
         setMsg("");
         if (!title.trim()) {
             setMsg("عنوان الگو را وارد کنید");
@@ -6029,7 +6041,7 @@ function MissionTemplatesAdmin() {
         }
         try {
             await SEND("POST", "/admin/mission-templates", { title: title.trim(), role_key: roleKey, period, is_default: isDefault, is_active: true, targets });
-            setMsg("✓ الگو ذخیره شد");
+            (setMsg("✓ الگو ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ الگو ذخیره شد"));
             setTitle("");
             setTargets([]);
             loadTemplates();
@@ -6041,6 +6053,7 @@ function MissionTemplatesAdmin() {
     const delTemplate = async (id) => { if (!confirm("این الگوی مأموریت حذف شود؟"))
         return; await SEND("DELETE", "/admin/mission-templates/" + id); loadTemplates(); };
     const saveOverride = async () => {
+        var _a;
         setMsg("");
         if (!ovUser) {
             setMsg("کاربر را انتخاب کنید");
@@ -6052,7 +6065,7 @@ function MissionTemplatesAdmin() {
         }
         try {
             await SEND("PUT", "/admin/user-mission-overrides/" + ovUser, { period: "daily", is_active: true, targets: ovTargets });
-            setMsg("✓ مأموریت اختصاصی ذخیره شد");
+            (setMsg("✓ مأموریت اختصاصی ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ مأموریت اختصاصی ذخیره شد"));
             setOvTargets([]);
             loadOverrides();
         }
@@ -6063,11 +6076,12 @@ function MissionTemplatesAdmin() {
     const delOverride = async (uid) => { if (!confirm("مأموریت اختصاصی این کاربر حذف شود؟"))
         return; await SEND("DELETE", "/admin/user-mission-overrides/" + uid + "?period=daily"); loadOverrides(); };
     const saveSettings = async () => {
+        var _a;
         setMsg("");
         try {
             const items = Object.entries(settings).map(([setting_key, setting_value]) => ({ setting_key, setting_value: String(setting_value) }));
             await SEND("PUT", "/admin/mission-execution-settings", { items });
-            setMsg("✓ تنظیمات ذخیره شد");
+            (setMsg("✓ تنظیمات ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ تنظیمات ذخیره شد"));
         }
         catch (e) {
             setMsg(e.message || "خطا در ذخیره");
@@ -6399,30 +6413,33 @@ function ScoreEngineAdmin() {
     useEffect(() => { if (tab === "leaderboard")
         loadLeaderboard(); }, [lbPeriod]);
     const saveRules = async () => {
+        var _a;
         setMsg("");
         try {
             await SEND("PUT", "/admin/score-rules", { items: rules.map(r => ({ rule_key: r.rule_key, base_points: r.base_points, is_active: r.is_active })) });
-            setMsg("✓ ذخیره شد");
+            (setMsg("✓ ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ ذخیره شد"));
         }
         catch (e) {
             setMsg(e.message || "خطا");
         }
     };
     const saveRoleCo = async () => {
+        var _a;
         setMsg("");
         try {
             await SEND("PUT", "/admin/role-score-coefficients", { items: roleCo });
-            setMsg("✓ ذخیره شد");
+            (setMsg("✓ ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ ذخیره شد"));
         }
         catch (e) {
             setMsg(e.message || "خطا");
         }
     };
     const saveLineCo = async () => {
+        var _a;
         setMsg("");
         try {
             await SEND("PUT", "/admin/line-score-coefficients", { items: lineCo });
-            setMsg("✓ ذخیره شد");
+            (setMsg("✓ ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ ذخیره شد"));
         }
         catch (e) {
             setMsg(e.message || "خطا");
@@ -7540,7 +7557,7 @@ function InventoryAdmin() {
     const loadTypes = () => db.invItemTypes().then(d => setTypes(d.items || [])).catch(e => { setError(e.message || "دریافت انواع اقلام ناموفق بود."); setTypes([]); });
     useEffect(() => { loadTypes(); db.users({}).then(d => setUsers(Array.isArray(d) ? d : (d.rows || d.items || []))).catch(e => setError(e.message || "دریافت کاربران ناموفق بود.")); }, []);
     const saveType = async () => {
-        var _a;
+        var _a, _b;
         if (!((_a = typeForm.name) === null || _a === void 0 ? void 0 : _a.trim())) {
             alert("نام قلم را وارد کنید");
             return;
@@ -7554,7 +7571,7 @@ function InventoryAdmin() {
                 await db.invAddItemType(typeForm);
             setTypeForm(null);
             await loadTypes();
-            setNotice("اطلاعات قلم ذخیره شد.");
+            (setNotice("اطلاعات قلم ذخیره شد."), (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.success("اطلاعات قلم ذخیره شد."));
         }
         catch (e) {
             setError(e.message || "ذخیره نوع قلم ناموفق بود.");
@@ -7571,6 +7588,7 @@ function InventoryAdmin() {
         alert(e.message);
     } };
     const doAssign = async () => {
+        var _a;
         if (!assignForm.item_type_id || !assignForm.to_user_id || !Number.isSafeInteger(Number(assignForm.quantity)) || Number(assignForm.quantity) <= 0) {
             setError("نوع قلم، تحویل‌گیرنده و تعداد صحیح و مثبت را وارد کنید.");
             return;
@@ -7579,7 +7597,7 @@ function InventoryAdmin() {
         setError("");
         try {
             await db.invAssign({ ...assignForm, quantity: +assignForm.quantity });
-            setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود.");
+            (setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود."), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود."));
             setAssignForm({ item_type_id: "", to_user_id: "", quantity: "", note: "", transferable: true });
         }
         catch (e) {
@@ -9113,6 +9131,7 @@ function UserProfileFormDesigner() {
         return state;
     };
     const save = async () => {
+        var _a;
         if (!model || migration)
             return;
         setBusy(true);
@@ -9122,7 +9141,7 @@ function UserProfileFormDesigner() {
             const r = await SEND('PUT', '/admin/user-profile-form', { schema: model, revision });
             setRevision(Number(r.revision));
             setDirty(false);
-            setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد.");
+            (setMessage("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد."), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("پیش‌نویس ذخیره شد؛ تا زمان انتشار روی فرم کاربران اثر ندارد."));
         }
         catch (e) {
             setError(e.message || "ثبت پیش‌نویس ناموفق بود.");
@@ -9360,10 +9379,10 @@ function Settings() {
     if (!v)
         return React.createElement("div", { role: settingsError ? 'alert' : 'status' }, settingsError || 'در حال بارگذاری…');
     const set = (k, val) => { setSettingsNotice(''); setV(previous => ({ ...previous, [k]: val })); };
-    const save = async () => { if (settingsLock.current)
+    const save = async () => { var _a; if (settingsLock.current)
         return; settingsLock.current = true; setSettingsSaving(true); setSettingsError(''); setSettingsNotice(''); try {
         await db.saveSettings(v);
-        setSettingsNotice('تنظیمات با موفقیت ذخیره شد.');
+        (setSettingsNotice('تنظیمات با موفقیت ذخیره شد.'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('تنظیمات با موفقیت ذخیره شد.'));
     }
     catch (error) {
         setSettingsError(error.message || 'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');
@@ -11621,6 +11640,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
         return () => { active = false; };
     }, [userId, field.id]);
     const upload = async () => {
+        var _a;
         if (busy || uploadLock.current || !selected)
             return;
         if (selected.size > 8388608) {
@@ -11646,7 +11666,7 @@ function AdminPrivateProfileAttachment({ field, userId, readOnly = false, onStat
                 onStatus === null || onStatus === void 0 ? void 0 : onStatus(field.id, !!(updated === null || updated === void 0 ? void 0 : updated.exists));
             }
             catch (_) {
-                setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست.");
+                (setError("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست."), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("مدرک ثبت شد؛ تازه‌سازی وضعیت در دسترس نیست."));
             }
         }
         catch (e) {
@@ -11756,7 +11776,7 @@ function CustomFieldsFiller({ userId, profile, saveRef = null, onDirtyChange = n
         return groups;
     }, []);
     const save = async (mode = 'save') => {
-        var _a;
+        var _a, _b;
         if (busy || fields === null)
             return false;
         if (mode === 'committed') {
@@ -11782,7 +11802,7 @@ function CustomFieldsFiller({ userId, profile, saveRef = null, onDirtyChange = n
         try {
             await db.saveUserCustomValues(userId, changed);
             setOriginalVals({ ...vals });
-            setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد.");
+            (setSuccess("اطلاعات تکمیلی با موفقیت ذخیره شد."), (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.success("اطلاعات تکمیلی با موفقیت ذخیره شد."));
             return true;
         }
         catch (e) {
@@ -12359,13 +12379,14 @@ function WorkPolicy() {
     const newPolicy = () => { setEditing({ title: "", description: "", apply_time_limit_on_approve: false, config: emptyPolicyConfig() }); setReqTab("annual"); setMsg(""); };
     const editPolicy = async (id) => { const wp = await GET("/admin/work-policies/" + id); setEditing({ ...wp, apply_time_limit_on_approve: !!wp.apply_time_limit_on_approve, config: wp.config || emptyPolicyConfig() }); setReqTab("annual"); setMsg(""); };
     const save = async () => {
+        var _a;
         if (!editing.title.trim()) {
             setMsg("نام سیاست کاری را وارد کنید");
             return;
         }
         try {
             const r = await SEND("POST", "/admin/work-policies", editing);
-            setMsg("✓ ذخیره شد");
+            (setMsg("✓ ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ ذخیره شد"));
             if (!editing.id)
                 setEditing({ ...editing, id: r.id });
             load();
@@ -12555,6 +12576,7 @@ function LeaveBlockedDates() {
     } };
     useEffect(() => { load(); }, []);
     const add = async () => {
+        var _a;
         if (!jdate) {
             setMsg("تاریخ را انتخاب کنید");
             return;
@@ -12563,7 +12585,7 @@ function LeaveBlockedDates() {
             await SEND("POST", "/admin/leave-blocked-dates", { jdate, reason });
             setJdate("");
             setReason("");
-            setMsg("✓ روز ممنوعه ثبت شد");
+            (setMsg("✓ روز ممنوعه ثبت شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ روز ممنوعه ثبت شد"));
             load();
         }
         catch (e) {
@@ -12614,12 +12636,13 @@ function LeaveBalanceInit() {
     useEffect(() => { load(); }, []);
     const setCell = (id, k, v) => setRows(rs => rs.map(r => r.id === id ? { ...r, [k]: Math.max(0, Math.min(k === "m" ? 59 : 9999, +v || 0)) } : r));
     const save = async () => {
+        var _a;
         setBusy(true);
         setMsg("");
         try {
             const items = rows.map(r => ({ user_id: r.id, minutes: (+r.h || 0) * 60 + (+r.m || 0) }));
             await db.leaveBalanceInitSave(items);
-            setMsg("✓ ماندهٔ مرخصی ذخیره شد");
+            (setMsg("✓ ماندهٔ مرخصی ذخیره شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ ماندهٔ مرخصی ذخیره شد"));
         }
         catch (e) {
             setMsg(e.message || "خطا در ذخیره");
@@ -13180,6 +13203,7 @@ function AutoShiftRules() {
     const patch = (i, k, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
     const patchHM = (i, key, k, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [key]: { ...r[key], [k]: v } } : r));
     const save = async (i) => {
+        var _a;
         const r = rows[i];
         if (saving !== null)
             return;
@@ -13194,7 +13218,7 @@ function AutoShiftRules() {
         try {
             await db.saveRuleEngineRole(r.role_key, body);
             await load();
-            setMsg('✓ قانون سمت ذخیره شد.');
+            (setMsg('✓ قانون سمت ذخیره شد.'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('✓ قانون سمت ذخیره شد.'));
         }
         catch (e) {
             setMsg(e.message || 'ذخیره قانون سمت ناموفق بود.');
@@ -13328,6 +13352,7 @@ function UserRuleOverrides() {
     const patch = (k, v) => setRow(r => ({ ...r, [k]: v }));
     const patchHM = (key, k, v) => setRow(r => ({ ...r, [key]: { ...r[key], [k]: v } }));
     const save = async () => {
+        var _a;
         if (!uid || !row || busy)
             return;
         setBusy(true);
@@ -13335,7 +13360,7 @@ function UserRuleOverrides() {
         const body = { ...row, duty_minutes: hmInputToMin(row._d.h, row._d.m), overtime_limit_minutes: hmInputToMin(row._o.h, row._o.m), surplus_after_minutes: hmInputToMin(row._s.h, row._s.m) };
         try {
             await db.saveUserRuleOverride(uid, body);
-            setMsg('✓ قانون اختصاصی ذخیره شد.');
+            (setMsg('✓ قانون اختصاصی ذخیره شد.'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('✓ قانون اختصاصی ذخیره شد.'));
         }
         catch (e) {
             setMsg(e.message || 'ذخیره قانون اختصاصی ناموفق بود.');
@@ -17609,7 +17634,7 @@ function PayrollEditor({ userId, userName }) {
     const [open, setOpen] = useState(false), [base, setBase] = useState(null), [records, setRecords] = useState([]), [selected, setSelected] = useState(''), [detail, setDetail] = useState(null), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
     const fields = [['base_monthly', 'حقوق پایهٔ ماهانه'], ['housing', 'حق مسکن'], ['family', 'حق خانوار'], ['food', 'بن/خواربار'], ['other_allow', 'سایر مزایا'], ['insurance_pct', 'مبلغ بیمه طبق فیش (ریال)'], ['tax_pct', 'مبلغ مالیات طبق فیش (ریال)'], ['other_deduct', 'سایر کسورات']];
     const latest = async () => {
-        var _a;
+        var _a, _b;
         setBusy(true);
         setMessage('');
         try {
@@ -17628,7 +17653,7 @@ function PayrollEditor({ userId, userName }) {
                 const merged = { ...(existing || {}), ...patch };
                 await db.saveUserPayroll(userId, merged);
                 setBase(merged);
-                setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.');
+                (setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.'), (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.success('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.'));
             }
             else
                 setMessage('برای این کاربر هنوز فیش تطبیق‌یافته‌ای در فایل شرکت موجود نیست.');
@@ -17653,9 +17678,9 @@ function PayrollEditor({ userId, userName }) {
     finally {
         setBusy(false);
     } };
-    const save = async () => { try {
+    const save = async () => { var _a; try {
         await db.saveUserPayroll(userId, base);
-        setMessage('اطلاعات پایهٔ حقوق ذخیره شد.');
+        (setMessage('اطلاعات پایهٔ حقوق ذخیره شد.'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('اطلاعات پایهٔ حقوق ذخیره شد.'));
     }
     catch (e) {
         setMessage(e.message || 'ذخیره ناموفق بود.');
@@ -19795,7 +19820,7 @@ function TempDriversPanel() {
     };
     const chosenDriverIds = () => (vehicleFound === null || vehicleFound === void 0 ? void 0 : vehicleFound.drivers) ? Object.keys(selectedDrivers).filter(k => selectedDrivers[k]).map(k => +k) : ((found === null || found === void 0 ? void 0 : found.driver) ? [+found.driver.id] : []);
     const add = async () => {
-        var _a;
+        var _a, _b;
         const ids = chosenDriverIds();
         if (!ids.length) {
             setMsg("ابتدا راننده یا خودرو را جستجو و راننده‌های موردنظر را انتخاب کنید");
@@ -19807,7 +19832,7 @@ function TempDriversPanel() {
         }
         try {
             await SEND("POST", "/temp-drivers", { driver_ids: ids, national_id: ((_a = found === null || found === void 0 ? void 0 : found.driver) === null || _a === void 0 ? void 0 : _a.national_id) || null, line_id: +lineId, line_code_in_line: codeInLine || null, note: note || null });
-            setMsg("✓ تخصیص موقت ثبت شد");
+            (setMsg("✓ تخصیص موقت ثبت شد"), (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.success("✓ تخصیص موقت ثبت شد"));
             setLineId("");
             setCodeInLine("");
             setNote("");
@@ -19977,6 +20002,7 @@ function Commitments() {
         rd.readAsDataURL(f);
     };
     const save = async () => {
+        var _a;
         if (!uid) {
             setMsg("کاربر را انتخاب کنید");
             return;
@@ -19989,7 +20015,7 @@ function Commitments() {
         }
         try {
             await SEND("POST", "/admin/user-commitments", { user_id: +uid, title: finalTitle, reason_id: reasonId ? +reasonId : null, description: desc, commit_jdate: cdate, attachment_name: att ? att.name : null, attachment_data: att ? att.data : null });
-            setMsg("✓ تعهد ثبت شد");
+            (setMsg("✓ تعهد ثبت شد"), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success("✓ تعهد ثبت شد"));
             setTitle("");
             setDesc("");
             setAtt(null);
@@ -20659,10 +20685,10 @@ function PlateTrainingPanel() {
         setBusy(false);
     } };
     useEffect(() => { load(); }, [status]);
-    const review = async (r, newStatus) => { const d2 = prompt('دو رقم اول پلاک:', r.corrected_digits_2 || '') || ''; const d3 = prompt('سه رقم آخر پلاک:', r.corrected_digits_3 || '') || ''; if ((d2 + d3).replace(/\D/g, '').length < 5)
+    const review = async (r, newStatus) => { var _a; const d2 = prompt('دو رقم اول پلاک:', r.corrected_digits_2 || '') || ''; const d3 = prompt('سه رقم آخر پلاک:', r.corrected_digits_3 || '') || ''; if ((d2 + d3).replace(/\D/g, '').length < 5)
         return; const note = prompt('یادداشت بررسی:', r.review_note || '') || ''; try {
         await db.plateTrainingReview(r.id, { status: newStatus, corrected_digits_2: d2, corrected_digits_3: d3, review_note: note });
-        setMsg('✓ نمونه ثبت شد');
+        (setMsg('✓ نمونه ثبت شد'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('✓ نمونه ثبت شد'));
         if (status === 'pending')
             setRows(xs => xs.filter(x => x.id !== r.id));
         else
@@ -21404,13 +21430,13 @@ function SystemHealthDashboard() {
         if (request === deviceRequestRef.current)
             setDevicesLoading(false);
     } };
-    const load = async (run) => { if (busyRef.current)
+    const load = async (run) => { var _a; if (busyRef.current)
         return; busyRef.current = true; setBusy(true); setMsg(''); try {
         const r = run ? await db.systemHealthRunChecks() : await db.systemHealthDashboard();
         setD(r);
         await loadDevices();
         if (run)
-            setMsg('✓ چک سلامت اجرا و ثبت شد');
+            (setMsg('✓ چک سلامت اجرا و ثبت شد'), (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('✓ چک سلامت اجرا و ثبت شد'));
     }
     catch (e) {
         setMsg(e.message || 'خطا در دریافت سلامت سامانه');
