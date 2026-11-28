@@ -25,6 +25,11 @@ class Db {
   if(str_contains($sql,'RELEASE_LOCK(')){unset(self::$locks[(string)$args[0]]);return ['ok'=>1];}
   if(str_contains($sql,'can_be_substitute=1'))return in_array((int)$args[0],self::$unqualified,true)?null:['id'=>$args[0]];
   if(str_contains($sql,"type IN ('annual','sick','unpaid','mission')"))return in_array((int)$args[0],self::$absences,true)?['id'=>99]:null;
+  if(str_contains($sql,'SELECT sa.from_date,sa.to_date FROM substitute_assignments sa')){
+   $r=self::$requests[(int)$args[0]]??null;
+   if(!$r||!empty($r['no_active_assignment']))return null;
+   return ['from_date'=>$r['assignment_from']??$r['from_jdate'],'to_date'=>$r['assignment_to']??$r['to_jdate']];
+  }
   if(str_contains($sql,'FROM requests WHERE id=?'))return self::$requests[(int)$args[0]]??null;
   if(str_contains($sql,'SELECT r.id,r.status FROM requests r')){
    [$sid,$except,$to,$from]=$args;
@@ -166,6 +171,17 @@ $calendar=runRoute('GET','/api/my/shift-cover-status');
 check($calendar['days']['1405-09-03']['reservations'][0]['is_confirmed']===false,'pending reservation is explicitly advisory');
 check(!isset($calendar['days']['1405-09-03']['cover']),'pending reservation never becomes confirmed cover');
 echo "PASS pending substitute reservations, conflicts, release and approved-only calendar\n";
+$originalRequests=Db::$requests;
+Db::$requests=[999=>['id'=>999,'user_id'=>6,'substitute_user_id'=>42,'type'=>'annual','unit'=>'daily','status'=>'approved','from_jdate'=>'1405-09-01','to_jdate'=>'1405-09-10','assignment_from'=>'1405-09-01','assignment_to'=>'1405-09-02']];
+$probe=['user_id'=>5,'from_jdate'=>'1405-09-07','to_jdate'=>'1405-09-07'];
+check(LeaveSubstituteCoverage::availability(42,$probe)['available'],'obsolete assignment outside actual coverage cannot block a free date');
+Db::$requests[999]['assignment_to']='1405-09-10';
+check(!LeaveSubstituteCoverage::availability(42,$probe)['available'],'valid overlapping approved assignment remains protected');
+Db::$requests[999]['no_active_assignment']=true;
+check(LeaveSubstituteCoverage::availability(42,$probe)['available'],'approved request without a current assignment does not reserve a shift');
+Db::$requests[999]['status']='rejected';
+check(LeaveSubstituteCoverage::availability(42,$probe)['available'],'rejected history does not block availability');
+Db::$requests=$originalRequests;
 
 // Verify historical service-location semantics without relying on a mutable user profile.
 $locationMethod=new ReflectionMethod(LeaveSubstituteCoverage::class,'attachServiceLocation');

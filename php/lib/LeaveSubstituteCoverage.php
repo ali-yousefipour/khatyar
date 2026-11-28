@@ -16,8 +16,8 @@ final class LeaveSubstituteCoverage {
         return IranCalendar::normalize(sprintf('%04d-%02d-%02d',(int)$m[1],$month,$day));
     }
     private static function range(array $body): ?array {
-        $from=self::day($body['from_jdate']??$body['the_date']??null);
-        $to=self::day($body['to_jdate']??$body['the_date']??$body['from_jdate']??null);
+        $from=self::day(($body['from_jdate']??'')!==''&&($body['from_jdate']??null)!==null?$body['from_jdate']:($body['the_date']??null));
+        $to=self::day(($body['to_jdate']??'')!==''&&($body['to_jdate']??null)!==null?$body['to_jdate']:$from);
         if(!$from||!$to||$from>$to)return null;
         return [$from,$to];
     }
@@ -51,7 +51,10 @@ final class LeaveSubstituteCoverage {
             case 'own_policy':return 'برنامه شیفت اصلی و شیفت جایگزینی در این روز قابل تطبیق نیست';
             case 'hourly_absence':return 'مرخصی یا مأموریت ساعتی تأییدشده با ساعت شیفت تداخل دارد';
             case 'range':return 'بازه زمانی درخواست قابل بررسی نیست';
-            default:return 'نیروی جایگزین در این بازه رزرو یا تخصیص متداخل دارد';
+            case 'schedule_unknown':return 'ساعت شیفت درخواست یا رزرو قبلی مشخص نیست؛ برای بررسی برنامه شیفت با مسئول مربوط تماس بگیرید';
+            case 'absence':return 'در این بازه مرخصی یا مأموریت تأییدشده دارد';
+            case 'ineligible':return 'نیروی جایگزین فعال و واجد شرایط نیست';
+            default:return 'نیروی جایگزین در این بازه رزرو یا تخصیص متداخل دارد'.(!empty($conflict['id'])?' (درخواست شماره '.$conflict['id'].')':'');
         }
     }
     private static function ensureOpenRange(string $from,string $to): void {
@@ -203,21 +206,12 @@ final class LeaveSubstituteCoverage {
     private static function listSubstitutes(array $params,array $body,$user,callable $original) {
         $answer=$original($params,$body,$user);
         if(!is_array($answer)||!isset($answer['substitutes'])||!is_array($answer['substitutes']))return $answer;
-        $range=self::range(['from_jdate'=>$_GET['from']??'','to_jdate'=>$_GET['to']??'']);
+        $range=self::range(['from_jdate'=>$_GET['from']??'','to_jdate'=>$_GET['to']??($_GET['from']??'')]);
         if(!$range)return $answer;
         foreach($answer['substitutes'] as &$person){
             $id=(int)($person['id']??0);
-            if($id<=0||empty($person['available']))continue;
-            if($id===(int)($user['id']??0)||!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$id])){
-                $person['available']=false;
-                $person['reason']='نیروی جایگزین فعال و واجد شرایط نیست';
-            }elseif($conflict=self::preciseConflict($id,['user_id'=>(int)$user['id'],'from_jdate'=>$range[0],'to_jdate'=>$range[1]])){
-                $person['available']=false;
-                $person['reason']=self::conflictReason($conflict);
-            }elseif(self::approvedAbsence($id,$range[0],$range[1])){
-                $person['available']=false;
-                $person['reason']='در این بازه مرخصی یا مأموریت تأییدشده دارد';
-            }
+            $result=self::availability($id,['user_id'=>(int)$user['id'],'from_jdate'=>$range[0],'to_jdate'=>$range[1]]);
+            $person=array_replace($person,$result);
         }
         unset($person);
         return $answer;
@@ -331,12 +325,21 @@ final class LeaveSubstituteCoverage {
         $x=self::requestWindows($left);$y=self::requestWindows($right);
         return $x!==null&&$y!==null&&!self::windowsOverlap($x,$y);
     }
+    public static function availability(int $sub,array $request,int $exclude=0): array {
+        $range=self::range($request);
+        $conflict=null;
+        if(!$range)$conflict=['conflict_type'=>'range'];
+        elseif($sub<=0||$sub===(int)($request['user_id']??0)||!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1",[$sub]))$conflict=['conflict_type'=>'ineligible'];
+        elseif(self::approvedAbsence($sub,$range[0],$range[1]))$conflict=['conflict_type'=>'absence'];
+        else $conflict=self::preciseConflict($sub,$request,$exclude);
+        return ['available'=>$conflict===null,'reason'=>$conflict?self::conflictReason($conflict):null,'conflict_type'=>$conflict?($conflict['conflict_type']??'reservation'):null];
+    }
     public static function preciseConflict(int $sub,array $request,int $exclude=0): ?array {
         if(!function_exists('jalali_to_gregorian')||!function_exists('gregorian_to_jalali')){
             $range=self::range($request);return $range?self::conflict($sub,$range[0],$range[1],$exclude):['id'=>0];
         }
-        $rows=Db::all("SELECT id,user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE substitute_user_id=? AND id<>? AND type='annual' AND (unit='daily' OR unit IS NULL OR unit='') AND status IN ('pending','approved') AND (status='pending' OR EXISTS (SELECT 1 FROM substitute_assignments sa WHERE sa.request_id=requests.id AND sa.status='active' AND sa.substitute_user_id=requests.substitute_user_id AND sa.absent_user_id=requests.user_id))",[$sub,$exclude]);
-        $range=self::range($request);if(!$range)return ['id'=>0];
+        $range=self::range($request);if(!$range)return ['id'=>0,'conflict_type'=>'range'];
+        $rows=Db::all("SELECT id,user_id,from_jdate,to_jdate,the_date,status FROM requests WHERE substitute_user_id=? AND id<>? AND type='annual' AND (unit='daily' OR unit IS NULL OR unit='') AND status IN ('pending','approved') AND (status='pending' OR EXISTS (SELECT 1 FROM substitute_assignments sa WHERE sa.request_id=requests.id AND sa.status='active' AND sa.substitute_user_id=requests.substitute_user_id AND sa.absent_user_id=requests.user_id AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')))",[$sub,$exclude]);
         $requested=self::requestWindows($request);
         $hourly=Db::all("SELECT id,from_jdate,to_jdate,the_date,from_time,to_time FROM requests WHERE user_id=? AND status='approved' AND unit='hourly' AND type IN ('annual','sick','unpaid','mission')",[$sub]);
         foreach($hourly as $absence){
@@ -366,14 +369,27 @@ final class LeaveSubstituteCoverage {
 
         foreach($rows as $row){
             $other=self::range($row);if(!$other)continue;
+            if(($row['status']??'')==='approved'){
+                $assignment=Db::one("SELECT sa.from_date,sa.to_date FROM substitute_assignments sa WHERE sa.request_id=? AND sa.status='active' AND sa.substitute_user_id=? AND sa.absent_user_id=? AND sa.id=(SELECT MAX(latest.id) FROM substitute_assignments latest WHERE latest.request_id=sa.request_id AND latest.status='active')",[(int)$row['id'],$sub,(int)$row['user_id']]);
+                if(!$assignment)continue;
+                $a=self::day($assignment['from_date']??null);$b=self::day($assignment['to_date']??null);
+                if(!$a||!$b)continue;
+                $other=[max($other[0],$a),min($other[1],$b)];
+                if($other[0]>$other[1])continue;
+                $row=array_replace($row,['from_jdate'=>$other[0],'to_jdate'=>$other[1]]);
+            }
             // Include adjacent days because an overnight shift can cross the date boundary.
             $from=ShiftCalc::jdateAddDays($range[0],-1);$to=ShiftCalc::jdateAddDays($range[1],1);
             if($other[0]>$to||$other[1]<$from)continue;
             if($other[0]<=$range[1]&&$other[1]>=$range[0]){
-                if(!self::compatibleRequests($request,$row))return $row;
+                $y=self::requestWindows($row);
+                if($requested===null||$y===null)return ['id'=>$row['id'],'conflict_type'=>'schedule_unknown'];
+                if(self::windowsOverlap($requested,$y))return $row;
+                if($requested&&$y&&!self::compatibleRequests($request,$row))return ['id'=>$row['id'],'conflict_type'=>'schedule_unknown'];
             }else{
-                $x=self::requestWindows($request);$y=self::requestWindows($row);
-                if($x===null||$y===null||self::windowsOverlap($x,$y))return $row;
+                $y=self::requestWindows($row);
+                if($requested===null||$y===null)return ['id'=>$row['id'],'conflict_type'=>'schedule_unknown'];
+                if(self::windowsOverlap($requested,$y))return $row;
             }
         }
         return null;
