@@ -872,7 +872,13 @@ final class LeaveSubstituteCoverage {
         $metadata=self::reservationMetadata(array_keys($ids),$uid);
         foreach($output as &$day)foreach(['cover','reservations','history'] as $kind){
             if(!isset($day[$kind]))continue;
-            foreach($day[$kind] as &$entry){$entry['substitute_user_id']=$uid;$entry=array_merge($metadata[(int)$entry['request_id']]??[],$entry);}unset($entry);
+            foreach($day[$kind] as &$entry){
+                $entry['substitute_user_id']=$uid;
+                $entry=array_merge($metadata[(int)$entry['request_id']]??[],$entry);
+                // The leave applicant is the reservation owner, not necessarily the audit actor.
+                $entry['reservation_owner_user_id']=(int)$entry['absent_user_id'];
+                $entry['reservation_owner_name']=$entry['absent_name']??null;
+            }unset($entry);
         }unset($day);
         self::calendarConflicts($output);
         $output=array_intersect_key($output,$dates);
