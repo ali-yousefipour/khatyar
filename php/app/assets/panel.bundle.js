@@ -14459,6 +14459,25 @@ function ShiftAssign() {
     const [q, setQ] = useState("");
     const [error, setError] = useState("");
     const [busyUser, setBusyUser] = useState(null);
+    const [creatingSmart, setCreatingSmart] = useState(false);
+    const isSmart = s => { var _a; try {
+        return s.type === 'advanced' && Boolean((_a = (typeof s.advanced === 'string' ? JSON.parse(s.advanced) : s.advanced)) === null || _a === void 0 ? void 0 : _a.smart_substitute);
+    }
+    catch (e) {
+        return false;
+    } };
+    const createSmart = async () => { var _a, _b; setCreatingSmart(true); setError(''); try {
+        await POST('/admin/shifts/smart-substitute', {});
+        setShifts(await db.shifts() || []);
+        (_a = window.KhatyarToast) === null || _a === void 0 ? void 0 : _a.success('شیفت هوشمند آماده تخصیص است.');
+    }
+    catch (e) {
+        setError(e.message || 'تعریف شیفت هوشمند ناموفق بود.');
+        (_b = window.KhatyarToast) === null || _b === void 0 ? void 0 : _b.error(e.message || 'تعریف شیفت هوشمند ناموفق بود.');
+    }
+    finally {
+        setCreatingSmart(false);
+    } };
     const load = async () => { try {
         setAssigns(await db.userShifts() || []);
     }
@@ -14491,6 +14510,10 @@ function ShiftAssign() {
             React.createElement("span", { className: "muted" },
                 fa(filtered.length),
                 " \u0646\u06CC\u0631\u0648")),
+        React.createElement("div", { className: "card-p", style: { marginBottom: 12 } },
+            React.createElement("strong", null, "\u0634\u06CC\u0641\u062A \u0647\u0648\u0634\u0645\u0646\u062F \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+            React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u062A\u062E\u0635\u06CC\u0635 \u0642\u0637\u0639\u06CC: \u0634\u06CC\u0641\u062A \u0646\u06CC\u0631\u0648\u06CC \u0627\u0635\u0644\u06CC\u061B \u0633\u0627\u06CC\u0631 \u0631\u0648\u0632\u0647\u0627: \u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0642\u0648\u0627\u0646\u06CC\u0646 \u062E\u0648\u062F \u0646\u06CC\u0631\u0648. \u0631\u0632\u0631\u0648 \u0645\u0648\u0642\u062A \u0634\u06CC\u0641\u062A \u0645\u0624\u062B\u0631 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
+            !shifts.some(isSmart) && React.createElement("button", { className: "btn p", disabled: creatingSmart, onClick: createSmart }, creatingSmart ? 'در حال تعریف…' : 'تعریف شیفت هوشمند نیروی جایگزین')),
         React.createElement("div", { className: "sm-scroll-table" },
             React.createElement("table", null,
                 React.createElement("thead", null,
