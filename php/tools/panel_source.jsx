@@ -8451,7 +8451,9 @@ function gregToJalaliWeekday(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd);
 
 // تخصیص شیفت به نیروها
 function ShiftAssign(){
-  const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState(""); const [error,setError]=useState(""); const [busyUser,setBusyUser]=useState(null);
+  const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState(""); const [error,setError]=useState(""); const [busyUser,setBusyUser]=useState(null); const [creatingSmart,setCreatingSmart]=useState(false);
+  const isSmart=s=>{try{return s.type==='advanced'&&Boolean((typeof s.advanced==='string'?JSON.parse(s.advanced):s.advanced)?.smart_substitute);}catch(e){return false;}};
+  const createSmart=async()=>{setCreatingSmart(true);setError('');try{await POST('/admin/shifts/smart-substitute',{});setShifts(await db.shifts()||[]);window.KhatyarToast?.success('شیفت هوشمند آماده تخصیص است.');}catch(e){setError(e.message||'تعریف شیفت هوشمند ناموفق بود.');window.KhatyarToast?.error(e.message||'تعریف شیفت هوشمند ناموفق بود.');}finally{setCreatingSmart(false);}};
   const load=async()=>{try{setAssigns(await db.userShifts()||[]);}catch(e){setError(e.message||'دریافت تخصیص‌های شیفت ناموفق بود.');}};
   useEffect(()=>{db.usersLite().then(u=>setUsers(u||[])).catch(e=>setError(e.message||'دریافت فهرست نیروها ناموفق بود.'));db.shifts().then(s=>setShifts(s||[])).catch(e=>setError(e.message||'دریافت شیفت‌ها ناموفق بود.'));load();},[]);
   const cur=(uid)=>assigns.find(a=>Number(a.user_id)===Number(uid));
@@ -8460,6 +8462,7 @@ function ShiftAssign(){
   return(<div>
     {error&&<div className="attendance-shift-assignment-error" role="alert" style={{padding:"9px 12px",marginBottom:10,borderRadius:9,background:"#fdeef0",color:"#a61b29",fontSize:12}}>{error}</div>}
     <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}><input className="input" style={{maxWidth:320}} aria-label="جستجوی نیرو" placeholder="جستجوی نام، نام کاربری یا شناسه…" value={q} onChange={e=>setQ(e.target.value)}/><span className="muted">{fa(filtered.length)} نیرو</span></div>
+    <div className="card-p" style={{marginBottom:12}}><strong>شیفت هوشمند نیروی جایگزین</strong><p className="muted">روزهای تخصیص قطعی: شیفت نیروی اصلی؛ سایر روزها: شیفت خودکار بر اساس قوانین خود نیرو. رزرو موقت شیفت مؤثر را تغییر نمی‌دهد.</p>{!shifts.some(isSmart)&&<button className="btn p" disabled={creatingSmart} onClick={createSmart}>{creatingSmart?'در حال تعریف…':'تعریف شیفت هوشمند نیروی جایگزین'}</button>}</div>
     <div className="sm-scroll-table"><table><thead><tr><th>نیرو</th><th>شیفت تخصیص‌یافته</th></tr></thead><tbody>
       {filtered.map(u=>{ const c=cur(u.id); return(<tr key={u.id}>
         <td>{u.first_name} {u.last_name}</td>

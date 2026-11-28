@@ -256,13 +256,17 @@ final class LeaveSubstituteCoverage {
             $from=self::day($row['from_jdate']??'');$to=self::day($row['to_jdate']??'');
             if(($from&&$date<$from)||($to&&$date>$to))continue;
             if((int)$row['shift_id']===0)return function_exists('_auto_shift_for_user')?_auto_shift_for_user($userId):null;
+            if(function_exists('_is_smart_substitute_shift')&&_is_smart_substitute_shift($row))return _smart_substitute_shift($userId,$row);
             return $row;
         }
         return null;
     }
-    public static function ownWindows(int $userId,string $date): ?array {
+    public static function ownWindows(int $userId,string $date,bool $forReplacement=false): ?array {
         $shift=self::ownShift($userId,$date);
         if(!$shift)return [];
+        // Only an explicitly assigned smart replacement policy can yield its auto baseline.
+        // As a leave source, the same auto schedule remains unknown, not an empty fixed shift.
+        if($forReplacement&&!empty($shift['is_smart_substitute']))return [];
         // Floating duty without fixed clock bounds cannot safely prove non-overlap.
         if(in_array(($shift['type']??''),['floating','auto'],true))return null;
         $row=null;$id=(int)($shift['shift_id']??$shift['id']??0);
@@ -357,7 +361,7 @@ final class LeaveSubstituteCoverage {
         $start=ShiftCalc::jdateAddDays($range[0],-1);$last=ShiftCalc::jdateAddDays($range[1],1);
         for($date=$start,$n=0;$date&&$date<=$last;$date=ShiftCalc::jdateAddDays($date,1),$n++){
             if($n>369)return ['id'=>0,'conflict_type'=>'range'];
-            $own=self::ownWindows($sub,$date);
+            $own=self::ownWindows($sub,$date,true);
             if($own===null||($own&&($requested===null||self::windowsOverlap($requested,$own))))return ['id'=>0,'conflict_type'=>'own_shift'];
             // Adjacent days are inspected solely for overlapping overnight windows.
             // No replacement policy is required on a day outside the requested range.
@@ -439,6 +443,8 @@ final class LeaveSubstituteCoverage {
             if((int)$candidate['shift_id']===0){
                 if(!array_key_exists($userId,$context['auto']))$context['auto'][$userId]=function_exists('_auto_shift_for_user')?_auto_shift_for_user($userId):null;
                 $shift=$context['auto'][$userId];
+            }elseif(function_exists('_is_smart_substitute_shift')&&_is_smart_substitute_shift($candidate)){
+                $shift=_smart_substitute_shift($userId,$candidate);
             }else $shift=$candidate;
             break;
         }
@@ -794,7 +800,7 @@ final class LeaveSubstituteCoverage {
                 if(isset($seenCovers[$key]))continue;
                 $seenCovers[$key]=true;
                 $shift=self::requesterShift((int)$cover['absent_user_id'],$day,$context);
-                if($shift&&$shift['type']!=='floating'&&!$shift['segments'])continue;
+                if($shift&&!in_array($shift['type'],['floating','auto'],true)&&!$shift['segments'])continue;
                 $shift=self::attachServiceLocation($shift,$serviceSnapshots[(int)($cover['assignment_id']??0)][$day]??[]);
                 $completion=self::completedByAttendance($day,$shift,$attendance);
                 $output[$day]['cover'][]=['request_id'=>(int)$cover['request_id'],'absent_user_id'=>(int)$cover['absent_user_id'],

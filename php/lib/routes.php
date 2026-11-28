@@ -3316,9 +3316,31 @@ function _ensure_user_shifts_schema(){
       Db::run("ALTER TABLE user_shifts ADD COLUMN `$column` VARCHAR(10) NULL");
   }
 }
+function _is_smart_substitute_shift(array $shift): bool {
+  return ($shift['type']??'')==='advanced' && !empty(ShiftCalc::parseJson($shift['advanced']??null)['smart_substitute']);
+}
+function _smart_substitute_shift(int $uid,array $definition): array {
+  $auto=_auto_shift_for_user($uid);
+  $auto['title']=$definition['title']??'شیفت هوشمند نیروی جایگزین';
+  $auto['is_smart_substitute']=1;
+  $auto['assignment_shift_id']=(int)($definition['shift_id']??$definition['id']??0);
+  return $auto;
+}
 route('GET', '/api/admin/shifts', fn($p,$b,$u) => Db::all(
   "SELECT id,title,type,weekly,float_minutes,allow_offday,daily_ot_cap,monthly_ot_cap,night_calc,friday_calc,holiday_calc,advanced,is_active
    FROM shifts WHERE is_active=1 ORDER BY id DESC"), false, ADMIN);
+
+// Explicit admin action; idempotent and serialized, no automatic personnel changes.
+route('POST','/api/admin/shifts/smart-substitute',function($p,$b,$u){
+  $lock='khatyar:smart-substitute-shift';
+  if((int)(Db::one('SELECT GET_LOCK(?,8) AS ok',[$lock])['ok']??0)!==1)Http::error('تعریف شیفت در حال انجام است؛ دوباره تلاش کنید',409);
+  try{
+    foreach(Db::all("SELECT id,title,type,advanced FROM shifts WHERE is_active=1 AND type='advanced' ORDER BY id") as $row)
+      if(_is_smart_substitute_shift($row))return ['id'=>(int)$row['id'],'created'=>false];
+    $id=Db::insert("INSERT INTO shifts(title,type,advanced,allow_offday,night_calc,friday_calc,holiday_calc,is_active) VALUES(?,'advanced',?,1,1,1,1,1)",['شیفت هوشمند نیروی جایگزین',json_encode(['smart_substitute'=>true])]);
+    return ['id'=>$id,'created'=>true];
+  }finally{Db::one('SELECT RELEASE_LOCK(?) AS ok',[$lock]);}
+},false,ADMIN);
 
 // یک شیفت + روزهای پیشرفته‌اش
 route('GET', '/api/admin/shifts/{id}', function($p,$b,$u){
@@ -3346,6 +3368,8 @@ route('POST', '/api/admin/shifts', function($p,$b,$u){
 }, false, ADMIN);
 
 route('PUT', '/api/admin/shifts/{id}', function($p,$b,$u){
+  $definition=Db::one('SELECT type,advanced FROM shifts WHERE id=?',[(int)$p['id']]);
+  if($definition&&_is_smart_substitute_shift($definition))Http::error('شیفت هوشمند سیستمی است و قابل ویرایش دستی نیست',422);
   try { if (!Db::one("SHOW COLUMNS FROM shifts WHERE Field='advanced'")) Db::run("ALTER TABLE shifts ADD COLUMN advanced JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $f=[]; $v=[];
   foreach (['title','type','float_minutes','allow_offday','daily_ot_cap','monthly_ot_cap','night_calc','friday_calc','holiday_calc'] as $k)
@@ -3357,11 +3381,15 @@ route('PUT', '/api/admin/shifts/{id}', function($p,$b,$u){
 }, false, ADMIN);
 
 route('DELETE', '/api/admin/shifts/{id}', function($p,$b,$u){
+  $definition=Db::one('SELECT type,advanced FROM shifts WHERE id=?',[(int)$p['id']]);
+  if($definition&&_is_smart_substitute_shift($definition))Http::error('شیفت هوشمند سیستمی قابل حذف نیست',422);
   Db::run("UPDATE shifts SET is_active=0 WHERE id=?", [$p['id']]); return ['ok'=>true];
 }, false, ADMIN);
 
 // ذخیرهٔ روزهای شیفت پیشرفته (آرایه‌ای از {jdate,segments,is_off,day_config})
 route('POST', '/api/admin/shifts/{id}/days', function($p,$b,$u){
+  $definition=Db::one('SELECT type,advanced FROM shifts WHERE id=?',[(int)$p['id']]);
+  if($definition&&_is_smart_substitute_shift($definition))Http::error('روزهای شیفت هوشمند از تخصیص‌های قطعی محاسبه می‌شوند',422);
   try { if (!Db::one("SHOW COLUMNS FROM shift_days WHERE Field='day_config'")) Db::run("ALTER TABLE shift_days ADD COLUMN day_config JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $days = $b['days'] ?? [];
   $deleted = $b['deleted_dates'] ?? [];
@@ -3403,7 +3431,12 @@ route('POST', '/api/admin/user-shifts', function($p,$b,$u){
   _ensure_role_work_rules();
   $uid=(int)($b['user_id']??0); $sid=(int)($b['shift_id']??0);
   if (!$uid||$sid<0) Http::error('کاربر و شیفت را مشخص کنید',400);
-  if($sid>0&&!Db::one('SELECT id FROM shifts WHERE id=? AND is_active=1',[$sid]))Http::error('شیفت انتخاب‌شده معتبر نیست',422);
+  if($sid>0){
+    $definition=Db::one('SELECT id,type,advanced FROM shifts WHERE id=? AND is_active=1',[$sid]);
+    if(!$definition)Http::error('شیفت انتخاب‌شده معتبر نیست',422);
+    if(_is_smart_substitute_shift($definition)&&!Db::one('SELECT id FROM users WHERE id=? AND is_active=1 AND can_be_substitute=1',[$uid]))
+      Http::error('شیفت هوشمند فقط برای نیروی جایگزین فعال قابل تخصیص است',422);
+  }
   $from = trim((string)($b['from_jdate']??'')); $to = trim((string)($b['to_jdate']??''));
   $from = $from!=='' ? str_replace('/','-',$from) : null;
   $to = $to!=='' ? str_replace('/','-',$to) : null;
@@ -3646,6 +3679,7 @@ function _active_user_shift_assignment_uncached($userId, $jdate=null){
           $to=!empty($r['to_jdate'])?str_replace('/','-',$r['to_jdate']):null;
           if($from && strcmp($jdate,$from)<0) continue;
           if($to && strcmp($jdate,$to)>0) continue;
+          if(_is_smart_substitute_shift($r))$r=_smart_substitute_shift((int)$sa['absent_user_id'],$r);
           $r['is_substitute_shift']=1; $r['absent_user_id']=(int)$sa['absent_user_id']; $r['request_id']=(int)$sa['request_id'];
           $r['title']='جایگزینی — '.($r['title']??'شیفت');
           return $r;
@@ -3672,7 +3706,7 @@ function _active_user_shift_assignment_uncached($userId, $jdate=null){
       if($from && strcmp($jdate,$from)<0) continue;
       if($to && strcmp($jdate,$to)>0) continue;
     }
-    return $r;
+    return _is_smart_substitute_shift($r)?_smart_substitute_shift((int)$userId,$r):$r;
   }
   // No implicit automatic shift: only an explicitly assigned shift is effective.
   $autoRow=WorkReportReadScope::remember('auto-assignment:'.(int)$userId,static fn()=>Db::one('SELECT from_jdate,to_jdate FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$userId]));
