@@ -18137,7 +18137,7 @@ function RequestDetails({ requestId, onClose }) {
         React.createElement("dl", { className: "request-detail-grid" }, fields.map(([label, value]) => React.createElement("div", { className: "request-detail-field", key: label },
             React.createElement("dt", null, label),
             React.createElement("dd", null, value !== null && value !== undefined && value !== '' ? faPlain(value) : '—')))));
-    return React.createElement(Modal, { title: 'جزئیات درخواست #' + fa(requestId), onClose: onClose, style: { width: 'min(94vw,900px)', maxHeight: '92vh', overflowY: 'auto' } },
+    return React.createElement(Modal, { className: "personnel-request-dialog", title: 'جزئیات درخواست #' + fa(requestId), onClose: onClose, style: { width: 'min(94vw,900px)', maxHeight: '92vh', overflowY: 'auto' } },
         error ? React.createElement("p", { role: "alert" }, error) : !data ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A\u2026") : React.createElement("div", { className: "request-detail-modal", dir: "rtl" },
             React.createElement("div", { className: "request-detail-summary" },
                 React.createElement("div", null,
@@ -18264,7 +18264,7 @@ function ApprovedRequestEditor({ requestId, users, onClose, onSaved }) {
     };
     const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', unpaid: 'مرخصی بدون حقوق', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
     const single = data && (data.type === 'manual' || data.unit === 'hourly');
-    return React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647", onClose: () => { if (!lock.current)
+    return React.createElement(Modal, { className: "personnel-request-dialog", title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647", onClose: () => { if (!lock.current)
             onClose(); }, style: { width: 'min(94vw,760px)', maxHeight: '92vh', overflowY: 'auto' } },
         error && React.createElement("p", { role: "alert", style: { color: 'var(--danger,#bd2929)' } }, error),
         !draft && !error && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u2026"),
@@ -18325,12 +18325,52 @@ function ApprovedRequestEditor({ requestId, users, onClose, onSaved }) {
                 React.createElement("button", { className: "btn p", type: "submit", disabled: saving }, saving ? 'در حال ثبت اصلاح…' : 'ذخیرهٔ اصلاح درخواست'))),
         React.createElement("button", { type: "button", className: "btn g", disabled: saving, onClick: onClose, style: { marginTop: 12 } }, "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u0648\u06CC\u0631\u0627\u06CC\u0634"));
 }
+const personnelRequestsV4Styles = `
+.requests-v4{--pr-green:#087455;--pr-border:var(--border,#d7e4dd);display:grid;gap:16px;min-width:0}
+.requests-v4 [hidden]{display:none!important}
+.requests-v4 .request-page-head{padding:20px;border:1px solid var(--pr-border);border-radius:16px}
+.requests-v4 .request-status-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:6px;border:1px solid var(--pr-border);border-radius:14px}
+.requests-v4 .request-status-tabs button{min-height:44px;font-weight:600;border-radius:10px;white-space:normal}
+.requests-v4 .request-status-active{background:var(--pr-green)!important;color:#fff!important}
+.requests-v4 .request-filter-shell{padding:16px;border-radius:14px;border:1px solid var(--pr-border)}
+.requests-v4 .pr-quick-search{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-top:12px}
+.requests-v4 .pr-quick-search label{flex:1 1 240px;display:grid;gap:6px;min-width:0}
+.requests-v4 .input,.personnel-request-dialog .input{min-height:42px;font:inherit}
+.requests-v4 .btn,.personnel-request-dialog .btn{min-height:40px}
+.requests-v4 .pr-filter-summary{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.requests-v4 .pr-filter-summary span{border:1px solid var(--pr-border);padding:4px 10px;border-radius:999px}
+.requests-v4 .pr-filter-summary small{flex-basis:100%}
+.requests-v4 .request-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:start;margin-top:14px}
+.requests-v4 .request-filters>label{display:grid;gap:6px}
+.requests-v4 .request-results-table{border:1px solid var(--pr-border);border-radius:12px;overflow:auto}
+.requests-v4 .request-results-table td{padding:12px 9px;vertical-align:middle}
+.requests-v4 .request-results-table tr:focus-within{outline:2px solid #16805a;outline-offset:-2px}
+.requests-v4 .request-row-actions .btn{margin:2px;min-height:36px}
+.requests-v4 .pr-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:12px 0}
+.requests-v4 .pr-pagination label{display:flex;align-items:center;gap:6px}
+.requests-v4 .request-state{padding:24px;text-align:center;border:1px dashed var(--pr-border);border-radius:12px}
+.personnel-request-dialog{--pr-border:var(--border,#d7e4dd)}
+.personnel-request-dialog .pr-review-targets{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}
+.personnel-request-dialog .pr-review-targets article,.personnel-request-dialog .leave-review,.personnel-request-dialog .request-detail-section{display:grid;gap:8px;padding:14px;border:1px solid var(--pr-border);border-radius:12px;margin:10px 0;overflow-wrap:anywhere}
+.personnel-request-dialog .pr-review-targets article p{margin:0;white-space:pre-wrap}
+.personnel-request-dialog form label{display:grid;gap:6px;margin-block:8px}
+.personnel-request-dialog .request-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.personnel-request-dialog .request-detail-field{padding:8px;border:1px solid var(--pr-border);border-radius:8px}
+.personnel-request-dialog .request-detail-field dd{margin:4px 0 0;font-weight:600}
+.requests-v4 button:focus-visible,.personnel-request-dialog button:focus-visible{outline:2px solid #16805a;outline-offset:2px}
+@media(max-width:700px){.requests-v4 .request-status-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.requests-v4 .request-page-head{padding:12px}.requests-v4 .request-filters{grid-template-columns:1fr}.requests-v4 .pr-quick-search>*{flex:1 1 140px}.personnel-request-dialog .grid2{grid-template-columns:1fr!important}.requests-v4 .pr-pagination{justify-content:center}}
+`;
 function AdminRequests() {
     var _a;
     const [users, setUsers] = useState([]);
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
     const [calendarTab, setCalendarTab] = useState(false);
+    const [advanced, setAdvanced] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
+    const [appliedQuery, setAppliedQuery] = useState("");
+    const [exporting, setExporting] = useState(false);
     const [fUser, setFUser] = useState("");
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("pending");
@@ -18371,6 +18411,10 @@ function AdminRequests() {
         const first = value(a), second = value(b), result = typeof first === 'number' && typeof second === 'number' ? first - second : String(first !== null && first !== void 0 ? first : '').localeCompare(String(second !== null && second !== void 0 ? second : ''), 'fa', { numeric: true });
         return (sort.direction === 'asc' ? 1 : -1) * result;
     });
+    const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+    const currentPage = Math.min(page, pageCount);
+    const visibleRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    useEffect(() => { setPage(1); }, [rows, sort, pageSize]);
     const column = (key, title) => React.createElement("button", { type: "button", className: "request-sort-button", onClick: () => sortBy(key), "aria-label": 'مرتب‌سازی بر اساس ' + title, "aria-sort": sort.key === key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined },
         title,
         React.createElement("span", { "aria-hidden": "true" }, sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'));
@@ -18402,8 +18446,8 @@ function AdminRequests() {
             setFailures(failed);
             setReviewError(failed.length ? 'برخی درخواست‌ها انجام نشدند. علت هر مورد در فهرست زیر آمده است.' : '');
             if (failed.length)
-                setReview(previous => previous ? { ...previous, ids: failed.map(item => item.id) } : null);
-            await load({ keepReview: failed.length > 0 });
+                setReview(previous => previous ? { ...previous, ids: failed.map(item => item.id), targets: previous.targets.filter(row => failed.some(item => item.id === row.id)), leaves: previous.leaves.filter(item => failed.some(f => f.id === item.row.id)) } : null);
+            await load({ keepReview: failed.length > 0, query: appliedQuery });
         }
         finally {
             actionLock.current = false;
@@ -18439,7 +18483,7 @@ function AdminRequests() {
                     }
                 }
             }
-            setReview({ ids: targets.map(row => row.id), status, note, leaves, warnings });
+            setReview({ ids: targets.map(row => row.id), status, note, leaves, warnings, targets });
         }
         catch (error) {
             setActionMessage(error.message || 'اطلاعات مرخصی دریافت نشد؛ تأیید انجام نشد.');
@@ -18462,13 +18506,15 @@ function AdminRequests() {
         p.push("from=" + encodeURIComponent(fFrom)); if (fTo)
         p.push("to=" + encodeURIComponent(fTo)); if (search.trim())
         p.push("q=" + encodeURIComponent(search.trim())); return p.length ? "?" + p.join("&") : ""; };
-    const load = async (options = {}) => { if (fFrom && fTo && fFrom > fTo) {
+    const load = async (options = {}) => { var _a; if (options.query == null && fFrom && fTo && fFrom > fTo) {
         setActionMessage('ابتدای بازه باید قبل از پایان آن باشد');
         return;
     } const version = ++loadVersion.current; setLoading(true); setLoadError(""); if (!options.keepReview)
         setReview(null); try {
-        const data = await db.adminRequests(qs());
+        const query = (_a = options.query) !== null && _a !== void 0 ? _a : qs();
+        const data = await db.adminRequests(query);
         if (version === loadVersion.current) {
+            setAppliedQuery(query);
             setRows(data || []);
             setSelected(previous => previous.filter(id => (data || []).some(row => row.id === id)));
         }
@@ -18486,8 +18532,9 @@ function AdminRequests() {
             setLoading(false);
     } };
     const hm = (m) => m != null ? `${fa(Math.floor(m / 60))}:${String(m % 60).padStart(2, "0")}` : "—";
-    const exportExcel = async () => { try {
-        const res = await fetch(`${API_BASE}/admin/requests/export${qs()}`, { headers: tok() });
+    const exportExcel = async () => { if (exporting)
+        return; setExporting(true); try {
+        const res = await _fetchWithAuth(`${API_BASE}/admin/requests/export${appliedQuery}`);
         if (!res.ok)
             throw new Error("خطا");
         const blob = await res.blob();
@@ -18499,9 +18546,13 @@ function AdminRequests() {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
     catch (e) {
-        alert(e.message);
+        setActionMessage(e.message || "دریافت اکسل ناموفق بود");
+    }
+    finally {
+        setExporting(false);
     } };
-    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page admin-requests-page" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page admin-requests-page requests-v4", dir: "rtl" },
+        React.createElement("style", null, personnelRequestsV4Styles),
         React.createElement("div", { className: "request-page-head" },
             React.createElement("div", null,
                 React.createElement("span", { className: "request-page-eyebrow" }, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0645\u0646\u0627\u0628\u0639 \u0627\u0646\u0633\u0627\u0646\u06CC"),
@@ -18521,22 +18572,32 @@ function AdminRequests() {
             React.createElement("style", null, shiftManagerV3Styles),
             React.createElement("div", { className: "sm-content" },
                 React.createElement(SubstituteCalendar, null))) : React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "request-bulk-toolbar" },
+            React.createElement("div", { className: "request-bulk-toolbar", hidden: !selected.length },
                 React.createElement("label", null,
                     React.createElement("input", { type: "checkbox", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647", disabled: !!busyId || reviewLoading || loading, checked: rows.length > 0 && rows.every(row => selected.includes(row.id)), onChange: event => setSelected(event.target.checked ? rows.map(row => row.id) : []) }),
                     " \u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647\u0654 \u0646\u062A\u0627\u06CC\u062C \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647"),
                 React.createElement("span", null,
                     fa(selected.filter(id => rows.some(row => row.id === id)).length),
                     " \u0627\u0646\u062A\u062E\u0627\u0628"),
-                [['approved', 'تأیید گروهی'], ['rejected', 'رد گروهی'], ['delete', 'حذف گروهی']].map(([status, title]) => React.createElement("button", { className: "btn g", key: status, disabled: !!busyId || reviewLoading || loading || !selected.length, onClick: () => prepare(selected, status) }, title))),
+                [['approved', 'تأیید گروهی'], ['rejected', 'رد گروهی'], ['delete', 'حذف گروهی']].map(([status, title]) => React.createElement("button", { className: status === "approved" ? "btn p" : "btn g", key: status, disabled: !!busyId || reviewLoading || loading || !selected.length, onClick: () => prepare(selected, status) }, title))),
             reviewLoading && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0631\u062E\u0635\u06CC\u2026"),
             actionMessage && React.createElement("p", { role: failures.length ? 'alert' : 'status', className: failures.length ? 'workspace-inline-error' : 'request-action-feedback' }, faPlain(actionMessage)),
-            review && React.createElement(Modal, { title: review.status === 'delete' ? 'حذف درخواست‌ها' : review.status === 'approved' ? 'بررسی و تأیید درخواست‌ها' : 'رد درخواست‌ها', onClose: () => { if (!busyId)
+            review && React.createElement(Modal, { className: "personnel-request-dialog", style: { width: "min(94vw,960px)", maxHeight: "92vh", overflowY: "auto" }, title: review.status === 'delete' ? 'حذف درخواست‌ها' : review.status === 'approved' ? 'بررسی و تأیید درخواست‌ها' : 'رد درخواست‌ها', onClose: () => { if (!busyId)
                     setReview(null); } },
                 React.createElement("p", null,
                     fa(review.ids.length),
                     " \u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
                     review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. درخواست‌های در انتظار و درخواست‌های ردشدهٔ انتخاب‌شده، طبق سیاست کاری بررسی می‌شوند.'),
+                React.createElement("div", { className: "pr-review-targets" }, review.targets.map(row => React.createElement("article", { key: row.id },
+                    React.createElement("strong", null, row.requester),
+                    React.createElement("span", null,
+                        TY[row.type] || row.type,
+                        " \u00B7 #",
+                        fa(row.id)),
+                    React.createElement("span", null,
+                        faPlain(row.from_jdate || row.the_date || "—"),
+                        row.to_jdate && row.to_jdate !== row.from_jdate ? " تا " + faPlain(row.to_jdate) : ""),
+                    React.createElement("p", null, row.reason || "بدون توضیحات")))),
                 ((_a = review.warnings) === null || _a === void 0 ? void 0 : _a.length) > 0 && React.createElement("p", { role: "alert", className: "workspace-inline-error" },
                     "\u062E\u0644\u0627\u0635\u0647\u0654 \u0645\u0631\u062E\u0635\u06CC \u0628\u0631\u0627\u06CC \u0628\u0631\u062E\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A (",
                     faPlain(review.warnings.join(' | ')),
@@ -18559,7 +18620,7 @@ function AdminRequests() {
                     React.createElement("p", null,
                         "\u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC: ",
                         faPlain(context.year + '/' + context.month)),
-                    Object.entries(context.balance).filter(([key]) => key.startsWith(row.type + '_')).map(([key, value]) => React.createElement("p", { key: key },
+                    Object.entries(context.balance || {}).filter(([key]) => key.startsWith(row.type + '_')).map(([key, value]) => React.createElement("p", { key: key },
                         key.endsWith('daily') ? 'روزانه (روز)' : 'ساعتی (ساعت)',
                         ": \u0645\u0635\u0631\u0641 \u0645\u0627\u0647 ",
                         fa(value.used_month),
@@ -18582,14 +18643,14 @@ function AdminRequests() {
                                     React.createElement("th", null, "\u0627\u0632"),
                                     React.createElement("th", null, "\u062A\u0627"),
                                     React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
-                            React.createElement("tbody", null, context.requests.map(item => { var _a; return React.createElement("tr", { key: item.id },
+                            React.createElement("tbody", null, (context.requests || []).map(item => { var _a; return React.createElement("tr", { key: item.id },
                                 React.createElement("td", null, TY[item.type] || item.type),
                                 React.createElement("td", null, faPlain(item.from_jdate || item.the_date)),
                                 React.createElement("td", null, faPlain(item.to_jdate || item.the_date)),
                                 React.createElement("td", null, ((_a = ST[item.status]) === null || _a === void 0 ? void 0 : _a[0]) || item.status)); })))),
-                    !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
-                review.status === 'rejected' && React.createElement("label", { style: { display: 'grid', gap: 8, margin: '16px 0' } },
-                    "\u0639\u0644\u062A \u0631\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)",
+                    !(context.requests || []).length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
+                review.status !== 'delete' && React.createElement("label", { style: { display: 'grid', gap: 8, margin: '16px 0' } },
+                    review.status === 'rejected' ? 'علت رد درخواست (اختیاری)' : 'یادداشت تأییدکننده (اختیاری)',
                     React.createElement("textarea", { className: "input", rows: 3, value: review.note || '', disabled: !!busyId, onChange: event => setReview(previous => previous ? { ...previous, note: event.target.value } : previous), placeholder: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0645\u0633\u0626\u0648\u0644 \u0628\u0631\u0631\u0633\u06CC" })),
                 React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', marginTop: 16 } },
                     React.createElement("button", { type: "button", className: "btn g", disabled: !!busyId, onClick: () => setReview(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
@@ -18599,8 +18660,21 @@ function AdminRequests() {
                     React.createElement("div", null,
                         React.createElement("strong", null, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u0648 \u0641\u06CC\u0644\u062A\u0631 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
                         React.createElement("small", null, "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648 \u06CC\u0627 \u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC \u0631\u0627 \u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F\u061B \u0646\u062A\u06CC\u062C\u0647\u200C\u0647\u0627\u06CC \u0645\u0634\u0627\u0628\u0647 \u0628\u0644\u0627\u0641\u0627\u0635\u0644\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
-                    React.createElement("button", { type: "button", className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: () => { setFUser(''); setUserQuery(''); setFReviewer(''); setReviewerQuery(''); setFType(''); setDateBasis('effective'); setFFrom(''); setFTo(''); setSearch(''); setSelected([]); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
-                React.createElement("div", { className: "filters request-filters" },
+                    React.createElement("button", { type: "button", className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: () => { setFUser(''); setUserQuery(''); setFReviewer(''); setReviewerQuery(''); setFType(''); setDateBasis('effective'); setFFrom(''); setFTo(''); setSearch(''); setSelected([]); load({ query: "?status=" + encodeURIComponent(fStatus) }); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
+                React.createElement("div", { className: "pr-quick-search" },
+                    React.createElement("label", null,
+                        "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A",
+                        React.createElement("input", { type: "search", className: "input", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === "Enter")
+                                load(); } })),
+                    React.createElement("button", { type: "button", className: "btn p", disabled: loading || !!busyId || reviewLoading, onClick: () => load() }, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u0648 \u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+                    React.createElement("button", { type: "button", className: "btn g", "aria-expanded": advanced, onClick: () => setAdvanced(v => !v) },
+                        "\u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647 ",
+                        advanced ? "−" : "+"),
+                    React.createElement("button", { type: "button", className: "btn g", disabled: loading || exporting || !!busyId || reviewLoading || !!loadError, onClick: exportExcel }, exporting ? "در حال دریافت…" : "خروجی اکسل")),
+                React.createElement("div", { className: "pr-filter-summary" },
+                    [fUser && "نیرو: " + (selectedUser ? selectedUser.first_name + " " + selectedUser.last_name : fa(fUser)), fReviewer && "مسئول: " + (selectedReviewer ? selectedReviewer.first_name + " " + selectedReviewer.last_name : "تعیین نشده"), fType && TY[fType], fFrom && "از " + faPlain(fFrom), fTo && "تا " + faPlain(fTo)].filter(Boolean).map((v, i) => React.createElement("span", { key: i }, v)),
+                    appliedQuery !== qs() && !loading && React.createElement("small", { role: "status" }, "\u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0628\u0631\u0627\u06CC \u0627\u0639\u0645\u0627\u0644\u060C \u062F\u06A9\u0645\u0647 \u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F.")),
+                React.createElement("div", { className: "filters request-filters", hidden: !advanced },
                     React.createElement("div", { className: "request-user-field" },
                         React.createElement("label", { htmlFor: "request-user-search" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648"),
                         React.createElement("div", { className: "request-user-search" },
@@ -18667,17 +18741,14 @@ function AdminRequests() {
                         React.createElement(JDate, { value: fFrom, onChange: value => { setFFrom(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639" })),
                     React.createElement("label", null,
                         "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E ",
-                        React.createElement(JDate, { value: fTo, onChange: value => { setFTo(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u06CC\u0627\u0646" })),
-                    React.createElement("label", null,
-                        "\u062C\u0633\u062A\u200C\u0648\u062C\u0648",
-                        React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === 'Enter')
-                                load(); } })),
-                    React.createElement("button", { className: "btn p", disabled: loading || !!busyId || reviewLoading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-                    React.createElement("button", { className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"))),
+                        React.createElement(JDate, { value: fTo, onChange: value => { setFTo(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u06CC\u0627\u0646" })))),
             React.createElement("p", { className: "muted" },
                 fa(rows.length),
                 " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC XLSX \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
-            loading ? React.createElement("p", { className: "request-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u2026") : loadError ? React.createElement("p", { className: "request-state", role: "alert" }, loadError) : rows.length === 0 ? React.createElement("p", { className: "request-state" }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") :
+            loading ? React.createElement("p", { className: "request-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u2026") : loadError ? React.createElement("p", { className: "request-state", role: "alert" },
+                loadError,
+                " ",
+                React.createElement("button", { className: "btn g", onClick: () => load() }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : rows.length === 0 ? React.createElement("p", { className: "request-state" }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") :
                 React.createElement(React.Fragment, null,
                     React.createElement("div", { className: "request-table-hint" }, "\u0628\u0631\u0627\u06CC \u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u0631\u0648\u06CC \u0639\u0646\u0648\u0627\u0646 \u0633\u062A\u0648\u0646 \u0628\u0632\u0646\u06CC\u062F. \u0639\u0646\u0648\u0627\u0646\u200C\u0647\u0627 \u0647\u0646\u06AF\u0627\u0645 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u062B\u0627\u0628\u062A \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
                     React.createElement("div", { className: "table-wrap request-results-table", role: "region", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644\u061B \u0642\u0627\u0628\u0644 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u0627\u0641\u0642\u06CC \u0648 \u0639\u0645\u0648\u062F\u06CC", tabIndex: 0 },
@@ -18697,7 +18768,7 @@ function AdminRequests() {
                                     React.createElement("th", null, column('pending_on_name', 'مسئول جاری')),
                                     React.createElement("th", null, column('reason', 'توضیحات')),
                                     React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
-                            React.createElement("tbody", null, sortedRows.map(r => {
+                            React.createElement("tbody", null, visibleRows.map(r => {
                                 const st = ST[r.status] || ["—", "b-pending"];
                                 return (React.createElement("tr", { key: r.id },
                                     React.createElement("td", null,
@@ -18731,7 +18802,24 @@ function AdminRequests() {
                                             React.createElement("button", { className: "btn p", disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, r.status === "rejected" ? "تأیید مجدد" : "تأیید"),
                                             r.status === "pending" && React.createElement("button", { className: "btn g", disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
                                         React.createElement("button", { className: "btn g", disabled: !!busyId || reviewLoading, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
-                            }))))))));
+                            })))),
+                    React.createElement("nav", { className: "pr-pagination", "aria-label": "\u0635\u0641\u062D\u0647\u200C\u0628\u0646\u062F\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627" },
+                        React.createElement("span", null,
+                            fa((currentPage - 1) * pageSize + 1),
+                            " \u062A\u0627 ",
+                            fa(Math.min(currentPage * pageSize, rows.length)),
+                            " \u0627\u0632 ",
+                            fa(rows.length)),
+                        React.createElement("label", null,
+                            "\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0635\u0641\u062D\u0647 ",
+                            React.createElement("select", { className: "input", value: pageSize, onChange: e => setPageSize(Number(e.target.value)) }, [25, 50, 100].map(n => React.createElement("option", { key: n, value: n }, fa(n))))),
+                        React.createElement("button", { className: "btn g", disabled: currentPage <= 1, onClick: () => setPage(currentPage - 1) }, "\u0642\u0628\u0644\u06CC"),
+                        React.createElement("span", null,
+                            "\u0635\u0641\u062D\u0647 ",
+                            fa(currentPage),
+                            " \u0627\u0632 ",
+                            fa(pageCount)),
+                        React.createElement("button", { className: "btn g", disabled: currentPage >= pageCount, onClick: () => setPage(currentPage + 1) }, "\u0628\u0639\u062F\u06CC"))))));
 }
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
 function StaffAttendance() {
